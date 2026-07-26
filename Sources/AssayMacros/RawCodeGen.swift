@@ -157,29 +157,16 @@ extension SchemaMacro {
     static func rawDecodeStatement(field f: SchemaField, index i: Int) -> String {
         let base = stripOptional(f.typeName)
         let key = f.wireKey
-        let c = f.coerce ? ", coerce: true" : ""
 
-        if let element = arrayElement(base) {
-            if let call = rawScalarCall(element, key: key, coerce: f.coerce) {
-                return """
-                if case .sequence(let __xs) = __v {
-                            __f\(i) = __xs.compactMap { $0.\(call) }
-                        } else if __v.isNull, \(f.isOptional) {
-                            __f\(i) = nil
-                        } else {
-                            Assay.RawValue.mismatchPublic(&sink, path, "\(key)", "array", __v)
-                        }
-                """
-            }
+        if arrayElement(base) != nil {
             return """
-            if case .sequence(let __xs) = __v {
-                            __f\(i) = __xs.compactMap {
-                                \(element)._assay(from: $0, into: &sink,
-                                                  at: path + [.key("\(key)")])
+            if let __r = \(rawElementExpr(base, "__v", key: key, coerce: f.coerce)) {
+                                __f\(i) = __r
+                            } else if __v.isNull {
+                                \(f.isOptional
+                                    ? "__f\(i) = nil"
+                                    : "Assay.RawValue.mismatchPublic(&sink, path, \"\(key)\", \"array\", __v)")
                             }
-                        } else {
-                            Assay.RawValue.mismatchPublic(&sink, path, "\(key)", "array", __v)
-                        }
             """
         }
 
@@ -201,7 +188,27 @@ extension SchemaMacro {
                                                      at: path + [.key("\(key)")])
                         }
         """
-        + (c.isEmpty ? "" : "")
+    }
+
+    /// An expression decoding the RawValue named `v` as `type`, recursing through nested
+    /// arrays so `[[Double]]` works on this path exactly as it does on the JSON one —
+    /// which it did not, until the kitchen-sink test forced the question.
+    ///
+    /// compactMap's closure is non-escaping, so using `&sink` inside it is statically
+    /// enforced exclusivity, not a box — the constraint from PERFORMANCE.md §7 holds.
+    static func rawElementExpr(
+        _ type: String, _ v: String, key: String, coerce: Bool, depth: Int = 0
+    ) -> String {
+        if let element = arrayElement(type) {
+            let inner = "__e\(depth)"
+            return """
+            \(v).sequence.map { $0.compactMap { \(inner) in \(rawElementExpr(element, inner, key: key, coerce: coerce, depth: depth + 1)) } }
+            """.trimmingWhitespace()
+        }
+        if let call = rawScalarCall(type, key: key, coerce: coerce) {
+            return "\(v).\(call)"
+        }
+        return "\(type)._assay(from: \(v), into: &sink, at: path + [.key(\"\(key)\")])"
     }
 
     static func rawScalarCall(_ type: String, key: String, coerce: Bool) -> String? {

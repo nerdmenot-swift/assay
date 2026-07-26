@@ -97,6 +97,11 @@ let package = Package(
                 "AssayYAML",
                 "AssayXML",
                 "AssayFoundation",
+                // The macro implementation itself, so its diagnostics and expansions are
+                // unit-testable directly — no XCTest-based test-support module needed.
+                "AssayMacros",
+                .product(name: "SwiftSyntaxMacroExpansion", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
                 // Deliberately NOT SwiftSyntaxMacrosTestSupport: it is XCTest-based and
                 // therefore needs a full Xcode, not just Command Line Tools. The
                 // swift-testing equivalent is SwiftSyntaxMacrosGenericTestSupport; add it

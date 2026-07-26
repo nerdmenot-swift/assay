@@ -1,0 +1,303 @@
+# Assay — working context
+
+Read this first. It is the settled state of a long design collaboration. `docs/EXPERIENCE.md`
+(the developer experience) and `docs/PERFORMANCE.md` (the performance strategy) are the two
+authoritative documents; `docs/research/` holds the seven research passes they were built from,
+each with an explicit "do not assert these" section at the end.
+
+**Status as of 2026-07-26: phase 1 is built, compiled, tested and measured.** A Swift 6.3.3
+toolchain is present. The design-era caveat — "nothing here has ever been compiled" — no longer
+applies to the parts listed below, and still applies to everything else.
+
+| | state |
+|---|---|
+| Experiments §15 #1 (jump table) | **run** — `Experiments/01-jump-table/RESULTS.md` |
+| Experiments §15 #2–#4 (Builtin, packaging, `-mattr`) | **run** — `Experiments/02-builtin/RESULTS.md` |
+| Experiment §15 #5 (Wasm simd128) | not run; needs the SDK, gates nothing before phase 4 |
+| Corpus generator (the "sixth experiment") | **built** — `Benchmarks/Sources/CorpusGen`, 76 files |
+| Phase-1 decoder + `@Schema` macro | **built** — 22 tests passing |
+| Falsification condition | **PASSED, 5.48× over Foundation (8.72× float-dense)** — `Benchmarks/RESULTS.md` |
+| Cross-platform | **builds**: macOS, static Linux (2 arches), wasm32. Windows unverified. Tests run on macOS only |
+| Compile-time budget | **measured and gated** — ~82ms/type (JSON), ~118ms (multi-format opt-in) |
+| Value models (`JSON.Value`, `YAML.Node`, `XML.Node`, `RawValue`) | **built** — `docs/VALUE-MODELS.md`; YAML/XML parsers pending |
+| `@Extras` + `unknownKeys: .ignore/.warn/.reject/.collect` | **built**, with did-you-mean |
+| `parse(mmapped:)` (`AssayFoundation`) | **built** — 216x less memory footprint, 3.6x faster |
+| Streaming | **out of scope**, decision recorded in `docs/STREAMING.md` |
+| Allocation counts | **not measured** — needs package-benchmark; no allocation claim may ship |
+
+Everything below that is not marked above is still design, not measurement.
+
+---
+
+## What Assay is
+
+A Zod-inspired decoding-and-validation library for Swift, built on a macro rather than on
+`Codable`. One sentence, from `EXPERIENCE.md`:
+
+> Assay is not a validation library that also decodes. It is the decoder that tells you what
+> went wrong.
+
+```swift
+@Schema
+struct Article {
+    var title: String
+    var link: String
+    var readingMinutes: Int
+    var published: Date
+    var tags: [String] = []
+}
+
+let article = try Article.parse(json: data)
+```
+
+Zero-rule `@Schema` is a first-class mode — Assay is a complete serde with no validation at all,
+not an on-ramp to one.
+
+## The governing principle
+
+> **Language ergonomics and idiomatism is more important than porting what worked in another
+> language in an exact same way.**
+
+Stated by the user, still in force. When a Zod/serde/pydantic construct does not have an
+idiomatic Swift spelling, the answer is a different construct, not a transliteration.
+
+---
+
+## Settled decisions — do not relitigate without cause
+
+### Naming
+- Module `Assay`, protocol `Assayable`, macro `@Schema`, runtime value type `Assayer<T>`.
+- The module **cannot** be named `Assayable`: macros are not hygienic and must emit
+  `Assay.Assayer`; if the module were `Assayable` that parses as a nested-type lookup inside the
+  protocol and fails, and it corrupts the generated `.swiftinterface` under library evolution.
+  SE-0491's own motivation cites `Observation`/`Observable`.
+- `Assayer<T>`, not `Schema<T>` — SwiftData exports `Schema`. A client `struct Schema` cannot
+  shadow the macro (separate lookup namespaces); `@Assay::Schema` works via Swift 6.3 module
+  selectors.
+
+### The two verbs
+- `try T.parse(json:)` → `T`, throws `AssayError`, discards warnings.
+- `T.diagnose(json:)` → `Diagnosis<T>` with `.value`, `.issues`, `.warnings`, `.isValid`,
+  `try d.get()`.
+- `validate` was cut: it collides with `ParsableArguments.validate()` and Vapor's
+  `Validatable.validate()`.
+
+### Issues
+Code + params, **never** rendered strings (Ecto's `{template, params}` model). `.message` is
+derived on demand; `message(locale:)` takes an identifier `String`, not a `Locale`.
+
+### Rules
+- `Rule` is **non-generic** — leading-dot `.min(1)` has no type context for a generic parameter.
+- `Rule: ExpressibleByStringLiteral`, so `@Validate(.min(12), "message")` compiles despite the
+  rule that a parameter after a variadic requires a label.
+- The macro type-checks rule-against-field-type at expansion and emits a purpose-written
+  diagnostic.
+- `.custom { }` does not exist — a closure in an attribute has no type context. Use
+  `@Check(\.field) static func f(_ x: String) -> String?`.
+- `@Check` in an extension is permanently invisible to the macro → emit an error.
+
+### Keys
+`@Schema(keys: .snakeCase)`, `@Key("id")`, `@Key("email", or: "email_address")` (warns which
+alias matched), `@Key(path: "profile.display_name")`, `@Inline`, `@Extras var x: [String: RawValue]`,
+`@Schema(unknownKeys: .ignore/.warn/.reject/.collect)` with did-you-mean.
+Rationale: `.convertFromSnakeCase` is lossy at runtime (`avatarURL → avatar_url → avatarUrl`);
+converting at compile time from the declared identifier round-trips exactly.
+
+### Five presence states
+required / `String?` / `= 3` default (absent only, still validated) / `@Fallback(0)` (absent *or*
+invalid, not re-validated) / `@Ignore`. `var x = 3` and `let y: Int = 3` are hard errors.
+
+### Ordering
+preprocess → coerce → decode → field rules → cross-field checks → transform → async checks.
+`@AsyncCheck` makes `parse` async by a compile-time count; the sync pass collects everything
+first, async runs only if sync was clean, then concurrently.
+
+### Packaging
+Products `Assay` (core + JSON), `AssayFoundation`, `AssayYAML`, `AssayXML`. Core takes bytes, not
+`Data`. No `platforms:` clause. `parse(body, contentType:, accepting:)` — `accepting:` is
+**required**, no default (XXE / billion-laughs). `Limits` (maxIssues 100, maxDepth 64, maxBytes)
+with `d.truncatedIssues`. Embedded Swift is explicitly not a target.
+
+### Encoding
+A **deferral, not a refusal**. Placement data (`@Key`, `@XML`, `@DateFormat`) is preserved so the
+encoder can be added without a redesign. `T.jsonSchema(for: .input)` is in the feature set.
+`StandardSchema` ships as a separate zero-dependency package.
+
+---
+
+## Performance thesis, in one paragraph
+
+**Assay does not need to beat simdjson. It needs to not have a `KeyedDecodingContainer`.**
+ZippyJSON bolted simdjson onto `Decodable` and got 1.38× over Foundation (1.04× on the most
+API-shaped payload). Apple's prototype that changes nothing about parsing and only deletes the
+container protocol reports ~6×. ~83% of a Swift decode is the Codable boundary. The macro deletes
+it at compile time.
+
+**Falsification condition, written down on purpose:** if a scalar Swift phase-1 implementation
+does not comfortably clear ZippyJSON's 1.38× over Foundation on the corpus in
+`docs/PERFORMANCE.md` §12.2, the thesis is wrong and the SIMD/C work is moot. Do not proceed past
+phase 1 without that number.
+
+---
+
+## Compile time is the second performance axis
+
+`docs/COMPILE-TIME.md` is the third authoritative document. The short version:
+
+**`@Schema` costs ~80 ms per type at 10 fields — about 3.6× `Codable`.** The cost model is
+`9 ms fixed per type + 7.3 ms per field`, so it scales with **generated body size, not with the
+number of expansions**. The plugin round trip is the small term.
+
+That inverts the obvious optimization: "call the plugin less" buys nothing, "emit less code per
+field" buys everything. Two measured wins already landed — never emit a 256-element array
+literal (16%), and one line of generated code per field (a further 4%, 20% on wide types).
+
+Why it is a gate and not a footnote: a developer replaces `: Codable` with `@Schema` across their
+model layer in one commit and then waits for a build. **The adoption decision is made at compile
+time, before the first runtime benchmark is run.** CI gates at 100 ms/type
+(`Experiments/03-compile-time/gate.sh`); currently 87 ms.
+
+## Hard constraints on generated code
+
+These are not style preferences. Violating any of them silently destroys the performance thesis.
+
+1. **Never `switch` over a `String`.** It compiles to `_findStringSwitchCase` — a literal O(n)
+   linear scan with a full `String ==` per case. Not a hash, not a jump table.
+2. ~~**Never assume `switch` over integer literals gives a jump table.**~~ **RESOLVED by
+   experiment #1 — the concern was misplaced.** SILGen does lower integer-literal patterns to a
+   comparison chain, but LLVM reforms it: **N ≥ 10 → a real jump table; N < 10 → a balanced
+   binary search tree** (~⌈log₂N⌉ predicted compares). Never a linear scan. Mapping the candidate
+   index to a dense enum is still worth doing — it removes the range check, and at small N one
+   comparison level — but it is a small win, not the difference between a table and a scan.
+   Verified on arm64 only; re-run `Experiments/01-jump-table/sweep.sh` on x86-64 before
+   claiming it there.
+3. **Never capture the issue buffer in an escaping closure.** `inout [Issue]` is statically
+   enforced and free; boxing it adds a `beginAccess`/`endAccess` pair per field.
+4. **Emit many medium functions, not one giant flat decode body.** (This also serves the
+   compile-time budget: per-field generated code must be one line, calling an `@inlinable`
+   runtime primitive. Anything conditional belongs in `AssayCore`, not in the expansion.) Escape analysis has
+   `getComplexityBudget = 1_000_000 / estimatedFunctionSize` (÷10 more for ARC), and budget
+   exhaustion is *indistinguishable from "it escapes"* — the retains stay, with no diagnostic.
+5. **`@inlinable` on every hot runtime leaf**, or cross-module specialization does not happen for
+   a source package. **Never on generated bodies** — they are already in the user's module and
+   already concrete, and SE-0193 restricts `@inlinable` to referencing ABI-public declarations,
+   which makes every *public* `@Schema` type fail against its own internal memberwise init. Prefer `@_alwaysEmitIntoClient` / `@export(implementation)` to avoid ABI
+   lock-in. Do **not** use `@_specialize` (opts out of CMO, cannot name user types) or
+   `@_semantics` (closed list).
+6. **Generated per-field code is concrete and monomorphic**, emitted into the user's module. No
+   generic parameter to specialize is the whole reason a macro decoder can be fast in Swift.
+7. **Decode stays synchronous.** `throws` returns in the callee-saved `swifterror` register
+   (`r12`/`x21`); async functions do not get it.
+8. **Index the hot path with `Span.subscript(unchecked:)`.** The checked subscript uses
+   `_precondition`, which survives `-O`, and bounds-check elimination requires a linear induction
+   variable — a data-dependent parser cursor is not one.
+9. **No closures capturing `Span`-typed values in the hot path.** `mark_dependence` blocks closure
+   specialization; one reported `MutableSpan` port cost +75%.
+10. **Never `.unsafeFlags`.** Never `-enable-library-evolution`. Never benchmark at `-Ounchecked`.
+11. **Unsafe code only below the dispatch seam**, and the seam's signature must be expressible
+    entirely in `RawSpan`, `Span`, and values. An `UnsafeRawBufferPointer` in a public signature
+    means the design is wrong.
+
+## Entry point shape
+
+```swift
+extension User: Assayable {}
+
+extension User {
+    nonisolated static func _assay(
+        from reader: inout AssayReader
+    ) throws(AssayError) -> Self { ... }
+}
+```
+
+`public protocol Assayable: Sendable` — marker protocol, zero runtime cost, and it prevents
+`-default-isolation MainActor` inference. `AssayError` must stay pointer-sized (serde_json:
+"a larger Error type was substantially slower").
+
+---
+
+## Build order
+
+1. **Prove the thesis.** Scalar Swift scanner, macro emitting simdjson tier-1 window dispatch,
+   monomorphic integer parsers, no-escape string fast path, whole-buffer UTF-8 validation up
+   front, lazy source locations, `inout [Issue]`. No SIMD, no C. Benchmark vs Foundation, count
+   allocations. → the falsification condition above.
+2. **The unclaimed wins.** Hand-written ISO-8601 dates, unknown-key structural skip, exact-sized
+   arrays, steady-state scratch reuse in `Assayer<T>`.
+3. **Codegen discipline.** SIL dumps to count ARC traffic, `@inlinable` on hot leaves, split
+   generated bodies, verify the dispatch lowering.
+4. **SIMD behind the seam** — pure Swift via `Builtin`, scalar oracle + differential fuzzing.
+   Expect ~0 on ARM; if that's what the numbers say, stop and publish it.
+5. **C, only if phase 4's x86-64 numbers justify it.** ~200 lines, AVX2, `cpuid`, same seam.
+
+## What the experiments actually said
+
+**#1 — jump table: YES, and better than assumed.** A 50-arm switch over a `UInt8` candidate
+index lowers to a real arm64 jump table (`ldrb` from `LJTI…` → `br x10`). The threshold is
+**N ≥ 10**; below it LLVM emits a *balanced binary search tree*, ~⌈log₂N⌉ predicted compares,
+not a linear chain. §4.1/§8's fear was true at SILGen and immaterial after LLVM. Mapping the
+index to a dense enum is still worth doing — it removes the range check — but it is a small win,
+not the difference between a table and a scan.
+
+**#2 — `Builtin` intrinsics: resolve, emit real NEON.** `Builtin.bitcast_Vec32xInt1_Int32`
+exists. arm64 lowering of `bitcast <16 x i1> to i16` is ~6 instructions against simdjson's
+2-instruction `vshrn` — previously an open question.
+
+**#3 — `BuiltinModule` survives versioned dependency resolution**, including an `@inlinable`
+body referencing `Builtin` inlined into a client that has not enabled the feature.
+
+**#4 — `-Xllvm -mattr=+avx2` does nothing.** Byte-identical output. This *closes off* the
+"separate Swift module per ISA" route that `perf-simd-and-c.md` §2.7 listed as option 1. If
+x86-64 AVX2 ever matters, C is the only way there.
+
+## Start here now
+
+1. **Allocation counts.** The headline claim in §12.5 is an allocation claim and it is
+   unmeasured. Needs `ordo-one/package-benchmark`'s malloc interposer;
+   `malloc_zone_statistics` gives live blocks, not totals, so there is no shortcut. **No
+   allocation claim may be published until this exists.**
+2. **The rest of the corpus.** Only `apimodel` is benchmarked. `escaped`, `unknown-keys`,
+   `optionals-absent` and the six negative cases are generated and unmeasured.
+3. **Publish a loss.** `canada.json` is 111,126 float parses and a scalar decoder will lose
+   there. Publishing that is what would make the 5.27× credible.
+4. **Cold start**, where a macro emitting no `CodingKeys` should win structurally.
+5. **Linux and x86-64.** Everything measured so far is one arm64 machine.
+
+---
+
+## Honesty rules for anything published
+
+Never claim: "fastest JSON decoder"; "fastest on all platforms" (unmeasurable on 3 of 5);
+"zero-allocation" or "arena-allocated" (`String`/`Array`/`Dictionary` go to `malloc` via
+`swift_slowAlloc`; SE-0527 declined allocator generics); any ratio on a platform where the harness
+does not run; any SSO-dependent claim without the length histogram.
+
+Gate CI on `.mallocCountTotal` with absolute thresholds, plus `.retainCount`/`.releaseCount`.
+Never gate on wall clock. **Do not configure `.instructions` on hosted runners** — `perf_event_open`
+fails, there is no PMU, and package-benchmark silently reports zero, so the check is decorative.
+
+Every number in the docs belongs to someone else's C, C++, Rust or Go, cited as evidence about
+*architecture*, not as a prediction about Assay's Swift. No credible published measurement exists
+for bounds-check cost, exclusivity cost, ARC-as-%-of-runtime, or existential dispatch in ns/op in
+Swift — do not put numbers for those anywhere.
+
+## Corrected premises — do not reintroduce
+
+- `.unsafeFlags` no longer blocks version-pinned dependencies at tools-version ≥ 6.2 (the reasons
+  to avoid it are correctness reasons, not packaging ones).
+- The Swift Static Linux SDK deletes musl's allocator and links mimalloc 2.2.4. The
+  "musl's allocator is slow" argument is stale.
+- `withUnsafeTemporaryAllocation`'s stack cliff is **1024 bytes**, not 4 KB.
+- `String(unsafeUninitializedCapacity:)` is **SE-0263**, not SE-0309.
+- Foundation's `XMLParser` on Linux does **not** use Obj-C bridging. Do not assert it.
+- `import Builtin` needs `.enableExperimentalFeature("BuiltinModule")`, **not** `-parse-stdlib`.
+- "Structs + generics + non-escaping closures = ARC-free" is folklore; only *transitively trivial*
+  structs qualify.
+- `ContiguousArray` vs `Array` for `UInt8` is a no-op off Darwin — literally the same type.
+- Short keys (≤15 bytes on 64-bit) already produce immortal non-allocating `String`s; the real
+  Foundation cost is the eager `Dictionary` + SipHash per object, not the `String`.
+
+## Working style
+
+The user prefers you proceed with judgment rather than stopping to ask clarifying questions.
+State assumptions and continue.

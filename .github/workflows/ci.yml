@@ -1,0 +1,119 @@
+name: CI
+
+# A platform is only "supported" if CI runs the test suite on it.
+# docs/research/cross-platform-audit.md §9 is blunt about the trap here: the standard
+# swiftlang reusable workflow tests **Linux and Windows only** out of the box, and every
+# other platform is an opt-in flag that defaults to false. That is how libraries end up
+# advertising a platform list nobody ever ran.
+#
+# So every flag below is set explicitly, including the ones that are already the default,
+# so that the matrix is readable as a claim rather than inferred from an absence.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Linux + Windows + macOS + iOS. Android and Wasm are separate jobs below because they
+  # need different scoping.
+  test:
+    name: Test
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@main
+    with:
+      enable_linux_checks: true
+      enable_windows_checks: true
+      enable_macos_checks: true
+      enable_ios_checks: true
+      enable_freebsd_checks: false
+      # The single most useful flag in the whole cross-platform survey: it turns an
+      # accidental transitive import into a build failure. Without it, "AssayCore has no
+      # Foundation dependency" is a claim that decays silently. It has already caught one
+      # real bug — AssayYAML/AssayXML importing Assay without declaring it.
+      swift_flags: "--explicit-target-dependency-import-check error"
+
+  # Static Linux (musl). Worth its own job because it is the configuration most likely to
+  # expose an accidental libc or dlopen dependency.
+  static-linux:
+    name: Static Linux (musl)
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@main
+    with:
+      enable_linux_checks: false
+      enable_windows_checks: false
+      enable_macos_checks: false
+      enable_linux_static_sdk_build: true
+
+  # Android, on an emulator. Macro cross-compilation to Android was the historical blocker
+  # and was fixed in SwiftPM #8670.
+  android:
+    name: Android
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@main
+    with:
+      enable_linux_checks: false
+      enable_windows_checks: false
+      enable_macos_checks: false
+      enable_android_sdk_build: true
+      enable_android_sdk_checks: true
+
+  # WebAssembly. Scoped to the Foundation-free targets: AssayFoundation needs file I/O
+  # that WASI only provides behind an explicit directory mount.
+  #
+  # NOTE for whoever makes this actually run: swift-syntax's wasi-test-toolset.json bumps
+  # the stack to 16 MB, and a recursive-descent parser WILL blow the default Wasm stack.
+  # Assay's XML and YAML parsers both recurse. Do not skip this.
+  wasm:
+    name: WebAssembly
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@main
+    with:
+      enable_linux_checks: false
+      enable_windows_checks: false
+      enable_macos_checks: false
+      enable_wasm_sdk_build: true
+      swift_flags: "--target AssayCore --target AssayYAML --target AssayXML"
+
+  # The compile-time budget, gated. docs/COMPILE-TIME.md §2.
+  compile-time:
+    name: Compile-time budget
+    runs-on: ubuntu-latest
+    container: swift:6.3.3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gate @Schema expansion cost
+        run: Experiments/03-compile-time/gate.sh
+
+  # Corpus determinism. The allocation-count gate (once it exists) depends on the corpus
+  # being byte-identical across regenerations, so this is a prerequisite rather than a
+  # nicety.
+  corpus:
+    name: Corpus determinism
+    runs-on: ubuntu-latest
+    container: swift:6.3.3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Regenerate twice and compare
+        working-directory: Benchmarks
+        run: |
+          swift run -c release CorpusGen
+          A=$(find Corpus/files -name '*.json' | sort | xargs shasum | shasum)
+          swift run -c release CorpusGen
+          B=$(find Corpus/files -name '*.json' | sort | xargs shasum | shasum)
+          test "$A" = "$B" || { echo "corpus is not deterministic"; exit 1; }
+          echo "deterministic: $A"
+
+# NOT YET GATED, and it is the one that matters most:
+#
+#   * .mallocCountTotal with absolute per-benchmark thresholds. docs/PERFORMANCE.md §12.4
+#     makes this THE gate, because allocation counts are deterministic and machine-
+#     independent where wall clock is not, and they port to platforms where timing does
+#     not (Android emulator, Wasm). Needs ordo-one/package-benchmark.
+#
+#   * Do NOT add `.instructions` on hosted runners. `perf_event_open` fails, there is no
+#     PMU, and package-benchmark silently reports ZERO because the diagnostic is commented
+#     out — so a threshold on it always passes and the badge proves nothing.
+#
+#   * Do NOT gate on wall clock. Collect it, publish it, never fail on it.

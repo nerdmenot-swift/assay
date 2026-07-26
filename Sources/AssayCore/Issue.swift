@@ -64,7 +64,7 @@ extension Array where Element == PathComponent {
 public enum IssueCode: Sendable, Equatable {
     case missing
     case typeMismatch
-    case malformedJSON
+    case malformedDocument
     case numberOverflow
     case invalidUTF8
     case unknownKey

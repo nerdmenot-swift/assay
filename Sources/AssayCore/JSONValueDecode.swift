@@ -157,7 +157,7 @@ extension JSON.Value {
         }
         return bytes.withUnsafeBufferPointer { buf -> JSON.Value? in
             guard let base = buf.baseAddress else {
-                sink.add(Issue(code: .malformedJSON))
+                sink.add(Issue(code: .malformedDocument))
                 return nil
             }
             if let bad = UTF8Validation.firstInvalid(base, buf.count) {

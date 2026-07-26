@@ -103,12 +103,13 @@ extension AssayReader {
         if let suggestion = Self.didYouMean(name, in: known) {
             params["didYouMean"] = .string(suggestion)
         }
+        params["received"] = .string(name)
         let span = SourceSpan(lo: key.lo, len: key.len)
         if reject {
-            sink.add(Issue(code: .unknownKey, path: path + [.key(name)],
+            sink.add(Issue(code: .unknownKey, path: path,
                            params: params, received: name, location: span))
         } else {
-            sink.add(warning: Warning(code: .unknownKey, path: path + [.key(name)],
+            sink.add(warning: Warning(code: .unknownKey, path: path,
                                       params: params, location: span))
         }
     }

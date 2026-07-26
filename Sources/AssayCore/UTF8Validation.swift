@@ -113,8 +113,11 @@ public enum UTF8Validation {
 /// "Vector of offsets into Buffer at which there are line-endings (lazily populated)."
 public struct LineIndex {
     @usableFromInline var newlines: [UInt32]
+    /// Total buffer length, so the final (newline-less) line has a real end offset.
+    @usableFromInline var byteCount: Int
 
     public init(_ base: UnsafePointer<UInt8>, _ count: Int) {
+        self.byteCount = count
         var acc: [UInt32] = []
         acc.reserveCapacity(count / 40 + 8)
         var i = 0

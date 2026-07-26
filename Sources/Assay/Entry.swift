@@ -179,3 +179,38 @@ extension JSONAssayable {
         diagnose(json: Array(text.utf8), limits: limits, sourceName: sourceName)
     }
 }
+
+// MARK: - Rendering
+
+extension Diagnosis {
+
+    /// Render every issue and warning.
+    ///
+    ///     print(d.render(.terminal))
+    ///
+    ///     deploy.yaml:4:13: error: replicas must be at least 1
+    ///       2 │ deployment:
+    ///       3 │   name: api
+    ///       4 │   replicas: 0
+    ///         │             ^
+    ///       5 │   image: api:1.4
+    ///
+    /// `.terminal` disables colour automatically when stdout is not a TTY. `.plain` is the
+    /// same output with no ANSI, `.json` is a stable machine shape with codes and params,
+    /// `.problemDetails` is RFC 9457.
+    public func render(_ style: RenderStyle) -> String {
+        Renderer.render(issues: issues, warnings: warnings,
+                        source: source, sourceName: sourceName, style: style)
+    }
+}
+
+extension AssayError {
+
+    /// Render every issue. The error retains the source, so carets work here too —
+    /// `catch let e as AssayError { print(e.render(.plain)) }` needs nothing else.
+    public func render(_ style: RenderStyle) -> String {
+        Renderer.render(issues: storage.issues, warnings: [],
+                        source: storage.source, sourceName: storage.sourceName,
+                        style: style)
+    }
+}

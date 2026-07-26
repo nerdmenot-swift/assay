@@ -215,11 +215,12 @@ extension RawValue {
         if let suggestion = AssayReader.didYouMean(name, in: known) {
             params["didYouMean"] = .string(suggestion)
         }
+        params["received"] = .string(name)
         if reject {
-            sink.add(Issue(code: .unknownKey, path: path + [.key(name)],
+            sink.add(Issue(code: .unknownKey, path: path,
                            params: params, received: name))
         } else {
-            sink.add(warning: Warning(code: .unknownKey, path: path + [.key(name)],
+            sink.add(warning: Warning(code: .unknownKey, path: path,
                                       params: params))
         }
     }

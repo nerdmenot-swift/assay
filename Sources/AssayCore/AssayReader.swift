@@ -278,7 +278,7 @@ public struct AssayReader: ~Copyable {
     @inline(never)
     public mutating func reportMalformed(_ sink: inout IssueSink, _ path: [PathComponent]) {
         sink.add(Issue(
-            code: .malformedJSON,
+            code: .malformedDocument,
             path: path,
             location: SourceSpan(lo: cursor, len: 1)))
     }

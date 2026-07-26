@@ -85,11 +85,11 @@ struct ExtrasTests {
     func didYouMean() {
         let d = Warned.diagnose(json: #"{"timeout":5,"retries":2,"tiemout":9,"zzz":1}"#)
 
-        let typo = d.warnings.first { $0.path.pathDescription == "tiemout" }
+        let typo = d.warnings.first { $0.params["received"] == .string("tiemout") }
         #expect(typo?.params["didYouMean"] == .string("timeout"))
 
         // "zzz" is not close to anything. A wrong suggestion is worse than none.
-        let far = d.warnings.first { $0.path.pathDescription == "zzz" }
+        let far = d.warnings.first { $0.params["received"] == .string("zzz") }
         #expect(far?.params["didYouMean"] == nil)
     }
 
@@ -132,9 +132,9 @@ struct ExtrasTests {
         // Short keys allow 1 edit, longer ones 2. Verified through the public behaviour
         // rather than the internal helper.
         let d = Warned.diagnose(json: #"{"timeout":1,"retries":1,"retrie":9,"qqqqqqqq":1}"#)
-        let near = d.warnings.first { $0.path.pathDescription == "retrie" }
+        let near = d.warnings.first { $0.params["received"] == .string("retrie") }
         #expect(near?.params["didYouMean"] == .string("retries"))
-        let far = d.warnings.first { $0.path.pathDescription == "qqqqqqqq" }
+        let far = d.warnings.first { $0.params["received"] == .string("qqqqqqqq") }
         #expect(far?.params["didYouMean"] == nil)
     }
 }

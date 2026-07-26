@@ -617,7 +617,7 @@ extension XML {
                 if r.consume(terminator) { return true }
                 r.advanceBy(1)
             }
-            r.report(&sink, .malformedJSON)
+            r.report(&sink, .malformedDocument)
             return false
         }
     }

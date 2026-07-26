@@ -248,6 +248,17 @@ public protocol RawDecodable: Assayable {
 }
 
 extension RawValue {
+    /// Type mismatch at a path that already names the field — the enum decode case.
+    @inline(never)
+    public static func mismatchAt(
+        _ sink: inout IssueSink, _ path: [PathComponent],
+        _ expected: String, _ found: RawValue
+    ) {
+        sink.add(Issue(code: .typeMismatch, path: path,
+                       params: ["expected": .string(expected)],
+                       received: found.describe()))
+    }
+
     /// Public spelling of `mismatch`, for generated code.
     @inline(never)
     public static func mismatchPublic(

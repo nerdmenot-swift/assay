@@ -119,8 +119,7 @@ extension AssayReader {
     /// Bounded rather than exhaustive: the threshold scales with length (1 edit for short
     /// keys, 2 for longer), so `tiemout` suggests `timeout` and `xyzzy` suggests nothing.
     /// A suggestion that is wrong is worse than no suggestion.
-    @usableFromInline
-    static func didYouMean(_ name: String, in known: [String]) -> String? {
+    public static func didYouMean(_ name: String, in known: [String]) -> String? {
         guard !known.isEmpty else { return nil }
         let threshold = name.count <= 4 ? 1 : 2
         var best: (key: String, distance: Int)?
@@ -134,12 +133,16 @@ extension AssayReader {
         return best?.key
     }
 
-    /// Levenshtein distance, abandoning once every cell in a row exceeds `limit`.
+    /// Damerau-Levenshtein (optimal string alignment), abandoning once every cell in a
+    /// row exceeds `limit`. Adjacent transpositions cost 1 — "tiemout" and "hgih" are THE
+    /// typo class, and plain Levenshtein charging 2 for them misses exactly the
+    /// suggestions a human would make.
     @usableFromInline
     static func editDistance(_ a: [UInt8], _ b: [UInt8], limit: Int) -> Int {
         if a.isEmpty { return b.count }
         if b.isEmpty { return a.count }
 
+        var prev2 = [Int](repeating: 0, count: b.count + 1)
         var previous = Array(0...b.count)
         var current = [Int](repeating: 0, count: b.count + 1)
 
@@ -148,13 +151,17 @@ extension AssayReader {
             var rowMin = current[0]
             for j in 1...b.count {
                 let cost = a[i - 1] == b[j - 1] ? 0 : 1
-                current[j] = min(previous[j] + 1,
-                                 current[j - 1] + 1,
-                                 previous[j - 1] + cost)
-                rowMin = min(rowMin, current[j])
+                var d = min(previous[j] + 1,
+                            current[j - 1] + 1,
+                            previous[j - 1] + cost)
+                if i > 1, j > 1, a[i - 1] == b[j - 2], a[i - 2] == b[j - 1] {
+                    d = min(d, prev2[j - 2] + 1)
+                }
+                current[j] = d
+                rowMin = min(rowMin, d)
             }
             if rowMin > limit { return limit + 1 }
-            swap(&previous, &current)
+            (prev2, previous, current) = (previous, current, prev2)
         }
         return previous[b.count]
     }

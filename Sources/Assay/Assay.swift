@@ -43,7 +43,7 @@ public protocol JSONAssayable: Assayable {
 // `Assayable` is deliberately absent from this list: both `JSONAssayable` and
 // `RawDecodable` refine it, so declaring it here would promise a conformance the expansion
 // does not itself emit.
-@attached(extension, conformances: JSONAssayable, RawDecodable, names: arbitrary)
+@attached(extension, conformances: JSONAssayable, RawDecodable, AsyncCheckAssayable, names: arbitrary)
 public macro Schema(
     keys: KeyNamingStyle = .camelCase,
     unknownKeys: UnknownKeys = .ignore,
@@ -174,3 +174,125 @@ public macro Validate(_ rules: Rule...) =
 /// arrives as text.
 @attached(peer)
 public macro Coerce() = #externalMacro(module: "AssayMacros", type: "CoerceMacro")
+
+/// A validation function with real types, breakpoints and its own tests.
+///
+/// Field form — the issue lands on the field, with its path and span:
+///
+///     @Check(\Signup.workEmail)
+///     static func companyDomain(_ email: String) -> String? {
+///         email.hasSuffix("@acme.com") ? nil : "must be a company address"
+///     }
+///
+/// Cross-field form — some things are only wrong in combination:
+///
+///     @Check
+///     static func endAfterStart(_ r: DateRange, _ issues: inout Issues<DateRange>) {
+///         if r.end < r.start { issues.add("must be on or after start", at: \.end) }
+///     }
+///
+/// **A `@Check` in an extension is a compile error, not a silent no-op.** An attached
+/// macro only receives the members declared in the type's own body — that is a hard limit
+/// of how macros receive input — so the check would never run. The attribute detects the
+/// placement and says so.
+@attached(peer)
+public macro Check() = #externalMacro(module: "AssayMacros", type: "CheckMacro")
+
+@attached(peer)
+public macro Check<Root, Value>(_ keyPath: KeyPath<Root, Value>) =
+    #externalMacro(module: "AssayMacros", type: "CheckMacro")
+
+/// An asynchronous check — a database lookup, a network round trip.
+///
+/// A type with any `@AsyncCheck` gets an `async` `parse`/`diagnose`; a type without one
+/// does not — decided by counting attributes at compile time, so there is no `await` on
+/// schemas that never need it. All synchronous work runs first and collects everything;
+/// async checks run only if the sync pass was clean (spending a round trip to ask about a
+/// value you already know is invalid is waste), and then all of them run concurrently.
+@attached(peer)
+public macro AsyncCheck() = #externalMacro(module: "AssayMacros", type: "CheckMacro")
+
+/// Normalise a string before its rules run: `@Preprocess(.trim, .lowercase)`.
+/// Runs on the wire value, before validation — the other side of `@Transform`.
+@attached(peer)
+public macro Preprocess(_ ops: PreprocessOp...) =
+    #externalMacro(module: "AssayMacros", type: "PreprocessMacro")
+
+/// Change the type after validation. The closure's parameter annotation names the wire
+/// type the value arrives as; the declared property type is what it becomes:
+///
+///     @Transform({ (a: [String]) in Set(a) })
+///     var tags: Set<String>
+///
+/// The parameter type is required — it is what the macro decodes by. Runs last, after
+/// every rule and check, per the fixed ordering in EXPERIENCE.md §11.
+@attached(peer)
+public macro Transform<In, Out>(_ transform: (In) -> Out) =
+    #externalMacro(module: "AssayMacros", type: "TransformMacro")
+
+/// Salvage: on absence OR any issue at this field, assign this value and record a
+/// warning. The fallback value is trusted without re-validation — silently swallowing
+/// bad data is the point, and the warning (visible through `diagnose`, discarded by
+/// `parse`) is how you find out it happened.
+@attached(peer)
+public macro Fallback<T>(_ value: T) =
+    #externalMacro(module: "AssayMacros", type: "FallbackMacro")
+
+// MARK: - Async checks
+
+/// Conformance generated when a schema declares any `@AsyncCheck`.
+public protocol AsyncCheckAssayable: Assayable {
+    static func _assayAsyncChecks(_ value: Self, at path: [PathComponent]) async -> [Issue]
+}
+
+extension JSONAssayable where Self: AsyncCheckAssayable {
+
+    /// The async verb pair. Sync first, collecting everything; async checks only on a
+    /// clean sync pass, concurrently.
+    public static func parse(
+        json bytes: [UInt8],
+        limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) async throws -> Self {
+        try await diagnose(json: bytes, limits: limits, sourceName: sourceName).get()
+    }
+
+    public static func parse(
+        json text: String,
+        limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) async throws -> Self {
+        try await parse(json: Array(text.utf8), limits: limits, sourceName: sourceName)
+    }
+
+    public static func diagnose(
+        json bytes: [UInt8],
+        limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) async -> Diagnosis<Self> {
+        // The synchronous pass — the decode itself stays synchronous, in the swifterror
+        // register, exactly as PERFORMANCE.md §3.2 requires. Only the checks await.
+        // The non-async function type pins overload resolution to the sync diagnose;
+        // without it, an async context prefers this very function and recurses.
+        let syncDiagnose: ([UInt8], Limits, String) -> Diagnosis<Self> =
+            Self.diagnose(json:limits:sourceName:)
+        let d = syncDiagnose(bytes, limits, sourceName)
+        guard let value = d.value, d.isValid else { return d }
+
+        let asyncIssues = await Self._assayAsyncChecks(value, at: [])
+        guard !asyncIssues.isEmpty else { return d }
+        return Diagnosis(value: nil,
+                         issues: d.issues + asyncIssues,
+                         warnings: d.warnings,
+                         truncatedIssues: d.truncatedIssues,
+                         source: d.source, sourceName: d.sourceName)
+    }
+
+    public static func diagnose(
+        json text: String,
+        limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) async -> Diagnosis<Self> {
+        await diagnose(json: Array(text.utf8), limits: limits, sourceName: sourceName)
+    }
+}

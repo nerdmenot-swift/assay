@@ -190,12 +190,26 @@ extension SchemaMacro {
         return out
     }
 
-    /// The per-field validation calls, one per attribute. `spans` selects whether the
-    /// captured value span rides along (JSON body) or not (RawValue body, which has none).
-    static func validationCalls(_ fields: [SchemaField], spans: Bool) -> String {
+    /// Everything that runs between the dispatch loop and construction, in the fixed
+    /// order: preprocess → field rules (with @Fallback rollback) → fallback application.
+    static func postDecodeSection(_ fields: [SchemaField], spans: Bool) -> String {
         var out = ""
+
+        // Preprocess: normalise wire values before any rule sees them.
+        for (i, f) in fields.enumerated() where !f.preprocess.isEmpty {
+            out += """
+                if let __pp\(i) = __f\(i) {
+                    __f\(i) = Assay._assayPreprocess(__pp\(i), Self.__assayPre_\(i))
+                }
+
+            """
+        }
+
+        // Field rules. A @Fallback field's violations roll back and clear the value, so
+        // the fallback applies "on absence OR invalid" and the fallback value is never
+        // re-validated — exactly the §6 semantics.
         for (i, f) in fields.enumerated() where !f.validations.isEmpty {
-            let base = stripOptional(f.typeName)
+            let base = f.decodedType
             var calls = ""
             for (j, attr) in f.validations.enumerated() where !attr.ruleExprs.isEmpty {
                 let override = attr.override.map { "\"\($0)\"" } ?? "nil"
@@ -206,9 +220,62 @@ extension SchemaMacro {
                 """
             }
             guard !calls.isEmpty else { continue }
+            if f.fallback != nil {
+                out += """
+                    if let __vv\(i) = __f\(i) {
+                        let __vck\(i) = sink.checkpoint()
+                \(calls)        if sink.checkpoint() > __vck\(i) {
+                            sink.rollback(to: __vck\(i))
+                            __f\(i) = nil
+                        }
+                    }
+
+                """
+            } else {
+                out += """
+                    if let __vv\(i) = __f\(i) {
+                \(calls)    }
+
+                """
+            }
+        }
+
+        // Fallback application, with the warning that is how you find out it happened.
+        for (i, f) in fields.enumerated() where f.fallback != nil {
             out += """
-                if let __vv\(i) = __f\(i) {
-            \(calls)    }
+                if __f\(i) == nil {
+                    __f\(i) = \(f.fallback!)
+                    sink.add(warning: Assay.Warning(
+                        code: .fallbackApplied,
+                        path: path + [.key("\(f.wireKey)")]))
+                }
+
+            """
+        }
+        return out
+    }
+
+    /// The static preprocess-op and transform-closure declarations, emitted once.
+    static func preprocessArrays(_ fields: [SchemaField]) -> String {
+        var out = ""
+        for (i, f) in fields.enumerated() where !f.preprocess.isEmpty {
+            out += """
+            nonisolated static let __assayPre_\(i): [Assay.PreprocessOp] = [\(f.preprocess.joined(separator: ", "))]
+
+            """
+        }
+        return out
+    }
+
+    static func transformClosures(_ fields: [SchemaField]) -> String {
+        var out = ""
+        for (i, f) in fields.enumerated() {
+            guard let t = f.transform else { continue }
+            let output = stripOptional(f.typeName)
+            // @Sendable so the static let is concurrency-safe; transform closures must be
+            // capture-free, which a pure value transformation is by nature.
+            out += """
+            nonisolated static let __assayTransform_\(i): @Sendable (\(t.wireType)) -> \(output) = \(t.closure)
 
             """
         }

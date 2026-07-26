@@ -85,6 +85,7 @@ func internalCustomMessage(_ code: String) -> String? {
     case "yaml_unrepresentable_key":
         return "a mapping key is not a plain scalar; parse to YAML.Node instead"
     case "cannot_map_file": return "could not open or map the file"
+    case "fallback_applied": return "fell back to the declared value"
     default: return nil
     }
 }
@@ -243,4 +244,10 @@ extension Warning {
         Issue(code: code, path: path, params: params,
               received: params["received"]?.displayString, location: location).message
     }
+}
+
+// The @Fallback warning. Kept here with every other rendered sentence.
+extension IssueCode {
+    /// The code `@Fallback` warnings carry.
+    public static let fallbackApplied = IssueCode.custom("fallback_applied")
 }

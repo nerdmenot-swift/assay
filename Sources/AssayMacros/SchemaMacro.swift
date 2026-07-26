@@ -46,8 +46,22 @@ struct SchemaField {
     var coerce: Bool
     /// Parsed `@Validate` attributes, in declaration order.
     var validations: [ValidationAttr] = []
-    /// Whether generated code should capture this field's value span for caret rendering.
-    var needsSpan: Bool { !validations.isEmpty }
+    /// `@Preprocess` op expressions, applied to the wire value before rules.
+    var preprocess: [String] = []
+    /// `@Transform`: the closure source and the wire type its parameter declares. The
+    /// declared property type is the output; decoding and validation use the wire type.
+    var transform: (closure: String, wireType: String)?
+    /// `@Fallback(expr)`: assigned on absence OR any issue at this field, with a warning.
+    var fallback: String?
+    /// Whether generated code captures this field's value span (set during expansion:
+    /// validated fields, and fields targeted by a field-form @Check).
+    var needsSpan: Bool = false
+
+    /// The type decode and validation operate on — the transform's wire type when one
+    /// exists, otherwise the declared type with optionality stripped.
+    var decodedType: String {
+        transform?.wireType ?? SchemaMacro.stripOptional(typeName)
+    }
 }
 
 enum SchemaError: Error, CustomStringConvertible {
@@ -187,27 +201,49 @@ public struct SchemaMacro: ExtensionMacro {
             var g = f; g.coerce = f.coerce || coerceAll; return g
         }
 
-        guard Self.checkValidations(activeC, node: node, context: context) else {
+        // @Check / @AsyncCheck members, and span requirements they add.
+        let checkDecls = Self.checks(in: structDecl, context: context)
+        let checkedFields = Set(checkDecls.compactMap(\.fieldIdentifier))
+        var activeS = activeC
+        for i in activeS.indices {
+            activeS[i].needsSpan = !activeS[i].validations.isEmpty
+                || checkedFields.contains(activeS[i].identifier)
+        }
+
+        guard Self.checkValidations(activeS, node: node, context: context) else {
             return []
         }
 
-        var body = Self.ruleArrays(activeC)
+        var body = Self.ruleArrays(activeS)
+        body += Self.preprocessArrays(activeS)
+        body += Self.transformClosures(activeS)
+        if checkDecls.contains(where: { $0.fieldIdentifier == nil }) || !checkDecls.filter(\.isAsync).isEmpty {
+            body += Self.fieldNameTable(typeName, activeS)
+        }
         if formats.json {
-            body += Self.decodeBody(typeName: typeName, fields: activeC, plan: plan,
+            body += Self.decodeBody(typeName: typeName, fields: activeS, plan: plan,
                                     extras: extras, policy: policy, ordered: ordered,
-                                    validation: Self.validationCalls(activeC, spans: true))
+                                    validation: Self.postDecodeSection(activeS, spans: true),
+                                    checks: Self.checkCalls(typeName, checkDecls, activeS,
+                                                            spans: true))
         }
         if formats.raw {
             if !body.isEmpty { body += "\n\n" }
-            body += Self.rawDecodeBody(typeName: typeName, fields: activeC,
+            body += Self.rawDecodeBody(typeName: typeName, fields: activeS,
                                        extras: extras, policy: policy, ordered: ordered,
                                        emitKnownKeys: !formats.json,
-                                       validation: Self.validationCalls(activeC, spans: false))
+                                       validation: Self.postDecodeSection(activeS, spans: false),
+                                       checks: Self.checkCalls(typeName, checkDecls, activeS,
+                                                               spans: false))
         }
+        body += Self.asyncCheckRunner(typeName, checkDecls)
 
         var conformances: [String] = []
         if formats.json { conformances.append("Assay.JSONAssayable") }
         if formats.raw { conformances.append("Assay.RawDecodable") }
+        if checkDecls.contains(where: \.isAsync) {
+            conformances.append("Assay.AsyncCheckAssayable")
+        }
 
         let ext = try ExtensionDeclSyntax(
             "extension \(raw: typeName): \(raw: conformances.joined(separator: ", "))") {
@@ -301,6 +337,9 @@ public struct SchemaMacro: ExtensionMacro {
         let isExtras = attrNames.contains("Extras")
         let coerce = attrNames.contains("Coerce")
         let validations = Self.validations(from: attrs)
+        let preprocess = Self.preprocessOps(from: attrs)
+        let transform = Self.transform(from: attrs, context: context)
+        let fallback = Self.fallbackExpr(from: attrs)
 
         guard let binding = varDecl.bindings.first,
               let pattern = binding.pattern.as(IdentifierPatternSyntax.self) else { return nil }
@@ -364,6 +403,9 @@ public struct SchemaMacro: ExtensionMacro {
             isIgnored: false,
             isExtras: isExtras,
             coerce: coerce,
-            validations: validations)
+            validations: validations,
+            preprocess: preprocess,
+            transform: transform,
+            fallback: fallback)
     }
 }

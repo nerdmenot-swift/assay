@@ -13,6 +13,7 @@
 
 import SwiftSyntax
 import SwiftSyntaxMacros
+import SwiftDiagnostics
 
 public struct KeyMacro: PeerMacro {
     public static func expansion(
@@ -62,4 +63,50 @@ public struct IgnoreMacro: PeerMacro {
     ) throws -> [DeclSyntax] {
         []
     }
+}
+
+/// @Check / @AsyncCheck. Expands to nothing on a valid placement; the one thing it DOES
+/// do is turn the in-an-extension case into a compile error, because there the check
+/// would be permanently invisible to @Schema — a silent, maddening bug otherwise.
+public struct CheckMacro: PeerMacro {
+    public static func expansion(
+        of node: AttributeSyntax,
+        providingPeersOf declaration: some DeclSyntaxProtocol,
+        in context: some MacroExpansionContext
+    ) throws -> [DeclSyntax] {
+        for enclosing in context.lexicalContext {
+            if enclosing.is(ExtensionDeclSyntax.self) {
+                context.diagnose(Diagnostic(
+                    node: Syntax(node),
+                    message: SimpleDiagnostic(
+                        "@Check must be declared in the body of the @Schema type, not in an extension — attached macros cannot see extension members, so this check would never run")))
+                return []
+            }
+        }
+        return []
+    }
+}
+
+public struct PreprocessMacro: PeerMacro {
+    public static func expansion(
+        of node: AttributeSyntax,
+        providingPeersOf declaration: some DeclSyntaxProtocol,
+        in context: some MacroExpansionContext
+    ) throws -> [DeclSyntax] { [] }
+}
+
+public struct TransformMacro: PeerMacro {
+    public static func expansion(
+        of node: AttributeSyntax,
+        providingPeersOf declaration: some DeclSyntaxProtocol,
+        in context: some MacroExpansionContext
+    ) throws -> [DeclSyntax] { [] }
+}
+
+public struct FallbackMacro: PeerMacro {
+    public static func expansion(
+        of node: AttributeSyntax,
+        providingPeersOf declaration: some DeclSyntaxProtocol,
+        in context: some MacroExpansionContext
+    ) throws -> [DeclSyntax] { [] }
 }

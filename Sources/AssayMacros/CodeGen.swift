@@ -24,7 +24,8 @@ extension SchemaMacro {
         extras: SchemaField? = nil,
         policy: String = "ignore",
         ordered: [SchemaField]? = nil,
-        validation: String = ""
+        validation: String = "",
+        checks: String = ""
     ) -> String {
         var out = ""
 
@@ -74,14 +75,14 @@ extension SchemaMacro {
         var locals = ""
         var requiredMask: UInt64 = 0
         for (i, f) in fields.enumerated() {
-            let base = stripOptional(f.typeName)
+            let base = f.decodedType
             if let d = f.defaultExpr {
                 locals += "    var __f\(i): \(base)? = \(d)\n"
             } else {
                 locals += "    var __f\(i): \(base)? = nil\n"
             }
-            // Required = not optional and no default. Optionals and defaults are absent-safe.
-            if !f.isOptional && f.defaultExpr == nil {
+            // Required = not optional, no default, no fallback. All three are absent-safe.
+            if !f.isOptional && f.defaultExpr == nil && f.fallback == nil {
                 requiredMask |= (1 << UInt64(i))
             }
         }
@@ -123,7 +124,16 @@ extension SchemaMacro {
             if f.isExtras {
                 args.append("\(f.identifier): __extras")
             } else if let i = indexOf[f.identifier] {
-                args.append("\(f.identifier): \(f.isOptional ? "__f\(i)" : "__v\(i)")")
+                let raw = f.isOptional ? "__f\(i)" : "__v\(i)"
+                if f.transform != nil {
+                    // Transform runs last, after validation — EXPERIENCE §11's ordering.
+                    let applied = f.isOptional
+                        ? "\(raw).map(Self.__assayTransform_\(i))"
+                        : "Self.__assayTransform_\(i)(\(raw))"
+                    args.append("\(f.identifier): \(applied)")
+                } else {
+                    args.append("\(f.identifier): \(raw)")
+                }
             }
         }
 
@@ -185,8 +195,10 @@ extension SchemaMacro {
 
         \(missing)
         \(validation)
+        \(unwraps)    let __result = \(typeName)(\(args.joined(separator: ", ")))
+        \(checks)
             guard sink.isValid else { return nil }
-        \(unwraps)    return \(typeName)(\(args.joined(separator: ", ")))
+            return __result
         }
         """
 
@@ -316,7 +328,7 @@ extension SchemaMacro {
     /// the runtime rather than in an `if/else` wrapper emitted per field.
     static func decodeStatement(field f: SchemaField, index i: Int, indent: Int) -> String {
         let pad = String(repeating: " ", count: indent)
-        let base = stripOptional(f.typeName)
+        let base = f.decodedType
         let key = f.wireKey
 
         if let element = arrayElement(base) {
@@ -328,6 +340,17 @@ extension SchemaMacro {
         // while the cursor still sits just past it — that is what puts a caret under a
         // failing value rather than only under a malformed one.
         let spanCapture = f.needsSpan ? "\n\(pad)__sp\(i) = reader.lastValueSpan" : ""
+
+        if f.fallback != nil, let call = scalarCall(base, key: key, coerce: f.coerce) {
+            // On any decode issue: roll the issues back and leave the local nil, so the
+            // post-loop fallback application fires. "Absent OR invalid becomes the
+            // fallback, with a warning" — and parse discards the warning by design.
+            return """
+            \(pad)let __fck\(i) = sink.checkpoint()
+            \(pad)__f\(i) = reader.\(call)\(spanCapture)
+            \(pad)if __f\(i) == nil { sink.rollback(to: __fck\(i)) }
+            """
+        }
 
         if let call = scalarCall(base, key: key, orNull: f.isOptional, coerce: f.coerce) {
             // The OrNull variants return T?? — .some(nil) for an explicit JSON null,

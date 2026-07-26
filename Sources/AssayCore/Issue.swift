@@ -177,3 +177,22 @@ public struct IssueSink: Sendable {
         warnings.append(warning)
     }
 }
+
+// MARK: - Checkpoints, for @Fallback
+
+extension IssueSink {
+    /// Number of issues currently collected. `@Fallback` codegen brackets a field's
+    /// decode+validation with checkpoint/rollback: on any issue at this field, the
+    /// issues are removed, the fallback value is assigned, and a warning records what
+    /// happened — "a fallback silently swallowing bad data is the point; the warning is
+    /// how you find out" (EXPERIENCE.md §6).
+    @inlinable
+    public func checkpoint() -> Int { issues.count }
+
+    @inlinable
+    public mutating func rollback(to checkpoint: Int) {
+        if issues.count > checkpoint {
+            issues.removeLast(issues.count - checkpoint)
+        }
+    }
+}

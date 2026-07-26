@@ -27,7 +27,8 @@ extension SchemaMacro {
         policy: String,
         ordered: [SchemaField]?,
         emitKnownKeys: Bool = false,
-        validation: String = ""
+        validation: String = "",
+        checks: String = ""
     ) -> String {
 
         var prefix = ""
@@ -44,9 +45,8 @@ extension SchemaMacro {
         var locals = ""
         var requiredMask: UInt64 = 0
         for (i, f) in fields.enumerated() {
-            let base = stripOptional(f.typeName)
-            locals += "    var __f\(i): \(base)? = \(f.defaultExpr ?? "nil")\n"
-            if !f.isOptional && f.defaultExpr == nil {
+            locals += "    var __f\(i): \(f.decodedType)? = \(f.defaultExpr ?? "nil")\n"
+            if !f.isOptional && f.defaultExpr == nil && f.fallback == nil {
                 requiredMask |= (1 << UInt64(i))
             }
         }
@@ -98,7 +98,15 @@ extension SchemaMacro {
             if f.isExtras {
                 args.append("\(f.identifier): __extras")
             } else if let i = indexOf[f.identifier] {
-                args.append("\(f.identifier): \(f.isOptional ? "__f\(i)" : "__v\(i)")")
+                let raw = f.isOptional ? "__f\(i)" : "__v\(i)"
+                if f.transform != nil {
+                    let applied = f.isOptional
+                        ? "\(raw).map(Self.__assayTransform_\(i))"
+                        : "Self.__assayTransform_\(i)(\(raw))"
+                    args.append("\(f.identifier): \(applied)")
+                } else {
+                    args.append("\(f.identifier): \(raw)")
+                }
             }
         }
         var unwraps = ""
@@ -130,8 +138,10 @@ extension SchemaMacro {
 
         \(missing)
         \(validation)
+        \(unwraps)    let __result = \(typeName)(\(args.joined(separator: ", ")))
+        \(checks)
             guard sink.isValid else { return nil }
-        \(unwraps)    return \(typeName)(\(args.joined(separator: ", ")))
+            return __result
         }
         """
     }
@@ -157,8 +167,16 @@ extension SchemaMacro {
 
     /// One line per field, mirroring the JSON body's discipline.
     static func rawDecodeStatement(field f: SchemaField, index i: Int) -> String {
-        let base = stripOptional(f.typeName)
+        let base = f.decodedType
         let key = f.wireKey
+
+        if f.fallback != nil, let call = rawScalarCall(base, key: key, coerce: f.coerce) {
+            return """
+            let __fck\(i) = sink.checkpoint()
+                            if !__v.isNull { __f\(i) = __v.\(call) }
+                            if __f\(i) == nil { sink.rollback(to: __fck\(i)) }
+            """
+        }
 
         if arrayElement(base) != nil {
             return """

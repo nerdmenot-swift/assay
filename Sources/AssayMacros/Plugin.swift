@@ -10,5 +10,9 @@ struct AssayPlugin: CompilerPlugin {
         ExtrasMacro.self,
         CoerceMacro.self,
         ValidateMacro.self,
+        CheckMacro.self,
+        PreprocessMacro.self,
+        TransformMacro.self,
+        FallbackMacro.self,
     ]
 }

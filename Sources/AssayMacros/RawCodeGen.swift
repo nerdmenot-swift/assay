@@ -26,7 +26,8 @@ extension SchemaMacro {
         extras: SchemaField?,
         policy: String,
         ordered: [SchemaField]?,
-        emitKnownKeys: Bool = false
+        emitKnownKeys: Bool = false,
+        validation: String = ""
     ) -> String {
 
         var prefix = ""
@@ -128,6 +129,7 @@ extension SchemaMacro {
             }
 
         \(missing)
+        \(validation)
             guard sink.isValid else { return nil }
         \(unwraps)    return \(typeName)(\(args.joined(separator: ", ")))
         }

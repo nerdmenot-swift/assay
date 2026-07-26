@@ -11,8 +11,8 @@ import SwiftSyntaxMacroExpansion
 // no XCTest-based support module.
 
 /// Expand `@Schema` on the first struct in `source`. Returns the generated extension
-/// text and every diagnostic message the macro emitted.
-private func expandSchema(
+/// text and every diagnostic message the macro emitted. Shared across test files.
+func expandSchemaForTesting(
     _ source: String
 ) -> (expansion: String, diagnostics: [String]) {
     let file = Parser.parse(source: source)
@@ -48,7 +48,7 @@ struct MacroDiagnosticTests {
     func needsTypeAnnotation() {
         // A macro only sees source text — it cannot ask the type checker what `3` is,
         // and guessing Int would be wrong the moment someone writes `var timeout = 1.5`.
-        let (_, diags) = expandSchema("""
+        let (_, diags) = expandSchemaForTesting("""
         @Schema struct S { var x = 3 }
         """)
         #expect(diags.contains {
@@ -58,7 +58,7 @@ struct MacroDiagnosticTests {
 
     @Test("let with an initializer cannot be decoded")
     func letWithInitializer() {
-        let (_, diags) = expandSchema("""
+        let (_, diags) = expandSchemaForTesting("""
         @Schema struct S { let y: Int = 3
             var a: String }
         """)
@@ -69,7 +69,7 @@ struct MacroDiagnosticTests {
 
     @Test("two properties reading the same wire key is an error")
     func duplicateKey() {
-        let (_, diags) = expandSchema("""
+        let (_, diags) = expandSchemaForTesting("""
         @Schema struct S {
             @Key("id") var a: String
             @Key("id") var b: String
@@ -80,7 +80,7 @@ struct MacroDiagnosticTests {
 
     @Test("aliases participate in duplicate detection too")
     func duplicateAlias() {
-        let (_, diags) = expandSchema("""
+        let (_, diags) = expandSchemaForTesting("""
         @Schema struct S {
             var email: String
             @Key("mail", or: "email") var other: String
@@ -92,13 +92,13 @@ struct MacroDiagnosticTests {
     @Test("more than 64 fields is refused with the count in the message")
     func tooManyFields() {
         let fields = (0..<70).map { "    var f\($0): Int" }.joined(separator: "\n")
-        let (_, diags) = expandSchema("@Schema struct S {\n\(fields)\n}")
+        let (_, diags) = expandSchemaForTesting("@Schema struct S {\n\(fields)\n}")
         #expect(diags.contains { $0.contains("at most 64") && $0.contains("70") })
     }
 
     @Test(".collect without an @Extras property tells you what to add")
     func collectWithoutExtras() {
-        let (_, diags) = expandSchema("""
+        let (_, diags) = expandSchemaForTesting("""
         @Schema(unknownKeys: .collect) struct S { var a: String }
         """)
         #expect(diags.contains {
@@ -108,7 +108,7 @@ struct MacroDiagnosticTests {
 
     @Test("@Extras must be a String-keyed dictionary")
     func extrasWrongType() {
-        let (_, diags) = expandSchema("""
+        let (_, diags) = expandSchemaForTesting("""
         @Schema struct S {
             var a: String
             @Extras var rest: [Int: RawValue]
@@ -119,7 +119,7 @@ struct MacroDiagnosticTests {
 
     @Test("two @Extras properties is an error")
     func multipleExtras() {
-        let (_, diags) = expandSchema("""
+        let (_, diags) = expandSchemaForTesting("""
         @Schema struct S {
             @Extras var a: [String: RawValue]
             @Extras var b: [String: RawValue]
@@ -130,7 +130,7 @@ struct MacroDiagnosticTests {
 
     @Test("@Schema on a non-struct is refused")
     func notAStruct() {
-        let (_, diags) = expandSchema("""
+        let (_, diags) = expandSchemaForTesting("""
         @Schema class C { var a: String }
         """)
         // A class parses as a class decl, so the helper reports no struct — but applying
@@ -141,7 +141,7 @@ struct MacroDiagnosticTests {
 
     @Test("a clean struct produces no diagnostics")
     func clean() {
-        let (expansion, diags) = expandSchema("""
+        let (expansion, diags) = expandSchemaForTesting("""
         @Schema struct S { var a: String
             var b: Int }
         """)
@@ -155,7 +155,7 @@ struct MacroExpansionTests {
 
     @Test("the JSON body and conformance are emitted by default, RawValue is not")
     func defaultFormats() {
-        let (expansion, _) = expandSchema("@Schema struct S { var a: String }")
+        let (expansion, _) = expandSchemaForTesting("@Schema struct S { var a: String }")
         #expect(expansion.contains("Assay.JSONAssayable"))
         #expect(expansion.contains("from reader: inout Assay.AssayReader"))
         #expect(!expansion.contains("Assay.RawDecodable"))
@@ -164,7 +164,7 @@ struct MacroExpansionTests {
 
     @Test("formats: .all emits both bodies and both conformances")
     func allFormats() {
-        let (expansion, _) = expandSchema(
+        let (expansion, _) = expandSchemaForTesting(
             "@Schema(formats: .all) struct S { var a: String }")
         #expect(expansion.contains("Assay.JSONAssayable"))
         #expect(expansion.contains("Assay.RawDecodable"))
@@ -173,7 +173,7 @@ struct MacroExpansionTests {
 
     @Test("formats: [.yaml] emits no JSON body at all")
     func yamlOnly() {
-        let (expansion, _) = expandSchema(
+        let (expansion, _) = expandSchemaForTesting(
             "@Schema(formats: [.yaml]) struct S { var a: String }")
         #expect(!expansion.contains("Assay.JSONAssayable"))
         #expect(expansion.contains("Assay.RawDecodable"))
@@ -181,7 +181,7 @@ struct MacroExpansionTests {
 
     @Test("snake_case conversion happens at expansion, acronyms intact")
     func snakeCase() {
-        let (expansion, _) = expandSchema(
+        let (expansion, _) = expandSchemaForTesting(
             "@Schema(keys: .snakeCase) struct S { var avatarURL: String }")
         #expect(expansion.contains("\"avatar_url\""))
         #expect(!expansion.contains("\"avatarUrl\""))     // the .convertFromSnakeCase bug
@@ -191,7 +191,7 @@ struct MacroExpansionTests {
     func sparseTable() {
         // docs/COMPILE-TIME.md §3 rule 1: a 256-element array literal costs 16% of
         // expansion time in the type checker. The macro must never regress to it.
-        let (expansion, _) = expandSchema("""
+        let (expansion, _) = expandSchemaForTesting("""
         @Schema struct S { var alpha: String
             var beta: Int
             var gamma: Bool }
@@ -202,7 +202,7 @@ struct MacroExpansionTests {
 
     @Test("@Ignore excludes a field from decode but the init still receives defaults")
     func ignored() {
-        let (expansion, _) = expandSchema("""
+        let (expansion, _) = expandSchemaForTesting("""
         @Schema struct S { var a: String
             @Ignore var scratch: [String] = [] }
         """)
@@ -211,7 +211,7 @@ struct MacroExpansionTests {
 
     @Test("static, computed and lazy members are skipped")
     func skippedMembers() {
-        let (expansion, diags) = expandSchema("""
+        let (expansion, diags) = expandSchemaForTesting("""
         @Schema struct S {
             var a: String
             static var shared: Int = 0
@@ -227,7 +227,7 @@ struct MacroExpansionTests {
 
     @Test("presence bitmask marks only required fields")
     func requiredMask() {
-        let (expansion, _) = expandSchema("""
+        let (expansion, _) = expandSchemaForTesting("""
         @Schema struct S {
             var required: String
             var optional: String?

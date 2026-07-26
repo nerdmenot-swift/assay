@@ -44,6 +44,10 @@ struct SchemaField {
     /// `@Coerce` — allow a scalar of the wrong type through the documented, locale-free
     /// conversion rules. Never implicit; always written on the property or the type.
     var coerce: Bool
+    /// Parsed `@Validate` attributes, in declaration order.
+    var validations: [ValidationAttr] = []
+    /// Whether generated code should capture this field's value span for caret rendering.
+    var needsSpan: Bool { !validations.isEmpty }
 }
 
 enum SchemaError: Error, CustomStringConvertible {
@@ -182,16 +186,23 @@ public struct SchemaMacro: ExtensionMacro {
         let activeC = active.map { f -> SchemaField in
             var g = f; g.coerce = f.coerce || coerceAll; return g
         }
-        var body = ""
+
+        guard Self.checkValidations(activeC, node: node, context: context) else {
+            return []
+        }
+
+        var body = Self.ruleArrays(activeC)
         if formats.json {
             body += Self.decodeBody(typeName: typeName, fields: activeC, plan: plan,
-                                    extras: extras, policy: policy, ordered: ordered)
+                                    extras: extras, policy: policy, ordered: ordered,
+                                    validation: Self.validationCalls(activeC, spans: true))
         }
         if formats.raw {
             if !body.isEmpty { body += "\n\n" }
             body += Self.rawDecodeBody(typeName: typeName, fields: activeC,
                                        extras: extras, policy: policy, ordered: ordered,
-                                       emitKnownKeys: !formats.json)
+                                       emitKnownKeys: !formats.json,
+                                       validation: Self.validationCalls(activeC, spans: false))
         }
 
         var conformances: [String] = []
@@ -289,6 +300,7 @@ public struct SchemaMacro: ExtensionMacro {
         if attrNames.contains("Ignore") { return nil }
         let isExtras = attrNames.contains("Extras")
         let coerce = attrNames.contains("Coerce")
+        let validations = Self.validations(from: attrs)
 
         guard let binding = varDecl.bindings.first,
               let pattern = binding.pattern.as(IdentifierPatternSyntax.self) else { return nil }
@@ -351,6 +363,7 @@ public struct SchemaMacro: ExtensionMacro {
             defaultExpr: binding.initializer?.value.trimmedDescription,
             isIgnored: false,
             isExtras: isExtras,
-            coerce: coerce)
+            coerce: coerce,
+            validations: validations)
     }
 }

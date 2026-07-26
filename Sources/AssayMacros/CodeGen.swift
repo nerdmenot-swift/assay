@@ -23,7 +23,8 @@ extension SchemaMacro {
         plan: WindowPlan?,
         extras: SchemaField? = nil,
         policy: String = "ignore",
-        ordered: [SchemaField]? = nil
+        ordered: [SchemaField]? = nil,
+        validation: String = ""
     ) -> String {
         var out = ""
 
@@ -85,6 +86,9 @@ extension SchemaMacro {
             }
         }
 
+        for (i, f) in fields.enumerated() where f.needsSpan {
+            locals += "    var __sp\(i): Assay.SourceSpan? = nil\n"
+        }
         if let e = extras {
             let value = stripOptional(e.typeName)
             locals += "    var __extras: \(value) = [:]\n"
@@ -180,6 +184,7 @@ extension SchemaMacro {
             reader.leaveContainer()
 
         \(missing)
+        \(validation)
             guard sink.isValid else { return nil }
         \(unwraps)    return \(typeName)(\(args.joined(separator: ", ")))
         }
@@ -319,6 +324,11 @@ extension SchemaMacro {
                                optional: f.isOptional, pad: pad)
         }
 
+        // Fields carrying @Validate capture their value's span right after the decode,
+        // while the cursor still sits just past it — that is what puts a caret under a
+        // failing value rather than only under a malformed one.
+        let spanCapture = f.needsSpan ? "\n\(pad)__sp\(i) = reader.lastValueSpan" : ""
+
         if let call = scalarCall(base, key: key, orNull: f.isOptional, coerce: f.coerce) {
             // The OrNull variants return T?? — .some(nil) for an explicit JSON null,
             // nil for a failure that has already been reported.
@@ -326,12 +336,12 @@ extension SchemaMacro {
                 return """
                 \(pad)if reader.consumeNullIfPresent() { __f\(i) = nil } else {
                 \(pad)    __f\(i) = reader.\(call)
-                \(pad)}
+                \(pad)}\(spanCapture)
                 """
             }
-            return f.isOptional
+            return (f.isOptional
                 ? "\(pad)if let __r = reader.\(call) { __f\(i) = __r }"
-                : "\(pad)__f\(i) = reader.\(call)"
+                : "\(pad)__f\(i) = reader.\(call)") + spanCapture
         }
 
         // Nested @Schema type. The outer schema knows where it asked the inner one to

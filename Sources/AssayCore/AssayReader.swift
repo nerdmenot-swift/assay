@@ -28,6 +28,11 @@ public struct AssayReader: ~Copyable {
     @usableFromInline let count: Int
     @usableFromInline var cursor: Int
     @usableFromInline var depth: Int
+    /// Start of the most recent value consumed by a decode entry point. Combined with the
+    /// cursor after the decode returns, this is the value's span — captured by generated
+    /// code only for fields that carry @Validate, so `replicas: 0` renders with a caret
+    /// under the 0. Two integer stores; nothing else on the hot path.
+    @usableFromInline var valueStart: Int = 0
     @usableFromInline let limits: Limits
 
     @inlinable
@@ -54,6 +59,20 @@ public struct AssayReader: ~Copyable {
     /// Current byte offset, for constructing a `SourceSpan` on the error path.
     @inlinable @inline(__always)
     public var byteOffset: Int { cursor }
+
+    /// Mark the start of a value about to be decoded. Called by decode entry points.
+    @inlinable @inline(__always)
+    public mutating func beginValue() {
+        skipWhitespace()
+        valueStart = cursor
+    }
+
+    /// Span of the value most recently decoded, read by generated code immediately after
+    /// the decode call while the cursor still sits just past it.
+    @inlinable @inline(__always)
+    public var lastValueSpan: SourceSpan {
+        SourceSpan(lo: valueStart, len: cursor - valueStart)
+    }
 
     @inlinable @inline(__always)
     func peek(_ offset: Int) -> UInt8 {

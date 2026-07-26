@@ -9,5 +9,6 @@ struct AssayPlugin: CompilerPlugin {
         IgnoreMacro.self,
         ExtrasMacro.self,
         CoerceMacro.self,
+        ValidateMacro.self,
     ]
 }

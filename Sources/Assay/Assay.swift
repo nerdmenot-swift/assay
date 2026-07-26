@@ -43,8 +43,7 @@ public protocol JSONAssayable: Assayable {
 // `Assayable` is deliberately absent from this list: both `JSONAssayable` and
 // `RawDecodable` refine it, so declaring it here would promise a conformance the expansion
 // does not itself emit.
-@attached(extension, conformances: JSONAssayable, RawDecodable,
-          names: named(_assay), named(__assayKeyTable), named(__assayKnownKeys))
+@attached(extension, conformances: JSONAssayable, RawDecodable, names: arbitrary)
 public macro Schema(
     keys: KeyNamingStyle = .camelCase,
     unknownKeys: UnknownKeys = .ignore,
@@ -133,6 +132,31 @@ public macro Ignore() = #externalMacro(module: "AssayMacros", type: "IgnoreMacro
 /// is dispatched through a per-format protocol.
 @attached(peer)
 public macro Extras() = #externalMacro(module: "AssayMacros", type: "ExtrasMacro")
+
+/// Declare what "valid" means for one field.
+///
+///     @Validate(.min(3), .max(20), .regex(#"^[a-z0-9_]+$"#))  var username: String
+///     @Validate(.email)                                        var email: String
+///     @Validate(.min(12), "must be at least 12 characters")    var password: String
+///     @Validate(.range(13...120))                              var age: Int
+///     @Validate(.count(1...10), .each(.email))                 var recipients: [String]
+///
+/// The bare string literal is a rule — one that carries no check and overrides the
+/// message for every other rule in the same attribute. (A parameter after a variadic
+/// must be labelled in Swift, so `message:` could never keep this shape; the literal
+/// can.) Per-rule messages use `or:`: `.min(3, or: "too short")`.
+///
+/// `Rule` is deliberately non-generic, so the type system does not stop
+/// `@Validate(.email) var age: Int` — the macro does, at expansion, with a message
+/// naming the rule and the type. Rules compose without any machinery:
+///
+///     extension Rule { static let slug = Rule.all(.min(3), .regex("^[a-z-]+$")) }
+///     @Validate(.slug) var slug: String
+///
+/// Optionals validate the wrapped value; nil skips the rules. Defaults are validated.
+@attached(peer)
+public macro Validate(_ rules: Rule...) =
+    #externalMacro(module: "AssayMacros", type: "ValidateMacro")
 
 /// Allow a scalar of the wrong type through the documented conversion rules.
 ///

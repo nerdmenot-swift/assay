@@ -34,6 +34,16 @@ public struct ExtrasMacro: PeerMacro {
     }
 }
 
+public struct ValidateMacro: PeerMacro {
+    public static func expansion(
+        of node: AttributeSyntax,
+        providingPeersOf declaration: some DeclSyntaxProtocol,
+        in context: some MacroExpansionContext
+    ) throws -> [DeclSyntax] {
+        []
+    }
+}
+
 public struct CoerceMacro: PeerMacro {
     public static func expansion(
         of node: AttributeSyntax,

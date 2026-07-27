@@ -1,4 +1,8 @@
 // swift-tools-version: 6.2
+// Assay — a decoder for Swift that tells you what went wrong.
+// Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
+// See LICENSE and NOTICE at the repository root for terms.
+
 //
 // A separate package, following swift-nio's layout: benchmark tooling and its Foundation
 // dependency stay out of the library's own manifest, so `AssayCore` can keep the

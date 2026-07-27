@@ -1,4 +1,8 @@
 #!/bin/bash
+# Assay — a decoder for Swift that tells you what went wrong.
+# Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
+# See LICENSE and NOTICE at the repository root for terms.
+
 # Generate N equivalent types in one of three modes, for compile-time comparison.
 #
 # The arms must be *semantically equivalent* or the comparison is meaningless: same field

@@ -1,3 +1,7 @@
+// Assay — a decoder for Swift that tells you what went wrong.
+// Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
+// See LICENSE and NOTICE at the repository root for terms.
+
 //===----------------------------------------------------------------------===//
 // The full corpus sweep — all 81 files of docs/PERFORMANCE.md §12.2, not the two shapes
 // the falsification check needed.

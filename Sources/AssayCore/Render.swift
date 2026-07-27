@@ -1,3 +1,7 @@
+// Assay — a decoder for Swift that tells you what went wrong.
+// Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
+// See LICENSE and NOTICE at the repository root for terms.
+
 //===----------------------------------------------------------------------===//
 // Rendering. docs/EXPERIENCE.md §3: "Errors are the product. Everything else in this
 // document is in service of this section."

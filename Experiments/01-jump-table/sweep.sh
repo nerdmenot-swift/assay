@@ -1,4 +1,8 @@
 #!/bin/bash
+# Assay — a decoder for Swift that tells you what went wrong.
+# Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
+# See LICENSE and NOTICE at the repository root for terms.
+
 # Experiment #1c — at what field count does LLVM stop forming a jump table?
 #
 # 1b proved a 50-arm dense switch over UInt8 becomes a real arm64 jump table.

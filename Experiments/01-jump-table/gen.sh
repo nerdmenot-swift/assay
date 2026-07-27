@@ -1,4 +1,8 @@
 #!/bin/bash
+# Assay — a decoder for Swift that tells you what went wrong.
+# Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
+# See LICENSE and NOTICE at the repository root for terms.
+
 # Generate the experiment-1 switch variants.
 #
 #   gen.sh const <N>   -> switches.swift       arms produce distinct CONSTANTS

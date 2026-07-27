@@ -1,3 +1,7 @@
+// Assay — a decoder for Swift that tells you what went wrong.
+// Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
+// See LICENSE and NOTICE at the repository root for terms.
+
 //===----------------------------------------------------------------------===//
 // @Preprocess ops. EXPERIENCE.md §11: preprocess runs on the raw value BEFORE rules, and
 // its job is normalising input; @Transform runs AFTER validation and changes the type.

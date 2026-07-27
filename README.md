@@ -323,6 +323,7 @@ cross-module import gets caught rather than accidentally working.
 | [`docs/STREAMING.md`](docs/STREAMING.md) | why streaming is out of scope, and what it would cost |
 | [`ROADMAP.md`](ROADMAP.md) | what is deferred, and why |
 | [`CLAUDE.md`](CLAUDE.md) | settled decisions and hard constraints on generated code |
+| [`LICENSE`](LICENSE) / [`NOTICE`](NOTICE) | Apache 2.0, and third-party attribution |
 | [`docs/research/`](docs/research/) | the seven research passes the above were built from |
 
 Every research file ends with an explicit **"do not assert these"** section. Where a research
@@ -343,3 +344,21 @@ swift run -c release DiffFuzz                       # differential + fuzz
 Experiments/01-jump-table/sweep.sh                  # does dispatch reach a jump table?
 Experiments/03-compile-time/gate.sh                 # compile-time budget gate
 ```
+
+---
+
+## Licence
+
+Apache License 2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+
+Apache 2.0 rather than MIT for one reason that matters to anyone shipping this inside a product:
+**it grants patent rights explicitly, and terminates them for anyone who sues over them.** MIT is
+silent on patents, which leaves a downstream user relying on an implied licence that has never
+been tested. Apache also requires that modified files say they were modified, which keeps
+provenance intact when a file is copied out of the tree rather than depended on.
+
+Contributions are inbound=outbound under section 5 of the licence: anything you submit is offered
+under the same terms, and there is no separate CLA to sign.
+
+The one dependency, `swift-syntax`, is Apache 2.0 with the Runtime Library Exception, and is a
+build-time dependency of the macro plugin only — it is not linked into a client binary.

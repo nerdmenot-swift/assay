@@ -78,6 +78,8 @@ func internalCustomMessage(_ code: String) -> String? {
     case "yaml_expansion_limit": return "alias expansion limit exceeded"
     case "yaml_expected_colon": return "expected ':' after mapping key"
     case "yaml_expected_value_indicator": return "expected ':' introducing the value"
+    case "yaml_unexpected_in_flow":
+        return "unexpected character in a flow collection; expected ',' or a closing bracket"
     case "yaml_unterminated_flow_sequence": return "unterminated flow sequence"
     case "yaml_unterminated_flow_mapping": return "unterminated flow mapping"
     case "yaml_unterminated_quoted_scalar": return "unterminated quoted scalar"

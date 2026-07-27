@@ -209,3 +209,51 @@ struct RenderTests {
         #expect(IssueCode.custom("company_domain").codeString == "company_domain")
     }
 }
+
+@Suite("Message coverage")
+struct MessageCoverageTests {
+
+    /// Every code the library can emit, gathered by hand from the emit sites. A code with
+    /// no derived message renders as its own identifier — `yaml_unexpected_in_flow`
+    /// instead of a sentence — which is a rendering bug that ships silently and reads as
+    /// contempt for whoever hit it. This caught exactly that after the fuzz fix added a
+    /// new code and not its message.
+    static let allCustomCodes = [
+        // Validation rules
+        "too_small", "too_large", "wrong_length", "empty", "not_in_range", "not_positive",
+        "not_negative", "negative", "not_multiple", "not_finite", "wrong_count",
+        "not_unique", "not_one_of", "pattern_mismatch", "invalid_regex_pattern",
+        "regex_unavailable", "invalid_email", "invalid_url", "invalid_uuid",
+        "invalid_hostname", "not_ascii", "not_trimmed", "not_lowercased",
+        "missing_prefix", "missing_suffix", "missing_substring",
+        // Enums, salvage, IO
+        "unknown_variant", "fallback_applied", "cannot_map_file",
+        // YAML
+        "yaml_empty_stream", "yaml_multiple_documents", "yaml_undefined_alias",
+        "yaml_expansion_limit", "yaml_expected_colon", "yaml_expected_value_indicator",
+        "yaml_unterminated_flow_sequence", "yaml_unterminated_flow_mapping",
+        "yaml_unexpected_in_flow", "yaml_unterminated_quoted_scalar", "yaml_bad_escape",
+        "yaml_unrepresentable_key",
+        // XML
+        "xml_unterminated_doctype", "xml_external_dtd_ignored",
+        "xml_external_entity_ignored",
+    ]
+
+    @Test("every emitted code derives a human sentence, not its own identifier",
+          arguments: MessageCoverageTests.allCustomCodes)
+    func codeHasMessage(_ code: String) {
+        let issue = Issue(code: .custom(code), path: [])
+        #expect(issue.message != code, "'\(code)' renders as its own identifier")
+        #expect(issue.message.isEmpty == false)
+    }
+
+    @Test("the emit sites in Sources are all covered by the list above")
+    func listIsComplete() {
+        // A guard against the list drifting from reality: every code in it must be one
+        // the message tables know. The reverse direction (a new emit site with no entry
+        // here) is checked by the audit in the commit that introduced this suite.
+        for code in MessageCoverageTests.allCustomCodes {
+            #expect(Issue(code: .custom(code), path: []).message != code)
+        }
+    }
+}

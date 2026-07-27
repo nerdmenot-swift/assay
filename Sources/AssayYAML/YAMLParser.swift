@@ -475,10 +475,33 @@ extension YAML {
                     return nil
                 }
                 if c == UInt8(ascii: "]") { r.advanceBy(1); break }
+
+                // Zero-progress guard. A plain flow scalar terminates on , ] } and
+                // newline WITHOUT consuming the terminator, so a stray "}" here yields an
+                // empty scalar and no advance — and the loop spins forever appending
+                // nothing. `[}]` used to hang the parser until the OOM killer arrived.
+                // Found by the fuzzer; this is exactly the class it exists to catch.
+                let before = r.byteOffset
                 guard let item = parseFlowNode(&r, &sink, depth: depth + 1) else { return nil }
+                guard r.byteOffset > before else {
+                    r.report(&sink, .custom("yaml_unexpected_in_flow"))
+                    return nil
+                }
                 items.append(item)
+
                 skipBlanksAndComments(&r)
-                if r.currentByte == UInt8(ascii: ",") { r.advanceBy(1); continue }
+                // The separator is not optional: after an item only "," or "]" is legal.
+                // Falling through on anything else was the other half of the hang.
+                switch r.currentByte {
+                case UInt8(ascii: ","): r.advanceBy(1)
+                case UInt8(ascii: "]"): r.advanceBy(1); return .sequence(items)
+                case nil:
+                    r.report(&sink, .custom("yaml_unterminated_flow_sequence"))
+                    return nil
+                default:
+                    r.report(&sink, .custom("yaml_unexpected_in_flow"))
+                    return nil
+                }
             }
             return .sequence(items)
         }
@@ -500,7 +523,12 @@ extension YAML {
                 }
                 if c == UInt8(ascii: "}") { r.advanceBy(1); break }
 
+                let keyStart = r.byteOffset
                 guard let key = parseFlowNode(&r, &sink, depth: depth + 1) else { return nil }
+                guard r.byteOffset > keyStart else {
+                    r.report(&sink, .custom("yaml_unexpected_in_flow"))
+                    return nil
+                }
                 skipBlanksAndComments(&r)
                 guard r.currentByte == UInt8(ascii: ":") else {
                     r.report(&sink, .custom("yaml_expected_colon"))
@@ -517,7 +545,19 @@ extension YAML {
                 }
 
                 skipBlanksAndComments(&r)
-                if r.currentByte == UInt8(ascii: ",") { r.advanceBy(1); continue }
+                switch r.currentByte {
+                case UInt8(ascii: ","): r.advanceBy(1)
+                case UInt8(ascii: "}"):
+                    r.advanceBy(1)
+                    for source in mergeSources { mergeInto(&pairs, from: source) }
+                    return .mapping(pairs)
+                case nil:
+                    r.report(&sink, .custom("yaml_unterminated_flow_mapping"))
+                    return nil
+                default:
+                    r.report(&sink, .custom("yaml_unexpected_in_flow"))
+                    return nil
+                }
             }
             for source in mergeSources { mergeInto(&pairs, from: source) }
             return .mapping(pairs)

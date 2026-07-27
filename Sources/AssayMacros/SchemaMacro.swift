@@ -135,7 +135,7 @@ public struct SchemaMacro: ExtensionMacro {
         var fields: [SchemaField] = []
         for member in structDecl.memberBlock.members {
             guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
-            if let f = try Self.field(from: varDecl, keyStyle: keyStyle, context: context) {
+            for f in try Self.fields(from: varDecl, keyStyle: keyStyle, context: context) {
                 fields.append(f)
             }
         }
@@ -318,8 +318,29 @@ public struct SchemaMacro: ExtensionMacro {
 
     // MARK: Member analysis
 
+    /// One declaration can introduce several properties — `var a: Int, b: String` is
+    /// ordinary Swift, and reading only the first binding silently dropped the rest,
+    /// producing an expansion that failed to compile with a message pointing at
+    /// generated code. Attributes on the declaration apply to every binding it
+    /// introduces, which is also how Swift itself reads them.
+    static func fields(
+        from varDecl: VariableDeclSyntax,
+        keyStyle: KeyStyle,
+        context: some MacroExpansionContext
+    ) throws -> [SchemaField] {
+        var out: [SchemaField] = []
+        for binding in varDecl.bindings {
+            if let f = try field(from: varDecl, binding: binding,
+                                 keyStyle: keyStyle, context: context) {
+                out.append(f)
+            }
+        }
+        return out
+    }
+
     static func field(
         from varDecl: VariableDeclSyntax,
+        binding: PatternBindingSyntax,
         keyStyle: KeyStyle,
         context: some MacroExpansionContext
     ) throws -> SchemaField? {
@@ -341,8 +362,9 @@ public struct SchemaMacro: ExtensionMacro {
         let transform = Self.transform(from: attrs, context: context)
         let fallback = Self.fallbackExpr(from: attrs)
 
-        guard let binding = varDecl.bindings.first,
-              let pattern = binding.pattern.as(IdentifierPatternSyntax.self) else { return nil }
+        guard let pattern = binding.pattern.as(IdentifierPatternSyntax.self) else {
+            return nil
+        }
 
         // A computed property has an accessor block; a stored one does not. `willSet`/
         // `didSet` observers are stored, so those are kept.

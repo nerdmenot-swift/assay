@@ -21,6 +21,20 @@ let package = Package(
             path: "Sources/CorpusGen",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        // Differential (vs JSONSerialization) + deterministic fuzz. Lives here rather
+        // than in the test target: importing Foundation there would pull swift-testing's
+        // _Testing_Foundation overlay, whose macOS 13 floor would raise the LIBRARY's
+        // deployment floor for the sake of a test.
+        .executableTarget(
+            name: "DiffFuzz",
+            dependencies: [
+                .product(name: "Assay", package: "assay"),
+                .product(name: "AssayYAML", package: "assay"),
+                .product(name: "AssayXML", package: "assay"),
+            ],
+            path: "Sources/DiffFuzz",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
         .executableTarget(
             name: "AssayBench",
             dependencies: [.product(name: "Assay", package: "assay")],

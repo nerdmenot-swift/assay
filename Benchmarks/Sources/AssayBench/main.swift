@@ -229,3 +229,240 @@ print("ZippyJSON's published average (simdjson + Codable): 1.38x")
 print(mean > 1.38
       ? "PASS — clears the falsification condition."
       : "FAIL — thesis not supported; SIMD/C work is moot per PERFORMANCE.md §14.")
+
+//===----------------------------------------------------------------------===//
+// The full corpus sweep, the allocation gate, and the negative path. Everything above
+// this line answers the falsification condition; everything below answers "and what
+// about the other 79 files".
+//===----------------------------------------------------------------------===//
+
+func sweep(_ title: String, _ note: String, _ shapes: [ShapeRunner]) -> [Double] {
+    print("")
+    print(title)
+    print(note)
+    print(pad("shape", 20, right: true) + pad("size", 7) + pad("bytes", 9)
+          + pad("Foundation ns", 15) + pad("Assay ns", 12) + pad("ratio", 9))
+    print(String(repeating: "-", count: 72))
+
+    var collected: [Double] = []
+    for shape in shapes {
+        for size in sizes {
+            let url = corpusDir.appendingPathComponent("\(shape.name)-\(size).json")
+            guard let data = try? Data(contentsOf: url) else { continue }
+            let bytes = [UInt8](data)
+
+            // Correctness gate: both sides must produce a value, or the row is a lie.
+            guard shape.foundation(data) else {
+                print(pad(shape.name, 20, right: true) + pad(size, 7)
+                      + "   Foundation declined this file"); continue
+            }
+            guard shape.assay(bytes) else {
+                print(pad(shape.name, 20, right: true) + pad(size, 7)
+                      + "   Assay declined this file"); continue
+            }
+
+            let iters = iterationCount(forBytes: bytes.count)
+            let fNs = measure(iterations: iters) { _ = shape.foundation(data) }
+            let aNs = measure(iterations: iters) { _ = shape.assay(bytes) }
+            let ratio = fNs / aNs
+            collected.append(ratio)
+            print(pad(shape.name, 20, right: true) + pad(size, 7)
+                  + pad("\(bytes.count)", 9)
+                  + pad(String(format: "%.0f", fNs), 15)
+                  + pad(String(format: "%.0f", aNs), 12)
+                  + pad(String(format: "%.2fx", ratio), 9))
+        }
+    }
+    if !collected.isEmpty {
+        let m = collected.reduce(0, +) / Double(collected.count)
+        let lo = collected.min()!, hi = collected.max()!
+        print(String(format: "mean %.2fx over %d files (min %.2fx, max %.2fx)",
+                     m, collected.count, lo, hi))
+    }
+    return collected
+}
+
+let structRatios = sweep(
+    "Struct decode — shapes a fixed struct consumes entirely",
+    "@Schema vs Codable. This is the headline claim.",
+    structShapes)
+
+let prefixRatios = sweep(
+    "Prefix decode + unknown-key skip — flat shapes",
+    "These scale by ADDING KEYS (bigints-64k has 2232), so a 6-field struct decodes a"
+    + "\nprefix and skips the rest. Both decoders do the same work; the skip path is the"
+    + "\npoint. This is the most common real shape: a client struct, a verbose response.",
+    prefixShapes)
+
+// ---- Generic value model, every positive file ----
+print("")
+print("Generic value model — JSON.Value vs JSONSerialization, all positive corpus files")
+print("No struct, no macro, no key dispatch: Assay without its structural advantage.")
+
+var valueRatios: [Double] = []
+var valueFiles = 0
+if let all = try? FileManager.default.contentsOfDirectory(
+    at: corpusDir, includingPropertiesForKeys: nil) {
+    for url in all.sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
+    where url.pathExtension == "json" && !url.lastPathComponent.hasPrefix("neg-") {
+        guard let data = try? Data(contentsOf: url) else { continue }
+        let bytes = [UInt8](data)
+        guard (try? JSON.Value.parse(bytes)) != nil,
+              (try? JSONSerialization.jsonObject(with: data)) != nil else { continue }
+        let iters = max(200, iterationCount(forBytes: bytes.count) / 4)
+        let fNs = measure(iterations: iters) {
+            _ = try? JSONSerialization.jsonObject(with: data)
+        }
+        let aNs = measure(iterations: iters) { _ = try? JSON.Value.parse(bytes) }
+        valueRatios.append(fNs / aNs)
+        valueFiles += 1
+    }
+}
+if !valueRatios.isEmpty {
+    let m = valueRatios.reduce(0, +) / Double(valueRatios.count)
+    print(String(format: "mean %.2fx over %d files (min %.2fx, max %.2fx)",
+                 m, valueFiles, valueRatios.min()!, valueRatios.max()!))
+    print("A value model has no Codable boundary to delete, so this is the honest floor:")
+    print("what Assay's scanner is worth on its own, separate from the macro's advantage.")
+}
+
+// ---- Negative path ----
+print("")
+print("Negative path — cost of collecting every error vs Foundation's throw-on-first")
+print(pad("file", 30, right: true) + pad("Foundation ns", 15) + pad("Assay ns", 12)
+      + pad("issues", 8))
+print(String(repeating: "-", count: 65))
+
+for name in ["neg-invalid-early", "neg-invalid-late", "neg-truncated",
+             "neg-type-mismatch", "neg-validation-fail-many", "neg-deep-nesting"] {
+    let url = corpusDir.appendingPathComponent("\(name).json")
+    guard let data = try? Data(contentsOf: url) else { continue }
+    let bytes = [UInt8](data)
+    let iters = max(500, iterationCount(forBytes: bytes.count) / 8)
+    let dec = JSONDecoder()
+    let fNs = measure(iterations: iters) {
+        _ = try? dec.decode(CodablePayload.self, from: data)
+    }
+    let d = Payload.diagnose(json: bytes)
+    let aNs = measure(iterations: iters) { _ = Payload.diagnose(json: bytes) }
+    print(pad(name, 30, right: true)
+          + pad(String(format: "%.0f", fNs), 15)
+          + pad(String(format: "%.0f", aNs), 12)
+          + pad("\(d.issues.count)", 8))
+}
+print("Foundation throws on the first problem and stops; Assay walks the whole document")
+print("and reports every one. A slower number here is the feature, not a regression.")
+
+// ---- Allocation gate ----
+// Boxing into a class keeps results alive across the snapshot without the optimiser
+// proving the decode dead, and costs one allocation per iteration on BOTH sides — so it
+// cancels in the ratio and shifts each absolute by exactly 1.
+final class Box<T> { let v: T; init(_ v: T) { self.v = v } }
+
+print("")
+print("Live allocations per decoded value — read Allocations.swift before quoting these.")
+print("The Foundation columns are context, not a claim: two decoders retaining the same")
+print("Strings and Arrays hold the same blocks, so the comparison there is vacuous.")
+print(pad("case", 26, right: true) + pad("Assay blk", 10) + pad("Assay B", 12)
+      + pad("Fdn blk", 12) + pad("Fdn B", 12))
+print(String(repeating: "-", count: 72))
+
+// Self-check. The counter is only worth reporting if it can count a known quantity, so
+// before any real row it measures closures whose allocation count is not in doubt.
+// If these do not read 1 and 3, every number below them is noise and says so.
+final class One { let a: [UInt8]; init() { a = [UInt8](repeating: 0, count: 64) } }
+let selfCheck1 = measureAllocations(iterations: 2_000) { One() }        // box + array = 2
+let selfCheck2 = measureAllocations(iterations: 2_000) { () -> Box<[String]> in
+    Box([String(repeating: "x", count: 40), String(repeating: "y", count: 40)])
+}                                                                       // box+arr+2 str = 4
+print(String(format: "self-check: expected 2.0 and 4.0 blocks, measured %@ and %@",
+             selfCheck1.blocks.map { String(format: "%.2f", $0) } ?? "n/a",
+             selfCheck2.blocks.map { String(format: "%.2f", $0) } ?? "n/a"))
+// Darwin's nano zone batches its statistics, so a ~15% undercount is the calibrated
+// normal rather than a fault. Beyond that the counter has stopped describing reality and
+// the gate turns itself off rather than reporting a number it cannot stand behind.
+let counterTrusted = (selfCheck1.blocks.map { $0 > 1.6 && $0 <= 2.05 } ?? false)
+    && (selfCheck2.blocks.map { $0 > 3.3 && $0 <= 4.05 } ?? false)
+print(counterTrusted
+      ? "counter validated (undercounts ~10-15%; thresholds carry the headroom)"
+      : "COUNTER UNRELIABLE on this platform; rows below are reported but NOT gated")
+print("")
+
+// Top-level state is MainActor-isolated; a box keeps the reporting helper callable.
+final class AllocFailures: @unchecked Sendable {
+    static let shared = AllocFailures()
+    var messages: [String] = []
+}
+
+func allocRow(_ name: String, limitBlocks: Int,
+              assay: () -> AnyObject?, foundation: () -> AnyObject?) {
+    let a = measureAllocations(iterations: 2_000, assay)
+    let f = measureAllocations(iterations: 2_000, foundation)
+    // Both sides printed outright. A ratio alone hides which side moved, and a ratio of
+    // exactly 1.00 is far more often a broken measurement than a real tie.
+    print(pad(name, 26, right: true)
+          + pad(a.blocks.map { String(format: "%.1f", $0) } ?? "n/a", 10)
+          + pad(String(format: "%.0f", a.bytes), 12)
+          + pad(f.blocks.map { String(format: "%.1f", $0) } ?? "n/a", 12)
+          + pad(String(format: "%.0f", f.bytes), 12))
+    if let b = a.blocks, counterTrusted, b > Double(limitBlocks) {
+        AllocFailures.shared.messages.append(
+            String(format: "%@: %.1f blocks > limit %d", name, b, limitBlocks))
+    }
+}
+
+if let data = try? Data(contentsOf: corpusDir.appendingPathComponent("apimodel-8k.json")) {
+    let bytes = [UInt8](data)
+    let dec = JSONDecoder()
+    // apimodel-8k holds ~28 items x 10 fields. Absolute thresholds, not ratios: a ratio
+    // gate passes silently when both sides regress together.
+    allocRow("apimodel-8k struct", limitBlocks: 400,
+             assay: { Payload.diagnose(json: bytes).value.map { Box($0) } },
+             foundation: { (try? dec.decode(CodablePayload.self, from: data)).map { Box($0) } })
+    allocRow("apimodel-8k value model", limitBlocks: 900,
+             assay: { (try? JSON.Value.parse(bytes)).map { Box($0) } },
+             foundation: { (try? JSONSerialization.jsonObject(with: data)).map { Box($0) } })
+}
+if let data = try? Data(contentsOf: corpusDir.appendingPathComponent("arrays-of-scalars-8k.json")) {
+    let bytes = [UInt8](data)
+    let dec = JSONDecoder()
+    // An [Int] of ~800 elements should be ONE allocation, exactly-sized. Anything above
+    // a handful means the array is growing by doubling, or the elements are boxing.
+    allocRow("arrays-of-scalars-8k", limitBlocks: 8,
+             assay: { ScalarArray.diagnose(json: bytes).value.map { Box($0) } },
+             foundation: { (try? dec.decode(CodableScalarArray.self, from: data)).map { Box($0) } })
+}
+if let data = try? Data(contentsOf: corpusDir.appendingPathComponent("short-strings-8k.json")) {
+    let bytes = [UInt8](data)
+    let dec = JSONDecoder()
+    // Every value here is <= 15 bytes, so every String is small-form and immortal. Six
+    // fields, and the answer should be ~1: the box, and nothing else.
+    allocRow("short-strings-8k (SSO)", limitBlocks: 4,
+             assay: { StringPrefix.diagnose(json: bytes).value.map { Box($0) } },
+             foundation: { (try? dec.decode(CodableStringPrefix.self, from: data)).map { Box($0) } })
+}
+
+print("")
+if AllocFailures.shared.messages.isEmpty {
+    print("allocation gate: PASS")
+} else {
+    print("allocation gate: FAIL")
+    for f in AllocFailures.shared.messages { print("  \(f)") }
+}
+
+print("")
+print("Summary")
+print(String(repeating: "=", count: 40))
+func summarise(_ label: String, _ rs: [Double]) {
+    guard !rs.isEmpty else { return }
+    print(String(format: "%@: %.2fx mean over %d files",
+                 label, rs.reduce(0, +) / Double(rs.count), rs.count))
+}
+summarise("struct decode      ", structRatios)
+summarise("prefix + skip      ", prefixRatios)
+summarise("generic value model", valueRatios)
+print("")
+print("Every ratio above is this machine, this toolchain, warm, minimum of 5 rounds.")
+print("None of them is a claim about another platform — see CLAUDE.md's honesty rules.")
+
+if !AllocFailures.shared.messages.isEmpty { exit(1) }

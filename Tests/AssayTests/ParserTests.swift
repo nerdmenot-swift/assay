@@ -394,3 +394,34 @@ struct YAMLParserTests {
         #expect(n["features"]?[0]?.content == "metrics")
     }
 }
+
+@Suite("Fuzz regressions")
+struct FuzzRegressionTests {
+
+    /// Found by Benchmarks/DiffFuzz: a plain flow scalar terminates on `}` without
+    /// consuming it, so `[}]` produced an empty scalar, advanced nothing, and looped
+    /// forever appending — a hang that ended in the OOM killer. Every one of these must
+    /// terminate with an issue, not a value and not a wait.
+    @Test("flow collections terminate on a stray closer", arguments: [
+        "[}]", "[1,2}3]", "{\"a\":[1,2}3]}", "[1}2]", "[1,2}]", "{a: 1]}", "[[}]]",
+    ])
+    func flowCollectionsTerminate(_ input: String) {
+        var sink = IssueSink()
+        let docs = YAML.decodeAll(Array(input.utf8), into: &sink, limits: .default)
+        #expect(sink.issues.isEmpty == false)
+        _ = docs
+    }
+
+    @Test("valid flow collections still parse")
+    func validFlowStillWorks() throws {
+        var sink = IssueSink()
+        let docs = YAML.decodeAll(Array("[1, 2, {a: b, c: [3]}]".utf8),
+                                  into: &sink, limits: .default)
+        #expect(sink.issues.isEmpty)
+        #expect(docs.count == 1)
+        guard case .sequence(let items) = docs[0] else {
+            Issue.record("expected a sequence"); return
+        }
+        #expect(items.count == 3)
+    }
+}

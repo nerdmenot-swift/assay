@@ -5,25 +5,34 @@ Read this first. It is the settled state of a long design collaboration. `docs/E
 authoritative documents; `docs/research/` holds the seven research passes they were built from,
 each with an explicit "do not assert these" section at the end.
 
-**Status as of 2026-07-26: phase 1 is built, compiled, tested and measured.** A Swift 6.3.3
+**Status as of 2026-07-27: phases 1–3 are built, compiled, tested and measured.** A Swift 6.3.3
 toolchain is present. The design-era caveat — "nothing here has ever been compiled" — no longer
-applies to the parts listed below, and still applies to everything else.
+applies to the parts listed below, and still applies to everything else. `ROADMAP.md` is the
+authoritative list of what is deferred and why; `README.md` is the front door.
 
 | | state |
 |---|---|
 | Experiments §15 #1 (jump table) | **run** — `Experiments/01-jump-table/RESULTS.md` |
 | Experiments §15 #2–#4 (Builtin, packaging, `-mattr`) | **run** — `Experiments/02-builtin/RESULTS.md` |
 | Experiment §15 #5 (Wasm simd128) | not run; needs the SDK, gates nothing before phase 4 |
-| Corpus generator (the "sixth experiment") | **built** — `Benchmarks/Sources/CorpusGen`, 76 files |
-| Phase-1 decoder + `@Schema` macro | **built** — 22 tests passing |
-| Falsification condition | **PASSED, 5.48× over Foundation (8.72× float-dense)** — `Benchmarks/RESULTS.md` |
+| Corpus generator (the "sixth experiment") | **built** — `Benchmarks/Sources/CorpusGen`, 81 files |
+| Phase-1 decoder + `@Schema` macro | **built** — 196 tests in 25 suites |
+| Falsification condition | **PASSED, 5.44× over Foundation (8.64× float-dense)** — `Benchmarks/RESULTS.md` |
+| Full corpus sweep | **built and run** — 9.17× struct decode (25 files), 6.43× prefix+skip (45), 1.49× generic value model (75) |
 | Cross-platform | **builds**: macOS, static Linux (2 arches), wasm32. Windows unverified. Tests run on macOS only |
-| Compile-time budget | **measured and gated** — ~82ms/type (JSON), ~118ms (multi-format opt-in) |
-| Value models (`JSON.Value`, `YAML.Node`, `XML.Node`, `RawValue`) | **built** — `docs/VALUE-MODELS.md`; YAML/XML parsers pending |
-| `@Extras` + `unknownKeys: .ignore/.warn/.reject/.collect` | **built**, with did-you-mean |
+| Compile-time budget | **measured and gated** — ~84 ms/type at 10 fields (83–87 ms across runs), gate at 100 ms |
+| Value models (`JSON.Value`, `YAML.Node`, `XML.Node`, `RawValue`) | **built** — `docs/VALUE-MODELS.md` |
+| YAML and XML parsers | **built** — hand-written, XXE refused by construction |
+| `@Extras` + `unknownKeys: .ignore/.warn/.reject/.collect` | **built**, with Damerau did-you-mean |
 | `parse(mmapped:)` (`AssayFoundation`) | **built** — 216x less memory footprint, 3.6x faster |
+| Renderers (`.terminal`/`.plain`/`.json`/`.problemDetails`) | **built** — golden caret tests |
+| `@Validate` + rule engine | **built** — hand-rolled `.email`/`.url`/`.uuid`/`.hostname`, type-checked at expansion |
+| `@Check` / `@AsyncCheck` / `@Preprocess` / `@Transform` / `@Fallback` | **built** |
+| Enum conformances (`RawRepresentable` String/Int, `CaseIterable`) | **built** |
+| Differential + fuzz | **built and gated in CI** — 75 files agree with `JSONSerialization`; 9,680 mutations/run |
 | Streaming | **out of scope**, decision recorded in `docs/STREAMING.md` |
-| Allocation counts | **not measured** — needs package-benchmark; no allocation claim may ship |
+| Allocation counts | **measured and gated** — live blocks, not total malloc traffic. Read `Benchmarks/Sources/AssayBench/Allocations.swift`'s three stated limitations before quoting a number |
+| Encoding, `Date`/`@DateFormat`, `@Inline`, `@XML` placement, `Assayer<T>` | **not built** — `ROADMAP.md` |
 
 Everything below that is not marked above is still design, not measurement.
 
@@ -252,16 +261,27 @@ x86-64 AVX2 ever matters, C is the only way there.
 
 ## Start here now
 
-1. **Allocation counts.** The headline claim in §12.5 is an allocation claim and it is
-   unmeasured. Needs `ordo-one/package-benchmark`'s malloc interposer;
-   `malloc_zone_statistics` gives live blocks, not totals, so there is no shortcut. **No
-   allocation claim may be published until this exists.**
-2. **The rest of the corpus.** Only `apimodel` is benchmarked. `escaped`, `unknown-keys`,
-   `optionals-absent` and the six negative cases are generated and unmeasured.
-3. **Publish a loss.** `canada.json` is 111,126 float parses and a scalar decoder will lose
-   there. Publishing that is what would make the 5.27× credible.
-4. **Cold start**, where a macro emitting no `CodingKeys` should win structurally.
-5. **Linux and x86-64.** Everything measured so far is one arm64 machine.
+The five items that stood here — allocation counts, the rest of the corpus, publishing a
+loss, cold start, Linux/x86-64 — are three done and two open. What remains, in order:
+
+1. **Source spans for YAML and XML.** `ROADMAP.md` §12. Syntax errors already carry carets;
+   schema issues do not, because the node trees drop byte offsets when they are built. The
+   caret is the headline feature and half the formats do not get it where it counts most.
+   Highest user-visible value per unit of work on the whole list.
+2. **`Date` and `@DateFormat`.** `ROADMAP.md` §2. Also one of `PERFORMANCE.md` §13.2's
+   unclaimed wins — a hand-written ISO-8601 parser against a `uuids-and-dates` corpus shape
+   that is already generated and waiting.
+3. **Publish a loss.** Assay has been measured against Foundation and never against simdjson,
+   yyjson or ZippyJSON. The float-dense arm is where a scalar decoder with no Eisel-Lemire
+   should lose, and publishing that is what would make 9.17× credible rather than suspicious.
+4. **Linux and x86-64 numbers.** CI builds and tests there; nothing is benchmarked there.
+   Every published ratio is one arm64 Mac and says so.
+5. **Cold start**, where a macro emitting no `CodingKeys` should win structurally.
+
+Two things that are done and worth not redoing: the allocation gate exists (live blocks,
+with its limits documented rather than buried — `.mallocCountTotal` was rejected because
+jemalloc cannot run on the musl or wasm legs), and the full corpus is swept in three passes
+because one number could not answer three questions.
 
 ---
 
@@ -272,9 +292,17 @@ Never claim: "fastest JSON decoder"; "fastest on all platforms" (unmeasurable on
 `swift_slowAlloc`; SE-0527 declined allocator generics); any ratio on a platform where the harness
 does not run; any SSO-dependent claim without the length histogram.
 
-Gate CI on `.mallocCountTotal` with absolute thresholds, plus `.retainCount`/`.releaseCount`.
-Never gate on wall clock. **Do not configure `.instructions` on hosted runners** — `perf_event_open`
-fails, there is no PMU, and package-benchmark silently reports zero, so the check is decorative.
+Gate CI on allocation counts with absolute thresholds, never on wall clock. **Do not configure
+`.instructions` on hosted runners** — `perf_event_open` fails, there is no PMU, and
+package-benchmark silently reports zero, so the check is decorative.
+
+The implemented gate measures *live* blocks per decoded value via `malloc_zone_statistics`, not
+`.mallocCountTotal`: that metric needs jemalloc installed beside the toolchain and cannot run on
+the musl or wasm legs at all. The trade is stated where it is made — live counting misses
+transient allocations freed inside a decode, undercounts ~10-15% on Darwin's nano zone, and
+cannot compare two decoders that retain the same data. A self-check measures closures whose block
+count is arithmetic and disables the gate rather than reporting a number it cannot stand behind.
+Total malloc traffic remains genuinely unmeasured and is listed as such in `ROADMAP.md`.
 
 Every number in the docs belongs to someone else's C, C++, Rust or Go, cited as evidence about
 *architecture*, not as a prediction about Assay's Swift. No credible published measurement exists

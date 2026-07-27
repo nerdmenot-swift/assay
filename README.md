@@ -256,9 +256,9 @@ protocol, and reports ~6×. Assay's macro deletes that boundary at compile time.
 The generic-value row is the honest floor: a value model has no `Codable` boundary to remove, so
 1.49× is what the scanner is worth on its own.
 
-**Compile cost: ~83.6 ms per `@Schema` type**, gated in CI at 100 ms. `@Schema` is not free, and
-the number is published rather than buried. It scales with generated body size, not with plugin
-round-trips.
+**Compile cost: ~84 ms per `@Schema` type** at 10 fields — 83–87 ms across runs, so it is a band
+rather than a figure — gated in CI at 100 ms. `@Schema` is not free, and the number is published
+rather than buried. It scales with generated body size, not with plugin round-trips.
 
 **Allocations** are gated on absolute live-block thresholds: `arrays-of-scalars-8k` decodes to
 exactly one exactly-sized `[Int]` with no doubling, and a six-field struct of short strings

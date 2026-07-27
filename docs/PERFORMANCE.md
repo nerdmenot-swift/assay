@@ -7,11 +7,18 @@ earn their keep.*
 
 *Status of the evidence: everything numeric below is either extracted from a primary source
 (a repository read at a named path and line, a paper, a maintainer's own benchmark output) or
-explicitly marked as unmeasured. **Nothing in this repository has ever been compiled.** There is
-no Swift toolchain in the environment this was researched in. Every claim about what Swift's
-optimizer will do with Assay's generated code is a claim about the compiler's source, not about
-Assay's binary. §17 lists the five experiments that must be run before any of this is treated
-as a plan rather than a hypothesis.*
+explicitly marked as unmeasured. **This document was written before anything here had been
+compiled**, in an environment with no Swift toolchain: every claim about what Swift's optimizer
+would do with Assay's generated code was a claim about the compiler's source, not about Assay's
+binary. §17 listed five experiments that had to be run before any of it counted as a plan
+rather than a hypothesis.*
+
+*As of 2026-07-27 that caveat is largely discharged. Four of the five experiments have been run
+(`Experiments/*/RESULTS.md`); the fifth gates nothing before phase 4. The falsification
+condition in §14 has been tested and **passed at 5.44× against a threshold of 1.38×**, with a
+full-corpus sweep in `Benchmarks/`. Where this document predicts and an experiment measures, the
+experiment wins — read `CLAUDE.md`'s status table first, and treat every unmeasured passage here
+as the hypothesis it was.*
 
 ---
 

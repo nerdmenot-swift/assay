@@ -36,7 +36,12 @@ So: measured, budgeted, and gated in CI, next to the allocation gate.
 Measured, not estimated. Method and raw numbers in
 `Experiments/03-compile-time/RESULTS.md`.
 
-**~82 ms per `@Schema` type at 10 fields, in the default configuration.**
+**~84 ms per `@Schema` type at 10 fields, in the default configuration.**
+
+> Measured repeatedly at 83–87 ms on the same machine and toolchain, so treat it as a band
+> rather than a figure — the spread between consecutive runs is larger than the drift the
+> whole validation and checks feature set added. The gate is at 100 ms for that reason: a
+> threshold tight enough to trip on run-to-run noise is a threshold that gets disabled.
 
 ```
 JSON body (default)         ≈  9 ms fixed + 7.3 ms × fields   →  ~82 ms

@@ -90,7 +90,11 @@ the published literature excludes.
 - Minimum of 5 rounds, not a mean. Correctness is asserted against Foundation's own output
   before timing — a fast wrong answer is not a result.
 
-## What is NOT measured yet, and must be before any of this is published
+## What was NOT measured at this run
+
+> **Update, 2026-07-27.** Items 1 and 4 below have since been addressed; see
+> "The full corpus, and the allocation gate" at the end of this file. Items 2, 3, 5 and 6
+> stand open and are tracked in `ROADMAP.md`.
 
 1. **Allocations per decode.** This is the *headline* claim in `PERFORMANCE.md` §12.5 —
    "the minimum number of heap allocations a Swift decoder can perform" — and it is the
@@ -135,4 +139,103 @@ Two measured improvements, both traceable to a specific line in the research:
 ```sh
 cd Benchmarks && swift run -c release CorpusGen
 cd Benchmarks && swift build -c release && ./.build/release/AssayBench
+```
+
+---
+
+# The full corpus, and the allocation gate
+
+**2026-07-27.** The run above measured two shapes out of a corpus of 81 files, and made no
+allocation claim because none could be measured. Both are now addressed.
+
+## Three passes, because one number cannot answer three questions
+
+| pass | what it decodes | mean vs Foundation | files |
+|---|---|---|---|
+| Struct decode | shapes a fixed struct consumes entirely | **9.17×** | 25 |
+| Prefix + unknown-key skip | flat shapes, 6-field struct, rest skipped | **6.43×** | 45 |
+| Generic value model | `JSON.Value` vs `JSONSerialization` | **1.49×** | 75 |
+
+The prefix pass exists because the flat corpus shapes scale by **adding keys** —
+`bigints-64k` has 2,232 of them — so a fixed struct necessarily decodes a prefix and skips
+the remainder. That is not a defect in the measurement; it is the single most common real
+shape there is, a client struct against a verbose server response, and both decoders do the
+same work.
+
+The generic-value pass is the honest floor. A value model has no `Codable` boundary to
+delete, so **1.49× is what Assay's scanner is worth on its own**, separate from everything
+the macro contributes. Anyone reading 9.17× should read that row next to it.
+
+## The negative path
+
+| file | Foundation ns | Assay ns | issues found |
+|---|---|---|---|
+| `neg-invalid-early` | 646 | 183 | 1 |
+| `neg-invalid-late` | 19,707 | 3,724 | 6 |
+| `neg-truncated` | 5,558 | 1,663 | 1 |
+| `neg-type-mismatch` | 21,025 | 3,602 | 6 |
+| `neg-validation-fail-many` | 19,622 | 3,609 | 6 |
+| `neg-deep-nesting` | 8,724 | 529 | 3 |
+
+Foundation throws on the first problem and stops. Assay walks the entire document and
+reports every one — and is still faster doing it. A slower number here would have been the
+feature working, not a regression; it did not come to that.
+
+## Allocations
+
+`.mallocCountTotal` was rejected, not deferred: package-benchmark's malloc metrics need
+jemalloc installed beside the toolchain, and cannot run on the musl or wasm legs of the
+matrix at all. What is gated instead is **live blocks per decoded value**, via
+`malloc_zone_statistics`.
+
+| case | Assay blocks | Assay bytes | Foundation blocks | Foundation bytes |
+|---|---|---|---|---|
+| `apimodel-8k` struct | 118.7 | 15,072 | 118.7 | 15,072 |
+| `apimodel-8k` value model | 142.6 | 28,862 | 173.9 | 14,388 |
+| `arrays-of-scalars-8k` | 2.0 | 10,272 | 1.8 | 10,265 |
+| `short-strings-8k` | 1.0 | 112 | 0.9 | 106 |
+
+Three limitations, stated where the code is rather than buried:
+
+1. **Not total malloc traffic.** Transient allocations made and freed inside a decode never
+   appear.
+2. **Undercounts ~10–15% on Darwin.** A self-check measures closures whose block count is
+   arithmetic and reads 1.70 where the answer is 2 — the nano zone reports batched
+   statistics. Thresholds carry the headroom, and the gate disables itself if the error
+   grows rather than reporting a number it cannot stand behind.
+3. **Cannot compare two decoders that retain the same data.** `Payload` and
+   `CodablePayload` hold identical `String`s and `Array`s, so they hold identical blocks —
+   which is why the `apimodel-8k` struct row reads the same on both sides. The measurement
+   is correct and the comparison is vacuous. **The Foundation columns are context, never a
+   claim.**
+
+What survives all three is the question actually worth gating on, and on it the answer is
+unambiguous:
+
+- `arrays-of-scalars-8k` decodes ~800 integers into **2 blocks** — the retaining box and
+  one exactly-sized `[Int]`. No doubling sequence, no per-element boxing.
+- `short-strings-8k` decodes six string fields into **1 block** — the box alone. Every one
+  of those `String`s is ≤ 15 bytes, so small-form and immortal, and allocates nothing.
+
+Those are `PERFORMANCE.md` §13.2's design claims arriving as measurements. A `Dictionary`
+appearing in the per-object path would show up here immediately, which is the regression
+the gate exists to catch.
+
+## Correctness, alongside speed
+
+- **Differential:** `JSON.Value` agrees with `JSONSerialization` value-for-value on all 75
+  positive corpus files.
+- **Fuzz:** 9,680 deterministic byte mutations and truncations per run through all three
+  parsers — no crash, no hang. It found a real YAML flow-collection hang (`[}]` looped
+  forever appending empty scalars until the OOM killer) inside its first 466 inputs.
+
+Both run in CI.
+
+## Reproduce
+
+```sh
+cd Benchmarks
+swift run -c release CorpusGen
+swift run -c release AssayBench     # falsification arm, full sweep, allocation gate
+swift run -c release DiffFuzz       # differential + fuzz
 ```

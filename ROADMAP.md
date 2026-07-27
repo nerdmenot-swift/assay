@@ -248,8 +248,8 @@ Not features, but they are equally part of "done":
 
 | gap | what is missing |
 |---|---|
-| **Windows** | Cannot be built from macOS. No CI leg. Every Windows claim is currently unverified. |
-| **Android** | Same. |
+| **Windows** | The CI leg is enabled and has never run — the repository has no remote. Cannot be built from macOS either, so every Windows claim is unverified. |
+| **Android** | Same: the emulator job is configured, and has never run. |
 | **x86-64 Linux performance** | CI builds and tests there; no benchmark numbers. Every published ratio is one arm64 Mac. |
 | **SIMD decoder comparison** | Assay has been measured against Foundation, never against simdjson, yyjson or ZippyJSON directly. The float-dense arm is where a loss is genuinely expected, and it is owed. |
 | **Multi-megabyte documents** | Outside the target band and unmeasured. The corpus stops at 64 kB. |

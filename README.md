@@ -303,7 +303,7 @@ SplitMix64 with a fixed seed, so any finding reproduces exactly, and
 | Linux (x86-64, aarch64) | built and tested in CI |
 | Static Linux SDK (musl) | cross-compiles clean, both architectures |
 | WASI (wasm32) | cross-compiles clean |
-| Windows | **not verified** — cannot be built from macOS, no CI leg yet |
+| Windows | CI leg **enabled** (swiftlang's reusable workflow), never actually run — no remote yet, and it cannot be built from macOS |
 | Android | not verified |
 
 No `platforms:` clause, so no artificial floor. Embedded Swift is explicitly not a target. Every

@@ -105,23 +105,10 @@ jobs:
           test "$A" = "$B" || { echo "corpus is not deterministic"; exit 1; }
           echo "deterministic: $A"
 
-# NOT YET GATED, and it is the one that matters most:
-#
-#   * .mallocCountTotal with absolute per-benchmark thresholds. docs/PERFORMANCE.md §12.4
-#     makes this THE gate, because allocation counts are deterministic and machine-
-#     independent where wall clock is not, and they port to platforms where timing does
-#     not (Android emulator, Wasm). Needs ordo-one/package-benchmark.
-#
-#   * Do NOT add `.instructions` on hosted runners. `perf_event_open` fails, there is no
-#     PMU, and package-benchmark silently reports ZERO because the diagnostic is commented
-#     out — so a threshold on it always passes and the badge proves nothing.
-#
-#   * Do NOT gate on wall clock. Collect it, publish it, never fail on it.
-
   differential-and-fuzz:
     name: Differential vs Foundation + fuzz
     runs-on: ubuntu-latest
-    container: swift:6.3
+    container: swift:6.3.3
     steps:
       - uses: actions/checkout@v4
       - name: Generate the corpus
@@ -132,3 +119,37 @@ jobs:
         # Exits nonzero on any value mismatch, crash or hang. The fuzz seed is fixed, so
         # a failure here reproduces exactly — `DiffFuzz --probe yaml '<input>'` shrinks it.
         run: swift run -c release DiffFuzz
+
+  # The allocation gate is macOS-only and that is a platform fact, not an oversight:
+  # malloc_zone_statistics gives a live block count, glibc's mallinfo2 gives bytes and no
+  # count at all, so on Linux the counter reports "unavailable" and disables itself rather
+  # than guessing. Running it here would be decorative.
+  allocations:
+    name: Allocation gate (macOS)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate the corpus
+        working-directory: Benchmarks
+        run: swift run -c release CorpusGen
+      - name: Full sweep and allocation thresholds
+        working-directory: Benchmarks
+        # AssayBench exits nonzero when a live-block threshold is exceeded. It also prints
+        # the timing sweep — collected and published, never gated on. Wall clock on a
+        # hosted runner is noise wearing a number's clothes.
+        run: swift run -c release AssayBench
+
+# NOT GATED, deliberately:
+#
+#   * Wall clock. Collect it, publish it, never fail on it. Every timing number this
+#     workflow prints is informational.
+#
+#   * `.instructions` on hosted runners. `perf_event_open` fails, there is no PMU, and
+#     package-benchmark silently reports ZERO because the diagnostic is commented out — so
+#     a threshold on it always passes and the badge proves nothing.
+#
+# NOT GATED, but wanted — see ROADMAP.md:
+#
+#   * Total malloc traffic (.mallocCountTotal). The gate above counts LIVE blocks, which
+#     misses transient allocations freed inside a decode. Catching those needs jemalloc
+#     beside the toolchain, which rules out the musl and wasm legs entirely.

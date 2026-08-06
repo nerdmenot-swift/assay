@@ -201,7 +201,8 @@ extension SchemaMacro {
             """
         }
 
-        if arrayElement(base) != nil {
+        if arrayElement(base) != nil || dictionaryValue(base) != nil {
+            let expected = arrayElement(base) != nil ? "array" : "object"
             return """
             if let __r = \(rawElementExpr(base, "__v", key: key, coerce: f.coerce,
                                           dateFormatsRef: dateFormatsRef(f, i))) {
@@ -209,7 +210,7 @@ extension SchemaMacro {
                             } else if __v.isNull {
                                 \(f.isOptional
                                     ? "__f\(i) = nil"
-                                    : "Assay.RawValue.mismatchPublic(&sink, path, \"\(key)\", \"array\", __v)")
+                                    : "Assay.RawValue.mismatchPublic(&sink, path, \"\(key)\", \"\(expected)\", __v)")
                             }
             """
         }
@@ -250,11 +251,29 @@ extension SchemaMacro {
             \(v).sequence.map { $0.compactMap { \(inner) in \(rawElementExpr(element, inner, key: key, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef)) } }
             """.trimmingWhitespace()
         }
+        if let value = dictionaryValue(type) {
+            // Duplicate keys keep the last value — XML's projection can legally produce
+            // repeats (`<tag/><tag/>`), and last-wins matches the JSON body.
+            let m = "__dm\(depth)", d = "__dd\(depth)", x = "__dx\(depth)"
+            return """
+            \(v).mapping.map { (__ms\(depth): [Assay.RawValue.Member]) -> [String: \(value)] in
+                                    var \(d): [String: \(value)] = [:]
+                                    for \(m) in __ms\(depth) {
+                                        if let \(x) = \(rawElementExpr(value, "\(m).value", key: key, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef)) { \(d)[\(m).key] = \(x) }
+                                    }
+                                    return \(d)
+                                }
+            """.trimmingWhitespace()
+        }
         if isDateType(type) {
             return "\(v).assayDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map { \(type)(timeIntervalSince1970: $0) }"
         }
         if let call = rawScalarCall(type, key: key, coerce: coerce) {
             return "\(v).\(call)"
+        }
+        if type == "RawValue" || type == "Assay.RawValue" {
+            // The raw path IS RawValue: an open-map value is the member itself.
+            return "Optional(\(v))"
         }
         return "\(type)._assay(from: \(v), into: &sink, at: path + [.key(\"\(key)\")])"
     }

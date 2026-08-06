@@ -176,6 +176,19 @@ public struct SchemaMacro: ExtensionMacro {
 
         let active = fields.filter { !$0.isIgnored && !$0.isExtras }
         guard !active.isEmpty || extras != nil else { return [] }
+
+        // JSON object keys are strings; a dictionary field keyed by anything else would
+        // fail inside generated code, pointing at nothing the user wrote.
+        for f in active {
+            if let bad = Self.firstNonStringDictKey(Self.stripOptional(f.typeName)) {
+                context.diagnose(Diagnostic(
+                    node: Syntax(node),
+                    message: SimpleDiagnostic(
+                        "dictionary fields must be keyed by String — object keys are "
+                        + "strings in every wire format; '\(f.identifier)' declares '\(bad)'")))
+                return []
+            }
+        }
         guard active.count <= 64 else {
             context.diagnose(Diagnostic(
                 node: Syntax(node),

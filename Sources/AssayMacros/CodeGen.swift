@@ -341,6 +341,12 @@ extension SchemaMacro {
                                dateFormatsRef: dateFormatsRef(f, i))
         }
 
+        if let value = dictionaryValue(base) {
+            return dictDecode(value: value, index: i, key: key,
+                              optional: f.isOptional, pad: pad,
+                              dateFormatsRef: dateFormatsRef(f, i))
+        }
+
         // Fields carrying @Validate capture their value's span right after the decode,
         // while the cursor still sits just past it — that is what puts a caret under a
         // failing value rather than only under a malformed one.
@@ -435,6 +441,16 @@ extension SchemaMacro {
             \(pad)        guard let \(elt) = \(elt) else { break }
 
             """
+        } else if let sub = dictionaryValue(element) {
+            // [[String: Int]] — a dictionary element inside an array.
+            inner = """
+            \(pad)        var \(elt): [String: \(sub)]? = nil
+            \(dictDecode(value: sub, index: i, key: key, optional: false,
+                         pad: pad + "        ", slot: elt, depth: depth + 1,
+                         dateFormatsRef: dateFormatsRef))
+            \(pad)        guard let \(elt) = \(elt) else { break }
+
+            """
         } else {
             inner = """
             \(pad)        guard let \(elt) = \(element)._assay(
@@ -466,6 +482,91 @@ extension SchemaMacro {
         \(pad)    \(optional ? "\(target) = nil" : "reader.nullNotAllowed(&sink, path, \"\(key)\", \"array\")")
         \(pad)} else {
         \(pad)    reader.reportTypeMismatch(&sink, path, expected: "array")
+        \(pad)}
+
+        """
+    }
+
+    /// Dictionary decoding, emitted like `arrayDecode` and mutually recursive with it,
+    /// so `[String: [Int]]`, `[[String: Int]]` and `[String: [String: Int]]` all nest.
+    /// JSON object keys are strings, so the key side needs no dispatch at all; duplicate
+    /// keys keep the LAST value, which is what JSONDecoder does.
+    ///
+    /// A malformed pair aborts the whole decode (same contract as arrays: `failed()`
+    /// resynchronised past the value, the close-brace guard reports the document).
+    static func dictDecode(value: String, index i: Int, key: String,
+                           optional: Bool, pad: String,
+                           slot: String? = nil, depth: Int = 0,
+                           dateFormatsRef: String = "Assay.DateFormat.defaultFormats") -> String {
+        let target = slot ?? "__f\(i)"
+        let dict = "__dd\(i)_\(depth)"
+        let kTok = "__dk\(i)_\(depth)"
+        let elt = "__de\(i)_\(depth)"
+
+        let inner: String
+        if isDateType(value) {
+            inner = "\(pad)            guard let \(elt) = reader.decodeDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map({ \(value)(timeIntervalSince1970: $0) }) else { break }\n"
+        } else if let call = scalarCall(value, key: key) {
+            inner = "\(pad)            guard let \(elt) = reader.\(call) else { break }\n"
+        } else if let sub = arrayElement(value) {
+            inner = """
+            \(pad)            var \(elt): [\(sub)]? = nil
+            \(arrayDecode(element: sub, index: i, key: key, optional: false,
+                          pad: pad + "            ", slot: elt, depth: depth + 1,
+                          dateFormatsRef: dateFormatsRef))
+            \(pad)            guard let \(elt) = \(elt) else { break }
+
+            """
+        } else if let sub = dictionaryValue(value) {
+            inner = """
+            \(pad)            var \(elt): [String: \(sub)]? = nil
+            \(dictDecode(value: sub, index: i, key: key, optional: false,
+                         pad: pad + "            ", slot: elt, depth: depth + 1,
+                         dateFormatsRef: dateFormatsRef))
+            \(pad)            guard let \(elt) = \(elt) else { break }
+
+            """
+        } else if isCollectible(value) {
+            // [String: RawValue] / [String: JSON.Value] as an ordinary declared field —
+            // the open-map case that is not @Extras.
+            inner = """
+            \(pad)            guard let \(elt) = Assay._assayCollect(
+            \(pad)                \(value).self, from: &reader, into: &sink,
+            \(pad)                at: path + [.key("\(key)")]) else { break }
+
+            """
+        } else {
+            inner = """
+            \(pad)            guard let \(elt) = \(value)._assay(
+            \(pad)                from: &reader, into: &sink,
+            \(pad)                at: path + [.key("\(key)")]) else { break }
+
+            """
+        }
+
+        return """
+        \(pad)if reader.tryConsume(0x7B) {
+        \(pad)    var \(dict): [String: \(value)] = [:]
+        \(pad)    if !reader.tryConsume(0x7D) {
+        \(pad)        while true {
+        \(pad)            guard let \(kTok) = reader.scanKey(), reader.expect(0x3A) else {
+        \(pad)                reader.reportMalformed(&sink, path)
+        \(pad)                return nil
+        \(pad)            }
+        \(inner)\(pad)            \(dict)[reader.keyString(\(kTok))] = \(elt)
+        \(pad)            if reader.tryConsume(0x2C) { continue }
+        \(pad)            break
+        \(pad)        }
+        \(pad)        guard reader.tryConsume(0x7D) else {
+        \(pad)            reader.reportMalformed(&sink, path)
+        \(pad)            return nil
+        \(pad)        }
+        \(pad)    }
+        \(pad)    \(target) = \(dict)
+        \(pad)} else if reader.consumeNullIfPresent() {
+        \(pad)    \(optional ? "\(target) = nil" : "reader.nullNotAllowed(&sink, path, \"\(key)\", \"dictionary\")")
+        \(pad)} else {
+        \(pad)    reader.reportTypeMismatch(&sink, path, expected: "object")
         \(pad)}
 
         """
@@ -532,7 +633,57 @@ extension SchemaMacro {
     static func arrayElement(_ t: String) -> String? {
         guard t.hasPrefix("["), t.hasSuffix("]") else { return nil }
         let inner = String(t.dropFirst().dropLast())
-        return inner.contains(":") ? nil : inner   // dictionaries are not phase 1
+        // A TOP-LEVEL colon means dictionary. A nested one — `[[String: Int]]` — does
+        // not; a naive `contains(":")` misread exactly that case.
+        return topLevelColon(inner) == nil ? inner.trimmingWhitespace() : nil
+    }
+
+    /// `[String: V]` → `V`, nil for arrays, non-dictionaries, and non-String keys
+    /// (which get their own diagnostic rather than silently missing this branch).
+    static func dictionaryValue(_ t: String) -> String? {
+        guard t.hasPrefix("["), t.hasSuffix("]") else { return nil }
+        let inner = String(t.dropFirst().dropLast())
+        guard let colon = topLevelColon(inner) else { return nil }
+        guard String(inner[..<colon]).trimmingWhitespace() == "String" else { return nil }
+        return String(inner[inner.index(after: colon)...]).trimmingWhitespace()
+    }
+
+    /// The first colon not nested inside brackets, generics, or parens.
+    static func topLevelColon(_ s: String) -> String.Index? {
+        var depth = 0
+        var i = s.startIndex
+        while i < s.endIndex {
+            switch s[i] {
+            case "[", "<", "(": depth += 1
+            case "]", ">", ")": depth -= 1
+            case ":" where depth == 0: return i
+            default: break
+            }
+            i = s.index(after: i)
+        }
+        return nil
+    }
+
+    /// Walks a type expression and returns the first dictionary segment whose key type
+    /// is not `String`, for the purpose-written diagnostic. JSON object keys ARE
+    /// strings; an `[Int: String]` field would otherwise fail inside generated code
+    /// with an error pointing at nothing the user wrote.
+    static func firstNonStringDictKey(_ t: String) -> String? {
+        guard t.hasPrefix("["), t.hasSuffix("]") else { return nil }
+        let inner = String(t.dropFirst().dropLast())
+        if let colon = topLevelColon(inner) {
+            guard String(inner[..<colon]).trimmingWhitespace() == "String" else { return t }
+            return firstNonStringDictKey(
+                String(inner[inner.index(after: colon)...]).trimmingWhitespace())
+        }
+        return firstNonStringDictKey(inner.trimmingWhitespace())
+    }
+
+    /// The value-model types `_assayCollect` can produce — the open-map value types a
+    /// declared `[String: _]` field may carry outside of `@Extras`.
+    static func isCollectible(_ t: String) -> Bool {
+        t == "RawValue" || t == "Assay.RawValue"
+            || t == "JSON.Value" || t == "Assay.JSON.Value"
     }
 }
 

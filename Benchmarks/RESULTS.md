@@ -116,6 +116,9 @@ the published literature excludes.
    expectation is a *narrowed* margin rather than a loss: Assay must build the user's
    dictionary, one allocation plus a hash and a `String` per key, but Foundation builds
    **two** — its internal `[String: JSONMap.Value]` per object *and* the user's.
+   *(Update 2026-08-07: implemented and measured — see "Dictionaries: the stated worst
+   case, measured" at the end of this file. 6.95× mean; the narrowing is real, the
+   loss is not.)*
 
 ## What changed since the first run
 
@@ -381,3 +384,32 @@ a larger share of the work.
     different day would be the exact bug class this library exists to refuse; the
     differential fails if Foundation ever becomes strict, so the divergence cannot rot
     into an accident.
+
+---
+
+# Dictionaries: the stated worst case, measured
+
+**2026-08-07.** `[String: T]` fields are implemented (JSON and RawValue paths, recursive
+— `[String: [Int]]`, `[[String: Int]]`, `[String: [String: Int]]` all nest; non-String
+keys are a purpose-written macro diagnostic). `PERFORMANCE.md` §2.5 called this the
+structural worst case while it did not exist; now it exists and is measured. Corpus
+objects re-wrapped as `{"m": <object>}`, entry-for-entry equality with Foundation gated
+before timing.
+
+| shape | size | Foundation ns/op | Assay ns/op | ratio |
+|---|---|---|---|---|
+| bigints | 512b | 13,597 | 1,561 | **8.71×** |
+| bigints | 8k | 166,162 | 23,291 | **7.13×** |
+| bigints | 64k | 1,301,628 | 233,560 | **5.57×** |
+| short-strings | 512b | 19,064 | 2,635 | **7.23×** |
+| short-strings | 8k | 236,882 | 33,352 | **7.10×** |
+| short-strings | 64k | 1,822,375 | 304,775 | **5.98×** |
+
+**Mean: 6.95× over 10 rows** (full table in the harness output). The prediction was a
+*narrowed margin*, and the narrowing is real — the ratio declines from 8.7× toward 5.6×
+as the user's `Dictionary` (a hash and a `String` per key, the cost the struct path
+deletes) grows as a share of the work. What the prediction undercounted is Foundation's
+side of the same ledger: it builds its internal `JSONMap`, then the user's dictionary,
+*and* crosses the `Codable` boundary per entry. Assay pays only the user's map. The
+worst case is a 5.6–8.7× win, and §2.5's caution can be retired with numbers rather
+than argument.

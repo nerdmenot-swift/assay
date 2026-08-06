@@ -266,7 +266,7 @@ Not features, but they are equally part of "done":
 | **x86-64 Linux performance** | CI builds and tests there; no benchmark numbers. Every published ratio is one arm64 Mac. |
 | **SIMD decoder comparison** | Assay has been measured against Foundation, never against simdjson, yyjson or ZippyJSON directly. The float-dense arm is where a loss is genuinely expected, and it is owed. |
 | **Multi-megabyte documents** | Outside the target band and unmeasured. The corpus stops at 64 kB. |
-| **`[String: T]` dictionary fields** | Not implemented, so `PERFORMANCE.md`'s stated worst case remains untested. |
+| ~~**`[String: T]` dictionary fields**~~ | **Closed 2026-08-07** — implemented on both decode paths, recursive, non-String keys diagnosed at expansion. The "worst case" measured **6.95× over Foundation** (`Benchmarks/RESULTS.md`); the predicted narrowing is visible in the size trend, the predicted risk was not. |
 | **Total malloc traffic** | The allocation gate counts *live* blocks, which misses transient allocations freed inside a decode. `.mallocCountTotal` would catch those and needs jemalloc. |
 
 ---

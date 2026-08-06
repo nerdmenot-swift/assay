@@ -62,17 +62,8 @@ extension RawValue: JSONCollectible {
 
 // MARK: - Unknown-key handling
 
-/// What to do with a key the schema did not declare. `EXPERIENCE.md` §4.
-public enum UnknownKeyPolicy: Sendable, Hashable {
-    /// Skip it structurally without decoding. The `Codable` behaviour, and the default.
-    case ignore
-    /// A warning per key, decoding proceeds. Surfaces only through `diagnose`.
-    case warn
-    /// An issue per key.
-    case reject
-    /// Routed to the `@Extras` field.
-    case collect
-}
+// (The user-facing policy enum is `UnknownKeys` in the Assay module, read by the macro;
+// an unused twin that lived here was deleted in the pre-release API sweep.)
 
 extension AssayReader {
 

@@ -137,6 +137,26 @@ error: rule '.email' applies to String, but 'age' is declared Int
 `.email`, `.url`, `.uuid` and `.hostname` are hand-written byte validators — no regex engine, no
 ICU, no locale, identical on every platform.
 
+### Dates
+
+```swift
+var createdAt: Date                                   // ISO-8601, the default
+@DateFormat(.unixSeconds)           var ts: Date
+@DateFormat(.rfc9110)               var expires: Date // all 3 forms RFC 9110 requires
+@DateFormat(.pattern("yyyy-MM-dd")) var day: Date     // pattern checked at compile time
+@DateFormat(.iso8601, .unixMillis)  var updated: Date // candidate chain; fallback warns
+@Validate(.after("2020-01-01"), .before("2030-01-01")) var opens: Date
+```
+
+The parsers are hand-written integer arithmetic (Hinnant's days-from-civil), verified against
+Foundation on 2,279 instants **exactly** — no tolerance — and **6.06× faster** than
+`JSONDecoder`'s `.iso8601` strategy on the date-dense corpus shape. A candidate chain tries
+formats in order; a match on anything but the first *warns*, naming both formats, because silent
+tolerance is how a payload drifts formats unnoticed. A total miss reports every format tried and
+the byte where the primary one failed: `must be an ISO-8601 date — day 30 is out of range for
+2026-02`, caret on the day. Foundation quietly rolls `2026-02-29` over to March 1; Assay
+refuses it by name.
+
 ### Checks: validation with a debugger attached
 
 ```swift
@@ -208,6 +228,11 @@ Unknown keys are a policy, not a fixed behaviour: `.ignore`, `.warn`, `.reject`,
 message carries a did-you-mean, using Damerau-Levenshtein distance so that transpositions — the
 commonest typo there is — actually get suggested.
 
+Dictionary fields decode as declared — `[String: Int]`, `[String: MySchema]`,
+`[String: [String: Int]]`, `[[String: Int]]` all nest — and an open map is an ordinary field:
+`var meta: [String: RawValue]`. A dictionary keyed by anything but `String` is a compile-time
+diagnostic, because object keys are strings in every wire format.
+
 ---
 
 ## One struct, several formats
@@ -240,13 +265,18 @@ The design staked itself on a falsification condition written down in advance
 (`docs/PERFORMANCE.md` §14): *if scalar Swift does not comfortably clear ZippyJSON's 1.38× over
 Foundation, the thesis is wrong and the SIMD work is moot.*
 
-| pass | vs Foundation | files |
+| pass | baseline | mean |
 |---|---|---|
-| Struct decode (`@Schema` vs `Codable`) | **9.17×** mean | 25 |
-| Prefix decode + unknown-key skip | **6.43×** mean | 45 |
-| Generic value model (`JSON.Value` vs `JSONSerialization`) | **1.49×** mean | 75 |
-| Falsification arm (API-shaped, 512 B – 64 kB) | **5.44×** mean | 5 |
-| Float-dense (canada.json-shaped) | **8.64×** mean | 5 |
+| Struct decode, 25 files (`@Schema` vs `Codable`) | Foundation | **9.17×** |
+| Prefix decode + unknown-key skip, 45 files | Foundation | **6.43×** |
+| Generic value model, 75 files (`JSON.Value`) | `JSONSerialization` | **1.49×** |
+| Falsification arm (API-shaped, 512 B – 64 kB) | Foundation | **5.44×** |
+| Float-dense (canada.json-shaped) | Foundation | **8.64×** |
+| Date decode (`[Date]`, corpus date strings) | `JSONDecoder` `.iso8601` | **6.06×** |
+| Dictionary decode (`[String: T]`, the stated worst case) | Foundation | **6.95×** |
+| YAML node parse | Yams (`compose`, libyaml) | **6.62×** |
+| YAML struct decode | Yams `YAMLDecoder` (Codable) | **11.36×** |
+| XML tree parse (asymmetric — read `RESULTS.md`) | Foundation `XMLParser` | **1.30×** |
 
 The thesis in one line: **the parser was never the bottleneck; the `Codable` container boundary
 was.** ZippyJSON bolted simdjson — the fastest JSON parser in existence — onto `Decodable` and
@@ -283,10 +313,17 @@ a number from it.
 
 | | |
 |---|---|
-| Unit tests | **196** in 25 suites |
-| Differential | `JSON.Value` agrees with `JSONSerialization` value-for-value on all **75** positive corpus files |
+| Unit tests | **250** in 36 suites |
+| JSON differential | `JSON.Value` agrees with `JSONSerialization` value-for-value on all **75** positive corpus files |
+| YAML differential | agrees with **Yams/libyaml** on 37 adversarial hand-written cases + 75 generated documents, and with `JSONSerialization` on the whole corpus read as YAML (JSON ⊂ YAML 1.2) |
+| XML differential | agrees with **Foundation's `XMLParser`** on 29 hand-written + 75 generated documents, namespaces and attributes included |
+| Date differential | **2,279 instants** agree with Foundation *exactly*; deliberate divergences pinned in both directions (leap seconds; Foundation's silent date rollover) |
 | Fuzz | **9,680** deterministic mutations and truncations through all three parsers per run — no crash, no hang |
 | Macro tests | expansion and diagnostic assertions, without XCTest |
+
+The differential oracles earn their place the same way the fuzzer does: their first run caught
+two real parser bugs (a YAML block-sequence form and XML line-ending normalisation), both fixed
+and pinned before any of this shipped.
 
 The fuzzer earns its place: it found a YAML flow-collection hang (`[}]` looped forever appending
 empty scalars, until the OOM killer arrived) within its first 466 inputs. Seeds and mutations are

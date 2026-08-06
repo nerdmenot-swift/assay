@@ -784,10 +784,17 @@ extension DateFormat {
     public static let defaultFormats: [DateFormat] = [.iso8601]
 }
 
-/// Epoch seconds → `2026-08-06T12:30:00Z`, for error messages: a violation on a date
-/// field should read as a date, not as `1786363800.0`. Hinnant's `civil_from_days`,
-/// the exact inverse of the arithmetic in `epochDays`.
-public func formatEpochISO(_ seconds: Double) -> String {
+extension DateParser {
+    /// Epoch seconds → `2026-08-06T12:30:00Z`, for error messages: a violation on a date
+    /// field should read as a date, not as `1786363800.0`. Hinnant's `civil_from_days`,
+    /// the exact inverse of the arithmetic in `epochDays`.
+    public static func formatISO8601(_ seconds: Double) -> String {
+        formatEpochISO(seconds)
+    }
+}
+
+@usableFromInline
+func formatEpochISO(_ seconds: Double) -> String {
     guard seconds.isFinite, abs(seconds) <= 9_007_199_254_740_992.0 else {
         return String(seconds)
     }

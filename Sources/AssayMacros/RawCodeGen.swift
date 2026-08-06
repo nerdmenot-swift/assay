@@ -174,6 +174,25 @@ extension SchemaMacro {
         let base = f.decodedType
         let key = f.wireKey
 
+        // Date — same seam as the JSON body: the runtime returns epoch seconds, the
+        // wrap resolves in the user's module. YAML's resolved `.int` scalars and XML's
+        // text both reach the format list through `assayDate`.
+        if isDateType(base) {
+            let formats = dateFormatsRef(f, i)
+            let wrap = ".map { \(base)(timeIntervalSince1970: $0) }"
+            if f.fallback != nil {
+                return """
+                let __fck\(i) = sink.checkpoint()
+                                if !__v.isNull { __f\(i) = __v.assayDate(&sink, path, "\(key)", \(formats))\(wrap) }
+                                if __f\(i) == nil { sink.rollback(to: __fck\(i)) }
+                """
+            }
+            if f.isOptional {
+                return "if !__v.isNull { __f\(i) = __v.assayDate(&sink, path, \"\(key)\", \(formats))\(wrap) }"
+            }
+            return "__f\(i) = __v.assayDate(&sink, path, \"\(key)\", \(formats))\(wrap)"
+        }
+
         if f.fallback != nil, let call = rawScalarCall(base, key: key, coerce: f.coerce) {
             return """
             let __fck\(i) = sink.checkpoint()
@@ -184,7 +203,8 @@ extension SchemaMacro {
 
         if arrayElement(base) != nil {
             return """
-            if let __r = \(rawElementExpr(base, "__v", key: key, coerce: f.coerce)) {
+            if let __r = \(rawElementExpr(base, "__v", key: key, coerce: f.coerce,
+                                          dateFormatsRef: dateFormatsRef(f, i))) {
                                 __f\(i) = __r
                             } else if __v.isNull {
                                 \(f.isOptional
@@ -221,13 +241,17 @@ extension SchemaMacro {
     /// compactMap's closure is non-escaping, so using `&sink` inside it is statically
     /// enforced exclusivity, not a box — the constraint from PERFORMANCE.md §7 holds.
     static func rawElementExpr(
-        _ type: String, _ v: String, key: String, coerce: Bool, depth: Int = 0
+        _ type: String, _ v: String, key: String, coerce: Bool, depth: Int = 0,
+        dateFormatsRef: String = "Assay.DateFormat.defaultFormats"
     ) -> String {
         if let element = arrayElement(type) {
             let inner = "__e\(depth)"
             return """
-            \(v).sequence.map { $0.compactMap { \(inner) in \(rawElementExpr(element, inner, key: key, coerce: coerce, depth: depth + 1)) } }
+            \(v).sequence.map { $0.compactMap { \(inner) in \(rawElementExpr(element, inner, key: key, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef)) } }
             """.trimmingWhitespace()
+        }
+        if isDateType(type) {
+            return "\(v).assayDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map { \(type)(timeIntervalSince1970: $0) }"
         }
         if let call = rawScalarCall(type, key: key, coerce: coerce) {
             return "\(v).\(call)"

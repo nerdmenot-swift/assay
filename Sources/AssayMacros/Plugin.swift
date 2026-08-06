@@ -18,5 +18,6 @@ struct AssayPlugin: CompilerPlugin {
         PreprocessMacro.self,
         TransformMacro.self,
         FallbackMacro.self,
+        DateFormatMacro.self,
     ]
 }

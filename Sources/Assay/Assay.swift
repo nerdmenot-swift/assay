@@ -162,6 +162,36 @@ public macro Extras() = #externalMacro(module: "AssayMacros", type: "ExtrasMacro
 public macro Validate(_ rules: Rule...) =
     #externalMacro(module: "AssayMacros", type: "ValidateMacro")
 
+/// How a `Date` property reads its wire value. Without this attribute, `Date` fields
+/// expect ISO-8601.
+///
+///     var createdAt: Date                                // ISO 8601, the default
+///     @DateFormat(.unixSeconds)          var ts: Date
+///     @DateFormat(.unixMillis)           var ms: Date
+///     @DateFormat(.rfc9110)              var expires: Date   // HTTP dates, all 3 forms
+///     @DateFormat(.pattern("yyyy-MM-dd")) var day: Date
+///
+/// **Several formats are a candidate chain**, tried in order — for the API that emits
+/// ISO-8601 but has one legacy producer still sending epoch millis:
+///
+///     @DateFormat(.iso8601, .unixMillis) var updated: Date
+///
+/// The first match wins. A match on any format after the first adds a *warning* naming
+/// which one matched — the same contract as `@Key(_:or:)`, and for the same reason:
+/// silent tolerance is how a payload drifts formats without anyone noticing. A total
+/// miss reports one issue naming every format tried, the reason the primary one failed,
+/// and the byte where it failed — with the caret inside the value.
+///
+/// `.pattern` is not `DateFormatter` (EXPERIENCE.md §11): the fields are exactly
+/// `yyyy MM dd HH mm ss SSS Z` plus literals (letters quoted UTS-35 style: `'T'`), the
+/// pattern is CHECKED AT COMPILE TIME with a purpose-written diagnostic, a pattern with
+/// no `Z` reads as UTC on every platform, and nothing consults a locale or ICU.
+/// Timestamps out at ±2^53 seconds are rejected, non-finite ones too. `:60` leap
+/// seconds are accepted and carry into the next minute (the POSIX reading).
+@attached(peer)
+public macro DateFormat(_ formats: AssayCore.DateFormat...) =
+    #externalMacro(module: "AssayMacros", type: "DateFormatMacro")
+
 /// Allow a scalar of the wrong type through the documented conversion rules.
 ///
 ///     @Coerce var port: Int          // "8080" -> 8080

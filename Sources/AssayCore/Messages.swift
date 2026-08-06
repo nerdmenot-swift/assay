@@ -236,6 +236,43 @@ extension Issue {
             }
             return m
 
+        case .custom("invalid_date"):
+            // "must be an ISO-8601 date — day 31 is out of range for 2026-02".
+            // The reason names the field and the position; `offset` is also in params
+            // for a renderer that wants to place its own caret.
+            var m = "must be a"
+            if let e = params["expected"] {
+                let first = e.displayString.first ?? "x"
+                m = "aeiouAEIOU".contains(first) ? "must be an" : "must be a"
+                m += " \(e.displayString)"
+            } else {
+                m += " valid date"
+            }
+            if let r = params["reason"] { m += " — \(r.displayString)" }
+            return m
+        case .custom("date_format_fallback"):
+            if let matched = params["matched"], let primary = params["primary"] {
+                return "matched the fallback format \(matched.displayString), "
+                    + "not the primary \(primary.displayString)"
+            }
+            return "matched a fallback date format"
+        case .custom("date_not_before"):
+            if let b = params["bound"] { return "must be before \(b.displayString)" }
+            return "is too late"
+        case .custom("date_not_after"):
+            if let b = params["bound"] { return "must be after \(b.displayString)" }
+            return "is too early"
+        case .custom("date_not_between"):
+            if let lo = params["minimum"], let hi = params["maximum"] {
+                return "must be between \(lo.displayString) and \(hi.displayString)"
+            }
+            return "is outside the allowed range"
+        case .custom("invalid_rule_date"):
+            if let b = params["bound"] {
+                return "the rule's date bound \"\(b.displayString)\" is not a valid ISO-8601 date"
+            }
+            return "the rule's date bound is not a valid ISO-8601 date"
+
         case .custom(let s):
             // An internal code renders as a sentence; otherwise — the EXPERIENCE.md §3
             // case — a one-off custom check whose string IS the message.

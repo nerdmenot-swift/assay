@@ -182,6 +182,30 @@ extension Rule {
             if !v.isFinite {
                 emit(&sink, "not_finite", field, span, path, override, [:], String(v))
             }
+
+        // Dates reach this overload as epoch seconds (the generated code passes
+        // `.timeIntervalSince1970`); the received value renders back as ISO-8601 so a
+        // violation reads as a date, never as 1786363800.0.
+        case .before(let bound, let display):
+            if !(v < bound) {
+                emit(&sink, "date_not_before", field, span, path, override,
+                     ["bound": .string(display)], formatEpochISO(v))
+            }
+        case .after(let bound, let display):
+            if !(v > bound) {
+                emit(&sink, "date_not_after", field, span, path, override,
+                     ["bound": .string(display)], formatEpochISO(v))
+            }
+        case .betweenDates(let lo, let hi, let displayLo, let displayHi):
+            if v < lo || v > hi {
+                emit(&sink, "date_not_between", field, span, path, override,
+                     ["minimum": .string(displayLo), "maximum": .string(displayHi)],
+                     formatEpochISO(v))
+            }
+        case .invalidRuleDate(let bound):
+            emit(&sink, "invalid_rule_date", field, span, path, override,
+                 ["bound": .string(bound)], nil)
+
         case .all(let rules):
             for r in rules {
                 r.applyNumber(v, isInteger: isInteger, override, field, span, path, &sink)

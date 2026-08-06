@@ -232,6 +232,9 @@ struct MessageCoverageTests {
         "missing_prefix", "missing_suffix", "missing_substring",
         // Enums, salvage, IO
         "unknown_variant", "fallback_applied", "cannot_map_file",
+        // Dates
+        "invalid_date", "date_format_fallback", "date_not_before", "date_not_after",
+        "date_not_between", "invalid_rule_date",
         // YAML
         "yaml_empty_stream", "yaml_multiple_documents", "yaml_undefined_alias",
         "yaml_expansion_limit", "yaml_expected_colon", "yaml_expected_value_indicator",

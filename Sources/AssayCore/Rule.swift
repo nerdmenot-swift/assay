@@ -61,6 +61,17 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
         case unique
         case each([Rule])
 
+        // Dates. The bound is epoch seconds, computed ONCE when the rule array's
+        // `static let` initialises; the String is the bound as the user wrote it, for
+        // the message. `.past`/`.future` are deliberately absent: they need "now", the
+        // core has no clock, and a clock seam is a design decision — ROADMAP.md.
+        case before(Double, String)
+        case after(Double, String)
+        case betweenDates(Double, Double, String, String)
+        /// The bound string did not parse. Fires on every validation, loudly, so a bad
+        /// bound cannot pass silently — the macro cannot check a non-literal expression.
+        case invalidRuleDate(String)
+
         // Composition and messages.
         case all([Rule])
         case messageOnly(String)
@@ -174,6 +185,46 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
     public static let unique = Rule(.unique)
     public static func each(_ rules: Rule..., or message: String? = nil) -> Rule {
         Rule(.each(rules), message: message)
+    }
+
+    // MARK: Dates
+    //
+    // Bounds are written as ISO-8601 — full date-time, or bare `yyyy-MM-dd` read as
+    // midnight UTC — and parsed once, when the rule array's `static let` initialises.
+    // A bound that does not parse becomes `.invalidRuleDate`, which fails EVERY value
+    // with a message naming the bound: a misspelled bound must not validate anything.
+
+    /// Strictly earlier than the bound. `@Validate(.before("2030-01-01")) var d: Date`
+    public static func before(_ iso: String, or message: String? = nil) -> Rule {
+        guard let bound = dateBound(iso) else {
+            return Rule(.invalidRuleDate(iso), message: message)
+        }
+        return Rule(.before(bound, iso), message: message)
+    }
+
+    /// Strictly later than the bound.
+    public static func after(_ iso: String, or message: String? = nil) -> Rule {
+        guard let bound = dateBound(iso) else {
+            return Rule(.invalidRuleDate(iso), message: message)
+        }
+        return Rule(.after(bound, iso), message: message)
+    }
+
+    /// Inclusive on both ends.
+    public static func between(
+        _ lo: String, _ hi: String, or message: String? = nil
+    ) -> Rule {
+        guard let l = dateBound(lo), let h = dateBound(hi) else {
+            return Rule(.invalidRuleDate(dateBound(lo) == nil ? lo : hi), message: message)
+        }
+        return Rule(.betweenDates(l, h, lo, hi), message: message)
+    }
+
+    @usableFromInline
+    static func dateBound(_ s: String) -> Double? {
+        if case .success(let v) = DateParser.parse(s, as: .iso8601) { return v }
+        if case .success(let v) = DateParser.parse(s, as: .pattern("yyyy-MM-dd")) { return v }
+        return nil
     }
 
     /// Composition: all of these, as one value. What makes `static let companySlug` work.

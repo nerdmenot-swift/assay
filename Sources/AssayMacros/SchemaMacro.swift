@@ -57,6 +57,11 @@ struct SchemaField {
     var transform: (closure: String, wireType: String)?
     /// `@Fallback(expr)`: assigned on absence OR any issue at this field, with a warning.
     var fallback: String?
+    /// `@DateFormat(...)` — the ordered candidate formats, as source expressions
+    /// (`.iso8601`, `.pattern("yyyy-MM-dd")`). Nil means the shared default. The
+    /// expressions are validated by the DateFormat peer macro; here they are re-emitted
+    /// verbatim into a `[Assay.DateFormat]` literal.
+    var dateFormats: [String]?
     /// Whether generated code captures this field's value span (set during expansion:
     /// validated fields, and fields targeted by a field-form @Check).
     var needsSpan: Bool = false
@@ -219,6 +224,7 @@ public struct SchemaMacro: ExtensionMacro {
         }
 
         var body = Self.ruleArrays(activeS)
+        body += Self.dateFormatArrays(activeS)
         body += Self.preprocessArrays(activeS)
         body += Self.transformClosures(activeS)
         if checkDecls.contains(where: { $0.fieldIdentifier == nil }) || !checkDecls.filter(\.isAsync).isEmpty {
@@ -366,6 +372,13 @@ public struct SchemaMacro: ExtensionMacro {
         let transform = Self.transform(from: attrs, context: context)
         let fallback = Self.fallbackExpr(from: attrs)
 
+        var dateFormats: [String]? = nil
+        for attr in attrs where attr.attributeName.trimmedDescription == "DateFormat" {
+            guard let args = attr.arguments?.as(LabeledExprListSyntax.self) else { continue }
+            let exprs = args.map { $0.expression.trimmedDescription }
+            if !exprs.isEmpty { dateFormats = exprs }
+        }
+
         guard let pattern = binding.pattern.as(IdentifierPatternSyntax.self) else {
             return nil
         }
@@ -432,6 +445,7 @@ public struct SchemaMacro: ExtensionMacro {
             validations: validations,
             preprocess: preprocess,
             transform: transform,
-            fallback: fallback)
+            fallback: fallback,
+            dateFormats: dateFormats)
     }
 }

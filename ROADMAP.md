@@ -32,26 +32,39 @@ redesign, and it is being paid for now.
 
 ## 2. `Date`, and `@DateFormat`
 
-**Status: not implemented.** `EXPERIENCE.md` §11.
+**Status: implemented 2026-08-06**, measured at **6.06× over Foundation's `.iso8601`
+strategy** on the `uuids-and-dates` corpus shape (`Benchmarks/RESULTS.md`), with a
+2,279-instant exact differential against Foundation in DiffFuzz.
 
 ```swift
-@DateFormat(.iso8601)      var created: Date    // the default
-@DateFormat(.unixSeconds)  var ts: Date
-@DateFormat(.rfc9110)      var expires: Date    // HTTP dates
-@DateFormat(.pattern("yyyy-MM-dd")) var day: Date
+var created: Date                                  // ISO 8601, the default
+@DateFormat(.unixSeconds)          var ts: Date
+@DateFormat(.rfc9110)              var expires: Date   // all 3 forms RFC 9110 requires
+@DateFormat(.pattern("yyyy-MM-dd")) var day: Date      // checked at compile time
+@DateFormat(.iso8601, .unixMillis) var updated: Date   // candidate chain; fallback warns
 ```
 
-Date fields currently have to be declared `String` and converted by hand. `PERFORMANCE.md` §13.2
-names a hand-written ISO-8601 parser as one of the *unclaimed wins* — Foundation's
-`ISO8601DateFormatter` is roughly two orders of magnitude slower than the arithmetic actually
-required, and the corpus has a `uuids-and-dates` shape sitting there waiting to measure it.
+The blocking question — where the epoch conversion lives, given the core's no-Foundation
+rule — dissolved once the conversion was recognised as *arithmetic*, not calendar lookup:
+Hinnant's days-from-civil is a handful of integer operations, so the parsers live in
+`AssayCore/Dates.swift` and return epoch seconds as `Double`. The macro emits
+`Date(timeIntervalSince1970:)` **into the user's module**, where `var created: Date` had
+already forced a Foundation flavour into scope. No protocol, no retroactive conformance,
+no `AssayFoundation` requirement — and the seam is pinned by a test that decodes into a
+local stub `Date`.
 
-The reason it is not done: `Date` lives in Foundation, and the core deliberately does not import
-Foundation. The clean answer is a `Date` conformance vended by `AssayFoundation` with the parser
-itself in the core operating on a civil-time struct — which is a design decision, not a typing
-exercise, and it deserves the same care the rest got.
+Rules `.before` / `.after` / `.between` ship with it, type-checked at expansion, bounds
+parsed once at rule construction, violations rendered as dates.
 
-**Blocked on:** where the epoch conversion lives, given the core's no-Foundation rule.
+**Still deferred, with reasons:**
+
+- **`.past` / `.future` rules.** They need "now", the core has no clock, and a clock seam
+  is a design decision (injected? ambient? testable how?) that deserves its own pass.
+- **Full UTS-35 patterns** (locale month names, eras). Deliberately excluded from the
+  core forever — `EXPERIENCE.md` §11's ICU-cost argument — and still unbuilt in the
+  Foundation-dependent layer where it would be an opt-in.
+- **Date *encoding***, with the rest of encoding (§1). `@DateFormat` placement data is
+  preserved for it.
 
 ---
 

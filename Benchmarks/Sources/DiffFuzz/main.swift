@@ -26,6 +26,7 @@ import Assay
 import AssayCore
 import AssayYAML
 import AssayXML
+import CorpusRender
 
 // MARK: - Deterministic RNG (mirrors CorpusGen's)
 
@@ -235,7 +236,101 @@ guard FileManager.default.fileExists(atPath: corpus.path) else {
 }
 
 let checked = try runDifferential(corpus: corpus)
-print("differential: \(checked) corpus files agree with JSONSerialization")
+print("JSON differential: \(checked) corpus files agree with JSONSerialization")
+
+// ---- YAML and XML oracles ----
+//
+// Reporting shape, for all three: agreements are a count, disagreements are named
+// individually with the first divergence located. A summary line that says "3 failures"
+// and makes you go looking is a summary line that gets ignored.
+
+func report(_ title: String, _ oracle: String,
+            agreed: Int, bothRejected: Int,
+            assayOnly: [String], oracleOnly: [String],
+            disagreed: [(name: String, detail: String)]) {
+    print("")
+    print("\(title) (oracle: \(oracle))")
+    print("  agreed: \(agreed)   both rejected: \(bothRejected)")
+
+    if !assayOnly.isEmpty {
+        // Assay stricter. Not automatically a failure — it refuses XXE by construction,
+        // and it implements a documented subset — so this is reported and not fatal.
+        print("  Assay rejected, oracle accepted (\(assayOnly.count)): "
+              + assayOnly.prefix(12).joined(separator: ", ")
+              + (assayOnly.count > 12 ? ", ..." : ""))
+    }
+    if !oracleOnly.isEmpty {
+        // The dangerous direction: Assay invented structure for input the oracle refused.
+        print("  ** Assay ACCEPTED, oracle rejected (\(oracleOnly.count)): "
+              + oracleOnly.prefix(12).joined(separator: ", ")
+              + (oracleOnly.count > 12 ? ", ..." : ""))
+        for n in oracleOnly { fail("\(title): Assay accepted \(n), \(oracle) rejected it") }
+    }
+    for d in disagreed {
+        fail("\(title): \(d.name) — \(d.detail)")
+    }
+}
+
+// 1. YAML against libyaml, hand-written feature cases.
+let yamsHand = runYAMLDifferential(handWrittenYAML, oracleName: "Yams")
+report("YAML hand-written", "Yams/libyaml",
+       agreed: yamsHand.agreed, bothRejected: yamsHand.bothRejected,
+       assayOnly: yamsHand.assayOnlyRejected, oracleOnly: yamsHand.oracleOnlyRejected,
+       disagreed: yamsHand.disagreed)
+
+// 2. YAML against libyaml, generated volume from the JSON corpus.
+var generatedYAML: [(name: String, text: String)] = []
+var jsonFiles: [(name: String, data: Data)] = []
+if let all = try? FileManager.default.contentsOfDirectory(
+    at: corpus, includingPropertiesForKeys: nil) {
+    for url in all.sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
+    where url.pathExtension == "json" && !url.lastPathComponent.hasPrefix("neg-") {
+        guard let data = try? Data(contentsOf: url) else { continue }
+        jsonFiles.append((url.lastPathComponent, data))
+        guard let value = try? JSON.Value.parse([UInt8](data)) else { continue }
+        let rendered = renderYAML(RawValue(value))
+        // A top-level scalar renders bare; mappings and sequences render with a leading
+        // newline, which is legal YAML on its own.
+        generatedYAML.append((url.lastPathComponent, rendered.hasPrefix("\n")
+                              ? String(rendered.dropFirst()) : rendered))
+    }
+}
+let yamsGen = runYAMLDifferential(generatedYAML, oracleName: "Yams")
+report("YAML generated (\(generatedYAML.count) documents)", "Yams/libyaml",
+       agreed: yamsGen.agreed, bothRejected: yamsGen.bothRejected,
+       assayOnly: yamsGen.assayOnlyRejected, oracleOnly: yamsGen.oracleOnlyRejected,
+       disagreed: yamsGen.disagreed)
+
+// 3. YAML against JSON — YAML 1.2 defines JSON as a strict subset, so the whole JSON
+//    corpus is a YAML corpus and JSONSerialization is a second, independent oracle.
+let jsonAsYaml = runJSONAsYAML(jsonFiles)
+report("JSON-as-YAML (\(jsonFiles.count) files)", "JSONSerialization",
+       agreed: jsonAsYaml.agreed, bothRejected: jsonAsYaml.bothRejected,
+       assayOnly: jsonAsYaml.assayOnlyRejected, oracleOnly: jsonAsYaml.oracleOnlyRejected,
+       disagreed: jsonAsYaml.disagreed)
+
+// 4. XML against Foundation, hand-written feature cases.
+let xmlHand = runXMLDifferential(handWrittenXML)
+report("XML hand-written", "Foundation XMLParser",
+       agreed: xmlHand.agreed, bothRejected: xmlHand.bothRejected,
+       assayOnly: xmlHand.assayOnlyRejected, oracleOnly: xmlHand.foundationOnlyRejected,
+       disagreed: xmlHand.disagreed)
+
+// 5. XML against Foundation, generated volume.
+var generatedXML: [(name: String, text: String)] = []
+for (name, data) in jsonFiles {
+    guard let value = try? JSON.Value.parse([UInt8](data)) else { continue }
+    generatedXML.append((name, renderXML(RawValue(value))))
+}
+let xmlGen = runXMLDifferential(generatedXML)
+report("XML generated (\(generatedXML.count) documents)", "Foundation XMLParser",
+       agreed: xmlGen.agreed, bothRejected: xmlGen.bothRejected,
+       assayOnly: xmlGen.assayOnlyRejected, oracleOnly: xmlGen.foundationOnlyRejected,
+       disagreed: xmlGen.disagreed)
+print("")
+
+let dateChecks = runDateDifferential()
+print("date differential: \(dateChecks) instants agree with Foundation exactly")
 
 let iterations = try runFuzz(corpus: corpus)
 print("fuzz: \(iterations) mutated/truncated inputs, no crashes, no hangs")

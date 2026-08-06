@@ -337,13 +337,36 @@ extension SchemaMacro {
 
         if let element = arrayElement(base) {
             return arrayDecode(element: element, index: i, key: key,
-                               optional: f.isOptional, pad: pad)
+                               optional: f.isOptional, pad: pad,
+                               dateFormatsRef: dateFormatsRef(f, i))
         }
 
         // Fields carrying @Validate capture their value's span right after the decode,
         // while the cursor still sits just past it — that is what puts a caret under a
         // failing value rather than only under a malformed one.
         let spanCapture = f.needsSpan ? "\n\(pad)__sp\(i) = reader.lastValueSpan" : ""
+
+        // Date. The runtime returns epoch seconds; `Date(timeIntervalSince1970:)`
+        // resolves in the USER's module, where `var x: Date` already required a
+        // Foundation flavour to be imported — the seam that keeps the core
+        // Foundation-free (Sources/AssayCore/Dates.swift's header).
+        if isDateType(base) {
+            let formats = dateFormatsRef(f, i)
+            let wrap = ".map { \(base)(timeIntervalSince1970: $0) }"
+            if f.fallback != nil {
+                return """
+                \(pad)let __fck\(i) = sink.checkpoint()
+                \(pad)__f\(i) = reader.decodeDate(&sink, path, "\(key)", \(formats))\(wrap)\(spanCapture)
+                \(pad)if __f\(i) == nil { sink.rollback(to: __fck\(i)) }
+                """
+            }
+            if f.isOptional {
+                return "\(pad)if let __r = reader.decodeDateOrNull(&sink, path, \"\(key)\", \(formats)) { __f\(i) = __r\(wrap) }"
+                    + spanCapture
+            }
+            return "\(pad)__f\(i) = reader.decodeDate(&sink, path, \"\(key)\", \(formats))\(wrap)"
+                + spanCapture
+        }
 
         if f.fallback != nil, let call = scalarCall(base, key: key, coerce: f.coerce) {
             // On any decode issue: roll the issues back and leave the local nil, so the
@@ -391,20 +414,24 @@ extension SchemaMacro {
     /// variables, so nesting does not collide on `__arr`/`__e`.
     static func arrayDecode(element: String, index i: Int, key: String,
                             optional: Bool, pad: String,
-                            slot: String? = nil, depth: Int = 0) -> String {
+                            slot: String? = nil, depth: Int = 0,
+                            dateFormatsRef: String = "Assay.DateFormat.defaultFormats") -> String {
         let target = slot ?? "__f\(i)"
         let arr = "__arr\(i)_\(depth)"
         let elt = "__e\(i)_\(depth)"
 
         let inner: String
-        if let call = scalarCall(element, key: key) {
+        if isDateType(element) {
+            inner = "\(pad)        guard let \(elt) = reader.decodeDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map({ \(element)(timeIntervalSince1970: $0) }) else { break }\n"
+        } else if let call = scalarCall(element, key: key) {
             inner = "\(pad)        guard let \(elt) = reader.\(call) else { break }\n"
         } else if let sub = arrayElement(element) {
             // Nested array. Decode into a local, then append it.
             inner = """
             \(pad)        var \(elt): [\(sub)]? = nil
             \(arrayDecode(element: sub, index: i, key: key, optional: false,
-                          pad: pad + "        ", slot: elt, depth: depth + 1))
+                          pad: pad + "        ", slot: elt, depth: depth + 1,
+                          dateFormatsRef: dateFormatsRef))
             \(pad)        guard let \(elt) = \(elt) else { break }
 
             """
@@ -464,6 +491,34 @@ extension SchemaMacro {
         default:        return nil
         }
         return "\(base)\(suffix)(&sink, path, \"\(key)\")"
+    }
+
+    /// Both spellings a user can reasonably write. The generated wrap uses the SAME
+    /// spelling as the annotation, so whatever resolved there resolves in the expansion.
+    static func isDateType(_ t: String) -> Bool {
+        t == "Date" || t == "Foundation.Date"
+    }
+
+    /// The formats expression a date field's decode passes: the shared default when no
+    /// `@DateFormat` was written, a per-field static when one was.
+    static func dateFormatsRef(_ f: SchemaField, _ i: Int) -> String {
+        f.dateFormats == nil ? "Assay.DateFormat.defaultFormats" : "Self.__assayDateFormats_\(i)"
+    }
+
+    /// The per-field candidate arrays, one `static let` each — swift_once-protected,
+    /// allocated once, borrowed per decode. Emitted only for fields that wrote
+    /// `@DateFormat`; the bare-`Date` majority shares `DateFormat.defaultFormats`.
+    static func dateFormatArrays(_ fields: [SchemaField]) -> String {
+        var out = ""
+        for (i, f) in fields.enumerated() where f.dateFormats != nil {
+            let exprs = f.dateFormats!.joined(separator: ", ")
+            out += """
+            nonisolated static let __assayDateFormats_\(i): [Assay.DateFormat] = [\(exprs)]
+
+
+            """
+        }
+        return out
     }
 
     static func stripOptional(_ t: String) -> String {

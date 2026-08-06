@@ -51,9 +51,11 @@ enum RuleTypeCheck {
     static let polymorphic: Set<String> = ["min", "max"]
     /// String or Array.
     static let emptiness: Set<String> = ["notEmpty"]
+    /// Dates. `.past`/`.future` are absent until the core grows a clock seam.
+    static let dateOnly: Set<String> = ["before", "after", "between"]
 
     enum FieldCategory {
-        case string, integer, floating, array(element: String), bool, other(String)
+        case string, integer, floating, array(element: String), bool, date, other(String)
 
         init(_ baseType: String) {
             switch baseType {
@@ -61,6 +63,7 @@ enum RuleTypeCheck {
             case "Int", "Int64", "Int32", "UInt": self = .integer
             case "Double", "Float": self = .floating
             case "Bool": self = .bool
+            case "Date", "Foundation.Date": self = .date
             default:
                 if baseType.hasPrefix("["), baseType.hasSuffix("]"),
                    !baseType.contains(":") {
@@ -77,6 +80,7 @@ enum RuleTypeCheck {
             case .integer, .floating: return "a number"
             case .array: return "an Array"
             case .bool: return "Bool"
+            case .date: return "Date"
             case .other(let t): return t
             }
         }
@@ -84,6 +88,8 @@ enum RuleTypeCheck {
 
     /// Nil when the rule applies; otherwise the category name it wanted.
     static func expectedCategory(rule: String, on category: FieldCategory) -> String? {
+        if dateOnly.contains(rule), case .date = category { return nil }
+        if dateOnly.contains(rule) { return "Date" }
         switch category {
         case .string:
             if stringOnly.contains(rule) || polymorphic.contains(rule)
@@ -99,6 +105,12 @@ enum RuleTypeCheck {
                 || emptiness.contains(rule) { return nil }
             if stringOnly.contains(rule) { return "String" }
             if numberOnly.contains(rule) { return "a number" }
+        case .date:
+            // Every non-date rule the macro can name is wrong on a Date; opaque
+            // compositions pass through, same as everywhere else.
+            if stringOnly.contains(rule) { return "String" }
+            if numberOnly.contains(rule) || polymorphic.contains(rule) { return "a number" }
+            if arrayOnly.contains(rule) || emptiness.contains(rule) { return "an Array" }
         case .bool, .other:
             if stringOnly.contains(rule) { return "String" }
             if numberOnly.contains(rule) { return "a number" }
@@ -293,6 +305,8 @@ extension SchemaMacro {
         case "Int", "Int32", "Int64": return base == "Int64" ? v : "Int64(\(v))"
         case "UInt": return "UInt64(\(v))"
         case "Float": return "Double(\(v))"
+        // Date rules compare epoch seconds; the property resolves in the user's module.
+        case "Date", "Foundation.Date": return "\(v).timeIntervalSince1970"
         default:
             // Any other array: the count-only generic overload. Non-collection custom
             // types with known rules were already diagnosed away.

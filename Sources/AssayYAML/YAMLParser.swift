@@ -115,12 +115,34 @@ extension YAML {
     struct Parser {
         let limits: Limits
         var anchors: [String: Node] = [:]
+        /// How many nodes each anchor expands to, so an alias can be charged its
+        /// EXPANDED size rather than one unit. Without this the budget below does not
+        /// bound anything: `Node` is a value type, so an alias shares storage and the
+        /// parsed result is a cheap DAG — but every consumer that walks it (the
+        /// `RawValue` projection every schema decode goes through, most of all)
+        /// materialises the DAG into a tree, exponentially. 331 bytes reached 11.4
+        /// million nodes with zero issues reported before this existed.
+        var anchorCost: [String: Int] = [:]
         /// Bounds total alias expansion. Depth alone does not stop billion-laughs.
         var nodeBudget: Int
 
         init(limits: Limits) {
             self.limits = limits
             self.nodeBudget = min(limits.maxBytes / 8, 1 << 20)
+        }
+
+        /// Spend `n` units of the expansion budget. The single place the budget is
+        /// charged, because it previously was not: `parseFlowNode` had its own alias
+        /// arm that charged nothing, so every bound below applied to block style only.
+        mutating func chargeNode(
+            _ n: Int, r: inout AssayReader, sink: inout IssueSink
+        ) -> Bool {
+            nodeBudget -= n
+            guard nodeBudget > 0 else {
+                r.report(&sink, .custom("yaml_expansion_limit"))
+                return false
+            }
+            return true
         }
 
         // MARK: Stream
@@ -177,11 +199,10 @@ extension YAML {
                 r.report(&sink, .depthExceeded, params: ["maxDepth": .int(limits.maxDepth)])
                 return nil
             }
-            nodeBudget -= 1
-            guard nodeBudget > 0 else {
-                r.report(&sink, .custom("yaml_expansion_limit"))
-                return nil
-            }
+            // Captured before the charge so an anchored node's cost is everything its
+            // subtree consumed, including nested aliases at their own expanded cost.
+            let budgetAtEntry = nodeBudget
+            guard chargeNode(1, r: &r, sink: &sink) else { return nil }
 
             skipBlanksAndComments(&r)
 
@@ -207,13 +228,14 @@ extension YAML {
                 break
             }
 
-            // Alias.
+            // Alias. Charged its expanded size — see `anchorCost`.
             if r.currentByte == UInt8(ascii: "*") {
                 r.advanceBy(1)
                 guard let name = scanToken(&r), let target = anchors[name] else {
                     r.report(&sink, .custom("yaml_undefined_alias"))
                     return nil
                 }
+                guard chargeNode(anchorCost[name] ?? 1, r: &r, sink: &sink) else { return nil }
                 return target
             }
 
@@ -245,7 +267,10 @@ extension YAML {
                 s.tag = tag ?? s.tag
                 result = .scalar(s)
             }
-            if let a = anchor { anchors[a] = result }
+            if let a = anchor {
+                anchors[a] = result
+                anchorCost[a] = max(1, budgetAtEntry - nodeBudget)
+            }
             return result
         }
 
@@ -582,12 +607,17 @@ extension YAML {
             _ r: inout AssayReader, _ sink: inout IssueSink, depth: Int
         ) -> Node? {
             skipBlanksAndComments(&r)
+            // Flow nodes are charged too: this path does not go through parseNode, so
+            // without it a flow-heavy document is unbounded and — worse — the alias arm
+            // below was free.
+            guard chargeNode(1, r: &r, sink: &sink) else { return nil }
             if r.currentByte == UInt8(ascii: "*") {
                 r.advanceBy(1)
                 guard let name = scanToken(&r), let target = anchors[name] else {
                     r.report(&sink, .custom("yaml_undefined_alias"))
                     return nil
                 }
+                guard chargeNode(anchorCost[name] ?? 1, r: &r, sink: &sink) else { return nil }
                 return target
             }
             if r.currentByte == UInt8(ascii: "[") {

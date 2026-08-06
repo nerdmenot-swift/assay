@@ -78,6 +78,15 @@ public enum Renderer {
         }
     }
 
+    /// The deepest byte offset any issue or warning will report, which is as far as a
+    /// line index needs to reach.
+    static func renderHorizon(_ issues: [Issue], _ warnings: [Warning]) -> Int {
+        var h = 0
+        for i in issues { if let l = i.location { h = max(h, Int(l.lo) + Int(l.len)) } }
+        for w in warnings { if let l = w.location { h = max(h, Int(l.lo) + Int(l.len)) } }
+        return h
+    }
+
     // MARK: - Terminal / plain
 
     static func caretRender(
@@ -90,9 +99,13 @@ public enum Renderer {
         let yellow = color ? "\u{1B}[33m" : ""
         let reset = color ? "\u{1B}[0m" : ""
 
-        // One line-index build per render, shared by every issue.
+        // One line-index build per render, shared by every issue — and bounded to the
+        // deepest offset any of them reports, so rendering a caret from a mapped file
+        // does not index the whole file. See LineIndex.init(_:_:indexingThrough:).
+        let horizon = renderHorizon(issues, warnings)
         let index = source.count > 0 ? source.withUnsafeBytes { buf in
-            unsafe LineIndex(buf.baseAddress!.assumingMemoryBound(to: UInt8.self), buf.count)
+            unsafe LineIndex(buf.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                             buf.count, indexingThrough: horizon)
         } : nil
 
         // Ordered by position; location-less issues keep collection order at the end.
@@ -204,8 +217,10 @@ public enum Renderer {
         _ issues: [Issue], _ warnings: [Warning],
         _ source: SourceBytes, _ sourceName: String
     ) -> String {
+        let horizon = renderHorizon(issues, warnings)
         let index = source.count > 0 ? source.withUnsafeBytes { buf in
-            unsafe LineIndex(buf.baseAddress!.assumingMemoryBound(to: UInt8.self), buf.count)
+            unsafe LineIndex(buf.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                             buf.count, indexingThrough: horizon)
         } : nil
 
         var out = "{"

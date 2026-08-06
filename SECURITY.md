@@ -9,8 +9,12 @@ configurational, and it is testable:
   This is also why `parse(_:contentType:accepting:)` makes `accepting:` a required
   parameter: a server must opt in to parsing XML at all.
 - **Entity-expansion and alias-expansion bombs are capped by budget**, not by depth alone
-  — billion-laughs is flat. YAML alias expansion has a total-node budget for the same
-  reason.
+  — billion-laughs is flat. YAML alias expansion has a total-node budget, and an alias is
+  charged the size of the subtree it expands to rather than one unit: `Node` is a value
+  type, so an unbudgeted alias graph is a cheap DAG at parse time that explodes into a
+  tree in whatever walks it. (A pre-release audit found exactly that hole — 331 bytes
+  reaching 11.4 million nodes with no issue reported — and it is pinned by
+  `Tests/AssayTests/AuditRegressionTests.swift`.)
 - **Resource limits are first-class**: `Limits(maxIssues:maxDepth:maxBytes:)` bounds
   every parse; depth is checked on entry to every container.
 - **Every parser is differentially tested** against an independent implementation
@@ -18,6 +22,23 @@ configurational, and it is testable:
   in CI** — mutations and truncations, with any finding reproducible from a fixed seed.
   The class of bug where a parser silently *mis-reads* valid input is treated as a
   security bug here, because it is how validation gets bypassed.
+
+## Known limitations, stated rather than discovered
+
+- **`@Validate(.regex(...))` inherits Swift's regex engine, which backtracks.** The
+  pattern is yours, but the *input* is the attacker's, so a pattern with catastrophic
+  backtracking is a denial-of-service vector in your schema. Assay does not analyse
+  patterns. Prefer the hand-written validators (`.email`, `.url`, `.uuid`, `.hostname`),
+  which are linear over bytes by construction, and bound string length with `.max` before
+  a regex rule runs.
+- **XML internal entity values are not re-expanded.** `<!ENTITY a "&b;">` yields the
+  literal text `&b;` rather than resolving `b`. That is a deliberate stopping point
+  (it is also what makes the expansion budget trivially sufficient), but it means Assay
+  reads a nested-entity document differently from a fully conforming parser. It is
+  recorded in `ROADMAP.md`.
+- **Decoded values still cost memory proportional to what they retain.** `Limits.maxBytes`
+  bounds the input; nothing bounds the output. A schema that declares `[String: RawValue]`
+  over a large document keeps the document.
 
 ## Reporting a vulnerability
 

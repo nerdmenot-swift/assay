@@ -296,15 +296,41 @@ extension AssayReader {
     public mutating func decodeInt32Coercing(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Int32? {
-        return decodeIntCoercing(&sink, path, key).flatMap { Int32(exactly: $0) }
+        guard let v = decodeIntCoercing(&sink, path, key) else { return nil }
+        guard let n = Int32(exactly: v) else {
+            overflowed(&sink, path, key, v)
+            return nil
+        }
+        return n
     }
 
     @inlinable
     public mutating func decodeUIntCoercing(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> UInt? {
-        beginValue()
-        return decodeIntCoercing(&sink, path, key).flatMap { UInt(exactly: $0) }
+        guard let v = decodeIntCoercing(&sink, path, key) else { return nil }
+        guard let n = UInt(exactly: v) else {
+            overflowed(&sink, path, key, v)
+            return nil
+        }
+        return n
+    }
+
+    /// A value that decoded but does not fit the declared width.
+    ///
+    /// This must report. Returning nil silently made `diagnose` answer `isValid == true`
+    /// with no value, and made `parse` throw an `AssayError` carrying **zero issues** —
+    /// the one outcome this library exists to never produce.
+    @inline(never)
+    @usableFromInline
+    mutating func overflowed(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString, _ value: Int
+    ) {
+        sink.add(Issue(
+            code: .numberOverflow,
+            path: path + [.key(String(describing: key))],
+            received: String(value),
+            location: lastValueSpan))
     }
 
     @inlinable

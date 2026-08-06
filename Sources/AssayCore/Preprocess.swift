@@ -31,14 +31,24 @@ public func _assayPreprocess(_ value: String, _ ops: [PreprocessOp]) -> String {
     for op in ops {
         switch op {
         case .trim:
-            var bytes = Array(v.utf8)
-            while let f = bytes.first, f == 0x20 || f == 0x09 || f == 0x0A || f == 0x0D {
-                bytes.removeFirst()
+            // Index-based, deliberately: `Array.removeFirst()` is O(n) — shifting every
+            // remaining byte — so trimming in a loop was O(n²), and a megabyte of leading
+            // spaces on any @Preprocess(.trim) field hung the decode on input an attacker
+            // controls. One scan from each end, one slice.
+            let bytes = Array(v.utf8)
+            var lo = 0
+            var hi = bytes.count
+            while lo < hi, bytes[lo] == 0x20 || bytes[lo] == 0x09
+                        || bytes[lo] == 0x0A || bytes[lo] == 0x0D {
+                lo &+= 1
             }
-            while let l = bytes.last, l == 0x20 || l == 0x09 || l == 0x0A || l == 0x0D {
-                bytes.removeLast()
+            while hi > lo, bytes[hi - 1] == 0x20 || bytes[hi - 1] == 0x09
+                        || bytes[hi - 1] == 0x0A || bytes[hi - 1] == 0x0D {
+                hi &-= 1
             }
-            v = String(decoding: bytes, as: UTF8.self)
+            v = lo == 0 && hi == bytes.count
+                ? v
+                : String(decoding: bytes[lo..<hi], as: UTF8.self)
         case .lowercase:
             v = String(decoding: v.utf8.map { $0 >= 0x41 && $0 <= 0x5A ? $0 + 32 : $0 },
                        as: UTF8.self)

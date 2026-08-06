@@ -255,6 +255,16 @@ issue cap already covers the memory concern that motivates it.
 
 ---
 
+## Known behavioural gaps found by the pre-release audit
+
+| gap | state |
+|---|---|
+| **XML internal entities are not re-expanded** | `<!ENTITY a "&b;">` yields the literal `&b;` instead of resolving `b`. The expansion budget charges replacement length and never rescans, which is why the budget is trivially sufficient — but a nested-entity document reads differently from a conforming parser. The differential cannot adjudicate it either: Foundation's SAX mode drops internal entity references entirely. |
+| **Compiled regexes are not cached** | `@Validate(.regex(...))` recompiles the pattern for every value validated, so a rule on an array element pays compilation per element. The rule array is a `static let`; the compiled regex cannot be, because the pattern is a runtime string. A cache needs synchronisation the validation path currently has none of. |
+| **Anchors defined in flow style are not recorded** | `[&a x, *a]` does not resolve — `parseFlowNode` handles aliases but not anchor properties. Block style, which is where anchors are actually written, is unaffected. |
+
+---
+
 ## Verification gaps
 
 Not features, but they are equally part of "done":

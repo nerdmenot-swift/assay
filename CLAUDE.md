@@ -30,9 +30,12 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 | `@Check` / `@AsyncCheck` / `@Preprocess` / `@Transform` / `@Fallback` | **built** |
 | Enum conformances (`RawRepresentable` String/Int, `CaseIterable`) | **built** |
 | Differential + fuzz | **built and gated in CI** — 75 files agree with `JSONSerialization`; 9,680 mutations/run |
+| YAML/XML differential oracles | **built and green** — vs Yams/libyaml and Foundation `XMLParser`; found and fixed 2 real parser bugs (block-sequence dash, XML line-ending normalisation) on first run |
+| YAML/XML benchmarks | **run** — 6.62× node parse vs Yams, 11.36× struct decode vs `YAMLDecoder`, 1.30× XML vs Foundation (asymmetric in Foundation's favour — read `Benchmarks/RESULTS.md` before quoting). The JSON thesis does not transfer; these are tree decoders |
 | Streaming | **out of scope**, decision recorded in `docs/STREAMING.md` |
 | Allocation counts | **measured and gated** — live blocks, not total malloc traffic. Read `Benchmarks/Sources/AssayBench/Allocations.swift`'s three stated limitations before quoting a number |
-| Encoding, `Date`/`@DateFormat`, `@Inline`, `@XML` placement, `Assayer<T>` | **not built** — `ROADMAP.md` |
+| `Date` + `@DateFormat` (ISO-8601, unix, RFC 9110, patterns, candidate chains) + `.before/.after/.between` rules | **built and measured** — 6.06× vs Foundation `.iso8601`, 2,279-instant exact differential. Core stays Foundation-free: parsers return epoch seconds, the macro emits `Date(timeIntervalSince1970:)` into the user's module. `.past`/`.future` deferred (no clock seam) |
+| Encoding, `@Inline`, `@XML` placement, `Assayer<T>` | **not built** — `ROADMAP.md` |
 
 Everything below that is not marked above is still design, not measurement.
 
@@ -261,22 +264,20 @@ x86-64 AVX2 ever matters, C is the only way there.
 
 ## Start here now
 
-The five items that stood here — allocation counts, the rest of the corpus, publishing a
-loss, cold start, Linux/x86-64 — are three done and two open. What remains, in order:
+Since resolved from this list: `Date` and `@DateFormat` (2026-08-06 — built, measured at
+6.06×, differentially verified; `ROADMAP.md` §2 records what remains deferred and why).
+What remains, in order:
 
 1. **Source spans for YAML and XML.** `ROADMAP.md` §12. Syntax errors already carry carets;
    schema issues do not, because the node trees drop byte offsets when they are built. The
    caret is the headline feature and half the formats do not get it where it counts most.
    Highest user-visible value per unit of work on the whole list.
-2. **`Date` and `@DateFormat`.** `ROADMAP.md` §2. Also one of `PERFORMANCE.md` §13.2's
-   unclaimed wins — a hand-written ISO-8601 parser against a `uuids-and-dates` corpus shape
-   that is already generated and waiting.
-3. **Publish a loss.** Assay has been measured against Foundation and never against simdjson,
+2. **Publish a loss.** Assay has been measured against Foundation and never against simdjson,
    yyjson or ZippyJSON. The float-dense arm is where a scalar decoder with no Eisel-Lemire
    should lose, and publishing that is what would make 9.17× credible rather than suspicious.
-4. **Linux and x86-64 numbers.** CI builds and tests there; nothing is benchmarked there.
+3. **Linux and x86-64 numbers.** CI builds and tests there; nothing is benchmarked there.
    Every published ratio is one arm64 Mac and says so.
-5. **Cold start**, where a macro emitting no `CodingKeys` should win structurally.
+4. **Cold start**, where a macro emitting no `CodingKeys` should win structurally.
 
 Two things that are done and worth not redoing: the allocation gate exists (live blocks,
 with its limits documented rather than buried — `.mallocCountTotal` was rejected because

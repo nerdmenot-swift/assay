@@ -239,3 +239,145 @@ swift run -c release CorpusGen
 swift run -c release AssayBench     # falsification arm, full sweep, allocation gate
 swift run -c release DiffFuzz       # differential + fuzz
 ```
+
+---
+
+# YAML and XML, timed for the first time
+
+**2026-08-05.** Same machine, same toolchain, same rules as above (warm, minimum of 5
+rounds, `-O`). Until this run every published Assay number was JSON, and the honest
+sentence was "the YAML and XML parsers are verified correct against independent
+implementations, and nothing whatsoever is known about their speed."
+
+**The JSON thesis does not transfer, and these numbers must not be read through it.**
+The 5–9× JSON ratios come from deleting the `Codable` container boundary at compile
+time. The YAML and XML paths build a node tree and decode structs from `RawValue` — a
+tree walk, not a fused decode — so there is no boundary being deleted and no
+architectural reason to expect JSON-sized margins. These rows exist to catch pathologies
+and to place Assay against what a Swift project would otherwise use.
+
+The corpus is the `apimodel` ladder re-rendered as block-style YAML and as XML by
+`Sources/CorpusRender` — **the same bytes DiffFuzz verifies against libyaml and
+Foundation in the same CI** before this harness ever times them. Every row is gated on
+both sides producing the same shape.
+
+## YAML node parse — `YAML.parse` vs `Yams.compose`
+
+Tree vs tree; neither side resolves scalars. Yams crosses into libyaml (C).
+
+| size | bytes | Yams ns/op | Assay ns/op | ratio |
+|---|---|---|---|---|
+| 512b | 978 | 21,700 | 3,273 | **6.63×** |
+| 2k | 2,631 | 54,517 | 8,220 | **6.63×** |
+| 8k | 9,696 | 196,355 | 29,553 | **6.64×** |
+| 32k | 38,928 | 795,396 | 120,371 | **6.61×** |
+| 64k | 77,504 | 1,591,464 | 241,108 | **6.60×** |
+
+**Mean: 6.62×.** The flatness across sizes says this is throughput, not fixed-overhead
+amortisation. libyaml itself is fast C; what Yams pays is the crossing — every scalar
+comes back through the C event API and materialises as a Swift `String` before a `Node`
+exists. Assay parses the bytes directly into its node model and skips the toll booth.
+
+## YAML struct decode — `T.parse(yaml:)` vs Yams' `YAMLDecoder` (Codable)
+
+The comparison a migrating project would actually make.
+
+| size | bytes | YAMLDecoder ns/op | Assay ns/op | ratio |
+|---|---|---|---|---|
+| 512b | 978 | 54,862 | 4,851 | **11.31×** |
+| 2k | 2,631 | 136,807 | 12,191 | **11.22×** |
+| 8k | 9,696 | 479,897 | 41,650 | **11.52×** |
+| 32k | 38,928 | 1,909,266 | 168,521 | **11.33×** |
+| 64k | 77,504 | 3,817,720 | 335,067 | **11.39×** |
+
+**Mean: 11.36×** — larger than any JSON ratio, and for a reason the JSON section already
+established: `YAMLDecoder` pays the compose cost above *and then* the `Codable` container
+boundary on top. It is the two measured costs stacked, arriving stacked.
+
+## XML tree parse — `XML.parse` vs Foundation `XMLParser` (counting delegate)
+
+| size | bytes | Foundation ns/op | Assay ns/op | ratio |
+|---|---|---|---|---|
+| 512b | 1,084 | 9,626 | 6,266 | **1.54×** |
+| 2k | 2,829 | 20,759 | 15,617 | **1.33×** |
+| 8k | 10,285 | 68,891 | 55,988 | **1.23×** |
+| 32k | 41,173 | 272,657 | 226,388 | **1.20×** |
+| 64k | 81,934 | 541,397 | 445,622 | **1.21×** |
+
+**Mean: 1.30×, and the comparison is asymmetric in Foundation's favour**, stated rather
+than buried: Assay builds and keeps the whole tree — attributes, namespace resolution,
+source structure — while the Foundation side only counts events and sums text bytes,
+strictly less work than any consumer that keeps the document. A parser instance per
+iteration is Foundation's own requirement, not a handicap added here.
+`shouldProcessNamespaces` is left off (cheaper for Foundation; the rendered corpus has no
+namespaces). Read it as "Assay's full tree costs less than Foundation's events alone",
+not as a 1.3× parser claim.
+
+There is no XML struct-decode row because Foundation has no Codable XML decoder to
+compare against; a comparison against third-party XMLCoder would need a new dependency
+and is not owed to any thesis.
+
+## What was NOT measured here
+
+- **Linux, x86-64, cold start** — same as every number in this file: one arm64 Mac, warm.
+- **Scalar resolution** — both YAML rows leave scalars unresolved on both sides by
+  design; a workload that resolves everything immediately pays costs not measured here.
+- **Flow-style YAML, anchors at volume, deep nesting** — the rendered corpus is
+  block-style and anchor-free. The differential covers those shapes for correctness;
+  nothing times them.
+- **Allocation counts** for either format. The gate is JSON-only.
+
+## Reproduce
+
+```sh
+cd Benchmarks
+swift run -c release CorpusGen
+swift run -c release AssayBench     # the YAML/XML tables print after the JSON summary
+```
+
+---
+
+# Dates: the unclaimed win, claimed
+
+**2026-08-06.** `PERFORMANCE.md` §13.2 named a hand-written ISO-8601 parser as an
+unclaimed win and the `uuids-and-dates` corpus shape had been waiting for it since the
+generator was built. `Date` and `@DateFormat` are now implemented (ROADMAP.md §2,
+unblocked by putting Hinnant's days-from-civil arithmetic in the core and letting the
+macro emit `Date(timeIntervalSince1970:)` into the user's module).
+
+## `@Schema [Date]` vs Foundation `JSONDecoder` + `.iso8601` strategy
+
+Documents built from every date string in the `uuids-and-dates` corpus files, so the
+byte distribution is the corpus's. Every epoch is asserted **bit-identical** to
+Foundation's before timing.
+
+| size | dates | Foundation ns/op | Assay ns/op | ratio |
+|---|---|---|---|---|
+| 512b | 8 | 5,284 | 905 | **5.84×** |
+| 2k | 25 | 15,158 | 2,568 | **5.90×** |
+| 8k | 92 | 52,562 | 8,638 | **6.09×** |
+| 32k | 341 | 192,171 | 30,854 | **6.23×** |
+| 64k | 688 | 384,857 | 61,810 | **6.23×** |
+
+**Mean: 6.06×.** Both sides parse the same JSON around the dates, so this understates
+the difference in the date path itself: Assay's is two dozen integer operations
+(Hinnant's algorithm), Foundation's `.iso8601` strategy goes through
+`ISO8601DateFormatter`. The ratio *rising* with size — opposite to the apimodel table —
+is the same effect from the other side: more dates per document means the date path is
+a larger share of the work.
+
+## Correctness, before any of it was timed
+
+- **2,279 instants agree with Foundation exactly** (Double equality, no tolerance) in
+  DiffFuzz's date differential: a prime-stepped sweep of ±68 years formatted by
+  Foundation and reparsed, 1,000 pseudo-random civil dates parsed by both, and the
+  IMF-fixdate sweep against a POSIX-locale `DateFormatter`.
+- Deliberate divergences are pinned as such, in both directions:
+  - Assay **accepts** `:60` leap seconds (real logs contain them; POSIX carry into the
+    next minute). Foundation rejects them.
+  - Foundation **accepts** `2026-02-29`, `2026-04-31` and hour `24` — and silently
+    *rolls them over* to Mar 1, May 1, and the next midnight. Assay rejects all three
+    with the field named. A validating decoder that quietly moves a date to a
+    different day would be the exact bug class this library exists to refuse; the
+    differential fails if Foundation ever becomes strict, so the divergence cannot rot
+    into an accident.

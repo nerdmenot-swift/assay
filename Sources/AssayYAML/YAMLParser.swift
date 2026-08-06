@@ -329,9 +329,20 @@ extension YAML {
                 r.advanceBy(1)
                 skipInlineSpace(&r)
 
-                // An empty entry: "-" alone on a line.
-                if r.currentByte == 0x0A || r.atEnd {
-                    items.append(.scalar(Scalar(content: "")))
+                // "-" alone on a line. The entry's value may still be a nested block
+                // node on the following lines, indented past the dash (YAML 1.2 §8.2.1:
+                // `-` is a block-sequence indicator, not a scalar terminator). Only when
+                // the next content line is not more indented is the entry empty.
+                if r.currentByte == 0x0A || r.currentByte == 0x0D || r.atEnd {
+                    skipBlanksAndComments(&r)
+                    if !r.atEnd, currentColumn(&r) > column {
+                        let itemColumn = currentColumn(&r)
+                        guard let item = parseNode(&r, &sink, indent: itemColumn - 1,
+                                                   depth: depth + 1) else { return nil }
+                        items.append(item)
+                    } else {
+                        items.append(.scalar(Scalar(content: "")))
+                    }
                     continue
                 }
                 let itemColumn = currentColumn(&r)

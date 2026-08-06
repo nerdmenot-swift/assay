@@ -332,6 +332,46 @@ extension XML {
             return nil
         }
 
+        // MARK: Line endings
+
+        /// XML 1.0 §2.11: translate `\r\n` and bare `\r` to `\n` in everything parsed —
+        /// text, CDATA, comments, PI data. Applied BEFORE entity expansion, so a
+        /// character reference `&#13;` survives literally: the spec normalises the
+        /// document's line endings, not the references.
+        func normalizeLineEndings(_ s: String) -> String {
+            guard s.utf8.contains(0x0D) else { return s }
+            var out: [UInt8] = []
+            out.reserveCapacity(s.utf8.count)
+            var previousWasCR = false
+            for b in s.utf8 {
+                if b == 0x0D { out.append(0x0A); previousWasCR = true; continue }
+                if b != 0x0A || !previousWasCR { out.append(b) }
+                previousWasCR = false
+            }
+            return String(decoding: out, as: UTF8.self)
+        }
+
+        /// XML 1.0 §3.3.3: in an attribute value, each literal whitespace character
+        /// becomes a space — with line-ending normalisation applied first, so `\r\n` is
+        /// ONE space, not two. Also before expansion: `&#10;` keeps its newline.
+        func normalizeAttributeWhitespace(_ s: String) -> String {
+            guard s.utf8.contains(where: { $0 == 0x0D || $0 == 0x0A || $0 == 0x09 })
+            else { return s }
+            var out: [UInt8] = []
+            out.reserveCapacity(s.utf8.count)
+            var previousWasCR = false
+            for b in s.utf8 {
+                switch b {
+                case 0x0D: out.append(0x20); previousWasCR = true; continue
+                case 0x0A: if !previousWasCR { out.append(0x20) }
+                case 0x09: out.append(0x20)
+                default:   out.append(b)
+                }
+                previousWasCR = false
+            }
+            return String(decoding: out, as: UTF8.self)
+        }
+
         // MARK: Leaves
 
         mutating func parseComment(
@@ -343,7 +383,7 @@ extension XML {
                 if r.matches("-->") {
                     let text = r.string(from: start, to: r.byteOffset)
                     _ = r.consume("-->")
-                    return .comment(text)
+                    return .comment(normalizeLineEndings(text))
                 }
                 r.advanceBy(1)
             }
@@ -360,7 +400,7 @@ extension XML {
                 if r.matches("]]>") {
                     let text = r.string(from: start, to: r.byteOffset)
                     _ = r.consume("]]>")
-                    return .cdata(text)
+                    return .cdata(normalizeLineEndings(text))
                 }
                 r.advanceBy(1)
             }
@@ -382,7 +422,8 @@ extension XML {
                 if r.matches("?>") {
                     let data = r.string(from: start, to: r.byteOffset)
                     _ = r.consume("?>")
-                    return .processingInstruction(target: target, data: data)
+                    return .processingInstruction(target: target,
+                                                  data: normalizeLineEndings(data))
                 }
                 r.advanceBy(1)
             }
@@ -401,9 +442,11 @@ extension XML {
                 r.advanceBy(1)
             }
             // Fast path: no entity reference means the run is a contiguous byte range and
-            // goes straight into a String with one copy.
-            if !sawEntity { return r.string(from: start, to: r.byteOffset) }
-            return expandEntities(r.string(from: start, to: r.byteOffset), &r, &sink)
+            // goes straight into a String with one copy. Line-ending normalisation is a
+            // no-op copy-free check unless a CR is actually present.
+            let raw = normalizeLineEndings(r.string(from: start, to: r.byteOffset))
+            if !sawEntity { return raw }
+            return expandEntities(raw, &r, &sink)
         }
 
         mutating func parseAttributeValue(
@@ -429,7 +472,7 @@ extension XML {
                 r.report(&sink, .custom("xml_unterminated_attribute"))
                 return nil
             }
-            let raw = r.string(from: start, to: r.byteOffset)
+            let raw = normalizeAttributeWhitespace(r.string(from: start, to: r.byteOffset))
             r.advanceBy(1)
             return sawEntity ? expandEntities(raw, &r, &sink) : raw
         }

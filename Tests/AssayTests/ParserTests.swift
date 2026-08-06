@@ -429,3 +429,60 @@ struct FuzzRegressionTests {
         #expect(items.count == 3)
     }
 }
+
+/// Found by the YAML/XML differential oracles in Benchmarks/DiffFuzz — documents that
+/// libyaml or Foundation's XMLParser read correctly and Assay did not. Each test pins the
+/// fix against the independent implementation's answer, not against Assay's own output.
+@Suite("Differential regressions")
+struct DifferentialRegressionTests {
+
+    @Test("a block-sequence entry may start on the line after its dash")
+    func dashValueOnNextLine() throws {
+        // YAML 1.2 §8.2.1: `-` is an indicator, not a scalar terminator. libyaml reads
+        // this as [{a: 1, b: 2}, [1, 2]]; Assay reported trailingContent.
+        let doc = try YAML.parse(Array("-\n  a: 1\n  b: 2\n-\n  - 1\n  - 2\n".utf8))
+        guard case .sequence(let items) = doc else {
+            Issue.record("expected a sequence"); return
+        }
+        #expect(items.count == 2)
+        #expect(items[0]["a"]?.resolvedInt == 1)
+        #expect(items[0]["b"]?.resolvedInt == 2)
+        guard case .sequence(let inner) = items[1] else {
+            Issue.record("expected a nested sequence"); return
+        }
+        #expect(inner.count == 2)
+    }
+
+    @Test("a dash with nothing more indented after it is still an empty entry")
+    func dashStillEmpty() throws {
+        let doc = try YAML.parse(Array("-\n- x\n".utf8))
+        guard case .sequence(let items) = doc else {
+            Issue.record("expected a sequence"); return
+        }
+        #expect(items.count == 2)
+        #expect(items[0].isNull)
+        #expect(items[1].content == "x")
+    }
+
+    @Test("XML 1.0 §2.11: CRLF and bare CR in character data normalise to LF")
+    func xmlLineEndings() throws {
+        // Foundation reads a\nb\nc; Assay read a\nbc — it deleted the bare CR.
+        let doc = try XML.parse("<r>a\r\nb\rc</r>")
+        #expect(doc.root.text == "a\nb\nc")
+        let cdata = try XML.parse("<r><![CDATA[a\r\nb\rc]]></r>")
+        #expect(cdata.root.text == "a\nb\nc")
+    }
+
+    @Test("XML 1.0 §3.3.3: literal whitespace in attribute values becomes spaces")
+    func xmlAttributeWhitespace() throws {
+        let doc = try XML.parse("<r a=\"x\ny\" b=\"p\r\nq\" c=\"t\tu\"/>")
+        #expect(doc.root[attribute: "a"] == "x y")
+        // \r\n is ONE space: line-ending normalisation runs before attribute-value
+        // normalisation, per the spec's ordering.
+        #expect(doc.root[attribute: "b"] == "p q")
+        #expect(doc.root[attribute: "c"] == "t u")
+        // A character reference is immune to both normalisations.
+        let ref = try XML.parse("<r a=\"x&#10;y\"/>")
+        #expect(ref.root[attribute: "a"] == "x\ny")
+    }
+}

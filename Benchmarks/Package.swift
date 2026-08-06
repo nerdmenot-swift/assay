@@ -15,6 +15,11 @@ let package = Package(
     platforms: [.macOS(.v13)],
     dependencies: [
         .package(path: ".."),
+        // Yams wraps libyaml — the C implementation nearly every YAML tool is built on.
+        // It is an ORACLE, not a component: it exists so Assay's hand-written parser can
+        // be checked against an independent one, and it is confined to this package so
+        // the shipping library's dependency graph stays untouched.
+        .package(url: "https://github.com/jpsim/Yams.git", from: "5.1.0"),
     ],
     targets: [
         // The corpus generator. No dependency on Assay — it must be runnable before the
@@ -23,6 +28,15 @@ let package = Package(
         .executableTarget(
             name: "CorpusGen",
             path: "Sources/CorpusGen",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        // The YAML/XML renderers over the JSON corpus, shared by DiffFuzz and AssayBench
+        // so the documents the oracles verify and the documents the benchmarks time are
+        // the same bytes.
+        .target(
+            name: "CorpusRender",
+            dependencies: [.product(name: "Assay", package: "assay")],
+            path: "Sources/CorpusRender",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         // Differential (vs JSONSerialization) + deterministic fuzz. Lives here rather
@@ -35,13 +49,23 @@ let package = Package(
                 .product(name: "Assay", package: "assay"),
                 .product(name: "AssayYAML", package: "assay"),
                 .product(name: "AssayXML", package: "assay"),
+                .product(name: "Yams", package: "Yams"),
+                "CorpusRender",
             ],
             path: "Sources/DiffFuzz",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .executableTarget(
             name: "AssayBench",
-            dependencies: [.product(name: "Assay", package: "assay")],
+            dependencies: [
+                .product(name: "Assay", package: "assay"),
+                .product(name: "AssayYAML", package: "assay"),
+                .product(name: "AssayXML", package: "assay"),
+                // The BASELINE for the YAML rows, exactly as it is the oracle for the
+                // differential: Yams is what a Swift project would otherwise use.
+                .product(name: "Yams", package: "Yams"),
+                "CorpusRender",
+            ],
             path: "Sources/AssayBench",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),

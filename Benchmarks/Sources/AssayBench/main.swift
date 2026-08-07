@@ -460,6 +460,9 @@ runFormatBenchmarks(corpusDir: corpusDir, sizes: sizes)
 // ---- Dates ----
 runDateBenchmarks(corpusDir: corpusDir, sizes: sizes)
 
+// ---- Where the time goes ----
+runDecompositionBenchmarks(corpusDir: corpusDir, sizes: sizes)
+
 // ---- Dictionaries ----
 runDictionaryBenchmarks(corpusDir: corpusDir, sizes: sizes)
 

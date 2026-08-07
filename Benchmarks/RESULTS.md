@@ -413,3 +413,59 @@ side of the same ledger: it builds its internal `JSONMap`, then the user's dicti
 *and* crosses the `Codable` boundary per entry. Assay pays only the user's map. The
 worst case is a 5.6–8.7× win, and §2.5's caution can be retired with numbers rather
 than argument.
+
+---
+
+# Where decode time actually goes — the gate on phases 4 and 5
+
+**2026-08-08.** `docs/PERFORMANCE.md` §14 makes SIMD (phase 4) and C (phase 5)
+conditional on numbers. This is the number they are conditional on, and it was never
+measured: Amdahl applied honestly, because the most a vectorised UTF-8 validator can win
+is the share of decode time that validator occupies.
+
+| shape | size | decode ns | validate ns | validate share | `JSON.Value` scan share |
+|---|---|---|---|---|---|
+| apimodel | 8k | 9,329 | 492 | **5.3%** | 304% |
+| apimodel | 64k | 77,149 | 3,829 | **5.0%** | 299% |
+| short-strings | 8k | 3,938 | 485 | **12.3%** | 778% |
+| short-strings | 64k | 30,372 | 3,817 | **12.6%** | 786% |
+| long-strings | 8k | 3,664 | 489 | **13.4%** | 314% |
+| long-strings | 64k | 28,112 | 3,814 | **13.6%** | 347% |
+| floats-dense | 8k | 29,086 | 486 | **1.7%** | 446% |
+| floats-dense | 64k | 232,530 | 1,928 | **0.8%** | 450% |
+
+**UTF-8 validation is 8.1% of decode on average and 13.6% at its worst.** So a *perfect*
+vectorised validator — zero cost, not merely faster — improves end-to-end decode by at
+most 13.6% on the friendliest shape and about **5% on the API-shaped payload the
+falsification condition used**. A realistic 4× validator wins ~10% and ~4% respectively.
+
+That is phase 4's headline win, bounded by measurement instead of estimated. It does not
+say SIMD is worthless — it says SIMD is worth single digits on the path that is the
+product, and the decision to spend that effort should be made with the number visible.
+
+The right-hand column is the same architecture claim arriving from the other direction:
+building a `JSON.Value` tree costs **3–8× what decoding straight into a struct costs**,
+over the identical bytes and the identical scanner. Deleting the boundary is where the
+performance is; the boundary was never the parser.
+
+## A hypothesis that was wrong, published because it was wrong
+
+Reading the generated code suggested a real cost: every nested object and every array
+element evaluates `path + [.key(...)]`, allocating a fresh array **on the success path**,
+and the allocation gate cannot see it — those allocations are freed during the decode,
+which is documented limitation #1 of the live-block counter.
+
+Measured by removing the concatenation from the macro and re-running the corpus, the
+difference was **inside run-to-run noise** on every nested shape (`arrays-of-structs`,
+`nested-3-deep`, `mixed`). The allocation is real; its cost is not detectable against the
+string construction it sits next to. The hack was reverted. Recorded here so nobody
+"optimises" it later on the strength of the same plausible reasoning.
+
+## Leak and race verification
+
+- `leaks --atExit` over both harnesses: **0 leaks, 0 leaked bytes** — including the
+  benchmark run's 157 million allocations, which exercises `MappedFile`'s `munmap`
+  `deinit` and the class-backed `AssayError` storage.
+- AddressSanitizer and ThreadSanitizer: clean over the full suite.
+- 400 concurrent decodes across JSON/YAML/XML plus both renderers, and 300 concurrent
+  date parses over the shared tables: clean under ThreadSanitizer.

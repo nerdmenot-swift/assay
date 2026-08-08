@@ -460,6 +460,9 @@ runFormatBenchmarks(corpusDir: corpusDir, sizes: sizes)
 // ---- Dates ----
 runDateBenchmarks(corpusDir: corpusDir, sizes: sizes)
 
+// ---- The SIMD-tier baseline ----
+runSIMDBaselineBenchmarks(corpusDir: corpusDir, sizes: sizes)
+
 // ---- Where the time goes ----
 runDecompositionBenchmarks(corpusDir: corpusDir, sizes: sizes)
 

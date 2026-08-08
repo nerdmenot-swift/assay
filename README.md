@@ -297,12 +297,33 @@ three limitations are documented at the top of
 `Benchmarks/Sources/AssayBench/Allocations.swift` rather than hidden — read them before quoting
 a number from it.
 
+### Where Assay loses, measured and published
+
+Against **yyjson** — hand-tuned C, built `-O3`, values asserted equal first, teardown inside
+both timed regions:
+
+| comparison | result |
+|---|---|
+| `@Schema` decode vs yyjson parse **+ extracting the same Swift structs** | **0.65×** — C is ~1.5× faster |
+| float-dense, same comparison (the arm predicted to lose) | **0.78×** — C is ~1.3× faster |
+| `JSON.Value` vs `yyjson_read` (DOM vs DOM) | **0.06×** — C is ~16× faster |
+
+The DOM row is the one to read carefully: yyjson builds a tape in one arena with strings
+pointing into it, while `JSON.Value` is a Swift enum tree of individually ARC-managed `String`s.
+That is a representation difference, and it is why **`JSON.Value` is not the fast path and is
+never presented as one** — it exists so `@Extras` and "I don't know this shape" have somewhere
+to land.
+
+Assay sits between Foundation and C, closer to C, and behind it. Both numbers are true at once,
+and the Foundation ones remain the relevant comparison for the audience: nobody migrating off
+`JSONDecoder` gets yyjson's number without hand-writing the extraction and giving up typed
+errors, source spans, validation, and every format but JSON.
+
 ### What is *not* claimed
 
-- Not "the fastest JSON decoder." Unqualified, unprovable, and false on some axis.
-- Not compared against a SIMD decoder. Beating Foundation on float-dense input says nothing
-  about simdjson or yyjson, which carry Eisel-Lemire. That comparison is owed, and it is where a
-  loss is genuinely expected.
+- Not "the fastest JSON decoder." Unqualified, unprovable, and false on the axis above.
+- The baseline above is **yyjson, not simdjson** — simdjson is C++ and would need an interop
+  shim. Read it as "a SIMD-tier C parser", not as a simdjson number.
 - Every number above is one arm64 macOS machine, warm, minimum of five rounds. None of them is a
   claim about another platform.
 - Multi-megabyte documents are outside the target band and unmeasured.

@@ -22,3 +22,14 @@ The Assay library itself has one dependency:
 
 It is a build-time dependency of the AssayMacros plugin. It is not linked into a
 client binary, and no other package is depended on by any shipped product.
+
+--------------------------------------------------------------------------------
+
+yyjson (https://github.com/ibireme/yyjson)
+  Copyright (c) 2020 YaoYuan
+  Licensed under the MIT License
+
+Vendored at Benchmarks/Sources/CYYJSON as a BENCHMARK BASELINE only. It is not a
+dependency of any shipped product, is not linked into a client binary, and no
+Assay source file imports it. It exists so the comparison against a SIMD-tier C
+parser in Benchmarks/RESULTS.md can be reproduced.

@@ -30,6 +30,19 @@ let package = Package(
             path: "Sources/CorpusGen",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        // yyjson (MIT, ibireme/yyjson) — vendored into the BENCHMARK package only, never
+        // the library. It is the fastest general-purpose C DOM parser and one of the two
+        // baselines docs/PERFORMANCE.md names as owed. -O3 and the assertion/UTF-8
+        // switches match how yyjson's own benchmarks build it, so the comparison is
+        // against its intended configuration rather than a hobbled one.
+        .target(
+            name: "CYYJSON",
+            path: "Sources/CYYJSON",
+            cSettings: [
+                .unsafeFlags(["-O3"]),
+                .define("YYJSON_DISABLE_NON_STANDARD", to: "1"),
+            ]
+        ),
         // The YAML/XML renderers over the JSON corpus, shared by DiffFuzz and AssayBench
         // so the documents the oracles verify and the documents the benchmarks time are
         // the same bytes.
@@ -65,6 +78,7 @@ let package = Package(
                 // differential: Yams is what a Swift project would otherwise use.
                 .product(name: "Yams", package: "Yams"),
                 "CorpusRender",
+                "CYYJSON",
             ],
             path: "Sources/AssayBench",
             swiftSettings: [.swiftLanguageMode(.v6)]

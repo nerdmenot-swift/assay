@@ -469,3 +469,105 @@ string construction it sits next to. The hack was reverted. Recorded here so nob
 - AddressSanitizer and ThreadSanitizer: clean over the full suite.
 - 400 concurrent decodes across JSON/YAML/XML plus both renderers, and 300 concurrent
   date parses over the shared tables: clean under ThreadSanitizer.
+
+---
+
+# The owed loss: Assay against yyjson
+
+**2026-08-08.** Every ratio published before this one was against Foundation.
+`docs/PERFORMANCE.md` has said from the beginning that a comparison against a SIMD-tier C
+parser was owed, and that the float-dense arm is where a scalar Swift decoder with no
+Eisel-Lemire *should lose*. Here it is. Assay loses all three arms, by between 1.3× and
+16×, and the numbers are published because they were predicted.
+
+Baseline: **yyjson** (MIT, `ibireme/yyjson`), vendored into the benchmark package only —
+never the library — and built the way its own benchmarks build it: `-O3`, non-standard
+extensions off, default read flags. It is hand-tuned C with a bespoke float parser, and
+on DOM parsing it trades places with simdjson.
+
+*This is yyjson, not simdjson.* simdjson is C++ and would need an interop shim; the claim
+here is "a SIMD-tier C parser", and it should not be read as a simdjson number.
+
+## Fairness, arranged against Assay on purpose
+
+- yyjson's document is **freed inside the timed region**, because Assay's ARC teardown is
+  inside its own.
+- **Not** yyjson's in-situ mode, which is faster but mutates the input buffer. Assay does
+  not mutate its input, so in-situ would not be the same promise — but it means the
+  baseline is running with one hand behind its back, and a reader should know that.
+- The use-case arm makes yyjson build **real Swift `String`s and `Array`s**, because that
+  is the cost Assay pays and hiding it would flatter Assay. Note this cuts slightly the
+  other way too: `String(cString:)` re-validates UTF-8 that yyjson already checked, a cost
+  Assay's whole-buffer validation lets it skip.
+- Every value is asserted **equal, recursively, key for key in document order** before
+  anything is timed — which makes this a third independent differential as well as a
+  benchmark. The corpus already agreed with `JSONSerialization`; it now agrees with
+  hand-tuned C.
+
+## DOM vs DOM — `JSON.Value.parse` vs `yyjson_read`
+
+| shape | size | yyjson ns | Assay ns | ratio |
+|---|---|---|---|---|
+| apimodel | 8k | 1,572 | 28,690 | **0.05×** |
+| apimodel | 64k | 14,361 | 232,392 | **0.06×** |
+| floats-dense | 64k | 50,224 | 1,038,706 | **0.05×** |
+| short-strings | 64k | 20,462 | 237,103 | **0.09×** |
+| arrays-of-structs | 64k | 20,777 | 403,432 | **0.05×** |
+
+**Mean 0.06× — yyjson is roughly 16× faster.** This is the honest scanner-against-scanner
+number and it is not close.
+
+It is also not purely a scanner comparison, and saying so is not an excuse — it is what
+the number means. yyjson builds a tape in one arena and its strings point into it.
+Assay's `JSON.Value` is a Swift enum tree: every string is an individually ARC-managed
+`String`, every object an `[Member]` array. That representational difference is most of
+16×, and it is a *design* difference rather than a parsing one. The lesson to take is the
+one already in this file from the other direction: **`JSON.Value` is not the fast path and
+should never be presented as one.** It exists so `@Extras` and "I don't know this shape"
+have somewhere to land.
+
+## Use case — `@Schema` decode vs yyjson parse *plus extraction*
+
+A DOM you must then walk is not a decoded value. This arm makes yyjson do the whole job.
+
+| size | yyjson ns | Assay ns | ratio |
+|---|---|---|---|
+| 512b | 623 | 1,014 | **0.61×** |
+| 2k | 1,584 | 2,616 | **0.61×** |
+| 8k | 5,731 | 9,073 | **0.63×** |
+| 32k | 25,414 | 36,873 | **0.69×** |
+| 64k | 52,020 | 74,142 | **0.70×** |
+
+**Mean 0.65× — hand-tuned C is about 1.5× faster.** That is the number to put next to
+"5.53× Foundation", and both are true: Assay sits between Foundation and C, closer to C
+than to Foundation, and it is *behind* C.
+
+## float-dense — the arm that was predicted to lose
+
+| size | yyjson ns | Assay ns | ratio |
+|---|---|---|---|
+| 512b | 1,359 | 1,810 | **0.75×** |
+| 8k | 22,356 | 28,738 | **0.78×** |
+| 64k | 183,062 | 230,157 | **0.80×** |
+
+**Mean 0.78× — yyjson is 1.28× faster**, and the gap *narrows* as documents grow.
+
+The prediction was right and the margin is smaller than feared. `PERFORMANCE.md` §6
+declined to hand-roll Eisel-Lemire on the grounds that the bounded Clinger fast path
+covers essentially all real numeric JSON and that reimplementing Eisel-Lemire for single
+digits of improvement was not phase-1 work. At 1.28× behind a parser that *does* carry a
+bespoke float algorithm, that call holds up: the remaining gap on the most float-dense
+shape in the corpus is smaller than the gap on ordinary API payloads.
+
+## What this changes
+
+- The honesty rules already forbade claiming "fastest JSON decoder". This is the
+  measurement that makes that restraint concrete rather than modest.
+- **The 5–9× Foundation numbers are unaffected and remain the relevant comparison for the
+  audience**, which is Swift programs currently using `Codable`. Nobody migrating from
+  `JSONDecoder` gets yyjson's number without also writing the extraction by hand and
+  giving up typed errors, source spans, validation and every format but JSON.
+- It closes `ROADMAP.md`'s "SIMD decoder comparison" verification gap, and it re-frames
+  phase 4: the earlier decomposition bounded a vectorised validator's win at ~5% on this
+  shape, and this arm shows the true gap to C is ~1.5×. Vectorising validation does not
+  close it. Whatever does, it is not that.

@@ -18,6 +18,16 @@ first step for any non-trivial change is reading the documents the change touche
   oracles plus the fuzzer. If you fixed a parser bug, add the case that found it.
 - **Every new issue code needs a message.** The message-coverage suite fails on a
   code that renders as its own identifier.
+- **Anything that turns input into output needs an amplification case.**
+  `Tests/AssayTests/AmplificationTests.swift` bounds how much output a small input may
+  buy. It exists because a YAML alias bomb — 331 bytes reaching 11.4 million nodes with
+  no issue reported — survived 250 tests, a differential per format, and the fuzzer:
+  fuzzing proves no crash, differentials prove two parsers agree, and neither asks what a
+  cheap input *costs*. If you add expansion, aliasing, references, repetition, or any
+  construct where one token can produce many values, add a case there. Assert on
+  deterministic quantities (nodes, bytes, issues), never on wall clock — the few
+  time-based ceilings in that file are blowup detectors for quadratic paths, sized
+  absurdly loose on purpose, and must not be tightened into performance gates.
 - **Performance claims need numbers from the harness**, on stated hardware, with the
   caveats attached. The honesty rules in `CLAUDE.md` are not aspirational; "faster"
   without a table does not merge. Wall clock is never gated in CI — allocation counts

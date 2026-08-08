@@ -17,6 +17,11 @@ configurational, and it is testable:
   `Tests/AssayTests/AuditRegressionTests.swift`.)
 - **Resource limits are first-class**: `Limits(maxIssues:maxDepth:maxBytes:)` bounds
   every parse; depth is checked on entry to every container.
+- **Amplification is gated in CI.** `Tests/AssayTests/AmplificationTests.swift` bounds
+  how much output a small input may buy — nested and repeated YAML aliases, XML entity
+  expansion, deep nesting in all three formats, and the quadratic-work class where output
+  stays small but cost explodes. The bound is on deterministic quantities, so it holds
+  identically on every machine. This is the gate that would have caught the alias bomb.
 - **Every parser is differentially tested** against an independent implementation
   (JSONSerialization, Yams/libyaml, Foundation XMLParser) and **fuzzed deterministically
   in CI** — mutations and truncations, with any finding reproducible from a fixed seed.

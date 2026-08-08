@@ -286,8 +286,17 @@ Not features, but they are equally part of "done":
 `CLAUDE.md`'s build order runs to five phases. Phases 1 through 3 are done — the thesis is
 proven, the unclaimed wins that were taken are taken, the codegen discipline holds.
 
-**Phase 4 (SIMD behind the dispatch seam)** and **phase 5 (C, only if phase 4's x86-64 numbers
-justify it)** have not started, and the honest position is that they may never need to. Phase 1
-delivered 5–9× against a target of 1.38×. The expected return on ARM was ~0 before any of this
-was measured, and nothing measured since has changed that. If the numbers say stop, the plan
-says stop and publish it.
+**Both are RETIRED as of 2026-08-08, unbuilt, on evidence.** Not deferred — cancelled. The
+plan always said "if the numbers say stop, stop and publish it"; the numbers said stop.
+
+- UTF-8 validation, which is what a SIMD kernel replaces, is **5.0–5.3% of decode** on the
+  API-shaped payload. A *perfect* validator therefore buys ~5% there, ~13.6% at absolute best on
+  the friendliest shape.
+- The measured gap to hand-tuned C (yyjson) is **~1.5×** on the use-case arm. A 5% slice does not
+  close it.
+- Phase 5 was gated on phase 4's x86-64 numbers. Phase 4 will not produce any.
+
+Full reasoning and tables: `docs/PERFORMANCE.md` §14 and `Benchmarks/RESULTS.md`. `Sources/AssaySIMD/`
+stays empty. Experiments #2–#4 remain valid and are worth keeping — they establish that `Builtin`
+intrinsics resolve, emit real NEON, and survive versioned dependency resolution, and that
+`-mattr=+avx2` does nothing. That is a door left open, not a plan.

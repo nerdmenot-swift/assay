@@ -239,9 +239,11 @@ extension User {
    arrays, steady-state scratch reuse in `Assayer<T>`.
 3. **Codegen discipline.** SIL dumps to count ARC traffic, `@inlinable` on hot leaves, split
    generated bodies, verify the dispatch lowering.
-4. **SIMD behind the seam** — pure Swift via `Builtin`, scalar oracle + differential fuzzing.
-   Expect ~0 on ARM; if that's what the numbers say, stop and publish it.
-5. **C, only if phase 4's x86-64 numbers justify it.** ~200 lines, AVX2, `cpuid`, same seam.
+4. ~~**SIMD behind the seam**~~ — **RETIRED 2026-08-08, unbuilt.** Measured: UTF-8 validation is
+   5.0–5.3% of decode on the API shape, so a *perfect* vectoriser buys ~5% there; the measured
+   gap to hand-tuned C is ~1.5×. A 5% slice does not close it. `docs/PERFORMANCE.md` §14.
+5. ~~**C**~~ — **RETIRED**, it was gated on phase 4's x86-64 numbers and phase 4 will not
+   produce any.
 
 ## What the experiments actually said
 

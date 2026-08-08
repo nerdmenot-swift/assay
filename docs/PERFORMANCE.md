@@ -940,16 +940,48 @@ special-case wins, all measurable with `mallocCountTotal`, all independent of ea
 Split generated bodies until the escape-analysis budget is comfortably met. Verify the field
 dispatch actually lowers to what §4 assumes.
 
-**Phase 4 — SIMD, behind the seam.** Structural scanning and quote/backslash finding in
-`AssaySIMD`, pure Swift via `Builtin`, with the scalar oracle and differential fuzzing. Measure.
-On ARM the expectation from §2 is that this is worth close to nothing; if that is what the numbers
-say, stop here and say so publicly.
+**Phase 4 — SIMD, behind the seam. RETIRED 2026-08-08, unbuilt.** This said: measure, and "if
+that is what the numbers say, stop here and say so publicly." The numbers came in. Saying so
+publicly.
 
-**Phase 5 — C, only if phase 4's x86-64 numbers justify it.** ~200 lines, AVX2, `cpuid`, behind
-the existing seam.
+Two measurements retire it, both in `Benchmarks/RESULTS.md`:
 
-Correctly-rounded doubles are required at phase 1 for correctness; a full Eisel-Lemire port is a
-phase 4 decision at the earliest.
+*The ceiling.* SIMD's target here is the whole-buffer UTF-8 pass — that is what a vectorised
+kernel replaces. Measured as a share of end-to-end decode: **5.0–5.3% on the API-shaped
+payload**, 12–14% on string-heavy shapes, under 2% on float-dense. Amdahl does the rest: a
+*perfect* validator, costing literally zero rather than merely being faster, buys at most 13.6%
+on the friendliest shape and about 5% on the one the falsification condition used. A realistic
+4× validator buys ~4% where it matters.
+
+*The gap it would need to close.* Against yyjson — hand-tuned C, `-O3`, values asserted equal
+first — Assay decodes at **0.65×** on the use-case arm. The real distance to C is ~1.5×.
+Vectorising a 5% slice does not close a 1.5× gap. Whatever would, it is not this.
+
+So phase 4 is not deferred, postponed, or awaiting resources. It is **cancelled**, on evidence,
+and `Sources/AssaySIMD/` stays empty. Experiments #2 and #3 remain valid and are worth keeping:
+they establish that `Builtin` intrinsics resolve, emit real NEON, and survive versioned
+dependency resolution. That is a door left open, not a plan.
+
+**Phase 5 — C. RETIRED 2026-08-08, unbuilt.** It was gated on phase 4's x86-64 numbers, and
+phase 4 will not produce any. Experiment #4 established that `-Xllvm -mattr=+avx2` is
+byte-identical output, so C was the only route to x86-64 AVX2 — but that route was only ever
+worth taking if the destination was worth reaching, and the two measurements above say it is
+not. Building ~200 lines of AVX2 and `cpuid` to chase a fraction of a 5% slice, and taking on a
+C toolchain across five platforms to do it, is a bad trade made with numbers instead of
+instinct.
+
+**What replaces them.** Nothing, and that is the finding. Assay's remaining time is dominated by
+`String` construction for values (the sampling profile says so), which is not vectorisable
+work — it is the irreducible cost of producing Swift `String`s. The performance thesis was
+always that *the parser was never the bottleneck, the `Codable` container boundary was*; that
+boundary is deleted and the win is banked at 5–9× Foundation. There is no second act of the same
+kind waiting, and pretending otherwise would be the sort of roadmap item that never gets
+re-examined.
+
+Correctly-rounded doubles are required at phase 1 for correctness. A full Eisel-Lemire port was
+listed as "a phase 4 decision at the earliest" and is retired with it: the float-dense arm sits
+at **0.78×** against a parser that *does* carry a bespoke float algorithm, a narrower gap than
+Assay's on ordinary API payloads. §6's decision to defer to the stdlib holds.
 
 ---
 

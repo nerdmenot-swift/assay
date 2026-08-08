@@ -208,6 +208,33 @@ async checks.
 
 ---
 
+## Encoding
+
+```swift
+@Schema(keys: .snakeCase, encodes: true)
+struct Article { var title: String; var tags: [String] = [] }
+
+let bytes = try article.encode()          // throws AssayError, carrying every issue
+let d = article.diagnoseEncode()          // partial bytes + issues, same renderers
+```
+
+Opt-in, because generated body size is what dominates compile cost and a decode-only type
+must not pay for an encoder it never calls. **Round-trip is a stated law, not a hope:**
+
+> For any `v` from `parse`, `parse(encode(v))` equals `v` — except where a `@Fallback` fired,
+> or unknown keys were dropped by a policy other than `.collect`.
+
+The law and each exception are named test cases. A `@Transform` needs a paired `@Inverse` or
+the type will not compile with `encodes: true`; `Double.nan` is reported with its path rather
+than silently written as `null`; `@Extras` are written back so a decode-edit-encode proxy
+loses nothing. The six semantics questions behind those choices are worked through in
+[`docs/ENCODING.md`](docs/ENCODING.md).
+
+JSON only for now — XML encoding is blocked on `@XML` placement, YAML is unbuilt — and
+encoding is deliberately **unbenchmarked**, so no speed claim is made for it.
+
+---
+
 ## Keys
 
 ```swift
@@ -379,7 +406,7 @@ cross-module import gets caught rather than accidentally working.
 | [`docs/COMPILE-TIME.md`](docs/COMPILE-TIME.md) | the second performance axis, and the CI gate |
 | [`docs/VALUE-MODELS.md`](docs/VALUE-MODELS.md) | why JSON, YAML and XML keep separate value types |
 | [`docs/STREAMING.md`](docs/STREAMING.md) | why streaming is out of scope, and what it would cost |
-| [`docs/ENCODING.md`](docs/ENCODING.md) | the six questions that block encoding, with a recommendation for each |
+| [`docs/ENCODING.md`](docs/ENCODING.md) | the six semantics questions behind encoding, and how each was answered |
 | [`ROADMAP.md`](ROADMAP.md) | what is deferred, and why |
 | [`CLAUDE.md`](CLAUDE.md) | settled decisions and hard constraints on generated code |
 | [`LICENSE`](LICENSE) / [`NOTICE`](NOTICE) | Apache 2.0, and third-party attribution |

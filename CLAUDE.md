@@ -33,11 +33,11 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 | YAML/XML differential oracles | **built and green** — vs Yams/libyaml and Foundation `XMLParser`; found and fixed 2 real parser bugs (block-sequence dash, XML line-ending normalisation) on first run |
 | YAML/XML benchmarks | **run** — 6.62× node parse vs Yams, 11.36× struct decode vs `YAMLDecoder`, 1.30× XML vs Foundation (asymmetric in Foundation's favour — read `Benchmarks/RESULTS.md` before quoting). The JSON thesis does not transfer; these are tree decoders |
 | Streaming | **out of scope**, decision recorded in `docs/STREAMING.md` |
-| Encoding | **not built.** The six semantics questions that block it are written out in `docs/ENCODING.md`, each with options and a recommendation — **proposals awaiting a yes/no, not decisions** |
+| Encoding | **JSON built** (`@Schema(encodes: true)`, `encode()` / `diagnoseEncode()`); YAML unbuilt, XML blocked on `@XML` placement. The six semantics questions and their answers are in `docs/ENCODING.md`; round-trip is a stated law with a closed exception list |
 | Allocation counts | **measured and gated** — live blocks, not total malloc traffic. Read `Benchmarks/Sources/AssayBench/Allocations.swift`'s three stated limitations before quoting a number |
 | `Date` + `@DateFormat` (ISO-8601, unix, RFC 9110, patterns, candidate chains) + `.before/.after/.between` rules | **built and measured** — 6.06× vs Foundation `.iso8601`, 2,279-instant exact differential. Core stays Foundation-free: parsers return epoch seconds, the macro emits `Date(timeIntervalSince1970:)` into the user's module. `.past`/`.future` deferred (no clock seam) |
 | `[String: T]` dictionary fields | **built and measured 2026-08-07** — both decode paths, recursive nesting, non-String keys diagnosed at expansion. The §2.5 "worst case" measured **6.95×** over Foundation; narrowing with size confirmed, loss did not materialise |
-| Encoding, `@Inline`, `@XML` placement, `Assayer<T>` | **not built** — `ROADMAP.md` |
+| `@Inline`, `@XML` placement, `Assayer<T>`, YAML/XML encoding | **not built** — `ROADMAP.md` |
 
 Everything below that is not marked above is still design, not measurement.
 

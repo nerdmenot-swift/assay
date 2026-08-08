@@ -267,6 +267,17 @@ extension Issue {
                 return "must be between \(lo.displayString) and \(hi.displayString)"
             }
             return "is outside the allowed range"
+        case .custom("unrepresentable_value"):
+            let fmt = params["format"]?.displayString ?? "this format"
+            if let r = received {
+                return "cannot be represented in \(fmt) (\(r))"
+            }
+            return "cannot be represented in \(fmt)"
+        case .custom("extras_key_collision"):
+            if let k = params["key"] {
+                return "extras key \"\(k.displayString)\" collides with a declared field"
+            }
+            return "an extras key collides with a declared field"
         case .custom("invalid_rule_date"):
             if let b = params["bound"] {
                 return "the rule's date bound \"\(b.displayString)\" is not a valid ISO-8601 date"

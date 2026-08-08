@@ -18,6 +18,18 @@
 ///   * conforming types are excluded from `-default-isolation MainActor` inference, so a
 ///     user who turns that on does not find every schema type silently main-actor-bound;
 ///   * `Sendable` is checked, so a `Diagnosis` can cross an actor boundary.
+/// A type that can write itself as JSON — emitted by `@Schema(encodes: true)`.
+///
+/// Opt-in because generated body size is what dominates expansion cost, so a type that
+/// only decodes must not pay for an encoder it never calls (`docs/COMPILE-TIME.md`).
+public protocol JSONEncodableSchema: Assayable {
+    nonisolated func _assayEncode(
+        into w: inout JSONWriter,
+        into sink: inout IssueSink,
+        at path: [PathComponent]
+    )
+}
+
 /// A type with a JSON decode body — emitted when `@Schema(formats:)` includes `.json`,
 /// which is the default.
 ///
@@ -47,13 +59,27 @@ public protocol JSONAssayable: Assayable {
 // `Assayable` is deliberately absent from this list: both `JSONAssayable` and
 // `RawDecodable` refine it, so declaring it here would promise a conformance the expansion
 // does not itself emit.
-@attached(extension, conformances: JSONAssayable, RawDecodable, AsyncCheckAssayable, names: arbitrary)
+@attached(extension, conformances: JSONAssayable, RawDecodable, AsyncCheckAssayable, JSONEncodableSchema, names: arbitrary)
 public macro Schema(
     keys: KeyNamingStyle = .camelCase,
     unknownKeys: UnknownKeys = .ignore,
     coerceScalars: Bool = false,
-    formats: SchemaFormats = .json
+    formats: SchemaFormats = .json,
+    encodes: Bool = false
 ) = #externalMacro(module: "AssayMacros", type: "SchemaMacro")
+
+/// The encode direction of a `@Transform`. `docs/ENCODING.md` question 3.
+///
+///     @Transform({ (a: [String]) in Set(a) })
+///     @Inverse({ (s: Set<String>) in Array(s) })
+///     var tags: Set<String>
+///
+/// A transform with no inverse is *lossy* — that is arithmetic, not a design failure — so
+/// a type carrying one cannot be encoded, and `@Schema(encodes: true)` says so at
+/// expansion rather than at runtime.
+@attached(peer)
+public macro Inverse<Value, Wire>(_ inverse: (Value) -> Wire) =
+    #externalMacro(module: "AssayMacros", type: "InverseMacro")
 
 /// Which formats a schema can decode from.
 ///

@@ -218,3 +218,84 @@ extension AssayError {
                         style: style)
     }
 }
+
+// MARK: - Encoding
+//
+// docs/ENCODING.md. The two verbs mirror the decode side exactly, and deliberately: one
+// error vocabulary, one set of renderers, one mental model. `encode` throws when anything
+// could not be represented; `diagnoseEncode` hands back what it managed plus every issue.
+//
+// Q4: issues carry a `path` and no `location`, because there is no source document to
+// point at — a state the renderer has always handled, since a missing-field issue has
+// never had one either.
+
+extension JSONEncodableSchema {
+
+    /// Write this value as JSON, or throw with everything that could not be represented.
+    public func encode(json pretty: Bool = false) throws -> [UInt8] {
+        var sink = IssueSink()
+        var w = JSONWriter(pretty: pretty)
+        _assayEncode(into: &w, into: &sink, at: [])
+        let bytes = w.finish()
+        guard sink.isValid else {
+            throw AssayError(issues: sink.issues,
+                             source: SourceBytes(bytes),
+                             sourceName: "<encoded>")
+        }
+        return bytes
+    }
+
+    /// Write this value as JSON and report everything, including the bytes it managed.
+    ///
+    /// The partial output is genuinely useful: an unrepresentable `Double` in field 40 of
+    /// 50 still tells you what the other 49 looked like, and the issue names the path.
+    public func diagnoseEncode(json pretty: Bool = false) -> EncodeDiagnosis {
+        var sink = IssueSink()
+        var w = JSONWriter(pretty: pretty)
+        _assayEncode(into: &w, into: &sink, at: [])
+        let bytes = w.finish()
+        return EncodeDiagnosis(bytes: bytes, issues: sink.issues, warnings: sink.warnings)
+    }
+
+    /// Convenience: the encoded bytes as a `String`. The writer only ever emits valid
+    /// UTF-8, so this cannot repair.
+    public func encodedString(pretty: Bool = false) throws -> String {
+        String(decoding: try encode(json: pretty), as: UTF8.self)
+    }
+}
+
+/// What `diagnoseEncode` reports.
+///
+/// Deliberately NOT a second `Diagnosis` generic: the decode version's `value` is the
+/// thing you were trying to produce, and here the thing you were trying to produce is the
+/// bytes. Sharing `Issue`, `Warning` and the renderers is the part that matters — inventing
+/// a parallel error hierarchy is what `docs/ENCODING.md` question 4 rules out.
+public struct EncodeDiagnosis: Sendable {
+    /// Everything the writer managed, truncated wherever it stopped.
+    public var bytes: [UInt8]
+    public var issues: [Issue]
+    public var warnings: [Warning]
+
+    public init(bytes: [UInt8], issues: [Issue], warnings: [Warning]) {
+        self.bytes = bytes
+        self.issues = issues
+        self.warnings = warnings
+    }
+
+    public var isValid: Bool { issues.isEmpty }
+    public var text: String { String(decoding: bytes, as: UTF8.self) }
+
+    public func get() throws -> [UInt8] {
+        guard isValid else {
+            throw AssayError(issues: issues, source: SourceBytes(bytes),
+                             sourceName: "<encoded>")
+        }
+        return bytes
+    }
+
+    /// Same renderers as the decode side — that is the whole point of reusing `Issue`.
+    public func render(_ style: RenderStyle) -> String {
+        Renderer.render(issues: issues, warnings: warnings,
+                        source: SourceBytes(bytes), sourceName: "<encoded>", style: style)
+    }
+}

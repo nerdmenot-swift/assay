@@ -57,6 +57,10 @@ struct SchemaField {
     var transform: (closure: String, wireType: String)?
     /// `@Fallback(expr)`: assigned on absence OR any issue at this field, with a warning.
     var fallback: String?
+    /// `@Inverse({ ... })` — the encode-direction closure paired with `@Transform`.
+    /// docs/ENCODING.md question 3: a transform with no inverse is lossy by arithmetic,
+    /// so the type simply cannot be encoded and the macro says so at expansion.
+    var inverse: String?
     /// `@DateFormat(...)` — the ordered candidate formats, as source expressions
     /// (`.iso8601`, `.pattern("yyyy-MM-dd")`). Nil means the shared default. The
     /// expressions are validated by the DateFormat peer macro; here they are re-emitted
@@ -150,6 +154,7 @@ public struct SchemaMacro: ExtensionMacro {
         }
 
         let policy = Self.unknownKeys(from: node)
+        let wantsEncoding = Self.encodes(from: node)
         let coerceAll = Self.coerceScalars(from: node)
         let formats = Self.formats(from: node)
 
@@ -259,6 +264,15 @@ public struct SchemaMacro: ExtensionMacro {
                                        checks: Self.checkCalls(typeName, checkDecls, activeS,
                                                                spans: false))
         }
+        if wantsEncoding {
+            for message in Self.encodeDiagnostics(activeS) {
+                context.diagnose(Diagnostic(node: Syntax(node),
+                                            message: SimpleDiagnostic(message)))
+            }
+            guard Self.encodeDiagnostics(activeS).isEmpty else { return [] }
+            body += "\n\n" + Self.inverseClosures(activeS)
+            body += Self.encodeBody(typeName: typeName, fields: activeS, extras: extras)
+        }
         body += Self.asyncCheckRunner(typeName, checkDecls)
 
         var conformances: [String] = []
@@ -267,6 +281,7 @@ public struct SchemaMacro: ExtensionMacro {
         if checkDecls.contains(where: \.isAsync) {
             conformances.append("Assay.AsyncCheckAssayable")
         }
+        if wantsEncoding { conformances.append("Assay.JSONEncodableSchema") }
 
         let ext = try ExtensionDeclSyntax(
             "extension \(raw: typeName): \(raw: conformances.joined(separator: ", "))") {
@@ -315,6 +330,17 @@ public struct SchemaMacro: ExtensionMacro {
             return (json || !raw, raw)
         }
         return (true, false)
+    }
+
+    /// `@Schema(encodes: true)`. Opt-in for a compile-time reason, not a taste one:
+    /// generated body size dominates expansion cost, so a type that only decodes must not
+    /// pay for an encoder it never calls.
+    static func encodes(from node: AttributeSyntax) -> Bool {
+        guard let args = node.arguments?.as(LabeledExprListSyntax.self) else { return false }
+        for arg in args where arg.label?.text == "encodes" {
+            return arg.expression.trimmedDescription == "true"
+        }
+        return false
     }
 
     static func unknownKeys(from node: AttributeSyntax) -> String {
@@ -384,6 +410,14 @@ public struct SchemaMacro: ExtensionMacro {
         let preprocess = Self.preprocessOps(from: attrs)
         let transform = Self.transform(from: attrs, context: context)
         let fallback = Self.fallbackExpr(from: attrs)
+
+        var inverse: String? = nil
+        for attr in attrs where attr.attributeName.trimmedDescription == "Inverse" {
+            if let args = attr.arguments?.as(LabeledExprListSyntax.self),
+               let c = args.first?.expression.as(ClosureExprSyntax.self) {
+                inverse = c.trimmedDescription
+            }
+        }
 
         var dateFormats: [String]? = nil
         for attr in attrs where attr.attributeName.trimmedDescription == "DateFormat" {
@@ -459,6 +493,7 @@ public struct SchemaMacro: ExtensionMacro {
             preprocess: preprocess,
             transform: transform,
             fallback: fallback,
+            inverse: inverse,
             dateFormats: dateFormats)
     }
 }

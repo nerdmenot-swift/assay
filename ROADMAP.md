@@ -10,9 +10,26 @@ The ordering is by what a user is most likely to reach for and be surprised is m
 
 ## 1. Encoding
 
-**Status: deferred by design, not refused.** `EXPERIENCE.md` §14.
+**Status: JSON encoding BUILT 2026-08-09; YAML and XML still deferred.** `EXPERIENCE.md` §14,
+semantics in [`docs/ENCODING.md`](docs/ENCODING.md).
 
-Assay decodes. It does not yet produce JSON, YAML or XML from a value.
+```swift
+@Schema(encodes: true) struct Article { var title: String }
+let bytes = try article.encode()            // throws AssayError, all issues
+let d = article.diagnoseEncode()            // partial bytes + issues, same renderers
+```
+
+Opt-in, because generated body size dominates expansion cost and a decode-only type must not
+pay for an encoder it never calls — the compile-time gate is unmoved at ~87 ms.
+
+Five of the six semantics questions were answered, accepted and implemented; the sixth
+(`@Unknown(roundTrips:)`) is blocked on `@Unknown` existing at all (§6). **XML encoding is
+blocked on `@XML` placement** (§4): an encoder cannot guess attribute-versus-element, and
+guessing is the exact ambiguity that attribute exists to remove. YAML encoding is unblocked
+and unbuilt.
+
+Round-trip is a stated law with a closed exception list, tested in
+`Tests/AssayTests/EncodingTests.swift`.
 
 This is the largest single gap, and it is deliberate: a decoder that also encodes has to answer
 questions a decoder does not — what a `@Fallback` writes back, whether an `@Unknown` enum case

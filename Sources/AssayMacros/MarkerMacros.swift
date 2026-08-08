@@ -114,3 +114,12 @@ public struct FallbackMacro: PeerMacro {
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] { [] }
 }
+
+/// `@Inverse` — the encode direction of a `@Transform`. docs/ENCODING.md question 3.
+public struct InverseMacro: PeerMacro {
+    public static func expansion(
+        of node: AttributeSyntax,
+        providingPeersOf declaration: some DeclSyntaxProtocol,
+        in context: some MacroExpansionContext
+    ) throws -> [DeclSyntax] { [] }
+}

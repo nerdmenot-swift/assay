@@ -400,6 +400,26 @@ extension SchemaMacro {
                 : "\(pad)__f\(i) = reader.\(call)") + spanCapture
         }
 
+        // An open value model as a DECLARED field — `var meta: RawValue`. Dictionaries of
+        // these already worked; a bare one fell through to the nested-schema branch below
+        // and failed with "type 'RawValue' has no member '_assay'". Found by the encoder
+        // differential, which needed exactly this shape.
+        if isCollectible(base) {
+            let call = """
+            Assay._assayCollect(
+            \(pad)    \(base).self, from: &reader, into: &sink,
+            \(pad)    at: path + [.key("\(key)")])
+            """
+            if f.isOptional {
+                return """
+                \(pad)if reader.consumeNullIfPresent() { __f\(i) = nil } else {
+                \(pad)    __f\(i) = \(call)
+                \(pad)}
+                """
+            }
+            return "\(pad)__f\(i) = \(call)"
+        }
+
         // Nested @Schema type. The outer schema knows where it asked the inner one to
         // look, which is how errors keep the right path.
         return """

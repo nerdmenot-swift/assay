@@ -329,6 +329,9 @@ report("XML generated (\(generatedXML.count) documents)", "Foundation XMLParser"
        disagreed: xmlGen.disagreed)
 print("")
 
+let encodeChecks = runEncodeDifferential(corpus: corpus)
+print("encode differential: \(encodeChecks) documents Assay wrote that Foundation accepts")
+
 let dateChecks = runDateDifferential()
 print("date differential: \(dateChecks) instants agree with Foundation exactly")
 

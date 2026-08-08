@@ -1,9 +1,24 @@
 # Encoding — the questions that block it, and a recommendation for each
 
-**Status: proposals, not decisions.** `ROADMAP.md` §1 says encoding is blocked on deciding
-these "in writing, before any code" — and then never wrote them out. This is that document.
-Every recommendation below is a proposal awaiting a yes or no; none of them is settled, and
-nothing here has been implemented.
+**Status: five of six ACCEPTED and IMPLEMENTED for JSON, 2026-08-09.** This document began
+as proposals; the recommendations were accepted and built. What is implemented, what is not,
+and why:
+
+| question | status |
+|---|---|
+| 1 · `@Fallback` writes its value | **built** — decode-time-only, with the exception named in the round-trip law |
+| 2 · `@Unknown(roundTrips:)` | **blocked, not deferred** — `@Unknown` itself does not exist yet (`ROADMAP.md` §6). The recommendation stands and applies the day it is built |
+| 3 · `@Inverse` + expansion-time check | **built** — a `@Transform` without one is a compile error |
+| 4 · encode error channel | **built** — `Issue`/`IssueSink`, `location: nil`, `encode` / `diagnoseEncode` |
+| 5 · target `.input`, round-trip as a law | **built** — the law is a test suite with its exception list as named cases |
+| 6 · defaults emitted, `@Extras` written back | **built** — collisions are an encode-time error |
+
+**JSON only.** YAML and XML encoding are not built: XML is genuinely blocked on `@XML`
+placement (`ROADMAP.md` §4 — without it an encoder cannot know whether a field is an
+attribute or an element), and YAML is unblocked but unbuilt. `@Schema(encodes: true)` emits
+a JSON encoder and nothing else.
+
+`Tests/AssayTests/EncodingTests.swift` holds the law and every exception.
 
 `EXPERIENCE.md` §14 is the authority on *why* encoding is a deferral rather than a refusal.
 The short version: Zod is the only major library in this space that changed its mind about
@@ -167,13 +182,13 @@ being a closed set and then quietly is not.
 Symmetry. `EXPERIENCE.md` §14's point stands whatever is decided above: two engines, not one.
 These six answers shape an encoder; they do not make one fall out of the decoder.
 
-## If all six are accepted, the work is
+## What remains
 
-1. `@Inverse`, and the expansion-time check that pairs it with `@Transform`.
-2. `@Unknown(roundTrips:)`, and the encode-time refusal without it.
-3. Encode-side issue codes and their message templates (the coverage suite will demand them).
-4. The encoder itself, per format, targeting `.input`.
-5. A round-trip test suite asserting the law in §5 over the whole corpus, with the three
-   exceptions as their own named cases.
-6. `Encodable` conformance synthesis, which `EXPERIENCE.md` §14 already moved out of the
-   refusals and is strictly easier than the above.
+1. **`@Unknown(roundTrips:)`** — waits on `@Unknown` existing at all.
+2. **YAML encoding.** Unblocked; a writer over `RawValue` plus a block-style emitter.
+3. **XML encoding.** Blocked on `@XML` placement: an encoder cannot guess attribute versus
+   element, and guessing is exactly the ambiguity that attribute exists to remove.
+4. **`Encodable` conformance synthesis**, which `EXPERIENCE.md` §14 already moved out of the
+   refusals and which is strictly easier than any of the above.
+5. **Encoding is unbenchmarked.** No number should be quoted for it until the harness has an
+   arm, and the honesty rules apply to the encode direction exactly as to the decode one.

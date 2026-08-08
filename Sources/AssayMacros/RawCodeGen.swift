@@ -222,6 +222,12 @@ extension SchemaMacro {
             return "__f\(i) = __v.\(call)"
         }
 
+        // An open value model as a declared field: on this path a RawValue member IS the
+        // value, so there is nothing to decode.
+        if base == "RawValue" || base == "Assay.RawValue" {
+            return f.isOptional ? "if !__v.isNull { __f\(i) = __v }" : "__f\(i) = __v"
+        }
+
         // Nested @Schema type.
         return """
         if __v.isNull {

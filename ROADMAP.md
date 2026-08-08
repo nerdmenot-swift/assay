@@ -114,10 +114,23 @@ would be worse than not shipping it.
 
 ---
 
-## 4. Format-specific placement: `@XML`
+## 4. Format-specific placement: `@XML` — and XML arrays
 
-**Status: not implemented.** The XML *parser* is built and tested; the *placement attributes*
-are not.
+**Status: not implemented, and blocking XML encoding.** The XML *parser* is built and tested;
+the *placement attributes* are not.
+
+**Also found 2026-08-09, previously undocumented: `[T]` fields do not decode from XML at
+all.** Neither repeated siblings (`<tags>a</tags><tags>b</tags>`) nor a wrapper
+(`<tags><item>a</item></tags>`) decodes into a `[String]` field. Scalars work — attributes,
+elements, or a mix of both, since the `RawValue` projection flattens all three into one
+keyspace — but arrays fail, because the projection produces a `.mapping` with repeated keys
+and the schema path expects a `.sequence`. Repeated members are preserved by the projection
+(a `Dictionary` would have dropped them), so the information is there and ungrouped.
+
+This matters for encoding beyond being a bug: `docs/ENCODING.md` question 5 commits the
+encoder to targeting `.input` — writing the document `parse` accepts — so an XML encoder
+cannot emit an array shape the XML decoder refuses. **XML encoding is therefore blocked on
+two decisions, not one**, and they are listed in `docs/ENCODING.md`'s "what remains".
 
 ```swift
 @XML(.attribute) var id: String

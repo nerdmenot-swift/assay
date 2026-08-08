@@ -204,9 +204,35 @@ These six answers shape an encoder; they do not make one fall out of the decoder
 ## What remains
 
 1. **`@Unknown(roundTrips:)`** — waits on `@Unknown` existing at all.
-2. **XML encoding.** Blocked on `@XML` placement: an encoder cannot guess attribute versus
-   element, and guessing is exactly the ambiguity that attribute exists to remove. The
-   `RawValue` seam is already in place, so it is a renderer and a placement attribute away.
+2. **XML encoding.** Blocked on **two decisions**, both of which need answering before any
+   code — the same rule this document was written under.
+
+   **Decision A — what does an unannotated field encode as?** (`ROADMAP.md` §4's stated
+   blocker.) *Recommendation: an element,* with `@XML(.attribute)` and `@XML(.text)` as
+   opt-ins. An element is the safe superset — attributes cannot nest, cannot repeat, and
+   have their whitespace normalised, so anything expressible as an attribute is expressible
+   as an element and not the reverse. It also matches what decoding already does: the
+   projection flattens attributes and elements into one keyspace and matches by name, so a
+   document written all-elements re-decodes to the same value as the attribute-shaped
+   original. What it does **not** give is document-shape round-trip — decode
+   `<user id="7"/>` and re-encode and you get `<user><id>7</id></user>`, the same *value*
+   in a different *document*. That belongs in the law's exception list, stated rather than
+   discovered.
+
+   **Decision B — how does a `[T]` field appear in XML?** Found by probing, previously
+   undocumented: **arrays do not decode from XML today at all**, in any shape. So this is a
+   decode decision that encoding merely forces, and it must be answered first because
+   question 5 commits the encoder to writing only what `parse` accepts.
+   *Recommendation: repeated sibling elements* — `<tags>a</tags><tags>b</tags>` — because it
+   is the idiomatic XML, because the node model already exposes it (`elements(named:)`), and
+   because the `RawValue` projection already **preserves** repeated members rather than
+   dropping them the way a `Dictionary` would. The information is present and merely
+   ungrouped; the change is to group repeated keys into a `.sequence` when the target field
+   is an array. A wrapper element (`<tags><item>…</item></tags>`) is the alternative and is
+   worse: it invents a name (`item`) that appears nowhere in the schema.
+
+   An optional **Decision C** — the root element's name — can be deferred safely by
+   defaulting to the type name and adding `@XML(root:)` later; nothing else depends on it.
 4. **`Encodable` conformance synthesis**, which `EXPERIENCE.md` §14 already moved out of the
    refusals and which is strictly easier than any of the above.
 5. **Encoding is unbenchmarked.** No number should be quoted for it until the harness has an

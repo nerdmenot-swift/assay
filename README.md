@@ -379,6 +379,7 @@ cross-module import gets caught rather than accidentally working.
 | [`docs/COMPILE-TIME.md`](docs/COMPILE-TIME.md) | the second performance axis, and the CI gate |
 | [`docs/VALUE-MODELS.md`](docs/VALUE-MODELS.md) | why JSON, YAML and XML keep separate value types |
 | [`docs/STREAMING.md`](docs/STREAMING.md) | why streaming is out of scope, and what it would cost |
+| [`docs/ENCODING.md`](docs/ENCODING.md) | the six questions that block encoding, with a recommendation for each |
 | [`ROADMAP.md`](ROADMAP.md) | what is deferred, and why |
 | [`CLAUDE.md`](CLAUDE.md) | settled decisions and hard constraints on generated code |
 | [`LICENSE`](LICENSE) / [`NOTICE`](NOTICE) | Apache 2.0, and third-party attribution |

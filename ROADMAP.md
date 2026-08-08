@@ -26,7 +26,12 @@ placement and `@DateFormat` patterns are all stored in the generated schema even
 decode path does not read them back. That is why encoding is additive later instead of a
 redesign, and it is being paid for now.
 
-**Blocked on:** deciding the five semantics questions above, in writing, before any code.
+**Blocked on:** deciding the semantics questions in [`docs/ENCODING.md`](docs/ENCODING.md),
+in writing, before any code. That document now exists — it enumerates six questions (this
+section named three and miscounted them as five), states the options for each, and carries a
+recommendation and its reasoning. **The recommendations are proposals awaiting a yes or no,
+not decisions.** Accepting or rejecting them is the work that unblocks encoding; the last
+section lists what building it then costs.
 
 ---
 

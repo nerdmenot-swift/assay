@@ -369,3 +369,19 @@ extension IssueCode {
     /// produce a duplicate key; silently dropping one would lose data.
     public static let extrasKeyCollision = IssueCode.custom("extras_key_collision")
 }
+
+
+// MARK: - The RawValue encode seam
+
+/// A `RawValue` for a date field, in its PRIMARY format — the first of the candidate
+/// chain, which is the one `parse` is documented to expect. docs/ENCODING.md question 5.
+@inlinable
+public func _assayRawDate(_ seconds: Double, _ formats: [DateFormat]) -> RawValue {
+    switch formats.first ?? .iso8601 {
+    case .unixSeconds: return .double(seconds)
+    case .unixMillis:  return .double(seconds * 1_000)
+    case .iso8601, .rfc9110, .pattern:
+        guard seconds.isFinite else { return .null }
+        return .string(DateParser.formatISO8601(seconds))
+    }
+}

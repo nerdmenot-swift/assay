@@ -111,3 +111,38 @@ extension RawDecodable {
         return out
     }
 }
+
+// MARK: - Encoding
+//
+// docs/ENCODING.md. Mirrors the JSON verbs and the decode pipeline: the schema projects
+// itself into `RawValue` and `YAML.encode` renders it, exactly as decoding parses to
+// `YAML.Node`, projects to `RawValue` and decodes from that.
+
+extension RawEncodableSchema {
+
+    /// Write this value as a YAML document, or throw with everything that went wrong.
+    public func encode(yaml _: Void = ()) throws -> [UInt8] {
+        var sink = IssueSink()
+        let raw = _assayEncodeRaw(into: &sink, at: [])
+        let bytes = YAML.encode(raw)
+        guard sink.isValid else {
+            throw AssayError(issues: sink.issues, source: SourceBytes(bytes),
+                             sourceName: "<encoded.yaml>")
+        }
+        return bytes
+    }
+
+    /// Write this value as YAML and report everything, including what it managed.
+    public func diagnoseEncode(yaml _: Void = ()) -> EncodeDiagnosis {
+        var sink = IssueSink()
+        let raw = _assayEncodeRaw(into: &sink, at: [])
+        return EncodeDiagnosis(bytes: YAML.encode(raw),
+                               issues: sink.issues, warnings: sink.warnings)
+    }
+
+    /// The encoded document as text. YAML is a human-facing format, so this is usually
+    /// the spelling you want.
+    public func encodedYAML() throws -> String {
+        String(decoding: try encode(yaml: ()), as: UTF8.self)
+    }
+}

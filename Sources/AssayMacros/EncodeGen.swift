@@ -23,23 +23,25 @@
 
 extension SchemaMacro {
 
+    /// Q6: the declared wire keys, so an @Extras key that collides with one can be
+    /// reported rather than silently producing a duplicate key or dropping data. Emitted
+    /// once, whichever encode bodies exist.
+    static func declaredKeys(_ fields: [SchemaField], _ extras: SchemaField?) -> String {
+        guard extras != nil else { return "" }
+        let names = fields.map { "\"\($0.wireKey)\"" }.joined(separator: ", ")
+        return """
+        nonisolated static let __assayDeclaredKeys: Set<String> = [\(names)]
+
+
+        """
+    }
+
     static func encodeBody(
         typeName: String,
         fields: [SchemaField],
         extras: SchemaField?
     ) -> String {
         var body = ""
-
-        // Q6: the declared wire keys, so an @Extras key that collides with one can be
-        // reported rather than silently producing a duplicate key or dropping data.
-        if extras != nil {
-            let names = fields.map { "\"\($0.wireKey)\"" }.joined(separator: ", ")
-            body += """
-            nonisolated static let __assayDeclaredKeys: Set<String> = [\(names)]
-
-
-            """
-        }
 
         var lines = ""
         for (i, f) in fields.enumerated() {

@@ -30,6 +30,20 @@ public protocol JSONEncodableSchema: Assayable {
     )
 }
 
+/// A type that can project itself into `RawValue` — the seam every non-JSON encoder
+/// writes through, emitted by `@Schema(encodes: true)` when `formats:` includes a
+/// RawValue-based format.
+///
+/// Mirrors the decode architecture: YAML and XML decode by projecting *to* `RawValue`, so
+/// they encode by projecting *from* it. The macro therefore never learns about YAML, and
+/// a new format needs no macro change.
+public protocol RawEncodableSchema: Assayable {
+    nonisolated func _assayEncodeRaw(
+        into sink: inout IssueSink,
+        at path: [PathComponent]
+    ) -> RawValue
+}
+
 /// A type with a JSON decode body — emitted when `@Schema(formats:)` includes `.json`,
 /// which is the default.
 ///
@@ -59,7 +73,7 @@ public protocol JSONAssayable: Assayable {
 // `Assayable` is deliberately absent from this list: both `JSONAssayable` and
 // `RawDecodable` refine it, so declaring it here would promise a conformance the expansion
 // does not itself emit.
-@attached(extension, conformances: JSONAssayable, RawDecodable, AsyncCheckAssayable, JSONEncodableSchema, names: arbitrary)
+@attached(extension, conformances: JSONAssayable, RawDecodable, AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema, names: arbitrary)
 public macro Schema(
     keys: KeyNamingStyle = .camelCase,
     unknownKeys: UnknownKeys = .ignore,

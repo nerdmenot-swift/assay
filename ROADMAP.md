@@ -10,7 +10,7 @@ The ordering is by what a user is most likely to reach for and be surprised is m
 
 ## 1. Encoding
 
-**Status: JSON encoding BUILT 2026-08-09; YAML and XML still deferred.** `EXPERIENCE.md` §14,
+**Status: JSON and YAML encoding BUILT 2026-08-09; XML still blocked.** `EXPERIENCE.md` §14,
 semantics in [`docs/ENCODING.md`](docs/ENCODING.md).
 
 ```swift
@@ -25,8 +25,10 @@ pay for an encoder it never calls — the compile-time gate is unmoved at ~87 ms
 Five of the six semantics questions were answered, accepted and implemented; the sixth
 (`@Unknown(roundTrips:)`) is blocked on `@Unknown` existing at all (§6). **XML encoding is
 blocked on `@XML` placement** (§4): an encoder cannot guess attribute-versus-element, and
-guessing is the exact ambiguity that attribute exists to remove. YAML encoding is unblocked
-and unbuilt.
+guessing is the exact ambiguity that attribute exists to remove.
+
+YAML encodes through the `RawValue` seam — the decode pipeline run backwards — so the macro
+never learns about YAML and XML will need a renderer rather than a macro change.
 
 Round-trip is a stated law with a closed exception list, tested in
 `Tests/AssayTests/EncodingTests.swift`.

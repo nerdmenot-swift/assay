@@ -332,6 +332,9 @@ print("")
 let encodeChecks = runEncodeDifferential(corpus: corpus)
 print("encode differential: \(encodeChecks) documents Assay wrote that Foundation accepts")
 
+let yamlEncodeChecks = runYAMLEncodeDifferential(corpus: corpus)
+print("YAML encode differential: \(yamlEncodeChecks) documents Assay wrote that libyaml reads back")
+
 let dateChecks = runDateDifferential()
 print("date differential: \(dateChecks) instants agree with Foundation exactly")
 

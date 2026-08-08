@@ -82,8 +82,9 @@ public struct AssayError: Error, Sendable {
 
     @usableFromInline let storage: Storage
 
-    @usableFromInline
-    init(issues: [Issue], source: SourceBytes, sourceName: String) {
+    /// Public so out-of-module encoders (AssayYAML) can throw the same error type.
+    /// docs/ENCODING.md question 4: one error vocabulary across every format.
+    public init(issues: [Issue], source: SourceBytes, sourceName: String) {
         self.storage = Storage(issues: issues, source: source, sourceName: sourceName)
     }
 

@@ -271,7 +271,15 @@ public struct SchemaMacro: ExtensionMacro {
             }
             guard Self.encodeDiagnostics(activeS).isEmpty else { return [] }
             body += "\n\n" + Self.inverseClosures(activeS)
-            body += Self.encodeBody(typeName: typeName, fields: activeS, extras: extras)
+            body += Self.declaredKeys(activeS, extras)
+            if formats.json {
+                body += Self.encodeBody(typeName: typeName, fields: activeS, extras: extras)
+            }
+            if formats.raw {
+                if formats.json { body += "\n\n" }
+                body += Self.rawEncodeBody(typeName: typeName, fields: activeS,
+                                           extras: extras)
+            }
         }
         body += Self.asyncCheckRunner(typeName, checkDecls)
 
@@ -281,7 +289,8 @@ public struct SchemaMacro: ExtensionMacro {
         if checkDecls.contains(where: \.isAsync) {
             conformances.append("Assay.AsyncCheckAssayable")
         }
-        if wantsEncoding { conformances.append("Assay.JSONEncodableSchema") }
+        if wantsEncoding && formats.json { conformances.append("Assay.JSONEncodableSchema") }
+        if wantsEncoding && formats.raw { conformances.append("Assay.RawEncodableSchema") }
 
         let ext = try ExtensionDeclSyntax(
             "extension \(raw: typeName): \(raw: conformances.joined(separator: ", "))") {

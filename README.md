@@ -230,8 +230,17 @@ than silently written as `null`; `@Extras` are written back so a decode-edit-enc
 loses nothing. The six semantics questions behind those choices are worked through in
 [`docs/ENCODING.md`](docs/ENCODING.md).
 
-JSON only for now — XML encoding is blocked on `@XML` placement, YAML is unbuilt — and
-encoding is deliberately **unbenchmarked**, so no speed claim is made for it.
+```swift
+try article.encode(yaml: ())              // block-style YAML
+```
+
+YAML encodes through the same `RawValue` projection it decodes through — the pipeline run
+backwards — so the macro never learns about YAML. The hard part is quoting: a bare `123` or
+`true` in YAML is an integer or a boolean, so a string that looks like one is always quoted.
+57 hazard cases and a differential against **libyaml** hold it to that.
+
+XML encoding is blocked on `@XML` placement, and encoding is deliberately **unbenchmarked**,
+so no speed claim is made for it.
 
 ---
 

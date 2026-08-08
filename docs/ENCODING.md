@@ -10,13 +10,32 @@ and why:
 | 2 · `@Unknown(roundTrips:)` | **blocked, not deferred** — `@Unknown` itself does not exist yet (`ROADMAP.md` §6). The recommendation stands and applies the day it is built |
 | 3 · `@Inverse` + expansion-time check | **built** — a `@Transform` without one is a compile error |
 | 4 · encode error channel | **built** — `Issue`/`IssueSink`, `location: nil`, `encode` / `diagnoseEncode` |
-| 5 · target `.input`, round-trip as a law | **built** — the law is a test suite with its exception list as named cases |
+| 5 · target `.input`, round-trip as a law | **built** — the law is a test suite with its exception list as named cases, for JSON and YAML |
 | 6 · defaults emitted, `@Extras` written back | **built** — collisions are an encode-time error |
 
-**JSON only.** YAML and XML encoding are not built: XML is genuinely blocked on `@XML`
-placement (`ROADMAP.md` §4 — without it an encoder cannot know whether a field is an
-attribute or an element), and YAML is unblocked but unbuilt. `@Schema(encodes: true)` emits
-a JSON encoder and nothing else.
+**JSON and YAML.** XML encoding remains genuinely blocked on `@XML` placement
+(`ROADMAP.md` §4 — without it an encoder cannot know whether a field is an attribute or an
+element, and guessing is the exact ambiguity that attribute exists to remove).
+`@Schema(encodes: true)` emits a JSON encoder; adding `.yaml` to `formats:` also emits the
+`RawValue` projection that YAML renders from.
+
+**YAML encodes through `RawValue`, and that is the architecture, not a shortcut.** Decoding
+YAML parses to `YAML.Node`, projects to `RawValue`, and decodes from there; encoding runs
+the identical pipeline backwards. Two things fall out: the macro never learns about YAML —
+so adding the format required no macro change and a JSON-only type carries no YAML code —
+and the losses are the *same* losses decoding already documents rather than a second set
+nobody wrote down.
+
+**The whole difficulty in YAML output is quoting, and it is the Norway problem from the
+other side.** Assay's decoder refuses to resolve a plain scalar until asked, which is what
+sidesteps the bug rather than inheriting it. The encoder has to pay for that guarantee in
+the other direction: `RawValue.string("123")` written bare comes back an *integer*, `"true"`
+a boolean, `"~"` a null. So plain style is used only where the text provably cannot read as
+anything else, and everything uncertain is quoted — a false positive costs two characters, a
+false negative silently changes a value's type. 57 hazard cases pin it.
+
+YAML also expresses two things JSON cannot: `NaN` and `±Infinity` are `.nan`/`.inf` rather
+than issues. It is the one place the YAML encoder is strictly more capable than the JSON one.
 
 `Tests/AssayTests/EncodingTests.swift` holds the law and every exception.
 
@@ -185,9 +204,9 @@ These six answers shape an encoder; they do not make one fall out of the decoder
 ## What remains
 
 1. **`@Unknown(roundTrips:)`** — waits on `@Unknown` existing at all.
-2. **YAML encoding.** Unblocked; a writer over `RawValue` plus a block-style emitter.
-3. **XML encoding.** Blocked on `@XML` placement: an encoder cannot guess attribute versus
-   element, and guessing is exactly the ambiguity that attribute exists to remove.
+2. **XML encoding.** Blocked on `@XML` placement: an encoder cannot guess attribute versus
+   element, and guessing is exactly the ambiguity that attribute exists to remove. The
+   `RawValue` seam is already in place, so it is a renderer and a placement attribute away.
 4. **`Encodable` conformance synthesis**, which `EXPERIENCE.md` §14 already moved out of the
    refusals and which is strictly easier than any of the above.
 5. **Encoding is unbenchmarked.** No number should be quoted for it until the harness has an

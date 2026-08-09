@@ -1,6 +1,6 @@
 # Encoding — the questions that block it, and a recommendation for each
 
-**Status: five of six ACCEPTED and IMPLEMENTED for JSON, 2026-08-09.** This document began
+**Status: five of six ACCEPTED and IMPLEMENTED for JSON, YAML and XML, 2026-08-09.** This document began
 as proposals; the recommendations were accepted and built. What is implemented, what is not,
 and why:
 
@@ -13,11 +13,42 @@ and why:
 | 5 · target `.input`, round-trip as a law | **built** — the law is a test suite with its exception list as named cases, for JSON and YAML |
 | 6 · defaults emitted, `@Extras` written back | **built** — collisions are an encode-time error |
 
-**JSON and YAML.** XML encoding remains genuinely blocked on `@XML` placement
-(`ROADMAP.md` §4 — without it an encoder cannot know whether a field is an attribute or an
-element, and guessing is the exact ambiguity that attribute exists to remove).
-`@Schema(encodes: true)` emits a JSON encoder; adding `.yaml` to `formats:` also emits the
-`RawValue` projection that YAML renders from.
+**All three formats.** `@Schema(encodes: true)` emits a JSON encoder; adding `.yaml` also
+emits the `RawValue` projection YAML renders from, and `.xml` emits an XML body.
+
+**XML's two decisions were settled by surveying the field rather than by taste**, after the
+first draft of this document guessed at them:
+
+| | decision | who agrees |
+|---|---|---|
+| **A** · unannotated field | **element**, `@XML(.attribute)` / `@XML(.text)` opt in | Jackson (`isAttribute` defaults false), Go (`,attr` opts in), .NET, pydantic-xml. **None** defaults to an attribute. |
+| **B** · unannotated array | **unwrapped repeated siblings**, `@XML(.wrapped)` opts in | Go and serde-xml-rs. Jackson and .NET wrap — and Jackson's wrapping default is one of the most-worked-around things in its XML support. |
+| **C** · root name | the type's name; `@XML(root:)` additive later | — |
+
+The pattern worth recording: **the libraries whose XML support was designed from scratch
+(Go, serde) chose unwrapped; the ones that retrofitted a JSON object mapper onto XML
+(Jackson, .NET) chose wrapped.** Wrapping is the JSON-shaped answer — it preserves "one
+key, one value" at the cost of inventing an element name that appears nowhere in the
+schema.
+
+`.wrapped` exists because unwrapped genuinely cannot express one thing: **absent versus
+empty**. `<tags/>` is unambiguously an empty array; nothing at all is ambiguous. Assay
+distinguishes missing from empty everywhere else (the five presence states), so that got an
+opt-in rather than a caveat.
+
+**XML does NOT go through the `RawValue` seam that YAML uses, and that is the finding.**
+Placement is not expressible in `RawValue` and never will be — it is deliberately the narrow
+intersection of the three formats. But placement *is* compile-time knowledge, so XML gets a
+generated body like JSON's with the placement baked into the emitted calls. `EXPERIENCE.md`
+§12 already said the value models cannot be unified because "a YAML scalar's resolution and
+an XML element's namespace are not the same kind of thing"; this is that arriving on the
+encode side.
+
+**Found while building it:** `[T]` fields did not decode from XML *at all*, in any shape —
+undocumented, and unrelated to encoding except that question 5 forbids writing what `parse`
+cannot read. Fixed first: repeated siblings accumulate, `.sequence` still works for YAML,
+and `@XML(.wrapped)` accepts a wrapper. `@XML(.text)` fields also now read the reserved
+empty key the projection stores character data under.
 
 **YAML encodes through `RawValue`, and that is the architecture, not a shortcut.** Decoding
 YAML parses to `YAML.Node`, projects to `RawValue`, and decodes from there; encoding runs
@@ -204,7 +235,7 @@ These six answers shape an encoder; they do not make one fall out of the decoder
 ## What remains
 
 1. **`@Unknown(roundTrips:)`** — waits on `@Unknown` existing at all.
-2. **XML encoding.** Blocked on **two decisions**, both of which need answering before any
+2. ~~**XML encoding.**~~ **Built 2026-08-09.** It was blocked on **two decisions**, both of which need answering before any
    code — the same rule this document was written under.
 
    **Decision A — what does an unannotated field encode as?** (`ROADMAP.md` §4's stated

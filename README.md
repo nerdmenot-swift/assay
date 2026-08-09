@@ -239,8 +239,24 @@ backwards — so the macro never learns about YAML. The hard part is quoting: a 
 `true` in YAML is an integer or a boolean, so a string that looks like one is always quoted.
 57 hazard cases and a differential against **libyaml** hold it to that.
 
-XML encoding is blocked on `@XML` placement, and encoding is deliberately **unbenchmarked**,
-so no speed claim is made for it.
+```swift
+@Schema(formats: .all, encodes: true)
+struct User {
+    @XML(.attribute) var id: Int          // <User id="7">
+    var name: String                      // <name>ada</name>
+    var tags: [String]                    // <tags>a</tags><tags>b</tags>
+    @XML(.wrapped) var roles: [String]    // <roles>…</roles> — keeps empty ≠ absent
+}
+try user.encode(xml: nil)
+```
+
+XML defaults were settled by surveying the field, not by taste: **element** for unannotated
+fields (Jackson, Go, .NET and pydantic-xml all agree; none defaults to an attribute) and
+**unwrapped repeated siblings** for arrays (Go and serde-xml-rs — the two whose XML support
+was designed rather than retrofitted onto a JSON mapper). `@XML(.wrapped)` exists for the one
+thing unwrapped cannot express: an empty array versus an absent one.
+
+Encoding is deliberately **unbenchmarked**, so no speed claim is made for it.
 
 ---
 

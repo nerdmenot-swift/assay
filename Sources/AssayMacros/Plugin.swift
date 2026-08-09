@@ -20,5 +20,6 @@ struct AssayPlugin: CompilerPlugin {
         FallbackMacro.self,
         DateFormatMacro.self,
         InverseMacro.self,
+        XMLMacro.self,
     ]
 }

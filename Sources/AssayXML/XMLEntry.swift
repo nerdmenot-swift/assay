@@ -68,3 +68,43 @@ extension RawDecodable {
         diagnose(xml: Array(text.utf8), limits: limits, sourceName: sourceName)
     }
 }
+
+// MARK: - Encoding
+//
+// docs/ENCODING.md. XML gets a generated body rather than the RawValue seam YAML uses,
+// because placement is not expressible in RawValue — see AssayCore/XMLWriter.swift.
+
+extension XMLEncodableSchema {
+
+    /// Write this value as an XML document, or throw with everything that went wrong.
+    ///
+    /// `root` defaults to the type's own name, which is the only name available without a
+    /// `@XML(root:)` attribute; that attribute is additive later and nothing depends on it.
+    public func encode(
+        xml root: String? = nil, pretty: Bool = false, declaration: Bool = true
+    ) throws -> [UInt8] {
+        var sink = IssueSink()
+        var w = XMLWriter(pretty: pretty, declaration: declaration)
+        _assayEncodeXML(into: &w, into: &sink, at: [], element: root ?? Self._assayXMLRoot)
+        let bytes = w.finish()
+        guard sink.isValid else {
+            throw AssayError(issues: sink.issues, source: SourceBytes(bytes),
+                             sourceName: "<encoded.xml>")
+        }
+        return bytes
+    }
+
+    public func diagnoseEncode(
+        xml root: String? = nil, pretty: Bool = false, declaration: Bool = true
+    ) -> EncodeDiagnosis {
+        var sink = IssueSink()
+        var w = XMLWriter(pretty: pretty, declaration: declaration)
+        _assayEncodeXML(into: &w, into: &sink, at: [], element: root ?? Self._assayXMLRoot)
+        return EncodeDiagnosis(bytes: w.finish(), issues: sink.issues,
+                               warnings: sink.warnings)
+    }
+
+    public func encodedXML(root: String? = nil, pretty: Bool = false) throws -> String {
+        String(decoding: try encode(xml: root, pretty: pretty), as: UTF8.self)
+    }
+}

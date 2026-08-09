@@ -44,6 +44,24 @@ public protocol RawEncodableSchema: Assayable {
     ) -> RawValue
 }
 
+/// A type that can write itself as XML — emitted by `@Schema(encodes: true)` when
+/// `formats:` includes `.xml`.
+///
+/// XML does not go through the `RawValue` seam that YAML uses, because placement
+/// (`@XML(.attribute)`) is not expressible in `RawValue` and never will be — it is the
+/// narrow intersection of the three formats. Placement is compile-time knowledge, so the
+/// macro bakes it into the emitted calls. See `XMLWriter`.
+public protocol XMLEncodableSchema: Assayable {
+    nonisolated func _assayEncodeXML(
+        into w: inout XMLWriter,
+        into sink: inout IssueSink,
+        at path: [PathComponent],
+        element name: String
+    )
+    /// The default root element name — the type's own name.
+    nonisolated static var _assayXMLRoot: String { get }
+}
+
 /// A type with a JSON decode body — emitted when `@Schema(formats:)` includes `.json`,
 /// which is the default.
 ///
@@ -73,7 +91,7 @@ public protocol JSONAssayable: Assayable {
 // `Assayable` is deliberately absent from this list: both `JSONAssayable` and
 // `RawDecodable` refine it, so declaring it here would promise a conformance the expansion
 // does not itself emit.
-@attached(extension, conformances: JSONAssayable, RawDecodable, AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema, names: arbitrary)
+@attached(extension, conformances: JSONAssayable, RawDecodable, AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema, XMLEncodableSchema, names: arbitrary)
 public macro Schema(
     keys: KeyNamingStyle = .camelCase,
     unknownKeys: UnknownKeys = .ignore,
@@ -81,6 +99,39 @@ public macro Schema(
     formats: SchemaFormats = .json,
     encodes: Bool = false
 ) = #externalMacro(module: "AssayMacros", type: "SchemaMacro")
+
+/// Where a field lives in an XML document. `docs/ENCODING.md`.
+///
+///     @XML(.attribute) var id: String        // <user id="7">
+///     @XML(.text)      var body: String      // <p>the text</p>
+///     @XML(.wrapped)   var tags: [String]    // <tags><item>a</item></tags>
+///
+/// **Element is the default**, and for arrays **repeated sibling elements** —
+/// `<tag>a</tag><tag>b</tag>`. Both defaults follow the field: Jackson, Go, .NET and
+/// pydantic-xml all default a plain property to an element and none to an attribute, and
+/// the two libraries whose XML support was designed rather than retrofitted (Go's
+/// `encoding/xml`, serde-xml-rs) both chose unwrapped repeated siblings for sequences.
+///
+/// `.wrapped` exists for the one thing unwrapped genuinely cannot express: the difference
+/// between an **absent** array and an **empty** one. `<tags/>` is unambiguously empty;
+/// nothing at all is ambiguous. Assay distinguishes missing from empty everywhere else
+/// (`EXPERIENCE.md` §6's five presence states), so the distinction gets an opt-in rather
+/// than a caveat.
+public enum XMLPlacement: Sendable {
+    /// A child element. The default.
+    case element
+    /// An attribute on the parent. Scalars only — attributes cannot nest or repeat.
+    case attribute
+    /// The element's own character data.
+    case text
+    /// An array inside a wrapper element, so empty and absent stay distinguishable.
+    case wrapped
+}
+
+/// Place a field in an XML document. See `XMLPlacement`.
+@attached(peer)
+public macro XML(_ placement: XMLPlacement) =
+    #externalMacro(module: "AssayMacros", type: "XMLMacro")
 
 /// The encode direction of a `@Transform`. `docs/ENCODING.md` question 3.
 ///

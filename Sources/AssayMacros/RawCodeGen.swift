@@ -61,7 +61,13 @@ extension SchemaMacro {
         // Bucket by key length, then compare within the bucket.
         var byLength: [Int: [(Int, SchemaField, String)]] = [:]
         for (i, f) in fields.enumerated() {
-            for key in [f.wireKey] + f.aliases {
+            // An `@XML(.text)` field reads the element's own character data, which the
+            // XML projection stores under a reserved EMPTY key — it has no name of its
+            // own in the document. It is matched as an extra alias rather than a
+            // replacement, so the same field still reads a normally-named key from YAML,
+            // where character data is not a concept.
+            let extra = f.xmlPlacement == "text" ? [""] : []
+            for key in [f.wireKey] + f.aliases + extra {
                 byLength[key.utf8.count, default: []].append((i, f, key))
             }
         }
@@ -201,8 +207,63 @@ extension SchemaMacro {
             """
         }
 
-        if arrayElement(base) != nil || dictionaryValue(base) != nil {
-            let expected = arrayElement(base) != nil ? "array" : "object"
+        // Arrays. Three wire shapes reach this path and they are NOT interchangeable, so
+        // the placement decided at compile time picks which are accepted:
+        //
+        //   `.sequence`            YAML's `tags: [a, b]`. Always accepted.
+        //   repeated members       XML's `<tag>a</tag><tag>b</tag>` — the default. Each
+        //                          sibling arrives as its OWN call with the same key, so
+        //                          this arm appends rather than assigns.
+        //   `.mapping` of entries  XML's `@XML(.wrapped)` form. Accepted ONLY when the
+        //                          field asked for it, because it is genuinely ambiguous
+        //                          otherwise: `<items><id>1</id><name>x</name></items>` is
+        //                          one struct, not two values, and nothing in the document
+        //                          distinguishes that from a wrapper.
+        if let element = arrayElement(base) {
+            let elementExpr = rawElementExpr(element, "__ev\(i)", key: key,
+                                             coerce: f.coerce,
+                                             dateFormatsRef: dateFormatsRef(f, i))
+            let seqExpr = rawElementExpr(base, "__v", key: key, coerce: f.coerce,
+                                         dateFormatsRef: dateFormatsRef(f, i))
+            if f.xmlPlacement == "wrapped" {
+                return """
+                if let __r = \(seqExpr) {
+                                    __f\(i) = __r
+                                } else if case .mapping(let __wm\(i)) = __v {
+                                    __f\(i) = __wm\(i).compactMap { __wmm\(i) in
+                                        let __ev\(i) = __wmm\(i).value
+                                        return \(elementExpr)
+                                    }
+                                } else if __v.isNull {
+                                    \(f.isOptional ? "__f\(i) = nil" : "__f\(i) = []")
+                                } else if case .string(let __ws\(i)) = __v, __ws\(i).isEmpty {
+                                    // `<tags/>` — a childless wrapper projects to empty
+                                    // text, and empty is exactly what it means. This is
+                                    // the case .wrapped exists for: absent stays absent.
+                                    __f\(i) = []
+                                }
+                """
+            }
+            return """
+            if let __r = \(seqExpr) {
+                                __f\(i) = __r
+                            } else if __v.isNull {
+                                \(f.isOptional
+                                    ? "__f\(i) = nil"
+                                    : "Assay.RawValue.mismatchPublic(&sink, path, \"\(key)\", \"array\", __v)")
+                            } else {
+                                // One repeated sibling. Append, so `<tag>a</tag><tag>b</tag>`
+                                // accumulates across calls instead of the last one winning.
+                                let __ev\(i) = __v
+                                if let __one\(i) = \(elementExpr) {
+                                    if __f\(i) == nil { __f\(i) = [] }
+                                    __f\(i)?.append(__one\(i))
+                                }
+                            }
+            """
+        }
+
+        if dictionaryValue(base) != nil {
             return """
             if let __r = \(rawElementExpr(base, "__v", key: key, coerce: f.coerce,
                                           dateFormatsRef: dateFormatsRef(f, i))) {
@@ -210,7 +271,7 @@ extension SchemaMacro {
                             } else if __v.isNull {
                                 \(f.isOptional
                                     ? "__f\(i) = nil"
-                                    : "Assay.RawValue.mismatchPublic(&sink, path, \"\(key)\", \"\(expected)\", __v)")
+                                    : "Assay.RawValue.mismatchPublic(&sink, path, \"\(key)\", \"object\", __v)")
                             }
             """
         }

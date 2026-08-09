@@ -57,6 +57,9 @@ struct SchemaField {
     var transform: (closure: String, wireType: String)?
     /// `@Fallback(expr)`: assigned on absence OR any issue at this field, with a warning.
     var fallback: String?
+    /// `@XML(...)` placement: "attribute", "text", or "wrapped". Nil is the default —
+    /// an element, and for arrays repeated sibling elements. docs/ENCODING.md.
+    var xmlPlacement: String?
     /// `@Inverse({ ... })` — the encode-direction closure paired with `@Transform`.
     /// docs/ENCODING.md question 3: a transform with no inverse is lossy by arithmetic,
     /// so the type simply cannot be encoded and the macro says so at expansion.
@@ -280,6 +283,15 @@ public struct SchemaMacro: ExtensionMacro {
                 body += Self.rawEncodeBody(typeName: typeName, fields: activeS,
                                            extras: extras)
             }
+            if formats.xml {
+                for message in Self.xmlDiagnostics(activeS) {
+                    context.diagnose(Diagnostic(node: Syntax(node),
+                                                message: SimpleDiagnostic(message)))
+                }
+                guard Self.xmlDiagnostics(activeS).isEmpty else { return [] }
+                body += "\n\n" + Self.xmlEncodeBody(typeName: typeName, fields: activeS,
+                                                     extras: extras)
+            }
         }
         body += Self.asyncCheckRunner(typeName, checkDecls)
 
@@ -291,6 +303,7 @@ public struct SchemaMacro: ExtensionMacro {
         }
         if wantsEncoding && formats.json { conformances.append("Assay.JSONEncodableSchema") }
         if wantsEncoding && formats.raw { conformances.append("Assay.RawEncodableSchema") }
+        if wantsEncoding && formats.xml { conformances.append("Assay.XMLEncodableSchema") }
 
         let ext = try ExtensionDeclSyntax(
             "extension \(raw: typeName): \(raw: conformances.joined(separator: ", "))") {
@@ -314,9 +327,9 @@ public struct SchemaMacro: ExtensionMacro {
 
     /// Which decode bodies to emit. Opt-in, defaulting to JSON only, because generated
     /// code is not free — docs/COMPILE-TIME.md §4.5.
-    static func formats(from node: AttributeSyntax) -> (json: Bool, raw: Bool) {
+    static func formats(from node: AttributeSyntax) -> (json: Bool, raw: Bool, xml: Bool) {
         guard let args = node.arguments?.as(LabeledExprListSyntax.self) else {
-            return (true, false)
+            return (true, false, false)
         }
         for arg in args where arg.label?.text == "formats" {
             var names: [String] = []
@@ -331,14 +344,14 @@ public struct SchemaMacro: ExtensionMacro {
                 while t.hasPrefix(".") { t.removeFirst() }
                 names.append(t)
             }
-            if names.contains("all") { return (true, true) }
+            if names.contains("all") { return (true, true, true) }
             let json = names.contains("json")
             let raw = names.contains("yaml") || names.contains("xml")
             // An empty or unrecognised set would silently emit nothing decodable, so fall
             // back to the default rather than producing a type nobody can parse.
-            return (json || !raw, raw)
+            return (json || !raw, raw, names.contains("xml"))
         }
-        return (true, false)
+        return (true, false, false)
     }
 
     /// `@Schema(encodes: true)`. Opt-in for a compile-time reason, not a taste one:
@@ -419,6 +432,17 @@ public struct SchemaMacro: ExtensionMacro {
         let preprocess = Self.preprocessOps(from: attrs)
         let transform = Self.transform(from: attrs, context: context)
         let fallback = Self.fallbackExpr(from: attrs)
+
+        var xmlPlacement: String? = nil
+        for attr in attrs where attr.attributeName.trimmedDescription == "XML" {
+            guard let args = attr.arguments?.as(LabeledExprListSyntax.self),
+                  let first = args.first else { continue }
+            var t = first.expression.trimmedDescription
+            while t.hasPrefix(".") { t.removeFirst() }
+            if ["attribute", "text", "wrapped", "element"].contains(t) {
+                xmlPlacement = t == "element" ? nil : t
+            }
+        }
 
         var inverse: String? = nil
         for attr in attrs where attr.attributeName.trimmedDescription == "Inverse" {
@@ -502,6 +526,7 @@ public struct SchemaMacro: ExtensionMacro {
             preprocess: preprocess,
             transform: transform,
             fallback: fallback,
+            xmlPlacement: xmlPlacement,
             inverse: inverse,
             dateFormats: dateFormats)
     }

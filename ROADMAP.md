@@ -10,7 +10,7 @@ The ordering is by what a user is most likely to reach for and be surprised is m
 
 ## 1. Encoding
 
-**Status: JSON and YAML encoding BUILT 2026-08-09; XML still blocked.** `EXPERIENCE.md` §14,
+**Status: BUILT 2026-08-09 for JSON, YAML and XML.** `EXPERIENCE.md` §14,
 semantics in [`docs/ENCODING.md`](docs/ENCODING.md).
 
 ```swift
@@ -23,12 +23,13 @@ Opt-in, because generated body size dominates expansion cost and a decode-only t
 pay for an encoder it never calls — the compile-time gate is unmoved at ~87 ms.
 
 Five of the six semantics questions were answered, accepted and implemented; the sixth
-(`@Unknown(roundTrips:)`) is blocked on `@Unknown` existing at all (§6). **XML encoding is
-blocked on `@XML` placement** (§4): an encoder cannot guess attribute-versus-element, and
-guessing is the exact ambiguity that attribute exists to remove.
+(`@Unknown(roundTrips:)`) is blocked on `@Unknown` existing at all (§6).
 
-YAML encodes through the `RawValue` seam — the decode pipeline run backwards — so the macro
-never learns about YAML and XML will need a renderer rather than a macro change.
+YAML encodes through the `RawValue` seam — the decode pipeline run backwards. XML does not,
+and cannot: placement is not expressible in `RawValue`, so XML has a generated body with
+`@XML(.attribute)` / `.text` / `.wrapped` baked into the emitted calls. Both XML defaults
+were settled by surveying Jackson, Go, .NET, serde-xml-rs and pydantic-xml rather than by
+taste — see `docs/ENCODING.md`.
 
 Round-trip is a stated law with a closed exception list, tested in
 `Tests/AssayTests/EncodingTests.swift`.
@@ -116,8 +117,12 @@ would be worse than not shipping it.
 
 ## 4. Format-specific placement: `@XML` — and XML arrays
 
-**Status: not implemented, and blocking XML encoding.** The XML *parser* is built and tested;
-the *placement attributes* are not.
+**Status: BUILT 2026-08-09.** `@XML(.attribute)`, `@XML(.text)` and `@XML(.wrapped)` all
+exist, checked at expansion (an `.attribute` on an array, or a `.wrapped` on a scalar, is a
+compile error). `@XML(root:)` is the one deferred piece and nothing depends on it.
+
+**The array bug this uncovered is also fixed.** `[T]` fields did not decode from XML at all
+before 2026-08-09, in any shape — see below for what was wrong.
 
 **Also found 2026-08-09, previously undocumented: `[T]` fields do not decode from XML at
 all.** Neither repeated siblings (`<tags>a</tags><tags>b</tags>`) nor a wrapper

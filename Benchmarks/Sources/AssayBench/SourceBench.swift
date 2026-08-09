@@ -30,6 +30,7 @@
 
 import Foundation
 import Assay
+import ForeignSource
 
 @Schema(keys: .snakeCase, formats: .all, sources: true)
 struct BenchRow: Equatable {
@@ -431,6 +432,96 @@ func runSourceBenchmarks() {
               + pad(String(format: "%.0f", batchNs / Double(n)), 10)
               + pad(String(format: "%.2fx", rowNs / batchNs), 12))
     }
+
+    // ---- The claim docs/KEYED-SOURCE.md made and never checked ----
+    //
+    // The generic entry point `_assay<S: KeyedSource>` is specialisable, but the usual
+    // escape hatch is closed: @inlinable on a generated body is forbidden (SE-0193 makes
+    // every public @Schema type fail against its own internal memberwise init). So the
+    // question is whether specialisation survives a MODULE BOUNDARY — which is where a
+    // Postgres, SQLite or Parquet driver actually lives. Same source, same shape, only
+    // the module differs.
+    print("")
+    print("Cross-module specialisation — same source, different module")
+    print(pad("source", 34, right: true) + pad("ns/record", 12) + pad("vs same-module", 16))
+    print(String(repeating: "-", count: 62))
+
+    let sameNs = measure(iterations: iters) {
+        let src = RowSource(columns: columns, values: values)
+        _ = BenchRow.diagnose(source: src).value
+    }
+    let foreignNs = measure(iterations: iters) {
+        let src = ForeignRowSource(columns: columns, values: values)
+        _ = BenchRow.diagnose(source: src).value
+    }
+    row("same module", sameNs, (blocks: nil, bytes: 0))
+    row("another module", foreignNs, (blocks: nil, bytes: 0))
+    print(String(format: "cross-module costs %.2fx", foreignNs / sameNs))
+    print("  (source in another module, call site beside the schema — specialises)")
+
+    // THE ARRANGEMENT THAT ACTUALLY MATTERS: the loop lives in the driver, generic over a
+    // schema it has never seen. `db.query(..., as: User.self)` is this shape.
+    let batchRows = (0..<200).map { _ in values }
+    let inAppNs = measure(iterations: 200) {
+        var out: [BenchRow] = []
+        out.reserveCapacity(batchRows.count)
+        var sink = IssueSink()
+        for r in batchRows {
+            let src = RowSource(columns: columns, values: r)
+            if let v = BenchRow._assay(from: src, into: &sink, at: []) { out.append(v) }
+        }
+        precondition(out.count == batchRows.count)
+    }
+    let inDriverNs = measure(iterations: 200) {
+        let got = driverDecodeAll(BenchRow.self, columns: columns, rows: batchRows)
+        precondition(got.count == batchRows.count)
+    }
+    print("")
+    print(pad("loop location", 34, right: true) + pad("ns/200 rows", 14) + pad("per row", 10))
+    print(String(repeating: "-", count: 58))
+    print(pad("in the app (T concrete)", 34, right: true)
+          + pad(String(format: "%.0f", inAppNs), 14)
+          + pad(String(format: "%.0f", inAppNs / 200), 10))
+    print(pad("in the driver (T generic)", 34, right: true)
+          + pad(String(format: "%.0f", inDriverNs), 14)
+          + pad(String(format: "%.0f", inDriverNs / 200), 10))
+    print(String(format: "generic-over-schema costs %.2fx", inDriverNs / inAppNs))
+
+    // Does the BATCH entry point erase it? The per-row loop lives inside a function that
+    // is concrete in the schema's own module, so a driver generic over T should pay the
+    // witness-table cost once per batch instead of once per row.
+    let n200 = 200
+    let store200 = BenchColumnStore(
+        rowCount: n200,
+        ids: (0..<n200).map { (i: Int) in Int64(i) },
+        ages: (0..<n200).map { (i: Int) in Int64(20 + i % 50) },
+        scores: (0..<n200).map { Double($0) * 0.5 },
+        actives: (0..<n200).map { (i: Int) in i % 2 == 0 },
+        names: (0..<n200).map { "user-\($0)" },
+        emails: (0..<n200).map { "u\($0)@example.com" },
+        createds: (0..<n200).map { (_: Int) in "2026-08-09T00:00:00Z" },
+        owners: (0..<n200).map { "owner-\($0)" })
+
+    let appBatchNs = measure(iterations: 200) {
+        var sink = IssueSink()
+        let got = BenchRow._assayBatch(from: store200, into: &sink, at: [])
+        precondition(got.count == n200)
+    }
+    let driverBatchNs = measure(iterations: 200) {
+        let got = driverDecodeBatch(BenchRow.self, from: store200)
+        precondition(got.count == n200)
+    }
+    print(pad("batch, in the app", 34, right: true)
+          + pad(String(format: "%.0f", appBatchNs), 14)
+          + pad(String(format: "%.0f", appBatchNs / 200), 10))
+    print(pad("batch, in the driver (T generic)", 34, right: true)
+          + pad(String(format: "%.0f", driverBatchNs), 14)
+          + pad(String(format: "%.0f", driverBatchNs / 200), 10))
+    print(String(format: "batch generic-over-schema costs %.2fx", driverBatchNs / appBatchNs))
+    print("")
+    print("Conclusion: the module boundary is NOT the cost. Being generic over the SCHEMA")
+    print("is, and only per-row — the batch entry point pays it once per batch instead of")
+    print("once per record, which erases it. A driver API should be batch-shaped.")
 
     print("")
     print("Two-phase binding — the claim the design rests on:")

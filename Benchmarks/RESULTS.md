@@ -747,3 +747,42 @@ the **row index in the issue path**, defaults and validity masks give the same f
 states, and a **missing required column is reported once for the batch** rather than once per
 row — a property of the source, not of each record, in the same spirit as
 `BoundPlan.missingRequired` failing before the first row is touched.
+
+## Where the generic entry point actually costs — and the API conclusion that follows
+
+**2026-08-09.** `docs/KEYED-SOURCE.md` claimed the generic entry point "specialises within a
+module and falls back to witness-table dispatch across one, which is precisely the
+arrangement a CSV or Postgres driver in another package would hit." That was reasoning.
+Measured, it names the **wrong boundary**.
+
+| arrangement | ns/record | cost |
+|---|---|---|
+| source in the same module | 124 | — |
+| **source in another module**, call site beside the schema | 124 | **1.00×** |
+| **loop in the driver**, generic over the schema, per row | 68 vs 42 | **1.63×** |
+| **loop in the driver**, generic over the schema, **batch** | 50 vs 52 | **0.96×** |
+
+Putting the *source* in another module costs **nothing**. The generated `_assay<S>` lives in
+the schema's module and so does the call site, so the compiler sees both concrete types and
+specialises. The caveat was wrong about that.
+
+What *does* cost is being **generic over the schema** — `db.query("…", as: User.self)`, which
+is the shape every real driver API takes. There `T` is unknown, `_assay` is non-inlinable
+(SE-0193 forbids `@inlinable` on a generated body), and the witness-table call happens **per
+row**: 1.63×.
+
+**And the batch entry point erases it.** `T._assayBatch(from:)` pays the dispatch once per
+*batch* rather than once per record, because the per-row loop lives inside a function that is
+concrete in the schema's own module. Generic-over-schema batch decoding is **0.96×** — free,
+within noise.
+
+### The conclusion is an API rule, not a footnote
+
+**A driver's public API should be batch-shaped.** `fetchAll(as: User.self) -> [User]` is not
+merely more convenient than `next() -> User?`; it is the shape that avoids a 1.6× penalty
+the caller cannot otherwise remove, because the penalty comes from a restriction
+(`@inlinable` on generated bodies) that no amount of care at the call site can work around.
+
+That is worth more than the number: it means the columnar batch path is not just a
+performance option for Parquet, it is **the correct integration point for any driver**, and
+`docs/KEYED-SOURCE.md` now says so.

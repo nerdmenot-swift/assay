@@ -66,11 +66,23 @@ dispatch **across** one, which is precisely the arrangement a CSV or Postgres dr
 another package would hit.
 
 **Resolution: ship the generic entry point, and publish the FIELD MANIFEST that makes the
-non-generic path possible.** The generic form is the ergonomic API and is honest about its
-cost. The manifest — an ordered, compile-time description of every field — is what lets a
-source resolve keys **once per stream** instead of once per record, and it is the piece the
-positional/bound path is built from. Getting the manifest right matters more than getting the
-generic call fast, because the manifest is what removes the per-record work entirely.
+non-generic path possible.**
+
+> **Corrected by measurement, 2026-08-09 — this section named the wrong boundary.**
+> Putting the *source* in another module costs **nothing** (1.00×): the generated
+> `_assay<S>` lives in the schema's module, so does the call site, and the compiler
+> specialises. What costs is being **generic over the schema** — `db.query(…, as:
+> User.self)` — where `T` is unknown and the witness-table call lands **per row**: 1.63×.
+>
+> **The batch entry point erases it: 0.96×.** `T._assayBatch(from:)` pays the dispatch once
+> per batch, because the per-row loop is inside a function that is concrete in the schema's
+> own module.
+>
+> **So a driver's public API should be batch-shaped.** `fetchAll(as: User.self) -> [User]`
+> is not merely nicer than `next() -> User?` — it is the shape that avoids a penalty the
+> caller cannot otherwise remove, because it comes from `@inlinable` being forbidden on
+> generated bodies (SE-0193). The columnar batch path is therefore not just a Parquet
+> optimisation; it is **the correct integration point for any driver**.
 
 ### 3. A fourth generated body against a compile-time budget with 15 ms of headroom
 

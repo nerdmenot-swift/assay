@@ -43,6 +43,14 @@ let package = Package(
                 .define("YYJSON_DISABLE_NON_STANDARD", to: "1"),
             ]
         ),
+        // A KeyedSource in ANOTHER MODULE, to settle whether the generic entry point
+        // specialises across a module boundary — which is where every real driver lives.
+        .target(
+            name: "ForeignSource",
+            dependencies: [.product(name: "Assay", package: "assay")],
+            path: "Sources/ForeignSource",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
         // The YAML/XML renderers over the JSON corpus, shared by DiffFuzz and AssayBench
         // so the documents the oracles verify and the documents the benchmarks time are
         // the same bytes.
@@ -79,6 +87,7 @@ let package = Package(
                 .product(name: "Yams", package: "Yams"),
                 "CorpusRender",
                 "CYYJSON",
+                "ForeignSource",
             ],
             path: "Sources/AssayBench",
             swiftSettings: [.swiftLanguageMode(.v6)]

@@ -97,11 +97,34 @@ carets exactly as JSON does. A source that cannot returns `nil` and gets positio
 diagnostics — which the renderer has always handled, because a missing-field issue has never
 had a location.
 
+## A trap for `KeyedSource` implementors holding `RawValue`
+
+`RawValue` conforms to `ExpressibleByNilLiteral` — `let v: RawValue = nil` means `.null`,
+which is useful for literals and a hazard here. In a function returning `RawValue?`, a bare
+`nil` resolves to **`.some(.null)`**, not to absence:
+
+```swift
+return i == BoundPlan.absent ? nil : values[i]      // WRONG: absent reads as a null
+return i == BoundPlan.absent ? Optional<RawValue>.none : values[i]   // right
+```
+
+The consequence is quiet and specific: an **absent** column reports as a **present null**,
+so `has` says yes, `isNull` says yes, and a field with a default reports a type mismatch
+instead of taking its default. It cost a debugging round while writing this document's own
+examples, which is the best argument for writing it down.
+
 ## Deliberately deferred
 
-- **The bound/positional path.** The manifest ships now; the generated positional initializer
-  that consumes a resolved plan does not. It is the second increment, and the first one has
-  to prove the protocol shape before it is worth building against.
+- ~~**The bound/positional path.**~~ **Built and measured 2026-08-09.** Every accessor
+  receives the field's manifest index alongside its key, so one protocol serves both phases:
+  an unbound source ignores the index, a bound source ignores the key. `BoundPlan` resolves
+  a manifest against a source's columns once per stream.
+
+  **Its value is width-invariance, not a constant speedup.** A bound row costs ~100 ns at
+  8 columns and at 400; an unbound scan goes 125 → 578 ns over the same range. At eight
+  columns binding is barely worth having; at four hundred it is 5.79×. It does not rescue
+  the narrow case — the guidance is unchanged, and it is about the source being wider than
+  the schema.
 - **Columnar/batch fill.** Inverting the loop so Parquet or Arrow fills a batch column-by-
   column needs the positional initializer first.
 - **Typed throws at the boundary.** Deferred rather than guessed: `_assay` returns an

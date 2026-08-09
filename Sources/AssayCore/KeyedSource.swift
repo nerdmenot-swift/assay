@@ -20,6 +20,12 @@
 
 /// A source of already-parsed, key-addressable fields.
 ///
+/// **Every accessor receives both the key and the field's INDEX in the type's
+/// `FieldManifest`.** That pair is what makes two-phase binding possible without a second
+/// protocol: an *unbound* source ignores the index and looks the key up; a *bound* source
+/// ignores the key and indexes a plan it resolved once for the whole stream. The macro
+/// knows the index at compile time, so it costs the caller nothing to pass.
+///
 /// Accessors are `borrowing` and return optionals rather than throwing: a `nil` means "this
 /// source cannot give you that", and the decoder decides whether that is a missing field, a
 /// null, or a type mismatch by asking `has` and `isNull`. That split is what lets one
@@ -29,14 +35,14 @@ public protocol KeyedSource: ~Copyable {
 
     /// Whether the key exists at all. Absence and null are different things —
     /// `EXPERIENCE.md` §6's five presence states depend on the distinction.
-    borrowing func has(_ key: StaticString) -> Bool
+    borrowing func has(_ key: StaticString, _ field: Int) -> Bool
 
     /// Whether the key exists and holds a null.
-    borrowing func isNull(_ key: StaticString) -> Bool
+    borrowing func isNull(_ key: StaticString, _ field: Int) -> Bool
 
-    borrowing func int64(_ key: StaticString) -> Int64?
-    borrowing func double(_ key: StaticString) -> Double?
-    borrowing func bool(_ key: StaticString) -> Bool?
+    borrowing func int64(_ key: StaticString, _ field: Int) -> Int64?
+    borrowing func double(_ key: StaticString, _ field: Int) -> Double?
+    borrowing func bool(_ key: StaticString, _ field: Int) -> Bool?
 
     /// Text, without requiring a `String` to exist.
     ///
@@ -44,7 +50,7 @@ public protocol KeyedSource: ~Copyable {
     /// range and allocates nothing, and only a field actually declared `String` ever
     /// materialises one. A source that already holds `String`s implements it in two lines.
     borrowing func withText<R>(
-        _ key: StaticString, _ body: (UnsafeRawBufferPointer?) -> R
+        _ key: StaticString, _ field: Int, _ body: (UnsafeRawBufferPointer?) -> R
     ) -> R
 
     /// Text as a `String`.
@@ -56,21 +62,21 @@ public protocol KeyedSource: ~Copyable {
     /// path — which simply hands back the `String` it is already holding. Most
     /// already-parsed sources are in that second category, so this is the requirement
     /// that decides whether the path is worth using.
-    borrowing func string(_ key: StaticString) -> String?
+    borrowing func string(_ key: StaticString, _ field: Int) -> String?
 
     /// Where this field came from, if the source can say. Sources that cannot return `nil`
     /// and get position-free diagnostics, which the renderer has always handled.
-    borrowing func span(_ key: StaticString) -> SourceSpan?
+    borrowing func span(_ key: StaticString, _ field: Int) -> SourceSpan?
 }
 
 extension KeyedSource where Self: ~Copyable {
     /// Default: `nil`, so a source that has no notion of position says so once.
-    public borrowing func span(_ key: StaticString) -> SourceSpan? { nil }
+    public borrowing func span(_ key: StaticString, _ field: Int) -> SourceSpan? { nil }
 
     /// The byte-backed default. Correct for any source, and a full copy for one that is
     /// already holding a `String` — those should implement `string` directly.
-    public borrowing func string(_ key: StaticString) -> String? {
-        withText(key) { buf in
+    public borrowing func string(_ key: StaticString, _ field: Int) -> String? {
+        withText(key, field) { buf in
             guard let buf, let base = buf.baseAddress else { return nil }
             return unsafe String(decoding: UnsafeRawBufferPointer(start: base,
                                                                   count: buf.count),
@@ -79,7 +85,9 @@ extension KeyedSource where Self: ~Copyable {
     }
 
     /// Historical spelling, kept as a convenience for callers.
-    public borrowing func text(_ key: StaticString) -> String? { string(key) }
+    public borrowing func text(_ key: StaticString, _ field: Int) -> String? {
+        string(key, field)
+    }
 }
 
 // MARK: - The field manifest
@@ -163,21 +171,21 @@ public func _assaySourceMismatch(
 @inline(never)
 @usableFromInline
 func _assaySourceFailed<S: KeyedSource & ~Copyable, T>(
-    _ s: borrowing S, _ key: StaticString, _ sink: inout IssueSink,
+    _ s: borrowing S, _ key: StaticString, _ field: Int, _ sink: inout IssueSink,
     _ path: [PathComponent], _ expected: String, optional: Bool, hasDefault: Bool
 ) -> T?? {
-    if !s.has(key) {
+    if !s.has(key, field) {
         if optional { return .some(nil) }
         if hasDefault { return nil }
         _assaySourceMissing(&sink, path, key, nil)
         return nil
     }
-    if s.isNull(key) {
+    if s.isNull(key, field) {
         if optional { return .some(nil) }
-        _assaySourceMismatch(&sink, path, key, expected, s.span(key))
+        _assaySourceMismatch(&sink, path, key, expected, s.span(key, field))
         return nil
     }
-    _assaySourceMismatch(&sink, path, key, expected, s.span(key))
+    _assaySourceMismatch(&sink, path, key, expected, s.span(key, field))
     return nil
 }
 
@@ -190,40 +198,92 @@ func _assaySourceFailed<S: KeyedSource & ~Copyable, T>(
 
 @inlinable
 public func _assaySourceString<S: KeyedSource & ~Copyable>(
-    _ s: borrowing S, _ key: StaticString, _ sink: inout IssueSink,
+    _ s: borrowing S, _ key: StaticString, _ field: Int, _ sink: inout IssueSink,
     _ path: [PathComponent], optional: Bool, hasDefault: Bool
 ) -> String?? {
-    if let v = s.string(key) { return .some(v) }
-    return _assaySourceFailed(s, key, &sink, path, "string",
+    if let v = s.string(key, field) { return .some(v) }
+    return _assaySourceFailed(s, key, field, &sink, path, "string",
                               optional: optional, hasDefault: hasDefault)
 }
 
 @inlinable
 public func _assaySourceInt64<S: KeyedSource & ~Copyable>(
-    _ s: borrowing S, _ key: StaticString, _ sink: inout IssueSink,
+    _ s: borrowing S, _ key: StaticString, _ field: Int, _ sink: inout IssueSink,
     _ path: [PathComponent], optional: Bool, hasDefault: Bool
 ) -> Int64?? {
-    if let v = s.int64(key) { return .some(v) }
-    return _assaySourceFailed(s, key, &sink, path, "integer",
+    if let v = s.int64(key, field) { return .some(v) }
+    return _assaySourceFailed(s, key, field, &sink, path, "integer",
                               optional: optional, hasDefault: hasDefault)
 }
 
 @inlinable
 public func _assaySourceDouble<S: KeyedSource & ~Copyable>(
-    _ s: borrowing S, _ key: StaticString, _ sink: inout IssueSink,
+    _ s: borrowing S, _ key: StaticString, _ field: Int, _ sink: inout IssueSink,
     _ path: [PathComponent], optional: Bool, hasDefault: Bool
 ) -> Double?? {
-    if let v = s.double(key) { return .some(v) }
-    return _assaySourceFailed(s, key, &sink, path, "number",
+    if let v = s.double(key, field) { return .some(v) }
+    return _assaySourceFailed(s, key, field, &sink, path, "number",
                               optional: optional, hasDefault: hasDefault)
 }
 
 @inlinable
 public func _assaySourceBool<S: KeyedSource & ~Copyable>(
-    _ s: borrowing S, _ key: StaticString, _ sink: inout IssueSink,
+    _ s: borrowing S, _ key: StaticString, _ field: Int, _ sink: inout IssueSink,
     _ path: [PathComponent], optional: Bool, hasDefault: Bool
 ) -> Bool?? {
-    if let v = s.bool(key) { return .some(v) }
-    return _assaySourceFailed(s, key, &sink, path, "boolean",
+    if let v = s.bool(key, field) { return .some(v) }
+    return _assaySourceFailed(s, key, field, &sink, path, "boolean",
                               optional: optional, hasDefault: hasDefault)
+}
+
+// MARK: - Two-phase binding
+
+/// A `FieldManifest` resolved against one source's own layout, once, for a whole stream.
+///
+/// This is the second phase, and the reason the manifest exists. A record stream has ONE
+/// key set for its entire life, so resolving keys per record is pure waste — a reader over
+/// a wide table pays a scan per field per row for an answer that never changes. Resolving
+/// once turns every subsequent lookup into an array index.
+///
+/// The plan is deliberately just `[Int]`: field index → whatever the source calls a column,
+/// with `absent` for a field the source does not carry. A driver that addresses by
+/// statement handle or byte offset stores those instead and this type is not in its way.
+public struct BoundPlan: Sendable {
+    /// Marks a manifest field the source has no column for. Kept as a sentinel rather than
+    /// an optional so the hot path indexes an `[Int]` with no unwrapping.
+    public static let absent = -1
+
+    @usableFromInline let slots: [Int]
+
+    /// Resolve a manifest against a source's column names, in the source's own order.
+    public init(manifest: FieldManifest, columns: [String]) {
+        var index: [String: Int] = [:]
+        index.reserveCapacity(columns.count)
+        for (i, c) in columns.enumerated() where index[c] == nil { index[c] = i }
+        self.slots = manifest.fields.map { index[$0.key] ?? BoundPlan.absent }
+    }
+
+    /// For a source that resolves positions some other way — a statement handle, a byte
+    /// offset table — and only wants the storage.
+    public init(slots: [Int]) { self.slots = slots }
+
+    /// The source's own position for a manifest field, or `absent`.
+    @inlinable
+    public subscript(field: Int) -> Int {
+        field >= 0 && field < slots.count ? slots[field] : BoundPlan.absent
+    }
+
+    /// Whether every required field was found. A stream binds once, so this is the natural
+    /// place to fail fast — before decoding a million rows that will each report the same
+    /// missing column.
+    public func missingRequired(in manifest: FieldManifest) -> [String] {
+        var out: [String] = []
+        for (i, f) in manifest.fields.enumerated()
+        where f.isRequired && self[i] == BoundPlan.absent {
+            out.append(f.key)
+        }
+        return out
+    }
+
+    public var count: Int { slots.count }
 }

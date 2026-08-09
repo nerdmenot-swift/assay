@@ -66,23 +66,62 @@ struct RowSource: KeyedSource, ~Copyable {
         return nil
     }
 
-    borrowing func has(_ key: StaticString) -> Bool { index(key) != nil }
-    borrowing func isNull(_ key: StaticString) -> Bool {
+    borrowing func has(_ key: StaticString, _ field: Int) -> Bool { index(key) != nil }
+    borrowing func isNull(_ key: StaticString, _ field: Int) -> Bool {
         guard let i = index(key) else { return false }
         if case .null = values[i] { return true }
         return false
     }
-    borrowing func int64(_ key: StaticString) -> Int64? { index(key).flatMap { values[$0].int } }
-    borrowing func double(_ key: StaticString) -> Double? { index(key).flatMap { values[$0].double } }
-    borrowing func bool(_ key: StaticString) -> Bool? { index(key).flatMap { values[$0].bool } }
-    borrowing func string(_ key: StaticString) -> String? {
+    borrowing func int64(_ key: StaticString, _ field: Int) -> Int64? { index(key).flatMap { values[$0].int } }
+    borrowing func double(_ key: StaticString, _ field: Int) -> Double? { index(key).flatMap { values[$0].double } }
+    borrowing func bool(_ key: StaticString, _ field: Int) -> Bool? { index(key).flatMap { values[$0].bool } }
+    borrowing func string(_ key: StaticString, _ field: Int) -> String? {
         guard let i = index(key), case .string(let s) = values[i] else { return nil }
         return s
     }
     borrowing func withText<R>(
-        _ key: StaticString, _ body: (UnsafeRawBufferPointer?) -> R
+        _ key: StaticString, _ field: Int, _ body: (UnsafeRawBufferPointer?) -> R
     ) -> R {
         guard let i = index(key), case .string(let s) = values[i] else { return body(nil) }
+        var copy = s
+        return copy.withUTF8 { unsafe body(UnsafeRawBufferPointer($0)) }
+    }
+}
+
+/// The same row, BOUND. The plan is resolved once for the whole stream; each record then
+/// indexes it. No key is compared, no scan is walked — the key argument is ignored
+/// entirely, which is what the second phase buys.
+struct BoundRowSource: KeyedSource, ~Copyable {
+    let plan: BoundPlan
+    let values: [RawValue]
+
+    @inline(__always)
+    borrowing func slot(_ field: Int) -> RawValue? {
+        let i = plan[field]
+        // `Optional<RawValue>.none`, spelled out. A bare `nil` here resolves to
+        // `.some(.null)`, because RawValue is ExpressibleByNilLiteral — so an ABSENT
+        // column would read as a PRESENT null and a defaulted field would report a type
+        // mismatch instead of taking its default. This bit while writing the example.
+        guard i != BoundPlan.absent else { return Optional<RawValue>.none }
+        return values[i]
+    }
+
+    borrowing func has(_ key: StaticString, _ field: Int) -> Bool { slot(field) != nil }
+    borrowing func isNull(_ key: StaticString, _ field: Int) -> Bool {
+        if case .null? = slot(field) { return true }
+        return false
+    }
+    borrowing func int64(_ key: StaticString, _ field: Int) -> Int64? { slot(field)?.int }
+    borrowing func double(_ key: StaticString, _ field: Int) -> Double? { slot(field)?.double }
+    borrowing func bool(_ key: StaticString, _ field: Int) -> Bool? { slot(field)?.bool }
+    borrowing func string(_ key: StaticString, _ field: Int) -> String? {
+        guard case .string(let s)? = slot(field) else { return nil }
+        return s
+    }
+    borrowing func withText<R>(
+        _ key: StaticString, _ field: Int, _ body: (UnsafeRawBufferPointer?) -> R
+    ) -> R {
+        guard case .string(let s)? = slot(field) else { return body(nil) }
         var copy = s
         return copy.withUTF8 { unsafe body(UnsafeRawBufferPointer($0)) }
     }
@@ -184,6 +223,31 @@ func runSourceBenchmarks() {
         return BenchRow.diagnose(source: src).value.map { Box($0) }
     }
 
+    // The SECOND PHASE: resolve the manifest against the source's columns ONCE, then
+    // index it per record. This is the claim the whole design rests on and it has been
+    // unmeasured until now.
+    let narrowPlan = BoundPlan(manifest: BenchRow._assayManifest, columns: columnNames)
+    let widePlan = BoundPlan(manifest: BenchRow._assayManifest, columns: wideNames)
+    precondition(narrowPlan.missingRequired(in: BenchRow._assayManifest).isEmpty)
+    precondition(widePlan.missingRequired(in: BenchRow._assayManifest).isEmpty)
+
+    let gNs = measure(iterations: iters) {
+        let src = BoundRowSource(plan: narrowPlan, values: values)
+        _ = BenchRow.diagnose(source: src).value
+    }
+    let hNs = measure(iterations: iters) {
+        let src = BoundRowSource(plan: widePlan, values: wideValues)
+        _ = BenchRow.diagnose(source: src).value
+    }
+    let gAlloc = measureAllocations(iterations: 4_000) { () -> Box<BenchRow>? in
+        let src = BoundRowSource(plan: narrowPlan, values: values)
+        return BenchRow.diagnose(source: src).value.map { Box($0) }
+    }
+    let hAlloc = measureAllocations(iterations: 4_000) { () -> Box<BenchRow>? in
+        let src = BoundRowSource(plan: widePlan, values: wideValues)
+        return BenchRow.diagnose(source: src).value.map { Box($0) }
+    }
+
     func row(_ label: String, _ ns: Double, _ a: (blocks: Double?, bytes: Double)) {
         print(pad(label, 34, right: true)
               + pad(String(format: "%.0f", ns), 12)
@@ -193,6 +257,7 @@ func runSourceBenchmarks() {
     row("A. KeyedSource (byte-compared)", aNs, aAlloc)
     row("B. build RawValue, then decode", bNs, bAlloc)
     row("C. DictionarySource (hashing)", cNs, cAlloc)
+    row("G. BOUND (plan resolved once)", gNs, gAlloc)
 
     print("")
     print("48-column row, 8 columns declared — SELECT * against a wide table")
@@ -202,11 +267,68 @@ func runSourceBenchmarks() {
     row("D. KeyedSource (byte-compared)", dNs, dAlloc)
     row("E. build RawValue, then decode", eNs, eAlloc)
     row("F. DictionarySource (hashing)", fNs, fAlloc)
+    row("H. BOUND (plan resolved once)", hNs, hAlloc)
 
     print("")
     print(String(format: "narrow (8 of 8):  KeyedSource %.2fx the RawValue path", bNs / aNs))
     print(String(format: "wide  (8 of 48):  KeyedSource %.2fx the RawValue path", eNs / dNs))
     print(String(format: "wide, hashing:    DictionarySource %.2fx", eNs / fNs))
+    // Binding's real property is not a constant speedup — it is that the cost STOPS
+    // DEPENDING ON THE SOURCE'S WIDTH. A scan grows with the columns it walks past; an
+    // index does not. 48 columns is too narrow to show it, so widen until it is obvious.
+    print("")
+    print("Width sensitivity — a scan grows with the table, an index does not")
+    print(pad("columns", 12, right: true) + pad("unbound ns", 14) + pad("bound ns", 12)
+          + pad("bound wins", 12))
+    print(String(repeating: "-", count: 50))
+    // The declared columns are INTERLEAVED, evenly spread through the row. Putting them
+    // first — the obvious way to build the fixture — makes a scan look free, because it
+    // finds every field in the first eight positions and never walks past them. That is a
+    // benchmark artifact, not a property of the design, and it is exactly the kind of
+    // thing that turns a measurement into an advertisement. A real `SELECT *` scatters the
+    // columns you asked for among the ones you did not.
+    for width in [8, 48, 128, 400] {
+        var names: [String] = []
+        var vals: [RawValue] = []
+        let stride = max(1, width / 8)
+        var declared = 0
+        for slot in 0..<width {
+            if slot % stride == 0 && declared < 8 {
+                names.append(columnNames[declared])
+                vals.append(values[declared])
+                declared += 1
+            } else {
+                names.append("spare_\(slot)")
+                vals.append(.string("filler-\(slot)"))
+            }
+        }
+        while declared < 8 {
+            names.append(columnNames[declared])
+            vals.append(values[declared])
+            declared += 1
+        }
+        let cols = names.map { Array($0.utf8) }
+        let plan = BoundPlan(manifest: BenchRow._assayManifest, columns: names)
+        let u = measure(iterations: 8_000) {
+            let src = RowSource(columns: cols, values: vals)
+            _ = BenchRow.diagnose(source: src).value
+        }
+        let b = measure(iterations: 8_000) {
+            let src = BoundRowSource(plan: plan, values: vals)
+            _ = BenchRow.diagnose(source: src).value
+        }
+        print(pad("\(width)", 12, right: true)
+              + pad(String(format: "%.0f", u), 14)
+              + pad(String(format: "%.0f", b), 12)
+              + pad(String(format: "%.2fx", u / b), 12))
+    }
+
+    print("")
+    print("Two-phase binding — the claim the design rests on:")
+    print(String(format: "  narrow: bound is %.2fx the unbound scan, %.2fx the RawValue path",
+                 aNs / gNs, bNs / gNs))
+    print(String(format: "  wide:   bound is %.2fx the unbound scan, %.2fx the RawValue path",
+                 dNs / hNs, eNs / hNs))
     print("Blocks are LIVE blocks per decoded value; read Allocations.swift's three stated")
     print("limitations before quoting them. Both sides retain the same String fields, so")
     print("the interesting number is the DIFFERENCE, which is the tree B has to build.")

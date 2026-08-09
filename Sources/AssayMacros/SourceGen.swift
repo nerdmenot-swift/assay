@@ -69,7 +69,7 @@ extension SchemaMacro {
         // Spans for validated fields, so a source that can place its fields renders the
         // same carets JSON does.
         for (i, f) in fields.enumerated() where f.needsSpan {
-            flat += "    let __sp\(i): Assay.SourceSpan? = source.span(\"\(f.wireKey)\")\n"
+            flat += "    let __sp\(i): Assay.SourceSpan? = source.span(\"\(f.wireKey)\", \(i))\n"
         }
 
         return """
@@ -119,17 +119,17 @@ extension SchemaMacro {
         let call: String
         switch base {
         case "String":
-            call = "Assay._assaySourceString(source, \"\(key)\", &sink, path, \(opts))"
+            call = "Assay._assaySourceString(source, \"\(key)\", \(i), &sink, path, \(opts))"
         case "Bool":
-            call = "Assay._assaySourceBool(source, \"\(key)\", &sink, path, \(opts))"
+            call = "Assay._assaySourceBool(source, \"\(key)\", \(i), &sink, path, \(opts))"
         case "Double":
-            call = "Assay._assaySourceDouble(source, \"\(key)\", &sink, path, \(opts))"
+            call = "Assay._assaySourceDouble(source, \"\(key)\", \(i), &sink, path, \(opts))"
         case "Float":
-            return "if let __r\(i) = Assay._assaySourceDouble(source, \"\(key)\", &sink, path, \(opts)) { __g\(i) = .some(__r\(i).map(Float.init)) }"
+            return "if let __r\(i) = Assay._assaySourceDouble(source, \"\(key)\", \(i), &sink, path, \(opts)) { __g\(i) = .some(__r\(i).map(Float.init)) }"
         case "Int64":
-            call = "Assay._assaySourceInt64(source, \"\(key)\", &sink, path, \(opts))"
+            call = "Assay._assaySourceInt64(source, \"\(key)\", \(i), &sink, path, \(opts))"
         case "Int", "Int32", "UInt":
-            return "if let __r\(i) = Assay._assaySourceInt64(source, \"\(key)\", &sink, path, \(opts)) { __g\(i) = .some(__r\(i).flatMap { \(base)(exactly: $0) }) }"
+            return "if let __r\(i) = Assay._assaySourceInt64(source, \"\(key)\", \(i), &sink, path, \(opts)) { __g\(i) = .some(__r\(i).flatMap { \(base)(exactly: $0) }) }"
         default:
             // Nested types are out of the first increment: a row addresses one flat
             // namespace, and prefix-addressing is a design question of its own.

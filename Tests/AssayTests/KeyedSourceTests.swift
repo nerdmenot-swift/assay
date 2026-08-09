@@ -30,24 +30,24 @@ struct Row: Equatable {
 struct PositionedSource: KeyedSource, ~Copyable {
     let values: [String: (RawValue, SourceSpan)]
 
-    borrowing func has(_ key: StaticString) -> Bool {
+    borrowing func has(_ key: StaticString, _ field: Int) -> Bool {
         values[String(describing: key)] != nil
     }
-    borrowing func isNull(_ key: StaticString) -> Bool {
+    borrowing func isNull(_ key: StaticString, _ field: Int) -> Bool {
         if case .null? = values[String(describing: key)]?.0 { return true }
         return false
     }
-    borrowing func int64(_ key: StaticString) -> Int64? {
+    borrowing func int64(_ key: StaticString, _ field: Int) -> Int64? {
         values[String(describing: key)]?.0.int
     }
-    borrowing func double(_ key: StaticString) -> Double? {
+    borrowing func double(_ key: StaticString, _ field: Int) -> Double? {
         values[String(describing: key)]?.0.double
     }
-    borrowing func bool(_ key: StaticString) -> Bool? {
+    borrowing func bool(_ key: StaticString, _ field: Int) -> Bool? {
         values[String(describing: key)]?.0.bool
     }
     borrowing func withText<R>(
-        _ key: StaticString, _ body: (UnsafeRawBufferPointer?) -> R
+        _ key: StaticString, _ field: Int, _ body: (UnsafeRawBufferPointer?) -> R
     ) -> R {
         guard case .string(let s)? = values[String(describing: key)]?.0 else {
             return body(nil)
@@ -55,7 +55,7 @@ struct PositionedSource: KeyedSource, ~Copyable {
         var copy = s
         return copy.withUTF8 { body(UnsafeRawBufferPointer($0)) }
     }
-    borrowing func span(_ key: StaticString) -> SourceSpan? {
+    borrowing func span(_ key: StaticString, _ field: Int) -> SourceSpan? {
         values[String(describing: key)]?.1
     }
 }
@@ -202,5 +202,104 @@ struct KeyedSourceDiagnosticTests {
         #expect(!without.contains("_assayManifest"))
         #expect(with.contains("_assayManifest"))
         #expect(with.contains("KeyedSource"))
+    }
+}
+
+/// The bound source: the plan is resolved once, and the key argument is ignored entirely.
+struct BoundTestSource: KeyedSource, ~Copyable {
+    let plan: BoundPlan
+    let values: [RawValue]
+
+    borrowing func slot(_ field: Int) -> RawValue? {
+        let i = plan[field]
+        // `Optional<RawValue>.none`, spelled out. A bare `nil` here resolves to
+        // `.some(.null)`, because RawValue is ExpressibleByNilLiteral — so an ABSENT
+        // column would read as a PRESENT null and a defaulted field would report a type
+        // mismatch instead of taking its default. This bit while writing the example.
+        guard i != BoundPlan.absent else { return Optional<RawValue>.none }
+        return values[i]
+    }
+    borrowing func has(_ key: StaticString, _ field: Int) -> Bool { slot(field) != nil }
+    borrowing func isNull(_ key: StaticString, _ field: Int) -> Bool {
+        if case .null? = slot(field) { return true }
+        return false
+    }
+    borrowing func int64(_ key: StaticString, _ field: Int) -> Int64? { slot(field)?.int }
+    borrowing func double(_ key: StaticString, _ field: Int) -> Double? { slot(field)?.double }
+    borrowing func bool(_ key: StaticString, _ field: Int) -> Bool? { slot(field)?.bool }
+    borrowing func string(_ key: StaticString, _ field: Int) -> String? {
+        guard case .string(let s)? = slot(field) else { return nil }
+        return s
+    }
+    borrowing func withText<R>(
+        _ key: StaticString, _ field: Int, _ body: (UnsafeRawBufferPointer?) -> R
+    ) -> R {
+        guard case .string(let s)? = slot(field) else { return body(nil) }
+        var copy = s
+        return copy.withUTF8 { body(UnsafeRawBufferPointer($0)) }
+    }
+}
+
+@Suite("Two-phase binding")
+struct BoundPlanTests {
+
+    /// Columns in a different order from the schema, and extra ones — the ordinary case.
+    static let columns = ["spare_a", "score", "id", "spare_b", "active", "name",
+                          "age", "nickname", "spare_c"]
+    static let values: [RawValue] = [
+        .string("x"), .double(9.5), .int(1), .string("y"), .bool(true),
+        .string("ada"), .int(36), .string("countess"), .string("z"),
+    ]
+
+    @Test("a bound decode equals the unbound one, field for field")
+    func boundMatchesUnbound() throws {
+        let plan = BoundPlan(manifest: Row._assayManifest, columns: Self.columns)
+        let bound = try Row.parse(source: BoundTestSource(plan: plan, values: Self.values))
+        let dict = Dictionary(uniqueKeysWithValues: zip(Self.columns, Self.values))
+        let unbound = try Row.parse(source: DictionarySource(dict))
+        #expect(bound == unbound, "binding must change cost, never meaning")
+    }
+
+    @Test("the plan maps manifest order to the source's own order")
+    func planOrder() {
+        let plan = BoundPlan(manifest: Row._assayManifest, columns: Self.columns)
+        // Manifest order is id, name, age, score, active, nickname, retries.
+        #expect(plan[0] == 2, "id is the source's third column")
+        #expect(plan[1] == 5, "name is the source's sixth")
+        #expect(plan[3] == 1, "score is the source's second")
+        #expect(plan[6] == BoundPlan.absent, "retries is absent and defaulted")
+    }
+
+    @Test("binding fails fast: a missing required column is reported ONCE, per stream")
+    func missingRequiredUpFront() {
+        // The point of binding: a column the schema requires and the source lacks is a
+        // property of the STREAM, so it should not be rediscovered a million times.
+        let plan = BoundPlan(manifest: Row._assayManifest,
+                             columns: ["id", "age", "score", "active"])
+        let missing = plan.missingRequired(in: Row._assayManifest)
+        #expect(missing == ["name"])
+        #expect(BoundPlan(manifest: Row._assayManifest, columns: Self.columns)
+                    .missingRequired(in: Row._assayManifest).isEmpty)
+    }
+
+    @Test("an absent optional or defaulted column still decodes")
+    func absentColumns() throws {
+        // `nickname` optional and `retries` defaulted are both missing from the source.
+        let cols = ["id", "name", "age", "score", "active"]
+        let vals: [RawValue] = [.int(1), .string("ada"), .int(36), .double(9.5), .bool(true)]
+        let plan = BoundPlan(manifest: Row._assayManifest, columns: cols)
+        let v = try Row.parse(source: BoundTestSource(plan: plan, values: vals))
+        #expect(v.nickname == nil)
+        #expect(v.retries == 3)
+    }
+
+    @Test("a bound source still reports validation and type errors identically")
+    func errorsUnchanged() {
+        var vals = Self.values
+        vals[6] = .int(500)                       // age, out of range
+        let plan = BoundPlan(manifest: Row._assayManifest, columns: Self.columns)
+        let d = Row.diagnose(source: BoundTestSource(plan: plan, values: vals))
+        #expect(!d.isValid)
+        #expect(d.issues.contains { $0.message.contains("between 0 and 120") })
     }
 }

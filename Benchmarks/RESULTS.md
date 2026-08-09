@@ -638,3 +638,68 @@ the per-record work the field manifest exists to let a real source avoid.
 — is not built, so its win is still unquantified. The wide-row number above is the *unbound*
 path already beating the alternative by 2.6×; binding should widen that further by turning
 the scan into an array index, and that claim stays unmade until it is built and measured.
+
+## The bound path, measured
+
+**2026-08-09.** The second phase: resolve the `FieldManifest` against a source's columns
+**once per stream**, then index the plan per record. Every accessor now receives the
+field's manifest index alongside its key, so one protocol serves both — an unbound source
+ignores the index and looks up the key; a bound source ignores the key.
+
+### Width sensitivity — the property that actually matters
+
+Declared columns **interleaved** through the row, evenly spread:
+
+| columns | unbound (scan) | bound (index) | bound wins |
+|---|---|---|---|
+| 8 | 121 ns | 101 ns | 1.19× |
+| 48 | 167 ns | 96 ns | 1.73× |
+| 128 | 252 ns | 98 ns | 2.58× |
+| 400 | 592 ns | 97 ns | **6.12×** |
+
+**Binding's value is not a constant speedup — it is that the cost stops depending on the
+source's width.** The bound row is ~100 ns at every width; the unbound scan grows linearly
+with the columns it walks past. At eight columns binding is barely worth having; at four
+hundred it is the difference between a reader that keeps up and one that does not.
+
+### A benchmark artifact that nearly hid it
+
+The first version of this table was **flat** — 123 ns unbound at every width, implying
+binding bought nothing. The fixture appended the spare columns *after* the declared ones,
+so the scan found every field within the first eight positions and never walked past them.
+Building the fixture the obvious way made a linear scan look free.
+
+That is worth recording as a method note, not just a fixed bug: **a benchmark whose fixture
+flatters the subject produces a number that is precisely wrong in the reassuring
+direction.** A real `SELECT *` scatters the columns you asked for among the ones you did
+not, so the columns are now interleaved.
+
+### Against the alternative
+
+| | unbound | bound |
+|---|---|---|
+| narrow (8 of 8) vs `RawValue` | 0.81× | 0.97× |
+| wide (8 of 48) vs `RawValue` | 2.76× | **3.30×** |
+
+Binding does not rescue the narrow case — at eight columns, building a `RawValue` mapping
+is still marginally the better answer, and the guidance stands: **use the third path when
+the source is wider than the schema.** Binding widens the win where the win already was.
+
+### A bug the bound path found in the library's own API
+
+`RawValue` conforms to `ExpressibleByNilLiteral`, so in a function returning `RawValue?` a
+bare `nil` resolves to **`.some(.null)`** rather than to absence. Writing the bound example
+the obvious way therefore made an **absent column read as a present null** — `has` said
+yes, `isNull` said yes, and a defaulted field reported a type mismatch instead of taking
+its default.
+
+It is a real trap for anyone implementing `KeyedSource` over `RawValue`, it is now
+documented in `docs/KEYED-SOURCE.md`, and it is worth noting *how* it was found: not by the
+335-test suite, which never wrote such a source, but by building a second implementation of
+the protocol. A protocol with one implementation is an untested protocol.
+
+### Still unmeasured
+
+Columnar batch fill — inverting the loop so a Parquet or Arrow reader fills a batch of
+structs column-by-column rather than record-by-record. The manifest and the plan are both
+in place for it; nothing about it is claimed until it is built.

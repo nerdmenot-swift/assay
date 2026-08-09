@@ -299,6 +299,17 @@ public struct SchemaMacro: ExtensionMacro {
                                                      extras: extras)
             }
         }
+        if Self.sources(from: node) {
+            for message in Self.sourceDiagnostics(activeS) {
+                context.diagnose(Diagnostic(node: Syntax(node),
+                                            message: SimpleDiagnostic(message)))
+            }
+            guard Self.sourceDiagnostics(activeS).isEmpty else { return [] }
+            body += "\n\n" + Self.sourceBody(
+                typeName: typeName, fields: activeS,
+                validation: Self.postDecodeSection(activeS, spans: true),
+                checks: Self.checkCalls(typeName, checkDecls, activeS, spans: true))
+        }
         body += Self.asyncCheckRunner(typeName, checkDecls)
 
         var conformances: [String] = []
@@ -310,6 +321,7 @@ public struct SchemaMacro: ExtensionMacro {
         if wantsEncoding && formats.json { conformances.append("Assay.JSONEncodableSchema") }
         if wantsEncoding && formats.raw { conformances.append("Assay.RawEncodableSchema") }
         if wantsEncoding && formats.xml { conformances.append("Assay.XMLEncodableSchema") }
+        if Self.sources(from: node) { conformances.append("Assay.SourceDecodable") }
 
         let ext = try ExtensionDeclSyntax(
             "extension \(raw: typeName): \(raw: conformances.joined(separator: ", "))") {
@@ -366,6 +378,16 @@ public struct SchemaMacro: ExtensionMacro {
     static func encodes(from node: AttributeSyntax) -> Bool {
         guard let args = node.arguments?.as(LabeledExprListSyntax.self) else { return false }
         for arg in args where arg.label?.text == "encodes" {
+            return arg.expression.trimmedDescription == "true"
+        }
+        return false
+    }
+
+    /// `@Schema(sources: true)` — the KeyedSource decode body. Opt-in like every other
+    /// body: generated size dominates expansion cost.
+    static func sources(from node: AttributeSyntax) -> Bool {
+        guard let args = node.arguments?.as(LabeledExprListSyntax.self) else { return false }
+        for arg in args where arg.label?.text == "sources" {
             return arg.expression.trimmedDescription == "true"
         }
         return false

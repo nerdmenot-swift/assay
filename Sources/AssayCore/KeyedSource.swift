@@ -1,0 +1,230 @@
+// Assay — a decoder for Swift that tells you what went wrong.
+// Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
+// See LICENSE and NOTICE at the repository root for terms.
+
+//===----------------------------------------------------------------------===//
+// The third decode path: a source that is ALREADY PARSED and addressable by key.
+// docs/KEYED-SOURCE.md.
+//
+// Database rows, CSV records, property lists, `[String: Any]`, form data and environment
+// blocks are all the same shape — fields already separated, addressable by name, and
+// nothing tree-shaped. Reaching them today means building a `RawValue` first, which costs
+// an allocation per value per record and throws away the source's own layout. A reader
+// doing millions of rows cannot pay that.
+//
+// `~Copyable` and NOT `~Escapable`, deliberately: `AssayReader` already refused
+// `~Escapable` in the public surface because `@_lifetime` is still an experimental feature
+// and would gate the whole library on one. The protocol is shaped so the constraint can be
+// added later without a source break — the same bet already placed there, not a new one.
+//===----------------------------------------------------------------------===//
+
+/// A source of already-parsed, key-addressable fields.
+///
+/// Accessors are `borrowing` and return optionals rather than throwing: a `nil` means "this
+/// source cannot give you that", and the decoder decides whether that is a missing field, a
+/// null, or a type mismatch by asking `has` and `isNull`. That split is what lets one
+/// protocol serve a database row (where null is a first-class value) and an environment
+/// block (where it is not).
+public protocol KeyedSource: ~Copyable {
+
+    /// Whether the key exists at all. Absence and null are different things —
+    /// `EXPERIENCE.md` §6's five presence states depend on the distinction.
+    borrowing func has(_ key: StaticString) -> Bool
+
+    /// Whether the key exists and holds a null.
+    borrowing func isNull(_ key: StaticString) -> Bool
+
+    borrowing func int64(_ key: StaticString) -> Int64?
+    borrowing func double(_ key: StaticString) -> Double?
+    borrowing func bool(_ key: StaticString) -> Bool?
+
+    /// Text, without requiring a `String` to exist.
+    ///
+    /// The callback shape is the point: a source over a byte buffer hands out a borrowed
+    /// range and allocates nothing, and only a field actually declared `String` ever
+    /// materialises one. A source that already holds `String`s implements it in two lines.
+    borrowing func withText<R>(
+        _ key: StaticString, _ body: (UnsafeRawBufferPointer?) -> R
+    ) -> R
+
+    /// Where this field came from, if the source can say. Sources that cannot return `nil`
+    /// and get position-free diagnostics, which the renderer has always handled.
+    borrowing func span(_ key: StaticString) -> SourceSpan?
+}
+
+extension KeyedSource where Self: ~Copyable {
+    /// Default: `nil`, so a source that has no notion of position says so once.
+    public borrowing func span(_ key: StaticString) -> SourceSpan? { nil }
+
+    /// Convenience over `withText`, for sources and callers that want the `String`.
+    public borrowing func text(_ key: StaticString) -> String? {
+        withText(key) { buf in
+            guard let buf, let base = buf.baseAddress else { return nil }
+            return unsafe String(decoding: UnsafeRawBufferPointer(start: base,
+                                                                  count: buf.count),
+                                 as: UTF8.self)
+        }
+    }
+}
+
+// MARK: - The field manifest
+
+/// What a `@Schema` type declares, in order, at compile time.
+///
+/// This is the load-bearing half of the design. A record stream has ONE key set for its
+/// whole life, so resolving keys per record is pure waste — a CSV reader doing a
+/// byte-comparing scan per field per row is doing millions of comparisons it could have
+/// done once. The manifest is what a source binds against to turn that into an array
+/// index, and it is also what lets a columnar source invert the loop and fill a batch
+/// column-by-column.
+///
+/// It is published even though the bound decode path is not built yet, because the
+/// manifest is the part that has to be right first.
+public struct FieldManifest: Sendable {
+    public struct Field: Sendable {
+        /// The wire key, after `keys:` conversion and `@Key` overrides.
+        public let key: String
+        public let kind: Kind
+        /// `String?` — absent or null both decode to nil.
+        public let isOptional: Bool
+        /// `= 3` — absent is allowed and the declared value applies.
+        public let hasDefault: Bool
+
+        public init(key: String, kind: Kind, isOptional: Bool, hasDefault: Bool) {
+            self.key = key
+            self.kind = kind
+            self.isOptional = isOptional
+            self.hasDefault = hasDefault
+        }
+
+        /// Whether the source must supply this field for the decode to succeed.
+        public var isRequired: Bool { !isOptional && !hasDefault }
+    }
+
+    public enum Kind: Sendable, Equatable {
+        case string, int, int64, int32, uint, double, float, bool
+        /// A nested `@Schema` type, named. Not decodable from a flat source in the first
+        /// increment; present so a binder can see it and refuse.
+        case nested(String)
+    }
+
+    public let fields: [Field]
+    public init(fields: [Field]) { self.fields = fields }
+
+    /// Keys in declaration order — what a binder resolves once per stream.
+    public var keys: [String] { fields.map(\.key) }
+}
+
+// MARK: - Per-field accessors generated code calls
+//
+// One line per field in the expansion, everything conditional here — the same discipline
+// the JSON and RawValue bodies follow (docs/COMPILE-TIME.md §3).
+
+/// Absent, or null where null is not allowed, or the wrong type: the three ways a field
+/// fails, reported the way every other path reports them.
+@inline(never)
+public func _assaySourceMissing(
+    _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+    _ span: SourceSpan?
+) {
+    sink.add(Issue(code: .missing, path: path + [.key(String(describing: key))],
+                   location: span))
+}
+
+@inline(never)
+public func _assaySourceMismatch(
+    _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+    _ expected: String, _ span: SourceSpan?
+) {
+    sink.add(Issue(code: .typeMismatch,
+                   path: path + [.key(String(describing: key))],
+                   params: ["expected": .string(expected)],
+                   location: span))
+}
+
+/// Every accessor has the same shape: absent → report missing unless optional or
+/// defaulted; null → nil for an optional, mismatch otherwise; present but unreadable →
+/// mismatch. Written once here rather than five times per field in every expansion.
+@inlinable
+public func _assaySourceString<S: KeyedSource & ~Copyable>(
+    _ s: borrowing S, _ key: StaticString, _ sink: inout IssueSink,
+    _ path: [PathComponent], optional: Bool, hasDefault: Bool
+) -> String?? {
+    if !s.has(key) {
+        if optional { return .some(nil) }
+        if hasDefault { return nil }
+        _assaySourceMissing(&sink, path, key, nil)
+        return nil
+    }
+    if s.isNull(key) {
+        if optional { return .some(nil) }
+        _assaySourceMismatch(&sink, path, key, "string", s.span(key))
+        return nil
+    }
+    if let v = s.text(key) { return .some(v) }
+    _assaySourceMismatch(&sink, path, key, "string", s.span(key))
+    return nil
+}
+
+@inlinable
+public func _assaySourceInt64<S: KeyedSource & ~Copyable>(
+    _ s: borrowing S, _ key: StaticString, _ sink: inout IssueSink,
+    _ path: [PathComponent], optional: Bool, hasDefault: Bool
+) -> Int64?? {
+    if !s.has(key) {
+        if optional { return .some(nil) }
+        if hasDefault { return nil }
+        _assaySourceMissing(&sink, path, key, nil)
+        return nil
+    }
+    if s.isNull(key) {
+        if optional { return .some(nil) }
+        _assaySourceMismatch(&sink, path, key, "integer", s.span(key))
+        return nil
+    }
+    if let v = s.int64(key) { return .some(v) }
+    _assaySourceMismatch(&sink, path, key, "integer", s.span(key))
+    return nil
+}
+
+@inlinable
+public func _assaySourceDouble<S: KeyedSource & ~Copyable>(
+    _ s: borrowing S, _ key: StaticString, _ sink: inout IssueSink,
+    _ path: [PathComponent], optional: Bool, hasDefault: Bool
+) -> Double?? {
+    if !s.has(key) {
+        if optional { return .some(nil) }
+        if hasDefault { return nil }
+        _assaySourceMissing(&sink, path, key, nil)
+        return nil
+    }
+    if s.isNull(key) {
+        if optional { return .some(nil) }
+        _assaySourceMismatch(&sink, path, key, "number", s.span(key))
+        return nil
+    }
+    if let v = s.double(key) { return .some(v) }
+    _assaySourceMismatch(&sink, path, key, "number", s.span(key))
+    return nil
+}
+
+@inlinable
+public func _assaySourceBool<S: KeyedSource & ~Copyable>(
+    _ s: borrowing S, _ key: StaticString, _ sink: inout IssueSink,
+    _ path: [PathComponent], optional: Bool, hasDefault: Bool
+) -> Bool?? {
+    if !s.has(key) {
+        if optional { return .some(nil) }
+        if hasDefault { return nil }
+        _assaySourceMissing(&sink, path, key, nil)
+        return nil
+    }
+    if s.isNull(key) {
+        if optional { return .some(nil) }
+        _assaySourceMismatch(&sink, path, key, "boolean", s.span(key))
+        return nil
+    }
+    if let v = s.bool(key) { return .some(v) }
+    _assaySourceMismatch(&sink, path, key, "boolean", s.span(key))
+    return nil
+}

@@ -323,6 +323,39 @@ issue cap already covers the memory concern that motivates it.
 
 ---
 
+## The third decode path — `KeyedSource`
+
+**Status: first increment BUILT 2026-08-09.** `docs/KEYED-SOURCE.md`.
+
+```swift
+@Schema(sources: true) struct Row { var id: Int; var name: String }
+let row = try Row.parse(source: DictionarySource(dict))
+```
+
+Decoding from a source that is *already parsed and addressable by key*, alongside
+bytes-direct (JSON) and the `RawValue` tree (YAML/XML). Database rows, CSV, property lists,
+`[String: Any]`, form data, environment blocks — all the same shape, and all of them
+currently have to build a `RawValue` tree first, which costs an allocation per value per
+record.
+
+Built: the `KeyedSource` protocol, the generated entry point, the **field manifest**, a
+reference `DictionarySource`, and identical behaviour for the five presence states,
+`@Validate`, `@Fallback` and caret rendering when the source reports spans.
+
+**Deferred, with reasons in the document:** the bound/positional decode (the manifest ships
+now because it is the piece that has to be right first), columnar batch fill, and nested or
+collection fields — a keyed source is a flat record, and anything tree-shaped is what the
+`RawValue` path is for. Both are compile errors naming the field rather than runtime
+surprises.
+
+Three collisions with settled rules were resolved rather than papered over — `~Escapable`
+would gate the library on an experimental feature, a generic entry point cannot specialise
+across a module boundary because `@inlinable` on a generated body is forbidden, and a fourth
+generated body meets a compile budget with 15 ms of headroom. `docs/KEYED-SOURCE.md` has
+each one and its resolution.
+
+---
+
 ## Verification gaps
 
 Not features, but they are equally part of "done":

@@ -237,6 +237,7 @@ struct MessageCoverageTests {
         "date_not_between", "invalid_rule_date",
         // Encoding
         "unrepresentable_value", "extras_key_collision", "unknown_not_encodable",
+        "missing_column",
         // YAML
         "yaml_empty_stream", "yaml_multiple_documents", "yaml_undefined_alias",
         "yaml_expansion_limit", "yaml_expected_colon", "yaml_expected_value_indicator",

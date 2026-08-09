@@ -703,3 +703,47 @@ the protocol. A protocol with one implementation is an untested protocol.
 Columnar batch fill — inverting the loop so a Parquet or Arrow reader fills a batch of
 structs column-by-column rather than record-by-record. The manifest and the plan are both
 in place for it; nothing about it is claimed until it is built.
+
+## Columnar batch fill
+
+**2026-08-09.** The loop inverted: pull each column once, sequentially, instead of touching
+all eight column arrays per record. Same column store on both sides, and the row-wise
+source reads *straight out of the columns* — no per-row array is built — so the only thing
+separating the two is the access pattern.
+
+| rows | row-by-row | batch | ns/row | batch wins |
+|---|---|---|---|---|
+| 64 | 6,407 ns | 3,277 ns | 51 | 1.96× |
+| 1,000 | 106,180 ns | 52,082 ns | 52 | 2.04× |
+| 20,000 | 2,113,742 ns | 1,043,996 ns | 52 | 2.02× |
+| 100,000 | 10,767,375 ns | 5,205,854 ns | 52 | **2.07×** |
+
+**A flat 2×, and flat is the interesting part.** The per-row cost is 52 ns at 64 rows and 52
+ns at 100,000 — a 1,500× range — so this is not a cache-residency effect that appears once
+the data outgrows L2. It is the access pattern itself: eight strided reads per record
+against one sequential pass per column, and the ratio holds wherever the data lives.
+
+That also means the honest claim is narrower than "columnar is cache-friendly". At these
+widths the win is *structural*, not *hierarchical* — a wider table or larger per-row payload
+would be where residency starts to matter, and that is unmeasured.
+
+### What it cost to keep honest
+
+Two things biased the first version of this comparison and both were removed:
+
+- The row-wise arm **built an `[RawValue]` per record** to feed the source. That is an
+  allocation the batch path never makes, so it was measuring array construction rather than
+  striding. Replaced with a source that reads the column arrays directly.
+- Constructing that source per record **retained eight array references per row**. The
+  source is now built once and walked, so the loop measures access and nothing else.
+
+Both changes made the result *smaller* and more defensible. A comparison that flatters the
+new thing is worth less than one that survives having its advantages removed.
+
+### Behaviour, which is the actual bar
+
+Identical to every other path, and tested rather than assumed: `@Validate` runs per row with
+the **row index in the issue path**, defaults and validity masks give the same five presence
+states, and a **missing required column is reported once for the batch** rather than once per
+row — a property of the source, not of each record, in the same spirit as
+`BoundPlan.missingRequired` failing before the first row is touched.

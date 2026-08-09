@@ -303,3 +303,113 @@ struct BoundPlanTests {
         #expect(d.issues.contains { $0.message.contains("between 0 and 120") })
     }
 }
+
+/// A column store: one array per field, plus Arrow-style validity masks.
+struct ColumnStore: ColumnarSource, ~Copyable {
+    var rowCount: Int
+    var ints: [String: [Int64]] = [:]
+    var doubles: [String: [Double]] = [:]
+    var bools: [String: [Bool]] = [:]
+    var strings: [String: [String]] = [:]
+    var masks: [String: [Bool]] = [:]
+
+    borrowing func int64Column(_ key: StaticString, _ field: Int) -> [Int64]? {
+        ints[String(describing: key)]
+    }
+    borrowing func doubleColumn(_ key: StaticString, _ field: Int) -> [Double]? {
+        doubles[String(describing: key)]
+    }
+    borrowing func boolColumn(_ key: StaticString, _ field: Int) -> [Bool]? {
+        bools[String(describing: key)]
+    }
+    borrowing func stringColumn(_ key: StaticString, _ field: Int) -> [String]? {
+        strings[String(describing: key)]
+    }
+    borrowing func nulls(_ key: StaticString, _ field: Int) -> [Bool]? {
+        masks[String(describing: key)]
+    }
+}
+
+@Suite("Columnar batch fill")
+struct ColumnarTests {
+
+    static func store(rows n: Int) -> ColumnStore {
+        ColumnStore(
+            rowCount: n,
+            ints: ["id": (0..<n).map { Int64($0) }, "age": (0..<n).map { Int64(20 + $0 % 50) }],
+            doubles: ["score": (0..<n).map { Double($0) * 0.5 }],
+            bools: ["active": (0..<n).map { $0 % 2 == 0 }],
+            strings: ["name": (0..<n).map { "user-\($0)" },
+                      "nickname": (0..<n).map { "nick-\($0)" }])
+    }
+
+    @Test("a batch decodes every row, and equals what row-by-row produces")
+    func batchEqualsRowwise() throws {
+        let s = Self.store(rows: 64)
+        let (values, issues, _) = Row.batch(from: s)
+        #expect(issues.isEmpty)
+        #expect(values.count == 64)
+
+        // The inversion must change cost, never meaning.
+        for r in [0, 1, 31, 63] {
+            let rowwise = try Row.parse(source: DictionarySource([
+                "id": .int(Int64(r)), "name": .string("user-\(r)"),
+                "age": .int(Int64(20 + r % 50)), "score": .double(Double(r) * 0.5),
+                "active": .bool(r % 2 == 0), "nickname": .string("nick-\(r)"),
+            ]))
+            #expect(values[r] == rowwise, "row \(r) differs between batch and row-wise")
+        }
+    }
+
+    @Test("defaults and absent optional columns behave as everywhere else")
+    func presence() {
+        var s = Self.store(rows: 8)
+        s.strings["nickname"] = nil          // optional column simply absent
+        let (values, issues, _) = Row.batch(from: s)
+        #expect(issues.isEmpty)
+        #expect(values.allSatisfy { $0.nickname == nil })
+        #expect(values.allSatisfy { $0.retries == 3 }, "no column, so the default applies")
+    }
+
+    @Test("a validity mask marks individual rows null, Arrow-style")
+    func validityMask() {
+        var s = Self.store(rows: 6)
+        s.masks["nickname"] = [true, false, true, false, true, false]
+        let (values, issues, _) = Row.batch(from: s)
+        #expect(issues.isEmpty)
+        #expect(values.map { $0.nickname == nil } == [true, false, true, false, true, false])
+    }
+
+    /// A missing required column is a property of the SOURCE, not of each row — reporting
+    /// it a million times would be useless.
+    @Test("a missing required column is reported once for the batch, not once per row")
+    func missingColumnReportedOnce() {
+        var s = Self.store(rows: 1_000)
+        s.strings["name"] = nil
+        let (values, issues, _) = Row.batch(from: s)
+        #expect(issues.filter { $0.code == .custom("missing_column") }.count == 1,
+                "once, not a thousand times")
+        #expect(issues.first?.message.contains("not a column") == true)
+        #expect(values.isEmpty, "no row can be built without a required field")
+    }
+
+    @Test("@Validate runs per row, and the issue names the row")
+    func validationPerRow() {
+        var s = Self.store(rows: 4)
+        s.ints["age"] = [30, 500, 40, 900]        // rows 1 and 3 are out of range
+        let (_, issues, _) = Row.batch(from: s)
+        #expect(issues.count == 2)
+        let paths = issues.map(\.path.pathDescription)
+        #expect(paths.contains { $0.contains("[1]") }, "got \(paths)")
+        #expect(paths.contains { $0.contains("[3]") }, "got \(paths)")
+    }
+
+    @Test("a short column truncates that row rather than trapping")
+    func shortColumn() {
+        var s = Self.store(rows: 4)
+        s.ints["id"] = [0, 1]                      // two values for four rows
+        let (values, issues, _) = Row.batch(from: s)
+        #expect(values.count == 2, "rows without an id cannot be built")
+        #expect(!issues.isEmpty)
+    }
+}

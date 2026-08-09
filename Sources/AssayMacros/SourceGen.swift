@@ -158,3 +158,117 @@ extension SchemaMacro {
         return out
     }
 }
+
+// MARK: - Columnar batch fill
+
+extension SchemaMacro {
+
+    /// `_assayBatch` — one sequential pass per column, then N constructions.
+    ///
+    /// The inversion is the whole point. Row-by-row over a column store touches every
+    /// column array once per record, so N records over M columns is N×M jumps between M
+    /// separate allocations. Pulling each column once is M sequential passes.
+    ///
+    /// Everything else must stay identical: `@Validate`, `@Fallback` and the five presence
+    /// states run per row exactly as they do everywhere else, and issues carry the row
+    /// index so a failure in a million-row batch is findable.
+    static func batchBody(typeName: String, fields: [SchemaField],
+                          validation: String) -> String {
+        var pulls = ""
+        for (i, f) in fields.enumerated() {
+            guard let accessor = columnAccessor(f.decodedType) else { continue }
+            let expected = manifestKind(f.decodedType).dropFirst()
+            // A column the schema requires and the source lacks is reported ONCE for the
+            // batch. Optional and defaulted fields simply carry no column.
+            let onMissing = (f.isOptional || f.defaultExpr != nil)
+                ? ""
+                : """
+
+                        if __c\(i) == nil {
+                            Assay._assayColumnMissing(&sink, path, "\(f.wireKey)", "\(expected)")
+                        }
+                """
+            pulls += """
+                    let __c\(i) = source.\(accessor)("\(f.wireKey)", \(i))
+                    let __n\(i) = source.nulls("\(f.wireKey)", \(i))\(onMissing)
+
+            """
+        }
+
+        var perRow = ""
+        for (i, f) in fields.enumerated() {
+            let base = f.decodedType
+            guard columnAccessor(base) != nil else { continue }
+            let convert = columnConvert(base, "__col\(i)[__r]")
+            let fallbackToDefault = f.defaultExpr.map { "\($0)" }
+            let absent = f.isOptional ? "nil" : (fallbackToDefault ?? "nil")
+            perRow += """
+                        var __f\(i): \(base)? = \(absent)
+                        if let __col\(i) = __c\(i), __r < __col\(i).count,
+                           !Assay._assayIsNullAt(__n\(i), __r) {
+                            __f\(i) = \(convert)
+                        }
+
+            """
+        }
+
+        var unwraps = ""
+        var args: [String] = []
+        for (i, f) in fields.enumerated() {
+            guard columnAccessor(f.decodedType) != nil else { continue }
+            if f.isOptional {
+                args.append("\(f.identifier): __f\(i)")
+            } else {
+                unwraps += """
+                            guard let __v\(i) = __f\(i) else {
+                                Assay._assaySourceMissing(&sink, path, "\(f.wireKey)", nil)
+                                continue
+                            }
+
+                """
+                args.append("\(f.identifier): __v\(i)")
+            }
+        }
+
+        return """
+        /// Decode a whole batch, one sequential pass per column.
+        ///
+        /// The inversion a column store wants: N records over M columns row-by-row is N×M
+        /// strided reads; this is M sequential ones. Rules, defaults and presence behave
+        /// exactly as they do on every other path, and issues carry the row index.
+        nonisolated public static func _assayBatch<__C: Assay.ColumnarSource & ~Copyable>(
+            from source: borrowing __C,
+            into sink: inout Assay.IssueSink,
+            at path: [Assay.PathComponent]
+        ) -> [\(typeName)] {
+        \(pulls)    var __out: [\(typeName)] = []
+            __out.reserveCapacity(source.rowCount)
+
+            for __r in 0..<source.rowCount {
+                let path = path + [.index(__r)]
+        \(perRow)\(validation)
+        \(unwraps)        __out.append(\(typeName)(\(args.joined(separator: ", "))))
+            }
+            return __out
+        }
+        """
+    }
+
+    static func columnAccessor(_ type: String) -> String? {
+        switch type {
+        case "String": return "stringColumn"
+        case "Bool": return "boolColumn"
+        case "Double", "Float": return "doubleColumn"
+        case "Int", "Int64", "Int32", "UInt": return "int64Column"
+        default: return nil
+        }
+    }
+
+    static func columnConvert(_ type: String, _ expr: String) -> String {
+        switch type {
+        case "String", "Bool", "Double", "Int64": return expr
+        case "Float": return "Float(\(expr))"
+        default: return "\(type)(exactly: \(expr))"
+        }
+    }
+}

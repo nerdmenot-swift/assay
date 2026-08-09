@@ -334,3 +334,20 @@ extension SourceDecodable {
                          source: .empty, sourceName: sourceName)
     }
 }
+
+extension SourceDecodable {
+
+    /// Decode a whole batch from a column-first source.
+    ///
+    /// Returns what it could decode plus everything that went wrong, rather than throwing:
+    /// a bad row in a million-row batch should not discard the other 999,999, and the
+    /// issues carry row indices so the bad ones are findable.
+    public static func batch<C: ColumnarSource & ~Copyable>(
+        from source: borrowing C,
+        limits: Limits = .default
+    ) -> (values: [Self], issues: [Issue], warnings: [Warning]) {
+        var sink = IssueSink(limits: limits)
+        let values = Self._assayBatch(from: source, into: &sink, at: [])
+        return (values, sink.issues, sink.warnings)
+    }
+}

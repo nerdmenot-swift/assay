@@ -125,8 +125,11 @@ examples, which is the best argument for writing it down.
   columns binding is barely worth having; at four hundred it is 5.79×. It does not rescue
   the narrow case — the guidance is unchanged, and it is about the source being wider than
   the schema.
-- **Columnar/batch fill.** Inverting the loop so Parquet or Arrow fills a batch column-by-
-  column needs the positional initializer first.
+- ~~**Columnar/batch fill.**~~ **Built and measured 2026-08-09.** `ColumnarSource` pulls
+  each column once and `_assayBatch` constructs the batch, with Arrow-style validity masks
+  for nulls. **2.07× over row-by-row, flat at 52 ns/row from 64 rows to 100,000** — the win
+  is the access pattern rather than cache residency, and the ratio holds across a 1,500×
+  size range. A missing required column is reported once for the batch, not once per row.
 - **Typed throws at the boundary.** Deferred rather than guessed: `_assay` returns an
   Optional and reports into a sink, which is how every other path works, and changing that
   for one path would be the inconsistency.

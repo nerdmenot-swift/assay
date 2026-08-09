@@ -274,6 +274,9 @@ extension Issue {
             m += " and cannot be encoded; add @Unknown(roundTrips: true) if writing it "
             m += "back is intended"
             return m
+        case .custom("missing_column"):
+            let e = params["expected"]?.displayString ?? "a column"
+            return "is not a column in this source (expected \(e))"
         case .custom("unrepresentable_value"):
             let fmt = params["format"]?.displayString ?? "this format"
             if let r = received {

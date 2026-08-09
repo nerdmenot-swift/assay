@@ -309,6 +309,9 @@ public struct SchemaMacro: ExtensionMacro {
                 typeName: typeName, fields: activeS,
                 validation: Self.postDecodeSection(activeS, spans: true),
                 checks: Self.checkCalls(typeName, checkDecls, activeS, spans: true))
+            body += "\n\n" + Self.batchBody(
+                typeName: typeName, fields: activeS,
+                validation: Self.postDecodeSection(activeS, spans: false))
         }
         body += Self.asyncCheckRunner(typeName, checkDecls)
 

@@ -127,6 +127,69 @@ struct BoundRowSource: KeyedSource, ~Copyable {
     }
 }
 
+/// A column store: one array per field. What Parquet, Arrow and a column database hand you.
+struct BenchColumnStore: ColumnarSource {
+    var rowCount: Int
+    let ids: [Int64], ages: [Int64]
+    let scores: [Double]
+    let actives: [Bool]
+    let names: [String], emails: [String], createds: [String], owners: [String]
+
+    borrowing func int64Column(_ key: StaticString, _ field: Int) -> [Int64]? {
+        switch field { case 0: return ids; case 3: return ages; default: return nil }
+    }
+    borrowing func doubleColumn(_ key: StaticString, _ field: Int) -> [Double]? {
+        field == 4 ? scores : nil
+    }
+    borrowing func boolColumn(_ key: StaticString, _ field: Int) -> [Bool]? {
+        field == 5 ? actives : nil
+    }
+    borrowing func stringColumn(_ key: StaticString, _ field: Int) -> [String]? {
+        switch field {
+        case 1: return names; case 2: return emails
+        case 6: return createds; case 7: return owners
+        default: return nil
+        }
+    }
+}
+
+/// The same column store addressed ONE ROW AT A TIME. No per-row array is built — this
+/// reads straight out of the eight column arrays — so the only thing separating it from
+/// the batch path is the access pattern: strided across eight allocations per record,
+/// versus one sequential pass per column. That is the whole question.
+struct ColumnRowSource: KeyedSource, ~Copyable {
+    let store: BenchColumnStore
+    // A `var`, so the source is built ONCE and walked. Constructing one per record would
+    // retain eight array references per row and measure that instead of the access
+    // pattern, which is the only thing this comparison is about.
+    var row: Int
+
+    borrowing func has(_ key: StaticString, _ field: Int) -> Bool { field < 8 }
+    borrowing func isNull(_ key: StaticString, _ field: Int) -> Bool { false }
+    borrowing func int64(_ key: StaticString, _ field: Int) -> Int64? {
+        switch field { case 0: return store.ids[row]; case 3: return store.ages[row]
+        default: return nil }
+    }
+    borrowing func double(_ key: StaticString, _ field: Int) -> Double? {
+        field == 4 ? store.scores[row] : nil
+    }
+    borrowing func bool(_ key: StaticString, _ field: Int) -> Bool? {
+        field == 5 ? store.actives[row] : nil
+    }
+    borrowing func string(_ key: StaticString, _ field: Int) -> String? {
+        switch field {
+        case 1: return store.names[row]; case 2: return store.emails[row]
+        case 6: return store.createds[row]; case 7: return store.owners[row]
+        default: return nil }
+    }
+    borrowing func withText<R>(
+        _ key: StaticString, _ field: Int, _ body: (UnsafeRawBufferPointer?) -> R
+    ) -> R {
+        guard var v = string(key, field) else { return body(nil) }
+        return v.withUTF8 { unsafe body(UnsafeRawBufferPointer($0)) }
+    }
+}
+
 func runSourceBenchmarks() {
     let columnNames = ["id", "name", "email", "age", "score", "active",
                        "created_at", "owner_id"]
@@ -321,6 +384,52 @@ func runSourceBenchmarks() {
               + pad(String(format: "%.0f", u), 14)
               + pad(String(format: "%.0f", b), 12)
               + pad(String(format: "%.2fx", u / b), 12))
+    }
+
+    // ---- Columnar batch fill: the loop inverted ----
+    //
+    // Row-by-row over a column store is strided by construction — every record touches all
+    // eight column arrays, so N records is N x 8 jumps between eight separate allocations.
+    // Filling column-by-column makes each one a sequential pass. Whether that pays is a
+    // cache question, so it is measured at sizes that span the caches rather than at one.
+    print("")
+    print("Columnar batch fill — row-by-row vs one sequential pass per column")
+    print(pad("rows", 10, right: true) + pad("row-wise ns", 14) + pad("batch ns", 12)
+          + pad("per row", 10) + pad("batch wins", 12))
+    print(String(repeating: "-", count: 60))
+
+    for n in [64, 1_000, 20_000, 100_000] {
+        let store = BenchColumnStore(
+            rowCount: n,
+            ids: (0..<n).map { (i: Int) in Int64(i) },
+            ages: (0..<n).map { Int64(20 + $0 % 50) },
+            scores: (0..<n).map { Double($0) * 0.5 },
+            actives: (0..<n).map { (i: Int) in i % 2 == 0 },
+            names: (0..<n).map { "user-\($0)" },
+            emails: (0..<n).map { "u\($0)@example.com" },
+            createds: (0..<n).map { (_: Int) in "2026-08-09T00:00:00Z" },
+            owners: (0..<n).map { "owner-\($0)" })
+
+        let reps = max(1, 200_000 / n)
+        let rowNs = measure(iterations: reps) {
+            var out: [BenchRow] = []
+            out.reserveCapacity(n)
+            var src = ColumnRowSource(store: store, row: 0)
+            for r in 0..<n {
+                src.row = r
+                if let v = BenchRow.diagnose(source: src).value { out.append(v) }
+            }
+            precondition(out.count == n)
+        }
+        let batchNs = measure(iterations: reps) {
+            let got = BenchRow.batch(from: store)
+            precondition(got.values.count == n)
+        }
+        print(pad("\(n)", 10, right: true)
+              + pad(String(format: "%.0f", rowNs), 14)
+              + pad(String(format: "%.0f", batchNs), 12)
+              + pad(String(format: "%.0f", batchNs / Double(n)), 10)
+              + pad(String(format: "%.2fx", rowNs / batchNs), 12))
     }
 
     print("")

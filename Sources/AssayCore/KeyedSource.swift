@@ -287,3 +287,55 @@ public struct BoundPlan: Sendable {
 
     public var count: Int { slots.count }
 }
+
+// MARK: - Columnar batch fill
+
+/// A source whose data is stored COLUMN-first: Parquet, Arrow, a column store, or any
+/// reader that already has one array per field.
+///
+/// Decoding such a source record-by-record is strided by construction — each record
+/// touches every column array once, so N records over M columns is N×M jumps between M
+/// separate allocations. Inverting the loop makes each column one sequential pass, which
+/// is what the hardware wants and what the format was laid out for.
+///
+/// Nulls follow Arrow's model: a column carries its values densely and a separate validity
+/// mask says which rows are absent. A source with no nulls in a column returns `nil` for
+/// the mask and pays nothing.
+public protocol ColumnarSource: ~Copyable {
+    /// Rows in this batch. Every column must be at least this long.
+    var rowCount: Int { get }
+
+    borrowing func int64Column(_ key: StaticString, _ field: Int) -> [Int64]?
+    borrowing func doubleColumn(_ key: StaticString, _ field: Int) -> [Double]?
+    borrowing func boolColumn(_ key: StaticString, _ field: Int) -> [Bool]?
+    borrowing func stringColumn(_ key: StaticString, _ field: Int) -> [String]?
+
+    /// Which rows of this column are null, or `nil` when none are — the validity mask.
+    borrowing func nulls(_ key: StaticString, _ field: Int) -> [Bool]?
+}
+
+extension ColumnarSource where Self: ~Copyable {
+    public borrowing func nulls(_ key: StaticString, _ field: Int) -> [Bool]? { nil }
+}
+
+/// A column the schema needs and the source does not carry, or carries at the wrong type.
+///
+/// Reported ONCE for the batch rather than once per row: a missing column is a property of
+/// the source, and a reader over a million rows should not be told a million times. This is
+/// the same reasoning that puts `BoundPlan.missingRequired` before the first record.
+@inline(never)
+public func _assayColumnMissing(
+    _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString, _ expected: String
+) {
+    sink.add(Issue(
+        code: .custom("missing_column"),
+        path: path + [.key(String(describing: key))],
+        params: ["expected": .string(expected)]))
+}
+
+/// Whether row `r` of a column is null, given its optional validity mask.
+@inlinable
+public func _assayIsNullAt(_ mask: [Bool]?, _ r: Int) -> Bool {
+    guard let mask, r < mask.count else { return false }
+    return mask[r]
+}

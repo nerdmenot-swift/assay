@@ -56,6 +56,13 @@ public protocol SourceDecodable: Assayable {
         into sink: inout IssueSink,
         at path: [PathComponent]
     ) -> Self?
+
+    /// Decode a whole batch from a COLUMN-first source, one sequential pass per column.
+    nonisolated static func _assayBatch<C: ColumnarSource & ~Copyable>(
+        from source: borrowing C,
+        into sink: inout IssueSink,
+        at path: [PathComponent]
+    ) -> [Self]
 }
 
 /// A type that can write itself as XML — emitted by `@Schema(encodes: true)` when

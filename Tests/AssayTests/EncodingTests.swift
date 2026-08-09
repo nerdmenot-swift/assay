@@ -76,7 +76,7 @@ struct EncodingTests {
          "items":[{"id":"i1","amount":2.5},{"id":"i2","amount":-3}]}
         """
         let original = try EncPayload.parse(json: Array(json.utf8))
-        let encoded = try original.encode()
+        let encoded = try original.encodedJSON()
         let again = try EncPayload.parse(json: encoded)
         #expect(again == original, "round-trip must be identity")
     }
@@ -87,8 +87,8 @@ struct EncodingTests {
         let v = try EncPayload.parse(json: Array(json.utf8))
         // Dictionaries have no order, so the encoder sorts keys. Without that the law
         // above would be untestable and diffs would be noise.
-        #expect(try v.encode() == v.encode())
-        let text = try v.encodedString()
+        #expect(try v.encodedJSON() == v.encodedJSON())
+        let text = try v.jsonText()
         #expect(text.contains(#""counts":{"a":1,"b":2}"#), "dictionary keys must be sorted")
     }
 
@@ -97,9 +97,9 @@ struct EncodingTests {
         // The transformed field decodes from [String] and holds a Set; the encoder must
         // write the ARRAY back, or the output would not re-decode.
         let v = try EncTransformed.parse(json: Array(#"{"tags":["b","a"]}"#.utf8))
-        let text = try v.encodedString()
+        let text = try v.jsonText()
         #expect(text == #"{"tags":["a","b"]}"#, "got \(text)")
-        #expect(try EncTransformed.parse(json: v.encode()) == v)
+        #expect(try EncTransformed.parse(json: v.encodedJSON()) == v)
     }
 
     // MARK: Q6 — defaults and @Extras
@@ -108,13 +108,13 @@ struct EncodingTests {
     func defaultsEmitted() throws {
         let json = #"{"request_id":"r","page":1,"ratio":0,"active":true,"nested":{"id":"n","amount":0}}"#
         let v = try EncPayload.parse(json: Array(json.utf8))
-        let text = try v.encodedString()
+        let text = try v.jsonText()
         // `retries` was absent and defaulted to 3; it is written, so a consumer with a
         // different default reads the same value.
         #expect(text.contains(#""retries":3"#))
         #expect(text.contains(#""tags":[]"#))
         #expect(text.contains(#""counts":{}"#))
-        #expect(try EncPayload.parse(json: v.encode()) == v)
+        #expect(try EncPayload.parse(json: v.encodedJSON()) == v)
     }
 
     @Test("@Extras are written back, so a decode-edit-encode proxy loses nothing")
@@ -122,14 +122,14 @@ struct EncodingTests {
         let json = #"{"id":"x","extra_a":1,"extra_b":{"k":"v"},"extra_c":[1,2]}"#
         let v = try EncOpen.parse(json: Array(json.utf8))
         #expect(v.rest.count == 3)
-        let again = try EncOpen.parse(json: v.encode())
+        let again = try EncOpen.parse(json: v.encodedJSON())
         #expect(again == v, "collected keys must survive the round trip")
     }
 
     @Test("an @Extras key colliding with a declared key is an error, not a duplicate")
     func extrasCollision() {
         let v = EncOpen(id: "x", rest: ["id": .string("shadow")])
-        let d = v.diagnoseEncode()
+        let d = v.diagnoseEncodeJSON()
         #expect(!d.isValid)
         #expect(d.issues.contains { $0.code == .extrasKeyCollision })
         #expect(d.issues.first?.message.contains("collides") == true)
@@ -146,10 +146,10 @@ struct EncodingTests {
         let v = try d.get()
         #expect(v.score == 0)
         #expect(d.warnings.contains { $0.code == .fallbackApplied })
-        #expect(try v.encodedString() == #"{"score":0}"#)
+        #expect(try v.jsonText() == #"{"score":0}"#)
         // And the re-parse is clean: the salvage is not repeated, which is exactly why
         // this is an exception rather than a violation.
-        let again = EncFallback.diagnose(json: try v.encode())
+        let again = EncFallback.diagnose(json: try v.encodedJSON())
         #expect(again.warnings.isEmpty)
         #expect(again.value == v)
     }
@@ -159,7 +159,7 @@ struct EncodingTests {
     @Test("NaN and infinity are reported with a path, not silently written")
     func unrepresentable() {
         for bad in [Double.nan, .infinity, -.infinity] {
-            let d = EncFloat(value: bad).diagnoseEncode()
+            let d = EncFloat(value: bad).diagnoseEncodeJSON()
             #expect(!d.isValid, "\(bad) must be reported")
             let issue = d.issues.first
             #expect(issue?.code == .unrepresentableValue)
@@ -173,8 +173,8 @@ struct EncodingTests {
     @Test("encode throws with every issue, and renders through the same renderers")
     func encodeThrows() {
         let v = EncFloat(value: .nan)
-        #expect(throws: AssayError.self) { try v.encode() }
-        let d = v.diagnoseEncode()
+        #expect(throws: AssayError.self) { try v.encodedJSON() }
+        let d = v.diagnoseEncodeJSON()
         // The whole point of reusing Issue: the machine renderers work unchanged.
         #expect(d.render(.json).contains("unrepresentable_value"))
         #expect(d.render(.problemDetails).contains("\"status\":422"))
@@ -187,9 +187,9 @@ struct EncodingTests {
     func escaping() throws {
         let nasty = "quote\" backslash\\ newline\n tab\t control\u{01} unicode café 😀"
         let v = EncItem(id: nasty, amount: 0)
-        let again = try EncItem.parse(json: v.encode())
+        let again = try EncItem.parse(json: v.encodedJSON())
         #expect(again.id == nasty)
-        let text = try v.encodedString()
+        let text = try v.jsonText()
         #expect(text.contains("\\\""), "quote must be escaped")
         #expect(text.contains("\\n"), "newline must be escaped")
         #expect(text.contains("\\u0001"), "control bytes escape as \\u00XX")
@@ -200,8 +200,8 @@ struct EncodingTests {
         let json = #"{"request_id":"r","page":1,"ratio":0,"active":true,"note":null,"nested":{"id":"n","amount":0}}"#
         let v = try EncPayload.parse(json: Array(json.utf8))
         #expect(v.note == nil)
-        #expect(try v.encodedString().contains(#""note":null"#))
-        #expect(try EncPayload.parse(json: v.encode()) == v)
+        #expect(try v.jsonText().contains(#""note":null"#))
+        #expect(try EncPayload.parse(json: v.encodedJSON()) == v)
     }
 
     @Test("integers write exactly, including the extremes")
@@ -210,7 +210,7 @@ struct EncodingTests {
             let v = EncPayload(requestId: "r", page: n, ratio: 0, active: true, note: nil,
                                tags: [], counts: [:], retries: 0,
                                nested: EncItem(id: "n", amount: 0), items: [])
-            let again = try EncPayload.parse(json: v.encode())
+            let again = try EncPayload.parse(json: v.encodedJSON())
             #expect(again.page == n, "\(n) did not round-trip")
         }
     }
@@ -220,7 +220,7 @@ struct EncodingTests {
         for d in [0.0, 1.0, -1.5, 0.1, 1e300, 1e-300, .greatestFiniteMagnitude,
                   .leastNormalMagnitude, 3.141592653589793] {
             let v = EncItem(id: "x", amount: d)
-            let again = try EncItem.parse(json: v.encode())
+            let again = try EncItem.parse(json: v.encodedJSON())
             #expect(again.amount.bitPattern == d.bitPattern,
                     "\(d) round-tripped to \(again.amount)")
         }
@@ -230,7 +230,7 @@ struct EncodingTests {
     func pretty() throws {
         let json = #"{"request_id":"r","page":1,"ratio":2.5,"active":true,"tags":["a"],"nested":{"id":"n","amount":1}}"#
         let v = try EncPayload.parse(json: Array(json.utf8))
-        let text = try v.encodedString(pretty: true)
+        let text = try v.jsonText(pretty: true)
         #expect(text.contains("\n"))
         #expect(try EncPayload.parse(json: Array(text.utf8)) == v)
     }

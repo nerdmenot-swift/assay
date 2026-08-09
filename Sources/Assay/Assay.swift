@@ -100,6 +100,27 @@ public macro Schema(
     encodes: Bool = false
 ) = #externalMacro(module: "AssayMacros", type: "SchemaMacro")
 
+/// The forward-compatibility catch-all case of an open enum. `docs/ENCODING.md` q2.
+///
+///     @Schema enum Status {
+///         case active, suspended
+///         @Unknown case other(String)          // a v2 server's new variant
+///     }
+///
+/// A **closed** enum needs no macro: `enum P: String, JSONAssayable { … }` already
+/// decodes and reports the case list on a bad value. `@Schema` on an enum exists only for
+/// this, and says so if the `@Unknown` case is missing.
+///
+/// **Encoding an unrecognised value is refused by default.** Writing it back round-trips
+/// faithfully — and lets an arbitrary attacker-supplied value pass through a type that
+/// reads, at every use site, as a closed set. `@Unknown(roundTrips: true)` opts in, the
+/// same shape as `accepting:` being required with no default on content negotiation: the
+/// dangerous capability is real, it is narrower than what people reach for, and it must
+/// not arrive unasked.
+@attached(peer)
+public macro Unknown(roundTrips: Bool = false) =
+    #externalMacro(module: "AssayMacros", type: "UnknownMacro")
+
 /// Where a field lives in an XML document. `docs/ENCODING.md`.
 ///
 ///     @XML(.attribute) var id: String        // <user id="7">

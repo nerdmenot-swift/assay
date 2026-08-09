@@ -185,8 +185,24 @@ enum Status: String {
 }
 ```
 
-`@Unknown` is blocked on item 1: what an unknown variant does on the encode side is exactly the
-kind of question that should be answered before the decode side commits to a spelling.
+**`@Unknown` is BUILT (2026-08-09).** It was blocked on item 1 — what an unknown variant does
+on the encode side is exactly the kind of question that should be answered before the decode
+side commits to a spelling — and that question is now answered in `docs/ENCODING.md` q2:
+decoding captures anything unrecognised, and **encoding refuses it unless
+`@Unknown(roundTrips: true)` opts in.**
+
+The spelling above does not compile and has been corrected: a Swift enum with a raw type
+cannot have a case with an associated value. `@Schema` supplies the mapping instead, and a
+*closed* enum still needs no macro at all.
+
+```swift
+@Schema enum Status {
+    case active, suspended
+    @Unknown case other(String)
+}
+```
+
+`@Wraps` is still unbuilt.
 
 ---
 

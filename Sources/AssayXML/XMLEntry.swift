@@ -80,8 +80,8 @@ extension XMLEncodableSchema {
     ///
     /// `root` defaults to the type's own name, which is the only name available without a
     /// `@XML(root:)` attribute; that attribute is additive later and nothing depends on it.
-    public func encode(
-        xml root: String? = nil, pretty: Bool = false, declaration: Bool = true
+    public func encodedXML(
+        root: String? = nil, pretty: Bool = false, declaration: Bool = true
     ) throws -> [UInt8] {
         var sink = IssueSink()
         var w = XMLWriter(pretty: pretty, declaration: declaration)
@@ -94,8 +94,8 @@ extension XMLEncodableSchema {
         return bytes
     }
 
-    public func diagnoseEncode(
-        xml root: String? = nil, pretty: Bool = false, declaration: Bool = true
+    public func diagnoseEncodeXML(
+        root: String? = nil, pretty: Bool = false, declaration: Bool = true
     ) -> EncodeDiagnosis {
         var sink = IssueSink()
         var w = XMLWriter(pretty: pretty, declaration: declaration)
@@ -104,7 +104,7 @@ extension XMLEncodableSchema {
                                warnings: sink.warnings)
     }
 
-    public func encodedXML(root: String? = nil, pretty: Bool = false) throws -> String {
-        String(decoding: try encode(xml: root, pretty: pretty), as: UTF8.self)
+    public func xmlText(root: String? = nil, pretty: Bool = false) throws -> String {
+        String(decoding: try encodedXML(root: root, pretty: pretty), as: UTF8.self)
     }
 }

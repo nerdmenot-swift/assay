@@ -267,6 +267,13 @@ extension Issue {
                 return "must be between \(lo.displayString) and \(hi.displayString)"
             }
             return "is outside the allowed range"
+        case .custom("unknown_not_encodable"):
+            let t = params["type"]?.displayString ?? "this enum"
+            var m = "was decoded as an unrecognised \(t) value"
+            if let r = received { m += " (\"\(r)\")" }
+            m += " and cannot be encoded; add @Unknown(roundTrips: true) if writing it "
+            m += "back is intended"
+            return m
         case .custom("unrepresentable_value"):
             let fmt = params["format"]?.displayString ?? "this format"
             if let r = received {

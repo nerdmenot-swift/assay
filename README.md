@@ -182,6 +182,21 @@ schemas that never need it never see an `await`.
 > members, so the check would silently never run; the attribute detects the placement and says
 > so, rather than letting you find out in production.
 
+### Forward compatibility
+
+```swift
+@Schema enum Status {
+    case active, suspended
+    @Unknown case other(String)     // a v2 server's new variant, captured not rejected
+}
+```
+
+Decoding an unrecognised value succeeds and keeps the text, so a v1 client survives a v2
+server. **Encoding it back is refused by default** — writing an unvetted value through a type
+that reads as a closed set is how a proxy launders attacker input — and
+`@Unknown(roundTrips: true)` opts in. A *closed* enum needs no macro at all:
+`enum P: String, JSONAssayable {}` already decodes and reports the case list on a bad value.
+
 ### The five presence states
 
 Missing, null, defaulted, salvaged and ignored are five different things, and Assay spells all

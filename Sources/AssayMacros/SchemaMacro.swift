@@ -93,7 +93,7 @@ enum SchemaError: Error, CustomStringConvertible {
     var description: String {
         switch self {
         case .notAStruct:
-            return "@Schema can only be applied to a struct"
+            return "@Schema can be applied to a struct, or to an enum with an @Unknown case"
         case .needsTypeAnnotation(let n):
             // A macro only sees source text — it cannot ask the type checker what `3` is,
             // and guessing Int would be wrong the moment someone writes `var timeout = 1.5`
@@ -138,6 +138,12 @@ public struct SchemaMacro: ExtensionMacro {
         in context: some MacroExpansionContext
     ) throws -> [ExtensionDeclSyntax] {
 
+        // An enum takes a different path entirely: it decodes as a scalar, not a
+        // mapping, and the only reason it needs a macro at all is @Unknown.
+        if let enumDecl = declaration.as(EnumDeclSyntax.self) {
+            return Self.enumExpansion(of: node, enumDecl: enumDecl,
+                                      typeName: type.trimmedDescription, in: context)
+        }
         guard let structDecl = declaration.as(StructDeclSyntax.self) else {
             context.diagnose(Diagnostic(
                 node: Syntax(node),

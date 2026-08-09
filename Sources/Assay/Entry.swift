@@ -233,7 +233,7 @@ extension AssayError {
 extension JSONEncodableSchema {
 
     /// Write this value as JSON, or throw with everything that could not be represented.
-    public func encode(json pretty: Bool = false) throws -> [UInt8] {
+    public func encodedJSON(pretty: Bool = false) throws -> [UInt8] {
         var sink = IssueSink()
         var w = JSONWriter(pretty: pretty)
         _assayEncode(into: &w, into: &sink, at: [])
@@ -250,7 +250,7 @@ extension JSONEncodableSchema {
     ///
     /// The partial output is genuinely useful: an unrepresentable `Double` in field 40 of
     /// 50 still tells you what the other 49 looked like, and the issue names the path.
-    public func diagnoseEncode(json pretty: Bool = false) -> EncodeDiagnosis {
+    public func diagnoseEncodeJSON(pretty: Bool = false) -> EncodeDiagnosis {
         var sink = IssueSink()
         var w = JSONWriter(pretty: pretty)
         _assayEncode(into: &w, into: &sink, at: [])
@@ -260,8 +260,8 @@ extension JSONEncodableSchema {
 
     /// Convenience: the encoded bytes as a `String`. The writer only ever emits valid
     /// UTF-8, so this cannot repair.
-    public func encodedString(pretty: Bool = false) throws -> String {
-        String(decoding: try encode(json: pretty), as: UTF8.self)
+    public func jsonText(pretty: Bool = false) throws -> String {
+        String(decoding: try encodedJSON(pretty: pretty), as: UTF8.self)
     }
 }
 

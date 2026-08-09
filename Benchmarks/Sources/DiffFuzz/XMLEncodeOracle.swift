@@ -52,7 +52,7 @@ func runXMLEncodeDifferential(corpus: URL) -> Int {
         let name = url.lastPathComponent
 
         let envelope = XmlEnvelope(payload: RawValue(value))
-        let d = envelope.diagnoseEncode(xml: nil)
+        let d = envelope.diagnoseEncodeXML()
         guard d.isValid else {
             fail("xml-encode: \(name) produced issues: \(d.issues.map(\.code.codeString))")
             continue

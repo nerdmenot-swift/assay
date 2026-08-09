@@ -36,7 +36,7 @@ func runEncodeDifferential(corpus: URL) -> Int {
         let name = url.lastPathComponent
 
         let envelope = EncodedEnvelope(payload: RawValue(value))
-        let d = envelope.diagnoseEncode()
+        let d = envelope.diagnoseEncodeJSON()
         guard d.isValid else {
             fail("encode: \(name) produced issues: \(d.issues.map(\.code.codeString))")
             continue

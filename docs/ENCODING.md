@@ -1,13 +1,13 @@
 # Encoding — the questions that block it, and a recommendation for each
 
-**Status: five of six ACCEPTED and IMPLEMENTED for JSON, YAML and XML, 2026-08-09.** This document began
+**Status: ALL SIX ACCEPTED AND IMPLEMENTED for JSON, YAML and XML, 2026-08-09.** This document began
 as proposals; the recommendations were accepted and built. What is implemented, what is not,
 and why:
 
 | question | status |
 |---|---|
 | 1 · `@Fallback` writes its value | **built** — decode-time-only, with the exception named in the round-trip law |
-| 2 · `@Unknown(roundTrips:)` | **blocked, not deferred** — `@Unknown` itself does not exist yet (`ROADMAP.md` §6). The recommendation stands and applies the day it is built |
+| 2 · `@Unknown(roundTrips:)` | **built** — `@Unknown` exists, and encoding an unrecognised variant is refused unless the declaration opts in |
 | 3 · `@Inverse` + expansion-time check | **built** — a `@Transform` without one is a compile error |
 | 4 · encode error channel | **built** — `Issue`/`IssueSink`, `location: nil`, `encode` / `diagnoseEncode` |
 | 5 · target `.input`, round-trip as a law | **built** — the law is a test suite with its exception list as named cases, for JSON and YAML |
@@ -121,8 +121,27 @@ closed set.
   exists for.
 - **Opt in at the declaration.**
 
-**Recommendation: `@Unknown(roundTrips: true)` opts in; the default is an encode-time error
-naming the field and the captured value.**
+**Recommendation — ACCEPTED AND BUILT: `@Unknown(roundTrips: true)` opts in; the default is
+an encode-time error naming the type and the captured value.**
+
+**The spelling in `ROADMAP.md` §6 did not compile, and that is worth recording rather than
+quietly fixing.** It proposed `enum Status: String { case active; @Unknown case other(String) }`
+— but a Swift enum with a raw type cannot have a case with an associated value; the two
+features are mutually exclusive in the language. So the construct changed rather than being
+transliterated, which is `CLAUDE.md`'s governing principle applied to a case it was written
+for. The raw type goes away and `@Schema` supplies the mapping:
+
+```swift
+@Schema enum Status {
+    case active, suspended
+    @Unknown case other(String)
+}
+```
+
+A **closed** enum still needs no macro — `enum P: String, JSONAssayable {}` has been the
+whole implementation since day one and stays the primary path. `@Schema` on an enum without
+an `@Unknown` case is an error that points back at it, rather than a second, slower way to
+do the same thing.
 
 This follows a decision this codebase has already made once. `parse(body, contentType:,
 accepting:)` makes `accepting:` **required with no default**, because an unbounded format
@@ -234,7 +253,7 @@ These six answers shape an encoder; they do not make one fall out of the decoder
 
 ## What remains
 
-1. **`@Unknown(roundTrips:)`** — waits on `@Unknown` existing at all.
+1. ~~**`@Unknown(roundTrips:)`**~~ — **built.** See question 2.
 2. ~~**XML encoding.**~~ **Built 2026-08-09.** It was blocked on **two decisions**, both of which need answering before any
    code — the same rule this document was written under.
 

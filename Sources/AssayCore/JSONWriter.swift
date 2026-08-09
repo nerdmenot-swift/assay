@@ -385,3 +385,27 @@ public func _assayRawDate(_ seconds: Double, _ formats: [DateFormat]) -> RawValu
         return .string(DateParser.formatISO8601(seconds))
     }
 }
+
+
+/// An `@Unknown` case reached the encoder without `roundTrips: true`.
+///
+/// docs/ENCODING.md question 2: writing it back is faithful round-tripping AND a way for
+/// an attacker-supplied value to pass through a type that reads as closed. The default
+/// refuses, loudly, naming the type and the value — an error at encode is immediate,
+/// where a silent pass-through is something you learn about from a security report.
+@inline(never)
+public func _assayUnknownNotEncodable(
+    _ typeName: String, _ value: String,
+    _ sink: inout IssueSink, _ path: [PathComponent]
+) {
+    sink.add(Issue(
+        code: .unknownNotEncodable,
+        path: path,
+        params: ["type": .string(typeName)],
+        received: value))
+}
+
+extension IssueCode {
+    /// An unrecognised enum variant reached the encoder without opting into round-tripping.
+    public static let unknownNotEncodable = IssueCode.custom("unknown_not_encodable")
+}

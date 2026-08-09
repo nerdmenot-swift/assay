@@ -23,12 +23,13 @@ func expandSchemaForTesting(
     let context = BasicMacroExpansionContext(
         sourceFiles: [file: .init(moduleName: "Test", fullFilePath: "test.swift")])
 
-    guard let structDecl = file.statements
-        .compactMap({ $0.item.as(StructDeclSyntax.self) })
-        .first else {
-        return ("", ["no struct found in source"])
+    let structDecl = file.statements.compactMap { $0.item.as(StructDeclSyntax.self) }.first
+    let enumDecl = file.statements.compactMap { $0.item.as(EnumDeclSyntax.self) }.first
+    guard let decl: DeclGroupSyntax = structDecl ?? enumDecl else {
+        return ("", ["no struct or enum found in source"])
     }
-    guard let attribute = structDecl.attributes
+    let structDeclName = structDecl?.name.text ?? enumDecl!.name.text
+    guard let attribute = decl.attributes
         .compactMap({ $0.as(AttributeSyntax.self) })
         .first(where: { $0.attributeName.trimmedDescription == "Schema" }) else {
         return ("", ["no @Schema attribute found"])
@@ -36,8 +37,8 @@ func expandSchemaForTesting(
 
     let extensions = (try? SchemaMacro.expansion(
         of: attribute,
-        attachedTo: structDecl,
-        providingExtensionsOf: TypeSyntax(stringLiteral: structDecl.name.text),
+        attachedTo: decl,
+        providingExtensionsOf: TypeSyntax(stringLiteral: structDeclName),
         conformingTo: [],
         in: context)) ?? []
 

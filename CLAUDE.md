@@ -38,7 +38,8 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 | `Date` + `@DateFormat` (ISO-8601, unix, RFC 9110, patterns, candidate chains) + `.before/.after/.between` rules | **built and measured** — 6.06× vs Foundation `.iso8601`, 2,279-instant exact differential. Core stays Foundation-free: parsers return epoch seconds, the macro emits `Date(timeIntervalSince1970:)` into the user's module. `.past`/`.future` deferred (no clock seam) |
 | `[String: T]` dictionary fields | **built and measured 2026-08-07** — both decode paths, recursive nesting, non-String keys diagnosed at expansion. The §2.5 "worst case" measured **6.95×** over Foundation; narrowing with size confirmed, loss did not materialise |
 | `@XML` placement (`.attribute`/`.text`/`.wrapped`) | **built** — expansion-checked; `@XML(root:)` deferred |
-| `@Inline`, `Assayer<T>`, `@Unknown` | **not built** — `ROADMAP.md` |
+| `@Unknown` open enums | **built** — `@Schema enum` + `@Unknown case other(String)`; encoding refuses an unrecognised variant unless `roundTrips: true`. Closed enums still need no macro |
+| `@Inline`, `@Wraps`, `Assayer<T>` | **not built** — `ROADMAP.md` |
 
 Everything below that is not marked above is still design, not measurement.
 

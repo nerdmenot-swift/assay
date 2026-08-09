@@ -38,7 +38,7 @@ func runYAMLEncodeDifferential(corpus: URL) -> Int {
         let name = url.lastPathComponent
 
         let envelope = YamlEnvelope(payload: RawValue(value))
-        let d = envelope.diagnoseEncode(yaml: ())
+        let d = envelope.diagnoseEncodeYAML()
         guard d.isValid else {
             fail("yaml-encode: \(name) produced issues: \(d.issues.map(\.code.codeString))")
             continue

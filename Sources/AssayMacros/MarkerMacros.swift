@@ -132,3 +132,12 @@ public struct XMLMacro: PeerMacro {
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] { [] }
 }
+
+/// `@Unknown` — the forward-compatibility catch-all case. docs/ENCODING.md question 2.
+public struct UnknownMacro: PeerMacro {
+    public static func expansion(
+        of node: AttributeSyntax,
+        providingPeersOf declaration: some DeclSyntaxProtocol,
+        in context: some MacroExpansionContext
+    ) throws -> [DeclSyntax] { [] }
+}

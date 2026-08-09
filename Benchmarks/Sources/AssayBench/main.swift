@@ -460,6 +460,9 @@ runFormatBenchmarks(corpusDir: corpusDir, sizes: sizes)
 // ---- Dates ----
 runDateBenchmarks(corpusDir: corpusDir, sizes: sizes)
 
+// ---- The third decode path ----
+runSourceBenchmarks()
+
 // ---- The SIMD-tier baseline ----
 runSIMDBaselineBenchmarks(corpusDir: corpusDir, sizes: sizes)
 

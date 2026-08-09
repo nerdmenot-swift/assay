@@ -9,9 +9,22 @@ Assay decodes from two shapes today. This adds a third.
 | **`KeyedSource`** | *already parsed*, addressable by key | database rows, CSV/Parquet, plists, `[String: Any]`, form data, env vars, `Assayer<T>` |
 
 The third exists because a large class of data arrives **already parsed into fields**, and
-reaching it today means building a `RawValue` tree first — an allocation per value, per
-record, and the source's own layout thrown away. A CSV reader doing millions of rows cannot
-pay that.
+reaching it today means building a `RawValue` tree first — materialising every column the
+source has, whether the schema wants it or not.
+
+> **Corrected by measurement, 2026-08-09.** This section originally claimed the `RawValue`
+> path "costs an allocation per value per record." That is false: `RawValue.mapping` is
+> **one** allocation for the whole record. The real cost is materialising *columns the
+> schema never asked for*, which is why the win is conditional:
+>
+> | row shape | KeyedSource vs `RawValue` |
+> |---|---|
+> | 8 columns, 8 declared | **0.78× — loses** |
+> | 48 columns, 8 declared | **2.62× — wins** |
+>
+> **Use it when the source is wider than the schema** (`SELECT *`, exported CSVs, plists
+> with everything in them). A narrow row is better served by the existing path. Full tables
+> in `Benchmarks/RESULTS.md`.
 
 ---
 

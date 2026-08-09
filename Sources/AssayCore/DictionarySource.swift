@@ -48,6 +48,15 @@ public struct DictionarySource: KeyedSource, ~Copyable {
         values[String(describing: key)]?.bool
     }
 
+    /// Implemented directly rather than through `withText`: this source is already
+    /// holding the `String`, so handing it back is a retain where the default would be a
+    /// full copy. Measurement put that copy at most of the third path's cost.
+    @inlinable
+    public borrowing func string(_ key: StaticString) -> String? {
+        guard case .string(let s)? = values[String(describing: key)] else { return nil }
+        return s
+    }
+
     public borrowing func withText<R>(
         _ key: StaticString, _ body: (UnsafeRawBufferPointer?) -> R
     ) -> R {

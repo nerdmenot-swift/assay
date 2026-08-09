@@ -47,6 +47,17 @@ public protocol KeyedSource: ~Copyable {
         _ key: StaticString, _ body: (UnsafeRawBufferPointer?) -> R
     ) -> R
 
+    /// Text as a `String`.
+    ///
+    /// Defaulted via `withText`, so a byte-backed source implements only that one. **A
+    /// source that already holds `String`s must implement this instead**: the default
+    /// costs it a full copy per string field (`String` → bytes → `String`), and
+    /// measurement put that copy at most of the third path's cost against the `RawValue`
+    /// path — which simply hands back the `String` it is already holding. Most
+    /// already-parsed sources are in that second category, so this is the requirement
+    /// that decides whether the path is worth using.
+    borrowing func string(_ key: StaticString) -> String?
+
     /// Where this field came from, if the source can say. Sources that cannot return `nil`
     /// and get position-free diagnostics, which the renderer has always handled.
     borrowing func span(_ key: StaticString) -> SourceSpan?
@@ -56,8 +67,9 @@ extension KeyedSource where Self: ~Copyable {
     /// Default: `nil`, so a source that has no notion of position says so once.
     public borrowing func span(_ key: StaticString) -> SourceSpan? { nil }
 
-    /// Convenience over `withText`, for sources and callers that want the `String`.
-    public borrowing func text(_ key: StaticString) -> String? {
+    /// The byte-backed default. Correct for any source, and a full copy for one that is
+    /// already holding a `String` — those should implement `string` directly.
+    public borrowing func string(_ key: StaticString) -> String? {
         withText(key) { buf in
             guard let buf, let base = buf.baseAddress else { return nil }
             return unsafe String(decoding: UnsafeRawBufferPointer(start: base,
@@ -65,6 +77,9 @@ extension KeyedSource where Self: ~Copyable {
                                  as: UTF8.self)
         }
     }
+
+    /// Historical spelling, kept as a convenience for callers.
+    public borrowing func text(_ key: StaticString) -> String? { string(key) }
 }
 
 // MARK: - The field manifest
@@ -142,14 +157,15 @@ public func _assaySourceMismatch(
                    location: span))
 }
 
-/// Every accessor has the same shape: absent → report missing unless optional or
-/// defaulted; null → nil for an optional, mismatch otherwise; present but unreadable →
-/// mismatch. Written once here rather than five times per field in every expansion.
-@inlinable
-public func _assaySourceString<S: KeyedSource & ~Copyable>(
+/// Classify a field the value accessor could not produce: absent, null, or the wrong
+/// Classify a field the value accessor could not produce: absent, null, or the wrong
+/// type. Cold — reached only when a field is missing or malformed, never on a good record.
+@inline(never)
+@usableFromInline
+func _assaySourceFailed<S: KeyedSource & ~Copyable, T>(
     _ s: borrowing S, _ key: StaticString, _ sink: inout IssueSink,
-    _ path: [PathComponent], optional: Bool, hasDefault: Bool
-) -> String?? {
+    _ path: [PathComponent], _ expected: String, optional: Bool, hasDefault: Bool
+) -> T?? {
     if !s.has(key) {
         if optional { return .some(nil) }
         if hasDefault { return nil }
@@ -158,12 +174,28 @@ public func _assaySourceString<S: KeyedSource & ~Copyable>(
     }
     if s.isNull(key) {
         if optional { return .some(nil) }
-        _assaySourceMismatch(&sink, path, key, "string", s.span(key))
+        _assaySourceMismatch(&sink, path, key, expected, s.span(key))
         return nil
     }
-    if let v = s.text(key) { return .some(v) }
-    _assaySourceMismatch(&sink, path, key, "string", s.span(key))
+    _assaySourceMismatch(&sink, path, key, expected, s.span(key))
     return nil
+}
+
+// Every accessor has the same shape, and the shape is what the first benchmark corrected.
+//
+// It originally asked `has`, then `isNull`, then the value — THREE lookups per field,
+// which on a linear-scanning row source meant three scans. Now the value accessor runs
+// first and the other two only classify a failure, so a good record costs one lookup per
+// field and a bad one pays for its diagnosis. Measured at 2.3x on an eight-field row.
+
+@inlinable
+public func _assaySourceString<S: KeyedSource & ~Copyable>(
+    _ s: borrowing S, _ key: StaticString, _ sink: inout IssueSink,
+    _ path: [PathComponent], optional: Bool, hasDefault: Bool
+) -> String?? {
+    if let v = s.string(key) { return .some(v) }
+    return _assaySourceFailed(s, key, &sink, path, "string",
+                              optional: optional, hasDefault: hasDefault)
 }
 
 @inlinable
@@ -171,20 +203,9 @@ public func _assaySourceInt64<S: KeyedSource & ~Copyable>(
     _ s: borrowing S, _ key: StaticString, _ sink: inout IssueSink,
     _ path: [PathComponent], optional: Bool, hasDefault: Bool
 ) -> Int64?? {
-    if !s.has(key) {
-        if optional { return .some(nil) }
-        if hasDefault { return nil }
-        _assaySourceMissing(&sink, path, key, nil)
-        return nil
-    }
-    if s.isNull(key) {
-        if optional { return .some(nil) }
-        _assaySourceMismatch(&sink, path, key, "integer", s.span(key))
-        return nil
-    }
     if let v = s.int64(key) { return .some(v) }
-    _assaySourceMismatch(&sink, path, key, "integer", s.span(key))
-    return nil
+    return _assaySourceFailed(s, key, &sink, path, "integer",
+                              optional: optional, hasDefault: hasDefault)
 }
 
 @inlinable
@@ -192,20 +213,9 @@ public func _assaySourceDouble<S: KeyedSource & ~Copyable>(
     _ s: borrowing S, _ key: StaticString, _ sink: inout IssueSink,
     _ path: [PathComponent], optional: Bool, hasDefault: Bool
 ) -> Double?? {
-    if !s.has(key) {
-        if optional { return .some(nil) }
-        if hasDefault { return nil }
-        _assaySourceMissing(&sink, path, key, nil)
-        return nil
-    }
-    if s.isNull(key) {
-        if optional { return .some(nil) }
-        _assaySourceMismatch(&sink, path, key, "number", s.span(key))
-        return nil
-    }
     if let v = s.double(key) { return .some(v) }
-    _assaySourceMismatch(&sink, path, key, "number", s.span(key))
-    return nil
+    return _assaySourceFailed(s, key, &sink, path, "number",
+                              optional: optional, hasDefault: hasDefault)
 }
 
 @inlinable
@@ -213,18 +223,7 @@ public func _assaySourceBool<S: KeyedSource & ~Copyable>(
     _ s: borrowing S, _ key: StaticString, _ sink: inout IssueSink,
     _ path: [PathComponent], optional: Bool, hasDefault: Bool
 ) -> Bool?? {
-    if !s.has(key) {
-        if optional { return .some(nil) }
-        if hasDefault { return nil }
-        _assaySourceMissing(&sink, path, key, nil)
-        return nil
-    }
-    if s.isNull(key) {
-        if optional { return .some(nil) }
-        _assaySourceMismatch(&sink, path, key, "boolean", s.span(key))
-        return nil
-    }
     if let v = s.bool(key) { return .some(v) }
-    _assaySourceMismatch(&sink, path, key, "boolean", s.span(key))
-    return nil
+    return _assaySourceFailed(s, key, &sink, path, "boolean",
+                              optional: optional, hasDefault: hasDefault)
 }

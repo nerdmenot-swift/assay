@@ -571,3 +571,70 @@ shape in the corpus is smaller than the gap on ordinary API payloads.
   phase 4: the earlier decomposition bounded a vectorised validator's win at ~5% on this
   shape, and this arm shows the true gap to C is ~1.5×. Vectorising validation does not
   close it. Whatever does, it is not that.
+
+---
+
+# The third decode path, measured — and a premise it falsified
+
+**2026-08-09.** `docs/KEYED-SOURCE.md` justified `KeyedSource` with a claim: reaching
+already-parsed data through the `RawValue` path "costs an allocation per value per record."
+That was reasoning, not measurement. Measuring it corrected two things.
+
+## Narrow row — 8 columns, all 8 declared
+
+| approach | ns/record | live blocks |
+|---|---|---|
+| KeyedSource, byte-compared keys | 119 | 1.0 |
+| build `RawValue`, then decode | **93** | 1.0 |
+| `DictionarySource` (hashes per lookup) | 209 | 1.0 |
+
+**The third path LOSES here, 0.78×.** And the stated premise was simply wrong:
+`RawValue.mapping` is **one** allocation for the whole record — an array of members holding
+already-existing keys and values — not one per field. Both sides allocate identically.
+The document has been corrected.
+
+## Wide row — 48 columns, 8 declared (`SELECT *`, or a CSV with everything in it)
+
+| approach | ns/record | live blocks |
+|---|---|---|
+| KeyedSource, byte-compared keys | **117** | 1.0 |
+| build `RawValue`, then decode | 305 | 1.0 |
+| `DictionarySource` (hashes per lookup) | 194 | 1.0 |
+
+**2.62×**, and the reason is the one thing the premise got right in spirit: building a
+`RawValue` materialises *every column*, while `KeyedSource` addresses only the fields the
+schema declared. KeyedSource's cost barely moves between the two tables (119 → 117 ns);
+the `RawValue` path's triples (93 → 305 ns).
+
+## So the answer is conditional, and that is the useful result
+
+**The third path is worth it when the source is wider than the schema.** That is the
+common case it was built for — `SELECT *`, exported CSVs, plists with everything in them —
+but it is not universal, and a narrow row is genuinely better served by the existing path.
+`docs/KEYED-SOURCE.md` now says so rather than implying the new path is always better.
+
+## Two design defects the first measurement exposed
+
+Both were fixed and both were invisible to the 330-passing test suite, because they were
+costs rather than wrong answers:
+
+1. **The accessors asked `has`, then `isNull`, then the value — three lookups per field.**
+   On a linear-scanning row source that is three scans. Reordered so the value accessor
+   runs first and the other two only *classify a failure*, which is cold. **2.3× on its
+   own.**
+2. **`withText` forced a `String` → bytes → `String` round trip.** Most already-parsed
+   sources (dictionaries, driver rows, plists) are already holding a `String`, and the
+   protocol made them copy it. Added `string(_:)` as a requirement with the byte-backed
+   default, so those sources hand back what they have — a retain instead of a copy. This
+   is what closed the allocation gap from 1.9 blocks to 1.0.
+
+`DictionarySource` remains the slowest of the three and is documented as the reference
+implementation rather than the fast one: it hashes a `String` per lookup, which is exactly
+the per-record work the field manifest exists to let a real source avoid.
+
+## What is still unmeasured
+
+**The bound path** — resolving the manifest once per stream instead of scanning per record
+— is not built, so its win is still unquantified. The wide-row number above is the *unbound*
+path already beating the alternative by 2.6×; binding should widen that further by turning
+the scan into an array index, and that claim stays unmade until it is built and measured.

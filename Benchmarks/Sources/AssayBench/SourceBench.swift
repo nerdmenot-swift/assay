@@ -1,0 +1,213 @@
+// Assay — a decoder for Swift that tells you what went wrong.
+// Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
+// See LICENSE and NOTICE at the repository root for terms.
+
+//===----------------------------------------------------------------------===//
+// The third decode path, measured. docs/KEYED-SOURCE.md.
+//
+// The design rests on one claim: reaching already-parsed data through the `RawValue` path
+// costs an allocation per value per record, and a reader doing millions of rows cannot pay
+// it. That was reasoning, not measurement. This is the measurement.
+//
+// The comparison is between the two things a driver author actually chooses between,
+// starting from the SAME native row — a columnar pair of (column names, values), which is
+// what a database row and a CSV record really are:
+//
+//   A. KeyedSource, addressing the row in place.
+//   B. Build a `RawValue.mapping` from the row, then decode through the RawValue path.
+//
+// B is what a driver has to do today. The gap between them is what the third path buys,
+// and if there is no gap the path is not worth its generated code.
+//
+// TWO sources are measured, because the protocol admits both and they are not the same:
+//   * `RowSource` compares StaticString keys BYTE-WISE against the column names — no
+//     `String` is ever constructed. This is what a real driver would write.
+//   * `DictionarySource` (shipped as the reference implementation) hashes a `String` per
+//     lookup. Convenient, and deliberately not the fast path — it is included so the
+//     difference between "implementable well" and "implemented conveniently" is visible
+//     rather than hidden.
+//===----------------------------------------------------------------------===//
+
+import Foundation
+import Assay
+
+@Schema(keys: .snakeCase, formats: .all, sources: true)
+struct BenchRow: Equatable {
+    var id: Int
+    var name: String
+    var email: String
+    var age: Int
+    var score: Double
+    var active: Bool
+    var createdAt: String
+    var ownerId: String
+}
+
+/// What a database driver or CSV reader would actually implement: the row stays where it
+/// is, and keys are compared as bytes. Nothing is allocated per field.
+struct RowSource: KeyedSource, ~Copyable {
+    let columns: [[UInt8]]
+    let values: [RawValue]
+
+    @inline(__always)
+    borrowing func index(_ key: StaticString) -> Int? {
+        let n = key.utf8CodeUnitCount
+        let p = key.utf8Start
+        for (i, c) in columns.enumerated() where c.count == n {
+            var same = true
+            var j = 0
+            while j < n {
+                let pb = unsafe p[j]
+                if c[j] != pb { same = false; break }
+                j += 1
+            }
+            if same { return i }
+        }
+        return nil
+    }
+
+    borrowing func has(_ key: StaticString) -> Bool { index(key) != nil }
+    borrowing func isNull(_ key: StaticString) -> Bool {
+        guard let i = index(key) else { return false }
+        if case .null = values[i] { return true }
+        return false
+    }
+    borrowing func int64(_ key: StaticString) -> Int64? { index(key).flatMap { values[$0].int } }
+    borrowing func double(_ key: StaticString) -> Double? { index(key).flatMap { values[$0].double } }
+    borrowing func bool(_ key: StaticString) -> Bool? { index(key).flatMap { values[$0].bool } }
+    borrowing func string(_ key: StaticString) -> String? {
+        guard let i = index(key), case .string(let s) = values[i] else { return nil }
+        return s
+    }
+    borrowing func withText<R>(
+        _ key: StaticString, _ body: (UnsafeRawBufferPointer?) -> R
+    ) -> R {
+        guard let i = index(key), case .string(let s) = values[i] else { return body(nil) }
+        var copy = s
+        return copy.withUTF8 { unsafe body(UnsafeRawBufferPointer($0)) }
+    }
+}
+
+func runSourceBenchmarks() {
+    let columnNames = ["id", "name", "email", "age", "score", "active",
+                       "created_at", "owner_id"]
+    let columns = columnNames.map { Array($0.utf8) }
+    let values: [RawValue] = [
+        .int(90210), .string("Ada Lovelace"), .string("ada@example.com"),
+        .int(36), .double(9.75), .bool(true),
+        .string("2026-08-09T12:00:00Z"), .string("owner-7f3a91"),
+    ]
+    let dict = Dictionary(uniqueKeysWithValues: zip(columnNames, values))
+
+    // What a driver must build TODAY to reach the RawValue path.
+    func buildRaw() -> RawValue {
+        .mapping(zip(columnNames, values).map { .init(key: $0.0, value: $0.1) })
+    }
+
+    print("")
+    print("Third decode path — KeyedSource vs materialising a RawValue tree")
+    print("Same native row for both: columnar (column names + values), which is what a")
+    print("database row and a CSV record are. B is what a driver has to do today.")
+    print(pad("approach", 34, right: true) + pad("ns/record", 12)
+          + pad("blocks", 10) + pad("bytes", 10))
+    print(String(repeating: "-", count: 66))
+
+    let iters = 20_000
+
+    // A. KeyedSource, byte-comparing keys, row addressed in place.
+    let aNs = measure(iterations: iters) {
+        let src = RowSource(columns: columns, values: values)
+        _ = BenchRow.diagnose(source: src).value
+    }
+    let aAlloc = measureAllocations(iterations: 4_000) { () -> Box<BenchRow>? in
+        let src = RowSource(columns: columns, values: values)
+        return BenchRow.diagnose(source: src).value.map { Box($0) }
+    }
+
+    // B. Build the RawValue mapping, then decode through the RawValue path.
+    //
+    // Called through the protocol requirement directly: there is no public `parse(raw:)`
+    // — the RawValue path is only reachable via the YAML and XML entry points today,
+    // which is a small gap of its own and noted in the roadmap.
+    func decodeViaRaw() -> BenchRow? {
+        var sink = IssueSink()
+        return BenchRow._assay(from: buildRaw(), into: &sink, at: [])
+    }
+    let bNs = measure(iterations: iters) { _ = decodeViaRaw() }
+    let bAlloc = measureAllocations(iterations: 4_000) { () -> Box<BenchRow>? in
+        decodeViaRaw().map { Box($0) }
+    }
+
+    // C. The convenient reference source, which hashes a String per lookup.
+    let cNs = measure(iterations: iters) {
+        let src = DictionarySource(dict)
+        _ = BenchRow.diagnose(source: src).value
+    }
+    let cAlloc = measureAllocations(iterations: 4_000) { () -> Box<BenchRow>? in
+        let src = DictionarySource(dict)
+        return BenchRow.diagnose(source: src).value.map { Box($0) }
+    }
+
+    // D. THE SHAPE THE DESIGN WAS ACTUALLY FOR: a wide row where the schema wants a few
+    //    columns. `SELECT *` against a 48-column table, a CSV with every field the
+    //    exporter felt like including. Building a RawValue means materialising every
+    //    column; KeyedSource addresses only the eight the schema declared.
+    let wideNames = columnNames + (0..<40).map { "spare_\($0)" }
+    let wideCols = wideNames.map { Array($0.utf8) }
+    let wideValues = values + (0..<40).map { RawValue.string("filler-value-\($0)") }
+    let wideDict = Dictionary(uniqueKeysWithValues: zip(wideNames, wideValues))
+    func buildWideRaw() -> RawValue {
+        .mapping(zip(wideNames, wideValues).map { .init(key: $0.0, value: $0.1) })
+    }
+    let dNs = measure(iterations: iters) {
+        let src = RowSource(columns: wideCols, values: wideValues)
+        _ = BenchRow.diagnose(source: src).value
+    }
+    func decodeWideViaRaw() -> BenchRow? {
+        var sink = IssueSink()
+        return BenchRow._assay(from: buildWideRaw(), into: &sink, at: [])
+    }
+    let eNs = measure(iterations: iters) { _ = decodeWideViaRaw() }
+    let fNs = measure(iterations: iters) {
+        let src = DictionarySource(wideDict)
+        _ = BenchRow.diagnose(source: src).value
+    }
+    let dAlloc = measureAllocations(iterations: 4_000) { () -> Box<BenchRow>? in
+        let src = RowSource(columns: wideCols, values: wideValues)
+        return BenchRow.diagnose(source: src).value.map { Box($0) }
+    }
+    let eAlloc = measureAllocations(iterations: 4_000) { () -> Box<BenchRow>? in
+        decodeWideViaRaw().map { Box($0) }
+    }
+    let fAlloc = measureAllocations(iterations: 4_000) { () -> Box<BenchRow>? in
+        let src = DictionarySource(wideDict)
+        return BenchRow.diagnose(source: src).value.map { Box($0) }
+    }
+
+    func row(_ label: String, _ ns: Double, _ a: (blocks: Double?, bytes: Double)) {
+        print(pad(label, 34, right: true)
+              + pad(String(format: "%.0f", ns), 12)
+              + pad(a.blocks.map { String(format: "%.1f", $0) } ?? "n/a", 10)
+              + pad(String(format: "%.0f", a.bytes), 10))
+    }
+    row("A. KeyedSource (byte-compared)", aNs, aAlloc)
+    row("B. build RawValue, then decode", bNs, bAlloc)
+    row("C. DictionarySource (hashing)", cNs, cAlloc)
+
+    print("")
+    print("48-column row, 8 columns declared — SELECT * against a wide table")
+    print(pad("approach", 34, right: true) + pad("ns/record", 12)
+          + pad("blocks", 10) + pad("bytes", 10))
+    print(String(repeating: "-", count: 66))
+    row("D. KeyedSource (byte-compared)", dNs, dAlloc)
+    row("E. build RawValue, then decode", eNs, eAlloc)
+    row("F. DictionarySource (hashing)", fNs, fAlloc)
+
+    print("")
+    print(String(format: "narrow (8 of 8):  KeyedSource %.2fx the RawValue path", bNs / aNs))
+    print(String(format: "wide  (8 of 48):  KeyedSource %.2fx the RawValue path", eNs / dNs))
+    print(String(format: "wide, hashing:    DictionarySource %.2fx", eNs / fNs))
+    print("Blocks are LIVE blocks per decoded value; read Allocations.swift's three stated")
+    print("limitations before quoting them. Both sides retain the same String fields, so")
+    print("the interesting number is the DIFFERENCE, which is the tree B has to build.")
+}

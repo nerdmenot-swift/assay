@@ -462,6 +462,8 @@ runDateBenchmarks(corpusDir: corpusDir, sizes: sizes)
 
 // ---- The third decode path ----
 runSourceBenchmarks()
+runValidateBenchmarks()
+runRuleCostBenchmarks()
 
 // ---- The SIMD-tier baseline ----
 runSIMDBaselineBenchmarks(corpusDir: corpusDir, sizes: sizes)

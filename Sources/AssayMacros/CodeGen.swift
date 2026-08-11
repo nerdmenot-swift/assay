@@ -170,6 +170,11 @@ extension SchemaMacro {
                 return nil
             }
             guard reader.enterContainer(&sink) else { return nil }
+            // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+            // anything ever failed?", which is wrong the moment one sink spans more than
+            // one decode — a driver collecting every issue from a result set would find
+            // one bad row silently discarding every good row after it.
+            let __ck0 = sink.checkpoint()
 
         \(locals)    var __presence: UInt64 = 0
 
@@ -201,7 +206,7 @@ extension SchemaMacro {
         \(validation)
         \(unwraps)    let __result = \(typeName)(\(args.joined(separator: ", ")))
         \(checks)
-            guard sink.isValid else { return nil }
+            guard sink.checkpoint() == __ck0 else { return nil }
             return __result
         }
         """

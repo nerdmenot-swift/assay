@@ -90,6 +90,22 @@ d.render(.terminal)
 
 Assay walks the whole document. Twelve bad fields produce twelve issues, once.
 
+### And a third, for a value you already have
+
+Both verbs above start from bytes. When something *else* produced the value — a Parquet
+reader, a database driver, a form, a value you mutated after decoding — the same rules are
+reachable without a decode:
+
+```swift
+let trips = try Table("trips.parquet").rows(of: Trip.self)   // someone else's decoder
+try Trip.validate(trips)                                     // Assay's rules
+```
+
+79 ns for one value, 87 ns/row over a batch, and issues carry `[i]` so a million-row report
+still says which row. The law it holds is that a value `parse` accepted is never rejected
+here — see [`docs/VALIDATE.md`](docs/VALIDATE.md), including the three things it deliberately
+cannot re-check and why each one follows from that law.
+
 ### Issues are data
 
 An `Issue` is a code plus parameters, never a rendered string:
@@ -447,6 +463,8 @@ cross-module import gets caught rather than accidentally working.
 | [`docs/VALUE-MODELS.md`](docs/VALUE-MODELS.md) | why JSON, YAML and XML keep separate value types |
 | [`docs/STREAMING.md`](docs/STREAMING.md) | why streaming is out of scope, and what it would cost |
 | [`docs/ENCODING.md`](docs/ENCODING.md) | the six semantics questions behind encoding, and how each was answered |
+| [`docs/VALIDATE.md`](docs/VALIDATE.md) | validating a value you already have, and the law that decides what it can check |
+| [`docs/KEYED-SOURCE.md`](docs/KEYED-SOURCE.md) | a decode path that was built, measured and withdrawn — and the columnar one that survived |
 | [`ROADMAP.md`](ROADMAP.md) | what is deferred, and why |
 | [`CLAUDE.md`](CLAUDE.md) | settled decisions and hard constraints on generated code |
 | [`LICENSE`](LICENSE) / [`NOTICE`](NOTICE) | Apache 2.0, and third-party attribution |

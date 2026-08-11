@@ -44,18 +44,12 @@ public protocol RawEncodableSchema: Assayable {
     ) -> RawValue
 }
 
-/// A type that can decode from an already-parsed, key-addressable source — emitted by
-/// `@Schema(sources: true)`. The third decode path; see `docs/KEYED-SOURCE.md`.
+/// A type that can decode a batch from a column-first source — Parquet, Arrow, a column
+/// store — emitted by `@Schema(sources: true)`. See `docs/KEYED-SOURCE.md`.
 public protocol SourceDecodable: Assayable {
     /// Every field this type declares, in order, resolved at compile time. A source binds
     /// against this ONCE per stream rather than resolving keys per record.
     nonisolated static var _assayManifest: FieldManifest { get }
-
-    nonisolated static func _assay<S: KeyedSource & ~Copyable>(
-        from source: borrowing S,
-        into sink: inout IssueSink,
-        at path: [PathComponent]
-    ) -> Self?
 
     /// Decode a whole batch from a COLUMN-first source, one sequential pass per column.
     nonisolated static func _assayBatch<C: ColumnarSource & ~Copyable>(
@@ -112,7 +106,7 @@ public protocol JSONAssayable: Assayable {
 // `Assayable` is deliberately absent from this list: both `JSONAssayable` and
 // `RawDecodable` refine it, so declaring it here would promise a conformance the expansion
 // does not itself emit.
-@attached(extension, conformances: JSONAssayable, RawDecodable, AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema, XMLEncodableSchema, SourceDecodable, names: arbitrary)
+@attached(extension, conformances: JSONAssayable, RawDecodable, Validatable, AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema, XMLEncodableSchema, SourceDecodable, names: arbitrary)
 public macro Schema(
     keys: KeyNamingStyle = .camelCase,
     unknownKeys: UnknownKeys = .ignore,

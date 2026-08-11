@@ -301,39 +301,11 @@ public struct EncodeDiagnosis: Sendable {
     }
 }
 
-// MARK: - Decoding from a keyed source
+// MARK: - Decoding a batch from a column-first source
 //
-// docs/KEYED-SOURCE.md. The third path: already-parsed, addressable by key.
-
-extension SourceDecodable {
-
-    /// Decode from an already-parsed source, or throw with every issue found.
-    public static func parse<S: KeyedSource & ~Copyable>(
-        source: borrowing S,
-        limits: Limits = .default,
-        sourceName: String = "<source>"
-    ) throws -> Self {
-        try diagnose(source: source, limits: limits, sourceName: sourceName).get()
-    }
-
-    /// Decode from an already-parsed source and report everything.
-    ///
-    /// No `SourceBytes` is retained: a row has no document to draw a caret in. Sources
-    /// that *can* place their fields report a span per field and those ride on the issues
-    /// themselves, which is what the renderer needs.
-    public static func diagnose<S: KeyedSource & ~Copyable>(
-        source: borrowing S,
-        limits: Limits = .default,
-        sourceName: String = "<source>"
-    ) -> Diagnosis<Self> {
-        var sink = IssueSink(limits: limits)
-        let value = Self._assay(from: source, into: &sink, at: [])
-        return Diagnosis(value: sink.isValid ? value : nil,
-                         issues: sink.issues, warnings: sink.warnings,
-                         truncatedIssues: sink.truncatedIssues,
-                         source: .empty, sourceName: sourceName)
-    }
-}
+// docs/KEYED-SOURCE.md. The row-at-a-time half of this path was removed after
+// measurement said it lost to building a `RawValue`; the columnar half survives because
+// a column store has no per-row borrow, dispatch, or presence ambiguity.
 
 extension SourceDecodable {
 

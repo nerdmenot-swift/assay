@@ -1,147 +1,154 @@
-# The third decode path: `KeyedSource`
+# The third decode path: what it cost to find out it was wrong
 
-Assay decodes from two shapes today. This adds a third.
+Assay decodes from two shapes.
 
 | path | input | who uses it |
 |---|---|---|
 | **bytes-direct** | a contiguous UTF-8 buffer | JSON. The fast path; the `Codable` boundary is deleted here |
-| **`RawValue` tree** | a materialised, format-neutral tree | YAML, XML. A DOM hop, accepted because those formats need their own node model first |
-| **`KeyedSource`** | *already parsed*, addressable by key | database rows, CSV/Parquet, plists, `[String: Any]`, form data, env vars, `Assayer<T>` |
+| **`RawValue` tree** | a materialised, format-neutral tree | YAML, XML, and anything already parsed |
 
-The third exists because a large class of data arrives **already parsed into fields**, and
-reaching it today means building a `RawValue` tree first — materialising every column the
-source has, whether the schema wants it or not.
+A third was designed, built, measured and **removed**. What survives is one narrow piece of
+it — a columnar batch path — plus a separate entry point that solves the problem the third
+path was actually reaching for. This document is the record, because the idea is attractive
+enough to be reinvented and the argument against it is entirely empirical.
 
-> **Corrected by measurement, 2026-08-09.** This section originally claimed the `RawValue`
-> path "costs an allocation per value per record." That is false: `RawValue.mapping` is
-> **one** allocation for the whole record. The real cost is materialising *columns the
-> schema never asked for*, which is why the win is conditional:
->
-> | row shape | KeyedSource vs `RawValue` |
-> |---|---|
-> | 8 columns, 8 declared | **0.78× — loses** |
-> | 48 columns, 8 declared | **2.62× — wins** |
->
-> **Use it when the source is wider than the schema** (`SELECT *`, exported CSVs, plists
-> with everything in them). A narrow row is better served by the existing path. Full tables
-> in `Benchmarks/RESULTS.md`.
+- **The removal and why:** §1–§3 below.
+- **What survives:** §4, `ColumnarSource`.
+- **What you want instead:** [`docs/VALIDATE.md`](VALIDATE.md).
 
 ---
 
-## Three collisions with settled decisions, and how each is resolved
+## 1. The idea, and the premise that justified it
 
-The proposal that started this asked for things that conflict with rules this repository
-already made deliberately. Writing the conflicts down is the point; silently picking one
-side is how a codebase stops meaning what its documents say.
+A large class of data arrives **already parsed into fields**: database rows, CSV records,
+Parquet, plists, form posts, env blocks. Reaching it meant building a `RawValue` tree first.
+So: a `KeyedSource` protocol, with the schema pulling each declared field out of the source
+by key, no tree in between.
 
-### 1. `~Escapable` would gate the entire library on an experimental feature
+The premise, written into the first version of this document, was that the `RawValue` path
+"costs an allocation per value per record."
 
-**Asked for:** `protocol KeyedSource: ~Copyable, ~Escapable`, so a source can be a borrowed
-zero-copy view that provably cannot escape.
-
-**The conflict:** `AssayReader` already faced this and refused it. Its header records why —
-`@_lifetime` is `SUPPRESSIBLE_EXPERIMENTAL_FEATURE(Lifetimes)` with no accepted proposal, and
-a `~Escapable` type in the public surface "would put an experimental-feature gate on the
-whole library." The reader uses a raw pointer behind a safe façade instead, with the seam
-shaped so it can move to `RawSpan` later without a source break.
-
-**Resolution: `~Copyable` only, with `borrowing` accessors.** That already gives
-non-copyability, no retain traffic, and no accidental storage. It does *not* give the
-compile-time proof that a borrowed view outlives its use — the source author carries that,
-exactly as `AssayReader` does today. The protocol is shaped so `~Escapable` can be added when
-`Lifetimes` ships un-gated, and that is the same bet the reader already placed rather than a
-new one.
-
-### 2. A generic entry point reintroduces the thing the macro exists to delete
-
-**Asked for:** `static func _assay<S: KeyedSource>(from source: borrowing S, …) -> Self?`
-
-**The conflict:** hard constraint 6 — *"Generated per-field code is concrete and monomorphic.
-No generic parameter to specialize is the whole reason a macro decoder can be fast in
-Swift."* And the escape hatch that would normally fix it is closed: `@inlinable` on a
-generated body is forbidden (SE-0193 makes every `public @Schema` type fail against its own
-internal memberwise initializer — a trap already found by the compile-time harness). So a
-generic entry point specialises fine **within** a module and falls back to witness-table
-dispatch **across** one, which is precisely the arrangement a CSV or Postgres driver in
-another package would hit.
-
-**Resolution: ship the generic entry point, and publish the FIELD MANIFEST that makes the
-non-generic path possible.**
-
-> **Corrected by measurement, 2026-08-09 — this section named the wrong boundary.**
-> Putting the *source* in another module costs **nothing** (1.00×): the generated
-> `_assay<S>` lives in the schema's module, so does the call site, and the compiler
-> specialises. What costs is being **generic over the schema** — `db.query(…, as:
-> User.self)` — where `T` is unknown and the witness-table call lands **per row**: 1.63×.
->
-> **The batch entry point erases it: 0.96×.** `T._assayBatch(from:)` pays the dispatch once
-> per batch, because the per-row loop is inside a function that is concrete in the schema's
-> own module.
->
-> **So a driver's public API should be batch-shaped.** `fetchAll(as: User.self) -> [User]`
-> is not merely nicer than `next() -> User?` — it is the shape that avoids a penalty the
-> caller cannot otherwise remove, because it comes from `@inlinable` being forbidden on
-> generated bodies (SE-0193). The columnar batch path is therefore not just a Parquet
-> optimisation; it is **the correct integration point for any driver**.
-
-### 3. A fourth generated body against a compile-time budget with 15 ms of headroom
-
-**The conflict:** `@Schema` costs ~85 ms per type against a 100 ms CI gate, and the cost model
-is *generated body size*, not expansion count. JSON, `RawValue`, and the three encoders are
-already opt-in for exactly this reason.
-
-**Resolution: `@Schema(sources: true)`, opt-in like every other body, and the gate is the
-check.** A type that never decodes from a row pays nothing.
+**That was false, and nobody checked it before building.** `RawValue.mapping` is *one*
+allocation for the whole record, and short keys do not allocate at all — a fact this
+repository's own `CLAUDE.md` already recorded under "corrected premises." The measurement
+that should have come first came last.
 
 ---
 
-## Scope of the first increment
+## 2. Three findings that closed it
 
-**Flat records only.** A database row, an env block and a form post have no nested arrays;
-`RawValue` remains the right answer for anything tree-shaped. An array or dictionary field on
-a `sources: true` type is a **compile error** naming the field, rather than a runtime surprise
-or a silent tree materialisation. Nested `@Schema` values are likewise out of the first
-increment: a row addresses one flat namespace, and prefix-addressing (`user.name`) is a
-design question of its own.
+### It lost to the path it was invented to beat
 
-**Diagnostics are identical or absent, never wrong.** A source that can report a span gets
-carets exactly as JSON does. A source that cannot returns `nil` and gets position-free
-diagnostics — which the renderer has always handled, because a missing-field issue has never
-had a location.
+Starting from the same native row and decoding into the same struct:
 
-## A trap for `KeyedSource` implementors holding `RawValue`
+| approach | ns/record |
+|---|---|
+| build a `RawValue.mapping`, decode through the tree path | **95** |
+| `KeyedSource`, addressing the row in place | **311** |
 
-`RawValue` conforms to `ExpressibleByNilLiteral` — `let v: RawValue = nil` means `.null`,
-which is useful for literals and a hazard here. In a function returning `RawValue?`, a bare
-`nil` resolves to **`.some(.null)`**, not to absence:
+The row protocol was 3.3× *slower* than the thing it existed to replace, once its presence
+semantics were correct. There is a narrow shape where it wins — a source much wider than the
+schema, where the tree materialises columns nobody asked for — but "your table has 48
+columns and your struct has 8" is not a foundation for a decode path.
+
+### It could not accept the borrowed rows it existed for
+
+The whole appeal was zero-copy: a row view pointing into a page the driver already has. A
+genuinely zero-copy row view is `~Escapable`, and `AssayReader` already faced this exact
+question and refused it — `@_lifetime` is `SUPPRESSIBLE_EXPERIMENTAL_FEATURE(Lifetimes)`
+with no accepted proposal, and a `~Escapable` type in the public surface would put an
+experimental-feature gate on the entire library.
+
+So the protocol was `~Copyable` only, and the sources that most wanted it structurally could
+not conform. It was designed for a caller it could not accept.
+
+### Its cost landed worst exactly where a driver lives
+
+The generic entry point specialises within a module. The arrangement that matters is
+`db.query(as: User.self)` — a loop **in the driver**, generic over a schema in someone
+else's module. `@inlinable` is forbidden on generated bodies (SE-0193 makes every public
+`@Schema` type fail against its own internal memberwise init), so the witness-table call
+stands and is paid **per row**: 1.6–4.7×.
+
+The module boundary itself was not the problem — being generic over the schema was, and
+only per-row.
+
+---
+
+## 3. What the removal was not
+
+Not a retreat from the goal. A specialised reader wanting Assay's rules is a real need, and
+`validate` serves it better than a decode path ever could:
 
 ```swift
-return i == BoundPlan.absent ? nil : values[i]      // WRONG: absent reads as a null
-return i == BoundPlan.absent ? Optional<RawValue>.none : values[i]   // right
+let trips = try Table("trips.parquet").rows(of: Trip.self)   // their decoder, their speed
+try Trip.validate(trips)                                     // our rules
 ```
 
-The consequence is quiet and specific: an **absent** column reports as a **present null**,
-so `has` says yes, `isNull` says yes, and a field with a default reports a type mismatch
-instead of taking its default. It cost a debugging round while writing this document's own
-examples, which is the best argument for writing it down.
+Neither side pays for the other, and neither has to know the other's memory model — which is
+precisely what the `~Escapable` collision above proved they cannot share. See
+[`docs/VALIDATE.md`](VALIDATE.md).
 
-## Deliberately deferred
+### A trap worth keeping
 
-- ~~**The bound/positional path.**~~ **Built and measured 2026-08-09.** Every accessor
-  receives the field's manifest index alongside its key, so one protocol serves both phases:
-  an unbound source ignores the index, a bound source ignores the key. `BoundPlan` resolves
-  a manifest against a source's columns once per stream.
+`RawValue` conforms to `ExpressibleByNilLiteral` — `let v: RawValue = nil` means `.null`.
+In a function returning `RawValue?`, a bare `nil` resolves to **`.some(.null)`**, not to
+absence:
 
-  **Its value is width-invariance, not a constant speedup.** A bound row costs ~100 ns at
-  8 columns and at 400; an unbound scan goes 125 → 578 ns over the same range. At eight
-  columns binding is barely worth having; at four hundred it is 5.79×. It does not rescue
-  the narrow case — the guidance is unchanged, and it is about the source being wider than
-  the schema.
-- ~~**Columnar/batch fill.**~~ **Built and measured 2026-08-09.** `ColumnarSource` pulls
-  each column once and `_assayBatch` constructs the batch, with Arrow-style validity masks
-  for nulls. **2.07× over row-by-row, flat at 52 ns/row from 64 rows to 100,000** — the win
-  is the access pattern rather than cache residency, and the ratio holds across a 1,500×
-  size range. A missing required column is reported once for the batch, not once per row.
-- **Typed throws at the boundary.** Deferred rather than guessed: `_assay` returns an
-  Optional and reports into a sink, which is how every other path works, and changing that
-  for one path would be the inconsistency.
+```swift
+return i == absent ? nil : values[i]                        // WRONG: absent reads as null
+return i == absent ? Optional<RawValue>.none : values[i]    // right
+```
+
+The consequence is quiet and specific: an **absent** column reports as a **present null**, so
+a field with a default reports a type mismatch instead of taking its default. It cost a
+debugging round while writing this document's own examples, and it applies to anyone
+building a `RawValue` from a source that distinguishes absent from null.
+
+---
+
+## 4. What survives: `ColumnarSource`
+
+Opt in with `@Schema(sources: true)`.
+
+A column store — Parquet, Arrow, a column database — hands over one array per field. Decoding
+it record-by-record is strided by construction: N records over M columns is N×M jumps between
+M separate allocations. Inverting the loop makes each column one sequential pass.
+
+**Every reason the row path failed is absent here.** Whole arrays cross the boundary, so
+there is no per-row borrow to escape, no per-row dispatch to pay, and no per-row presence
+ambiguity to translate.
+
+```swift
+let (values, issues, truncated) = Trip.batch(from: store)
+```
+
+Measured on this machine, against the honest baseline — a `RawValue` per row through the tree
+path, which is what a caller does today:
+
+| rows | row-wise ns | batch ns | per row | batch wins |
+|---|---|---|---|---|
+| 64 | 4,117 | 3,245 | 51 | 1.27× |
+| 1,000 | 68,325 | 53,123 | 53 | 1.29× |
+| 20,000 | 1,363,879 | 1,056,638 | 53 | 1.29× |
+| 100,000 | 6,918,521 | 5,441,729 | 54 | 1.27× |
+
+Flat at ~53 ns/row across a 1,500× size range: the win is the access pattern, not cache
+residency. And the arrangement that killed the row path is a non-issue here — the same batch
+called from another module, generic over the schema, costs **1.03×**, because the per-row
+loop lives inside a function concrete in the schema's own module. **A driver API should be
+batch-shaped.**
+
+### Scope
+
+**Flat scalar columns only.** An array, dictionary or nested `@Schema` field on a
+`sources: true` type is a **compile error** naming the field, rather than a runtime surprise.
+`RawValue` remains the answer for anything tree-shaped.
+
+**Two-phase binding.** `FieldManifest` is what a `@Schema` type declares, in order, resolved
+at compile time; `BoundPlan` resolves it against one source's column names, once, for a whole
+batch. A missing required column is reported **once for the batch** — it is a property of the
+source, and a reader over a million rows should not be told a million times.
+
+**No carets.** A columnar source has no byte offsets, so issues carry paths and no location.
+Issues over a batch carry `[i]` for the row.

@@ -134,6 +134,8 @@ extension SchemaMacro {
                 Assay.RawValue.notAnObject(&sink, path, raw)
                 return nil
             }
+            // See the note in the JSON body: local validity, not global.
+            let __ck0 = sink.checkpoint()
 
         \(locals)    var __presence: UInt64 = 0
 
@@ -150,7 +152,7 @@ extension SchemaMacro {
         \(validation)
         \(unwraps)    let __result = \(typeName)(\(args.joined(separator: ", ")))
         \(checks)
-            guard sink.isValid else { return nil }
+            guard sink.checkpoint() == __ck0 else { return nil }
             return __result
         }
         """

@@ -20,7 +20,7 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 | Falsification condition | **PASSED, 5.44× over Foundation (8.64× float-dense)** — `Benchmarks/RESULTS.md` |
 | Full corpus sweep | **built and run** — 9.17× struct decode (25 files), 6.43× prefix+skip (45), 1.49× generic value model (75) |
 | Cross-platform | **builds**: macOS, static Linux (2 arches), wasm32. Windows unverified. Tests run on macOS only |
-| Compile-time budget | **measured and gated** — ~84 ms/type at 10 fields (83–87 ms across runs), gate at 100 ms |
+| Compile-time budget | **measured and gated** — ~87 ms/type at 10 fields rule-free (gate 100 ms), ~114 ms for a type with a rule on nearly every field (gate 145 ms) |
 | Value models (`JSON.Value`, `YAML.Node`, `XML.Node`, `RawValue`) | **built** — `docs/VALUE-MODELS.md` |
 | YAML and XML parsers | **built** — hand-written, XXE refused by construction |
 | `@Extras` + `unknownKeys: .ignore/.warn/.reject/.collect` | **built**, with Damerau did-you-mean |
@@ -38,7 +38,10 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 | `Date` + `@DateFormat` (ISO-8601, unix, RFC 9110, patterns, candidate chains) + `.before/.after/.between` rules | **built and measured** — 6.06× vs Foundation `.iso8601`, 2,279-instant exact differential. Core stays Foundation-free: parsers return epoch seconds, the macro emits `Date(timeIntervalSince1970:)` into the user's module. `.past`/`.future` deferred (no clock seam) |
 | `[String: T]` dictionary fields | **built and measured 2026-08-07** — both decode paths, recursive nesting, non-String keys diagnosed at expansion. The §2.5 "worst case" measured **6.95×** over Foundation; narrowing with size confirmed, loss did not materialise |
 | `@XML` placement (`.attribute`/`.text`/`.wrapped`) | **built** — expansion-checked; `@XML(root:)` deferred |
-| `KeyedSource` third decode path | **built** — protocol, field manifest, `BoundPlan` two-phase binding, and `ColumnarSource` batch fill. Flat records only. Measured: 2.76× the RawValue path on a wide row, 6.12× bound-vs-scan at 400 columns, 2.07× columnar-vs-row-wise. `docs/KEYED-SOURCE.md` |
+| `KeyedSource` row path | **built, measured, REMOVED** — lost to the `RawValue` path (311 vs 95 ns), could not accept the `~Escapable` rows it existed for, cost 1.6–4.7× per row in a driver. `docs/KEYED-SOURCE.md` records why; do not rebuild it |
+| `ColumnarSource` + `_assayBatch` | **built** — the surviving half. Field manifest, `BoundPlan` two-phase binding, Arrow-style validity masks. 1.27× the tree path at a flat ~53 ns/row; 1.03× called generically from another module |
+| `T.validate(_:)` / `T.diagnose(_ value:)` | **built** — the schema's rules against an already-constructed value, which is the seam a fast external reader wants. 79 ns/value, 87 ns/row batched. `docs/VALIDATE.md` |
+| Rule engine, allocation-free | **built and gated** — `.email` 179 → 25 ns, `.uuid` 50 → 28, `.min`/`.max` on String 22 → 14. Differential against the previous implementation as an oracle, 40,062 strings × 6 checks |
 | `@Unknown` open enums | **built** — `@Schema enum` + `@Unknown case other(String)`; encoding refuses an unrecognised variant unless `roundTrips: true`. Closed enums still need no macro |
 | `@Inline`, `@Wraps`, `Assayer<T>` | **not built** — `ROADMAP.md` |
 
@@ -96,8 +99,15 @@ idiomatic Swift spelling, the answer is a different construct, not a translitera
 - `try T.parse(json:)` → `T`, throws `AssayError`, discards warnings.
 - `T.diagnose(json:)` → `Diagnosis<T>` with `.value`, `.issues`, `.warnings`, `.isValid`,
   `try d.get()`.
-- `validate` was cut: it collides with `ParsableArguments.validate()` and Vapor's
-  `Validatable.validate()`.
+- `validate` was cut **as a third parse verb** — `T.validate(json:)` collided with
+  `ParsableArguments.validate()` and Vapor's `Validatable.validate()`, and two of the three
+  verbs had the same shape. That still stands.
+- `try T.validate(_ value:)` / `T.diagnose(_ value:)` (2026-08-10) is a **different**
+  function and does not reopen it: static, takes the value as its argument, decodes nothing,
+  so it does not collide with an instance `validate()` on either protocol. It runs the
+  schema's rules against a value something else produced — the seam for a fast external
+  reader. `docs/VALIDATE.md`, and the law it holds: `T.validate(try T.parse(json: d))` never
+  reports an issue.
 
 ### Issues
 Code + params, **never** rendered strings (Ecto's `{template, params}` model). `.message` is
@@ -272,24 +282,32 @@ x86-64 AVX2 ever matters, C is the only way there.
 ## Start here now
 
 Since resolved from this list: `Date` and `@DateFormat` (2026-08-06 — built, measured at
-6.06×, differentially verified; `ROADMAP.md` §2 records what remains deferred and why).
-What remains, in order:
+6.06×, differentially verified; `ROADMAP.md` §2 records what remains deferred and why), and
+the loss against yyjson (2026-08-09 — 0.66× on the use-case shape, 0.77× float-dense, 0.06×
+DOM-vs-DOM, all published). What remains, in order:
 
 1. **Source spans for YAML and XML.** `ROADMAP.md` §12. Syntax errors already carry carets;
    schema issues do not, because the node trees drop byte offsets when they are built. The
    caret is the headline feature and half the formats do not get it where it counts most.
    Highest user-visible value per unit of work on the whole list.
-2. **Publish a loss.** Assay has been measured against Foundation and never against simdjson,
-   yyjson or ZippyJSON. The float-dense arm is where a scalar decoder with no Eisel-Lemire
-   should lose, and publishing that is what would make 9.17× credible rather than suspicious.
-3. **Linux and x86-64 numbers.** CI builds and tests there; nothing is benchmarked there.
+2. **Linux and x86-64 numbers.** CI builds and tests there; nothing is benchmarked there.
    Every published ratio is one arm64 Mac and says so.
-4. **Cold start**, where a macro emitting no `CodingKeys` should win structurally.
+3. **Cold start**, where a macro emitting no `CodingKeys` should win structurally.
 
-Two things that are done and worth not redoing: the allocation gate exists (live blocks,
+Three things that are done and worth not redoing: the allocation gate exists (live blocks,
 with its limits documented rather than buried — `.mallocCountTotal` was rejected because
 jemalloc cannot run on the musl or wasm legs), and the full corpus is swept in three passes
-because one number could not answer three questions.
+because one number could not answer three questions. And the rule engine has been measured
+per rule and made allocation-free — `docs/VALIDATE.md` §4 — so "validation is slow" is a
+claim that now needs a number, not an intuition.
+
+**A design that was withdrawn, on purpose: the `KeyedSource` row path.** Built, benchmarked,
+and removed the same week. It is worth knowing about because it is attractive enough to be
+proposed again, and `docs/KEYED-SOURCE.md` and the header of
+`Sources/AssayCore/ColumnarSource.swift` both carry the three reasons. The short form: its
+justifying premise was never measured and was false, it lost 3.3× to the path it was meant to
+replace, and it could not accept the `~Escapable` rows it existed for. `T.validate(_:)` is
+what serves that use case, and the columnar half is what survives.
 
 ---
 

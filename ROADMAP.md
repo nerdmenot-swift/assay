@@ -323,38 +323,35 @@ issue cap already covers the memory concern that motivates it.
 
 ---
 
-## The third decode path — `KeyedSource`
+## The third decode path — built, measured, REMOVED
 
-**Status: first increment BUILT 2026-08-09.** `docs/KEYED-SOURCE.md`.
+**Status: withdrawn 2026-08-10 on its own numbers.** `docs/KEYED-SOURCE.md` is the record.
 
-```swift
-@Schema(sources: true) struct Row { var id: Int; var name: String }
-let row = try Row.parse(source: DictionarySource(dict))
-```
+A `KeyedSource` protocol for decoding one record at a time from anything already parsed and
+addressable by key — database rows, CSV, plists, form data — was designed, built and
+benchmarked. It was removed, and the reason is worth having on the roadmap rather than only
+in a header, because the idea is attractive enough to be proposed again:
 
-Decoding from a source that is *already parsed and addressable by key*, alongside
-bytes-direct (JSON) and the `RawValue` tree (YAML/XML). Database rows, CSV, property lists,
-`[String: Any]`, form data, environment blocks — all the same shape, and all of them
-currently have to build a `RawValue` tree first, which costs an allocation per value per
-record.
+- **The premise was false and unchecked.** It was justified by "the `RawValue` path costs an
+  allocation per value per record." `RawValue.mapping` is *one* allocation per record.
+- **It lost to the path it was meant to beat**: 311 ns/record against 95 ns for building a
+  `RawValue` and decoding through the tree path.
+- **It could not accept the borrowed rows it existed for.** A zero-copy row view is
+  `~Escapable`, and this library refuses an experimental-feature gate on its public surface.
+- **Its cost landed per row in a driver**, where `@inlinable` is forbidden on generated
+  bodies (SE-0193) and the witness-table call stands: 1.6–4.7×.
 
-Built: the `KeyedSource` protocol, the generated entry point, the **field manifest**, a
-reference `DictionarySource`, and identical behaviour for the five presence states,
-`@Validate`, `@Fallback` and caret rendering when the source reports spans.
+**What survives.** `ColumnarSource` and `_assayBatch`, behind `@Schema(sources: true)`: a
+column store hands over whole arrays, so it has no per-row borrow, no per-row dispatch and no
+per-row presence ambiguity — the three things that sank the other half. 1.27× over the tree
+path at a flat ~53 ns/row, and 1.03× when called generically from another module.
 
-**Deferred, with reasons in the document:** the bound/positional decode (the manifest ships
-now because it is the piece that has to be right first), columnar batch fill, and nested or
-collection fields — a keyed source is a flat record, and anything tree-shaped is what the
-`RawValue` path is for. Both are compile errors naming the field rather than runtime
-surprises.
+**What replaces it.** `T.validate(_:)` — `docs/VALIDATE.md`. A specialised reader decodes at
+its own speed in its own module, and Assay runs the rules afterwards. That is the seam the
+decode path was reaching for, and neither side pays for the other.
 
-Three collisions with settled rules were resolved rather than papered over — `~Escapable`
-would gate the library on an experimental feature, a generic entry point cannot specialise
-across a module boundary because `@inlinable` on a generated body is forbidden, and a fourth
-generated body meets a compile budget with 15 ms of headroom. `docs/KEYED-SOURCE.md` has
-each one and its resolution.
-
----
+Still deferred: nested and collection fields on a `sources: true` type, which remain compile
+errors naming the field rather than runtime surprises.
 
 ## Verification gaps
 

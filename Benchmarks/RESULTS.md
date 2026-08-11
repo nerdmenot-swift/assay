@@ -574,11 +574,16 @@ shape in the corpus is smaller than the gap on ordinary API payloads.
 
 ---
 
-# The third decode path, measured — and a premise it falsified
+# The third decode path, measured — and withdrawn on its own numbers
 
-**2026-08-09.** `docs/KEYED-SOURCE.md` justified `KeyedSource` with a claim: reaching
-already-parsed data through the `RawValue` path "costs an allocation per value per record."
-That was reasoning, not measurement. Measuring it corrected two things.
+**2026-08-09, closed 2026-08-10.** `docs/KEYED-SOURCE.md` justified a general row-at-a-time
+`KeyedSource` protocol with a claim: reaching already-parsed data through the `RawValue` path
+"costs an allocation per value per record." That was reasoning, not measurement, and it was
+false — `RawValue.mapping` is one allocation per record.
+
+The measurements below are what closed the design. **The row path was removed; the columnar
+half survives.** The tables are kept because a design that was measured and dropped is more
+useful written down than forgotten, and because the numbers are the whole argument.
 
 ## Narrow row — 8 columns, all 8 declared
 
@@ -588,121 +593,22 @@ That was reasoning, not measurement. Measuring it corrected two things.
 | build `RawValue`, then decode | **93** | 1.0 |
 | `DictionarySource` (hashes per lookup) | 209 | 1.0 |
 
-**The third path LOSES here, 0.78×.** And the stated premise was simply wrong:
-`RawValue.mapping` is **one** allocation for the whole record — an array of members holding
-already-existing keys and values — not one per field. Both sides allocate identically.
-The document has been corrected.
+Once the row protocol's presence semantics were corrected — four states, not two — the same
+comparison read **311 ns against 95**. It lost to the path it was invented to beat, by 3.3×,
+on the shape most rows have.
 
-## Wide row — 48 columns, 8 declared (`SELECT *`, or a CSV with everything in it)
+It also could not accept the borrowed rows it existed for (a zero-copy row view is
+`~Escapable`, which this library refuses in its public surface), and its cost landed **per
+row** in a driver generic over the schema, at 1.6–4.7×. Three independent reasons, any one
+of which would have been enough.
 
-| approach | ns/record | live blocks |
-|---|---|---|
-| KeyedSource, byte-compared keys | **117** | 1.0 |
-| build `RawValue`, then decode | 305 | 1.0 |
-| `DictionarySource` (hashes per lookup) | 194 | 1.0 |
+## What replaced it
 
-**2.62×**, and the reason is the one thing the premise got right in spirit: building a
-`RawValue` materialises *every column*, while `KeyedSource` addresses only the fields the
-schema declared. KeyedSource's cost barely moves between the two tables (119 → 117 ns);
-the `RawValue` path's triples (93 → 305 ns).
+`T.validate(_:)` — a specialised reader decodes at its own speed in its own module, and Assay
+runs the rules afterwards. Measured below under "Validating a value you already have", and
+documented in `docs/VALIDATE.md`.
 
-## So the answer is conditional, and that is the useful result
-
-**The third path is worth it when the source is wider than the schema.** That is the
-common case it was built for — `SELECT *`, exported CSVs, plists with everything in them —
-but it is not universal, and a narrow row is genuinely better served by the existing path.
-`docs/KEYED-SOURCE.md` now says so rather than implying the new path is always better.
-
-## Two design defects the first measurement exposed
-
-Both were fixed and both were invisible to the 330-passing test suite, because they were
-costs rather than wrong answers:
-
-1. **The accessors asked `has`, then `isNull`, then the value — three lookups per field.**
-   On a linear-scanning row source that is three scans. Reordered so the value accessor
-   runs first and the other two only *classify a failure*, which is cold. **2.3× on its
-   own.**
-2. **`withText` forced a `String` → bytes → `String` round trip.** Most already-parsed
-   sources (dictionaries, driver rows, plists) are already holding a `String`, and the
-   protocol made them copy it. Added `string(_:)` as a requirement with the byte-backed
-   default, so those sources hand back what they have — a retain instead of a copy. This
-   is what closed the allocation gap from 1.9 blocks to 1.0.
-
-`DictionarySource` remains the slowest of the three and is documented as the reference
-implementation rather than the fast one: it hashes a `String` per lookup, which is exactly
-the per-record work the field manifest exists to let a real source avoid.
-
-## What is still unmeasured
-
-**The bound path** — resolving the manifest once per stream instead of scanning per record
-— is not built, so its win is still unquantified. The wide-row number above is the *unbound*
-path already beating the alternative by 2.6×; binding should widen that further by turning
-the scan into an array index, and that claim stays unmade until it is built and measured.
-
-## The bound path, measured
-
-**2026-08-09.** The second phase: resolve the `FieldManifest` against a source's columns
-**once per stream**, then index the plan per record. Every accessor now receives the
-field's manifest index alongside its key, so one protocol serves both — an unbound source
-ignores the index and looks up the key; a bound source ignores the key.
-
-### Width sensitivity — the property that actually matters
-
-Declared columns **interleaved** through the row, evenly spread:
-
-| columns | unbound (scan) | bound (index) | bound wins |
-|---|---|---|---|
-| 8 | 121 ns | 101 ns | 1.19× |
-| 48 | 167 ns | 96 ns | 1.73× |
-| 128 | 252 ns | 98 ns | 2.58× |
-| 400 | 592 ns | 97 ns | **6.12×** |
-
-**Binding's value is not a constant speedup — it is that the cost stops depending on the
-source's width.** The bound row is ~100 ns at every width; the unbound scan grows linearly
-with the columns it walks past. At eight columns binding is barely worth having; at four
-hundred it is the difference between a reader that keeps up and one that does not.
-
-### A benchmark artifact that nearly hid it
-
-The first version of this table was **flat** — 123 ns unbound at every width, implying
-binding bought nothing. The fixture appended the spare columns *after* the declared ones,
-so the scan found every field within the first eight positions and never walked past them.
-Building the fixture the obvious way made a linear scan look free.
-
-That is worth recording as a method note, not just a fixed bug: **a benchmark whose fixture
-flatters the subject produces a number that is precisely wrong in the reassuring
-direction.** A real `SELECT *` scatters the columns you asked for among the ones you did
-not, so the columns are now interleaved.
-
-### Against the alternative
-
-| | unbound | bound |
-|---|---|---|
-| narrow (8 of 8) vs `RawValue` | 0.81× | 0.97× |
-| wide (8 of 48) vs `RawValue` | 2.76× | **3.30×** |
-
-Binding does not rescue the narrow case — at eight columns, building a `RawValue` mapping
-is still marginally the better answer, and the guidance stands: **use the third path when
-the source is wider than the schema.** Binding widens the win where the win already was.
-
-### A bug the bound path found in the library's own API
-
-`RawValue` conforms to `ExpressibleByNilLiteral`, so in a function returning `RawValue?` a
-bare `nil` resolves to **`.some(.null)`** rather than to absence. Writing the bound example
-the obvious way therefore made an **absent column read as a present null** — `has` said
-yes, `isNull` said yes, and a defaulted field reported a type mismatch instead of taking
-its default.
-
-It is a real trap for anyone implementing `KeyedSource` over `RawValue`, it is now
-documented in `docs/KEYED-SOURCE.md`, and it is worth noting *how* it was found: not by the
-335-test suite, which never wrote such a source, but by building a second implementation of
-the protocol. A protocol with one implementation is an untested protocol.
-
-### Still unmeasured
-
-Columnar batch fill — inverting the loop so a Parquet or Arrow reader fills a batch of
-structs column-by-column rather than record-by-record. The manifest and the plan are both
-in place for it; nothing about it is claimed until it is built.
+---
 
 ## Columnar batch fill
 
@@ -786,3 +692,117 @@ the caller cannot otherwise remove, because the penalty comes from a restriction
 That is worth more than the number: it means the columnar batch path is not just a
 performance option for Parquet, it is **the correct integration point for any driver**, and
 `docs/KEYED-SOURCE.md` now says so.
+
+---
+
+# Validating a value you already have
+
+**2026-08-10.** `docs/VALIDATE.md`. Running a schema's `@Validate` rules and `@Check`
+functions against a value something else produced. One question decides whether the entry
+point is worth having: is it cheap enough to sit next to somebody else's decode?
+
+## The seam costs nothing of its own
+
+The rules cost is isolated by decoding the same six-field document through a schema with
+rules and one without. That difference is exactly what `validate` re-runs.
+
+| operation | ns |
+|---|---|
+| decode, schema WITH rules | 444 |
+| decode, same schema NO rules | 350 |
+| **validate a constructed value** | **79** |
+
+94 ns of rules inside a decode; 79 ns standing alone. The entry point is the rule engine
+called from a second place, and adds no overhead of its own.
+
+## Over a batch
+
+| rows | ns | per row | vs 53 ns/row columnar decode |
+|---|---|---|---|
+| 64 | 5,673 | 89 | 1.67× |
+| 1,000 | 88,417 | 88 | 1.67× |
+| 20,000 | 1,738,842 | 87 | 1.64× |
+| 100,000 | 8,647,864 | 86 | 1.63× |
+
+Flat, and 79 ns of it is the rules — the remainder is the array element copy. Validating a
+row costs somewhat more than the fastest decode Assay has, and is nowhere near decoding it
+twice, which is the bar the seam had to clear.
+
+### Two things that were not obvious
+
+**`@inlinable` on the four entry points is worth 2×.** They are generic over `Self` and over
+the sequence, they live in a source package, and the call site is in the user's module —
+hard constraint 5's exact case. Without it the batch measured **176 ns/row**; with it, 87,
+which is the single-value cost plus the copy. The gap was the unspecialized loop running
+through witness tables, not the rules.
+
+**One `[PathComponent]` array for the whole batch, rewritten in place.** The obvious
+`[.index(i)]` inside the loop allocates per row; reusing the buffer is worth ~16 ns.
+
+## The rule engine, put under a microscope
+
+A rule that is 4% of a decode is invisible. The same rule called per row over a million rows
+is not, and building this entry point is what forced the measurement.
+
+| rule | before | after |
+|---|---|---|
+| `.range(13...120)` on `Int` | 8.9 | 8.6 |
+| `.min(3)` on `String` | 22.4 | 14.0 |
+| `.max(64)` on `String` | 22.4 | 14.2 |
+| `.min(1)` on `[String]` | 9.9 | 11.0 |
+| `.email` | **178.8** | **25.1** |
+| `.url` | 42.0 | 21.4 |
+| `.uuid` | 50.5 | 28.5 |
+
+Nanoseconds, one rule per type against the same value, minus a fixed per-call cost that is
+itself measured (by comparing one `.range` against two identical ones on the same field,
+rather than assumed from a floor — subtracting a floor you guessed is how a per-rule table
+ends up reporting negative numbers).
+
+`.email` at 179 ns was 8× the next most expensive rule, and the algorithm was not the
+problem. `isEmail` built `Array(s.utf8)` then `Array(domain)`; `isHostname` split the domain
+into `[[UInt8]]`, one array per label plus reallocating appends; `isTrimmed` built a
+`Set<UInt8>` per call. Roughly six heap allocations to check fifteen bytes.
+
+**The obvious fix made one case worse.** Walking `String.utf8` directly with indices removed
+every allocation and took `.uuid` from 50 ns to **61** — `String.UTF8View.Iterator` carries a
+representation check per byte that `Array` iteration does not, and over 36 bytes that
+outweighed the malloc it saved. The shape that works is neither: take the contiguous buffer
+once with `withUTF8`, turn it into a `Span` at that single seam, and walk that. Every
+validator below the seam is ordinary safe Swift, and the file emits *fewer*
+strict-memory-safety warnings than the allocating version it replaced.
+
+`.min`/`.max` on a `String` carried a second cost: `String.count` is grapheme-cluster
+segmentation. That is the correct meaning for a rule whose message says "characters", so it
+stays — with a shortcut. If every byte is ASCII **and none is CR**, each byte is its own
+cluster and the count is the byte count. CR is the only exception, and the reason this is not
+simply "is it ASCII": `"\r\n"` is a single cluster spanning two ASCII bytes.
+
+### How this is known to be a speedup and not a behaviour change
+
+`Benchmarks/Sources/DiffFuzz/FormatOracle.swift` keeps the previous implementation verbatim —
+`Array(s.utf8)`, `[[UInt8]]` and all — as an oracle, and requires the fast one to agree with
+it over **40,062 strings × 6 checks**: 40,000 generated from an alphabet of the bytes these
+validators branch on, plus a table of the cases that make them hard (empty labels, boundary
+hyphens, the legal trailing dot, an all-numeric TLD, CR, combining marks, ZWJ sequences).
+`characterCount` is checked against `String.count` itself.
+
+The differential was itself checked, by deliberately deleting the CR condition: it fails, and
+names the strings.
+
+## Compile time
+
+`_assayCheck` is emitted only for a type that declares a `@Validate` or a `@Check`, so a
+rule-free type is unaffected. Best-of-three at 100 types, 10 fields:
+
+| type shape | ms/type |
+|---|---|
+| no rules — the gated arm | 87 |
+| rules, before `_assayCheck` existed | 90 |
+| rules, with `_assayCheck` | 114 |
+
+24 ms is the per-field cost paid once more over the same fields, which is what
+`docs/COMPILE-TIME.md` §2's 7.3 ms/field model predicts. There is no fat in it, so
+`Experiments/03-compile-time/gate.sh` gates it rather than optimising it away: 100 ms for a
+rule-free type, 145 for a rule-carrying one (single-shot runs land near 128, so the margin
+covers the spread rather than the best case).

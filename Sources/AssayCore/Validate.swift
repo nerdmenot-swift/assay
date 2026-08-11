@@ -25,19 +25,23 @@ extension Rule {
         _ v: String, _ override: String?, _ field: StaticString,
         _ span: SourceSpan?, _ path: [PathComponent], _ sink: inout IssueSink
     ) {
+        // Grapheme clusters, via the shortcut in FormatValidators.characterCount, and
+        // computed ONLY in the three arms that need it. Hoisting it above the switch reads
+        // better and made `.email`, `.url` and `.uuid` each pay a full character count they
+        // never look at — 36 ns on a UUID, which is more than the UUID check itself.
         switch kind {
         case .min(let n):
-            if v.count < Int(n) {
+            if FormatValidators.characterCount(v) < Int(n) {
                 emit(&sink, "too_small", field, span, path, override,
                      ["minimum": .int(Int(n)), "unit": .string("characters")], v)
             }
         case .max(let n):
-            if v.count > Int(n) {
+            if FormatValidators.characterCount(v) > Int(n) {
                 emit(&sink, "too_large", field, span, path, override,
                      ["maximum": .int(Int(n)), "unit": .string("characters")], v)
             }
         case .length(let n):
-            if v.count != n {
+            if FormatValidators.characterCount(v) != n {
                 emit(&sink, "wrong_length", field, span, path, override,
                      ["length": .int(n)], v)
             }

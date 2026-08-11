@@ -305,19 +305,24 @@ public struct SchemaMacro: ExtensionMacro {
                                             message: SimpleDiagnostic(message)))
             }
             guard Self.sourceDiagnostics(activeS).isEmpty else { return [] }
-            body += "\n\n" + Self.sourceBody(
-                typeName: typeName, fields: activeS,
-                validation: Self.postDecodeSection(activeS, spans: true),
-                checks: Self.checkCalls(typeName, checkDecls, activeS, spans: true))
+            body += "\n\n" + Self.manifestBody(typeName: typeName, fields: activeS)
             body += "\n\n" + Self.batchBody(
                 typeName: typeName, fields: activeS,
                 validation: Self.postDecodeSection(activeS, spans: false))
+        }
+        if Self.hasValidation(activeS, checkDecls) {
+            if !body.isEmpty { body += "\n\n" }
+            body += Self.validateBody(typeName: typeName, fields: activeS,
+                                      checks: checkDecls)
         }
         body += Self.asyncCheckRunner(typeName, checkDecls)
 
         var conformances: [String] = []
         if formats.json { conformances.append("Assay.JSONAssayable") }
         if formats.raw { conformances.append("Assay.RawDecodable") }
+        if Self.hasValidation(activeS, checkDecls) {
+            conformances.append("Assay.Validatable")
+        }
         if checkDecls.contains(where: \.isAsync) {
             conformances.append("Assay.AsyncCheckAssayable")
         }

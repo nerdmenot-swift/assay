@@ -341,6 +341,8 @@ print("XML encode differential: \(xmlEncodeChecks) documents Assay wrote that Fo
 let dateChecks = runDateDifferential()
 print("date differential: \(dateChecks) instants agree with Foundation exactly")
 
+if !runFormatDifferential() { Failures.shared.fail("format validators disagree with the naive oracle") }
+
 let iterations = try runFuzz(corpus: corpus)
 print("fuzz: \(iterations) mutated/truncated inputs, no crashes, no hangs")
 

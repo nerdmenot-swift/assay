@@ -61,14 +61,20 @@ echo "Compile-time cost of @Schema"
 swift --version 2>&1 | head -1
 echo "fields per type: $FIELDS   config: $CONFIG   deps prebuilt: yes"
 echo ""
-printf "%-8s %10s %10s %10s %12s %12s\n" "types" "plain" "codable" "schema" "vs-plain" "vs-codable"
-printf -- '-%.0s' $(seq 1 68); echo
+printf "%-8s %10s %10s %10s %11s %12s %12s\n" \
+  "types" "plain" "codable" "schema" "validated" "vs-plain" "vs-codable"
+printf -- '-%.0s' $(seq 1 80); echo
 
+# `validated` is the same types with a @Validate on every field — the worst case for the
+# generated `_assayCheck` body. It is reported beside the gated arm rather than instead of
+# it: a type with no rules gets no validator at all, so `schema` is what a JSON user pays
+# and `validated` is what a rule-carrying type costs on top.
 for n in 1 10 25 50 100; do
   p=$(time_build plain "$n")
   c=$(time_build codable "$n")
   s=$(time_build schema "$n")
+  v=$(time_build validated "$n")
   vp=$(awk -v a="$s" -v b="$p" 'BEGIN{ printf "%.2fx", a/b }')
   vc=$(awk -v a="$s" -v b="$c" 'BEGIN{ printf "%.2fx", a/b }')
-  printf "%-8s %10s %10s %10s %12s %12s\n" "$n" "$p" "$c" "$s" "$vp" "$vc"
+  printf "%-8s %10s %10s %10s %11s %12s %12s\n" "$n" "$p" "$c" "$s" "$v" "$vp" "$vc"
 done

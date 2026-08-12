@@ -37,12 +37,15 @@ extension AssayReader {
         skipWhitespace()
         guard cursor < count else { return nil }
 
+        // Where the whole token began, including any sign. Every failure path rewinds
+        // here so the caller can re-scan the same bytes as a Double.
+        let numberStart = cursor
         var negative = false
         if unsafe base[cursor] == 0x2D {
             negative = true
             cursor &+= 1
         }
-        guard cursor < count else { return nil }
+        guard cursor < count else { cursor = numberStart; return nil }
 
         let firstDigit = cursor
         var acc: Int64 = 0
@@ -57,18 +60,33 @@ extension AssayReader {
             n &+= 1
         }
         guard n > 0 else {
-            cursor = firstDigit
+            cursor = numberStart
+            return nil
+        }
+        // RFC 8259 §6: int = zero / ( digit1-9 *DIGIT ). "01" is not a number, and
+        // accepting it silently reinterprets a zero-padded identifier as an integer.
+        // `n` is exact here: the fast lane only stops early at a non-digit, so n == 1
+        // means exactly one digit even when the slow lane is about to run.
+        if n > 1, unsafe base[firstDigit] == 0x30 {
+            cursor = numberStart
             return nil
         }
 
         // Slow lane: 19th digit onward needs the real check.
+        //
+        // OVERFLOW MUST REWIND, and getting that wrong is not a small bug. Returning nil
+        // with the cursor parked mid-number leaves the caller — which tries `scanDouble`
+        // next, exactly as it does for "8080.5" — starting from the middle of the digits.
+        // A 20-digit id then decoded as the value of whatever digits happened to remain:
+        // `12345678901234567890` came back as **0.0**, and a 30-digit one as
+        // `1234567890.0`. Not an error, not an infinity — a different number, silently.
         while cursor < count {
             let c = unsafe base[cursor]
             guard c >= 0x30, c <= 0x39 else { break }
             let (m, o1) = acc.multipliedReportingOverflow(by: 10)
-            if o1 { return nil }
+            if o1 { cursor = numberStart; return nil }
             let (s, o2) = m.subtractingReportingOverflow(Int64(c &- 0x30))
-            if o2 { return nil }
+            if o2 { cursor = numberStart; return nil }
             acc = s
             cursor &+= 1
         }
@@ -79,15 +97,15 @@ extension AssayReader {
         if cursor < count {
             let c = unsafe base[cursor]
             if c == 0x2E || c == 0x65 || c == 0x45 {
-                cursor = firstDigit
-                if negative { cursor &-= 1 }
+                cursor = numberStart
                 return nil
             }
         }
 
         if negative { return acc }
         let (v, o) = Int64(0).subtractingReportingOverflow(acc)
-        return o ? nil : v
+        if o { cursor = numberStart; return nil }
+        return v
     }
 
     /// Powers of ten that are *exactly* representable as a `Double`. 10^22 is the last
@@ -138,13 +156,20 @@ extension AssayReader {
         var significand: UInt64 = 0
         var digits = 0
         var fractionDigits = 0
-        var sawDigit = false
         var tooManyDigits = false
+
+        // RFC 8259 §6: number = [ minus ] int [ frac ] [ exp ], with
+        // int = zero / ( digit1-9 *DIGIT ) and frac = "." 1*DIGIT. The integer part is
+        // mandatory and cannot carry a leading zero; the fraction, if the point is there
+        // at all, needs at least one digit. `.5`, `1.` and `01` are all *not numbers*,
+        // and a decoder that takes them will read a zero-padded field as an integer.
+        let intStart = cursor
+        var intDigits = 0
 
         while cursor < count {
             let c = unsafe base[cursor]
             guard c >= 0x30, c <= 0x39 else { break }
-            sawDigit = true
+            intDigits &+= 1
             if digits < 19 {
                 significand = significand &* 10 &+ UInt64(c &- 0x30)
                 digits &+= 1
@@ -154,14 +179,18 @@ extension AssayReader {
             cursor &+= 1
         }
 
+        guard intDigits > 0 else { cursor = start; return nil }
+        if intDigits > 1, unsafe base[intStart] == 0x30 { cursor = start; return nil }
+
         var isInteger = true
         if cursor < count, unsafe base[cursor] == 0x2E {
             isInteger = false
             cursor &+= 1
+            var fracDigits = 0
             while cursor < count {
                 let c = unsafe base[cursor]
                 guard c >= 0x30, c <= 0x39 else { break }
-                sawDigit = true
+                fracDigits &+= 1
                 if digits < 19 {
                     significand = significand &* 10 &+ UInt64(c &- 0x30)
                     digits &+= 1
@@ -171,11 +200,7 @@ extension AssayReader {
                 }
                 cursor &+= 1
             }
-        }
-
-        guard sawDigit else {
-            cursor = start
-            return nil
+            guard fracDigits > 0 else { cursor = start; return nil }
         }
 
         var exponent = -fractionDigits

@@ -47,6 +47,10 @@ extension AssayReader {
             if c == 0x5C {
                 return scanStringSlow(from: start)
             }
+            // RFC 8259 §7: a control character below 0x20 MUST be escaped. Accepting a raw
+            // tab or newline inside a string is the single most common laxity in a
+            // hand-written JSON parser, and it is one comparison to refuse.
+            if c < 0x20 { return nil }
             cursor &+= 1
         }
         return nil
@@ -83,6 +87,7 @@ extension AssayReader {
                 }
             }
             if c != 0x5C {
+                if c < 0x20 { return nil }        // RFC 8259 §7, as on the fast path
                 out.append(c)
                 cursor &+= 1
                 continue

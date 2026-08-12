@@ -233,6 +233,24 @@ public struct AssayReader: ~Copyable {
     /// Unknown keys are extremely common in real API payloads and are completely
     /// unmeasured in every published JSON benchmark, which is why the corpus has an
     /// `unknown-keys` shape.
+    /// Skip one value without decoding it.
+    ///
+    /// **WHAT THIS VALIDATES, PRECISELY: the value's EXTENT, never its contents.** The
+    /// skip finds where the value ends — matching brackets, honouring string state so a
+    /// `}` inside a string does not close an object, refusing an unterminated string or
+    /// container, and charging nesting against `Limits.maxDepth`. It does not check that
+    /// what it skipped over was JSON.
+    ///
+    /// So `{"known": 1, "unknown": NaN}` decodes, and so does `'x'` or `01` in that
+    /// position, while `JSON.Value.parse` refuses all three. That is a real difference in
+    /// meaning and it is deliberate: skipping is what makes the prefix path 6.3x, and
+    /// validating a value in order to throw it away spends exactly what skipping saves.
+    /// simdjson's On-Demand API documents the same property for the same reason.
+    ///
+    /// The consequence, stated plainly because it is easy to assume otherwise:
+    /// **`T.parse(json:)` is not a JSON validator.** It validates the document's structure
+    /// and every value the schema declares. A caller who needs the whole document checked
+    /// wants `JSON.Value.parse`, which validates all of it.
     @inlinable
     public mutating func skipValue(_ sink: inout IssueSink) -> Bool {
         skipWhitespace()

@@ -93,9 +93,37 @@ parsed once at rule construction, violations rendered as dates.
 
 ---
 
-## 3. `@Inline`
+## 3. `@Inline` and `@Key(path:)`
 
-**Status: not implemented.** `EXPERIENCE.md` §4.
+**Status: neither implemented.** `EXPERIENCE.md` §4.
+
+### `@Key(path:)`
+
+```swift
+@Key(path: "profile.display_name")  var displayName: String
+@Key(path: "meta.tags[0]")          var primaryTag: String?
+```
+
+Pydantic's `AliasPath`. It saves declaring three throwaway structs to reach one field. The
+`@Key` macro today takes `(_ name: String, or aliases: String...)` and has no `path:`
+parameter at all, so reaching for this is a compile error.
+
+Two things have to be decided before it is worth building, and neither is hard so much as
+easy to get wrong:
+
+- **Where the caret goes when a path misses.** `profile.display_name` can fail because
+  `profile` is absent, because it is not an object, or because `display_name` is missing
+  from it. Those are three different messages and three different offsets, and reporting
+  all of them as "displayName is missing" would be the kind of vague error this library
+  exists to avoid.
+- **What it costs on the JSON path.** A declared key is resolved by the window-dispatch
+  table built at expansion; a path is a walk. Whether it can share the dispatch machinery
+  or needs a second pass over the object is unmeasured.
+
+Until then, the honest answer is a nested `@Schema` type, which costs one declaration and
+produces better errors.
+
+### `@Inline`
 
 ```swift
 @Inline var page: Pagination     // page's keys are read from THIS level

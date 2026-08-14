@@ -1,5 +1,14 @@
 # Assay — the developer experience
 
+> **This is the API specification, written before the implementation, and it describes a
+> larger surface than exists today.** Most of it is built. Eight pieces named here are not:
+> `@Key(path:)` and `@Inline` (§4), `@Wraps` (§8), `@Schema(context:)` (§10),
+> `parse(body:contentType:accepting:)` (§12), `parse(plist:)` (§1), `Assayer<T>`, and
+> `jsonSchema(for:)`. Each is a deliberate deferral with its reasoning in `ROADMAP.md`.
+> `CLAUDE.md` carries the one-table inventory of which is which; that table is the thing to
+> trust when this document and the compiler disagree.
+
+
 **Second edition.** Rewritten after four audits: macro feasibility (checked against swift-syntax 600.0.1 and the Swift 6.3 compiler sources), cross-platform reality (Apple / Linux / Windows / Android / Wasm, July 2026), a competitive benchmark against serde, Pydantic, Zod v4, Valibot, ArkType, Ecto and garde, and a naming + scope review.
 
 Everything in the first edition that could not compile has been removed. Where a surface changed, the reason is stated inline rather than hidden — this document is meant to be argued with.

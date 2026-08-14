@@ -48,6 +48,24 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 
 Everything below that is not marked above is still design, not measurement.
 
+### Named in the design documents and NOT built
+
+`EXPERIENCE.md` is the API spec, written before the implementation, and it describes a
+larger surface than exists. These are the pieces a reader will reach for and not find. Each
+is a deliberate deferral with its reasoning in `ROADMAP.md`, not an oversight — but "settled
+spelling" and "you can call it" are different claims, and this table is which is which.
+
+| named | where | status |
+|---|---|---|
+| `@Key(path: "a.b")` | EXPERIENCE §4 | not built — `ROADMAP` §3 |
+| `@Inline` | EXPERIENCE §4 | not built — `ROADMAP` §3 |
+| `@Wraps` | EXPERIENCE §8 | not built — `ROADMAP` §6 |
+| `Assayer<T>` | naming section below | not built — `ROADMAP` §7 |
+| `@Schema(context:)` | EXPERIENCE §10 | not built — `ROADMAP` §8 |
+| `parse(body:contentType:accepting:)` | EXPERIENCE §12 | not built — `ROADMAP` §9 |
+| `parse(plist:)` | EXPERIENCE §1 | not built — `ROADMAP` §10 |
+| `jsonSchema(for:)`, `StandardSchema` | encoding section below | not built — `ROADMAP` §11 |
+
 ---
 
 ## What Assay is
@@ -87,7 +105,9 @@ idiomatic Swift spelling, the answer is a different construct, not a translitera
 ## Settled decisions — do not relitigate without cause
 
 ### Naming
-- Module `Assay`, protocol `Assayable`, macro `@Schema`, runtime value type `Assayer<T>`.
+- Module `Assay`, protocol `Assayable`, macro `@Schema`. The runtime value type is *named*
+  `Assayer<T>`; it is not built (see the table above), and the naming argument below is why
+  the name is settled in advance.
 - The module **cannot** be named `Assayable`: macros are not hygienic and must emit
   `Assay.Assayer`; if the module were `Assayable` that parses as a nested-type lookup inside the
   protocol and fails, and it corrupts the generated `.swiftinterface` under library evolution.
@@ -125,9 +145,13 @@ derived on demand; `message(locale:)` takes an identifier `String`, not a `Local
 - `@Check` in an extension is permanently invisible to the macro → emit an error.
 
 ### Keys
-`@Schema(keys: .snakeCase)`, `@Key("id")`, `@Key("email", or: "email_address")` (warns which
-alias matched), `@Key(path: "profile.display_name")`, `@Inline`, `@Extras var x: [String: RawValue]`,
+**Built:** `@Schema(keys: .snakeCase)`, `@Key("id")`, `@Key("email", or: "email_address")`
+(warns which alias matched), `@Extras var x: [String: RawValue]`,
 `@Schema(unknownKeys: .ignore/.warn/.reject/.collect)` with did-you-mean.
+
+**Decided but NOT built** — `@Key(path: "profile.display_name")` and `@Inline`. The spelling
+is settled; there is no implementation. `ROADMAP.md` §3.
+
 Rationale: `.convertFromSnakeCase` is lossy at runtime (`avatarURL → avatar_url → avatarUrl`);
 converting at compile time from the declared identifier round-trips exactly.
 
@@ -142,9 +166,12 @@ first, async runs only if sync was clean, then concurrently.
 
 ### Packaging
 Products `Assay` (core + JSON), `AssayFoundation`, `AssayYAML`, `AssayXML`. Core takes bytes, not
-`Data`. No `platforms:` clause. `parse(body, contentType:, accepting:)` — `accepting:` is
-**required**, no default (XXE / billion-laughs). `Limits` (maxIssues 100, maxDepth 64, maxBytes)
-with `d.truncatedIssues`. Embedded Swift is explicitly not a target.
+`Data`. No `platforms:` clause. `Limits` (maxIssues 100, maxDepth 64, maxBytes) with
+`d.truncatedIssues`. Embedded Swift is explicitly not a target.
+
+**Decided but NOT built** — `parse(body, contentType:, accepting:)`, where `accepting:` is
+required with no default (XXE / billion-laughs). The design point stands; the function does
+not exist. `ROADMAP.md` §9.
 
 ### Encoding
 A **deferral, not a refusal**. Placement data (`@Key`, `@XML`, `@DateFormat`) is preserved so the

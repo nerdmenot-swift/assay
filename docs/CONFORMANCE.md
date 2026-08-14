@@ -156,8 +156,15 @@ flow keys.
 something asks a typed question, so `NO` is the string `"NO"` and `12:30` is the string
 `"12:30"`, per the 1.2 core schema.
 
-**Not supported:** see `ROADMAP.md`'s known-gaps table — plain multiline scalars, and anchors
-declared in flow style.
+**Multi-line plain scalars** (§7.3.3) are supported as of 2026-08-14; a line break folds to a
+space and a blank line becomes a newline. They were refused outright before that, which
+rejected ordinary hand-written config. One counter-intuitive detail the differential settled:
+a continuation line may begin with `-`, because YAML builds it from `ns-plain-char` rather
+than `ns-plain-first`, so `a: one\n  - x` is the single scalar `"one - x"` and not a nested
+sequence. libyaml agrees.
+
+**Not supported:** anchors declared in flow style, and multi-line plain scalars *in flow
+context* — see `ROADMAP.md`.
 
 **Security:** alias expansion is charged against a node budget, with an anchor's cost counted
 as its whole expanded subtree. A 331-byte alias bomb that once produced 11.4M nodes is a
@@ -185,12 +192,18 @@ the root.
 - `--` accepted inside a comment
 - an XML declaration accepted when it is not the first thing in the document
 
-**Security.** External entities are refused outright — no network, no filesystem, ever. A
-billion-laughs document does not expand: 290 bytes in, 30 bytes out against the 1,000,000 a
-full expansion would produce. Note *why*, because the mechanism is not the one you would
-guess: nested entities are never re-expanded at all, so the expansion budget is not what
-saves you. That is also a correctness gap — the value comes back as the literal text
-`&e;&e;…` rather than resolving — and it is tracked in `ROADMAP.md`.
+**Security.** External entities are refused outright — no network, no filesystem, ever.
+Recursive entities, direct or mutual, are a well-formedness error per XML 1.0 §4.1 rather
+than something for a budget to absorb.
+
+Entity expansion is bounded **by ratio**: 32× the input size with a 64 KB floor, the same
+node-per-byte rule the YAML alias budget uses. That bound became load-bearing only recently
+and is worth the story. Nested entities were not re-expanded at all until 2026-08-14, so
+`<!ENTITY b "&a;">` yielded the literal text `&a;` — the wrong value, and a billion-laughs
+document that looked safe (290 bytes in, 30 out) for entirely the wrong reason. Making
+expansion work exposed that the bound was a flat 8 MB, which the classic bomb walks straight
+through: 290 bytes to 1,000,000 is comfortably under eight megabytes. **The amplification is
+the attack; the absolute figure is beside the point.**
 
 ---
 

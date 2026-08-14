@@ -318,7 +318,7 @@ extension YAML {
                                                              indent: column, depth: depth) {
                     node = block
                 } else {
-                    node = parseFlowScalar(&r, &sink)
+                    node = parseFlowScalar(&r, &sink, indent: indent)
                 }
             }
 
@@ -719,15 +719,53 @@ extension YAML {
 
         // MARK: Scalars
 
+        /// A plain scalar in block context, INCLUDING its continuation lines.
+        ///
+        /// ```yaml
+        /// description: this is a long
+        ///   description that wraps
+        /// ```
+        ///
+        /// YAML 1.2 §7.3.3. A plain scalar continues onto any following line indented more
+        /// than the block it belongs to; a single line break folds to one space, and each
+        /// additional blank line becomes a newline. Refusing this — which is what the
+        /// parser did, with a `trailingContent` error — rejects ordinary hand-written
+        /// config, and it is the sort of refusal that reads as a bug in the file rather
+        /// than in the parser.
+        ///
+        /// A continuation stops at anything that opens a new construct. `indent` is the
+        /// owning block's column, so a line at or left of it belongs to the parent; and a
+        /// more-indented line that carries `: ` or opens with `- ` is a mapping or sequence
+        /// rather than more text. YAML calls that last case an error outright; stopping
+        /// here hands it to the caller, which reports against the real structure.
         mutating func parseFlowScalar(
-            _ r: inout AssayReader, _ sink: inout IssueSink
+            _ r: inout AssayReader, _ sink: inout IssueSink, indent: Int = Int.max
         ) -> Node? {
             if let q = r.currentByte, q == UInt8(ascii: "\"") || q == UInt8(ascii: "'") {
                 return parseQuoted(&r, &sink)
             }
-            // Plain scalar to end of line, trailing whitespace and comments trimmed.
             let start = r.byteOffset
             var end = start
+            scanPlainLine(&r, end: &end)
+            var content = r.string(from: start, to: end)
+
+            // `Int.max` is the flow-context caller, where multi-line plain scalars are out
+            // of scope (see this file's header) — no line can be indented past it.
+            var pendingBreaks = 0
+            while indent != Int.max, let more = plainContinuation(&r, indent: indent,
+                                                                 breaks: &pendingBreaks) {
+                content += pendingBreaks > 0
+                    ? String(repeating: "\n", count: pendingBreaks)
+                    : " "
+                content += more
+                pendingBreaks = 0
+            }
+            return .scalar(Scalar(content: content, style: .plain))
+        }
+
+        /// One line of a plain scalar, stopping at the newline or an unquoted `#` comment.
+        /// `end` is left at the last non-blank byte, so trailing spaces are not content.
+        mutating func scanPlainLine(_ r: inout AssayReader, end: inout Int) {
             while let c = r.currentByte {
                 if c == 0x0A || c == 0x0D { break }
                 if c == UInt8(ascii: "#"), let p = r.byte(at: -1), p == 0x20 || p == 0x09 {
@@ -736,7 +774,73 @@ extension YAML {
                 r.advanceBy(1)
                 if c != 0x20 && c != 0x09 { end = r.byteOffset }
             }
-            return .scalar(Scalar(content: r.string(from: start, to: end), style: .plain))
+        }
+
+        /// The next continuation line's text, or nil if the scalar ends here.
+        ///
+        /// Restores the cursor exactly when it returns nil, so a caller that stops mid-scan
+        /// leaves the following construct untouched for whoever parses it next.
+        mutating func plainContinuation(
+            _ r: inout AssayReader, indent: Int, breaks: inout Int
+        ) -> String? {
+            let mark = r.byteOffset
+            var blankLines = 0
+
+            while true {
+                guard let c = r.currentByte, c == 0x0A || c == 0x0D else {
+                    r.seek(to: mark); return nil
+                }
+                r.advanceBy(1)
+                if c == 0x0D, r.currentByte == 0x0A { r.advanceBy(1) }
+
+                let lineStart = r.byteOffset
+                var column = 0
+                while let b = r.currentByte, b == 0x20 || b == 0x09 {
+                    r.advanceBy(1); column += 1
+                }
+                guard let first = r.currentByte else { r.seek(to: mark); return nil }
+
+                // A blank line does not end the scalar; it becomes a fold break.
+                if first == 0x0A || first == 0x0D { blankLines += 1; continue }
+
+                // Anything at or left of the owning block belongs to the parent.
+                if column <= indent { r.seek(to: mark); return nil }
+                if first == UInt8(ascii: "#") { r.seek(to: mark); return nil }
+
+                // `-` is NOT a stopper here, which is the counter-intuitive part. YAML 1.2
+                // §7.3.3 builds a continuation line from `ns-plain-char`, not from
+                // `ns-plain-first`, so the indicator restrictions that apply to a scalar's
+                // FIRST character do not apply to its later lines. libyaml agrees:
+                // `a: one\n  - x` is the single scalar "one - x", not a nested sequence.
+                // Guarding against `-` here produced a rejection libyaml does not make,
+                // which the differential caught.
+                if first == UInt8(ascii: "?") || first == UInt8(ascii: "&")
+                    || first == UInt8(ascii: "*") {
+                    r.seek(to: mark); return nil
+                }
+
+                var end = r.byteOffset
+                let textStart = r.byteOffset
+                scanPlainLine(&r, end: &end)
+
+                // A `: ` on the line makes it a mapping entry, and YAML forbids that
+                // inside a plain scalar. Stopping hands the line back to the caller, which
+                // reports it against the real structure — libyaml instead yields a document
+                // stream with nothing in it, which is a worse answer to give a user.
+                var i = textStart
+                while i < end {
+                    if r.byte(absolute: i) == UInt8(ascii: ":"),
+                       i + 1 >= end || r.byte(absolute: i + 1) == 0x20 {
+                        r.seek(to: mark); return nil
+                    }
+                    i += 1
+                }
+                guard end > textStart else { r.seek(to: mark); return nil }
+
+                _ = lineStart
+                breaks = blankLines
+                return r.string(from: textStart, to: end)
+            }
         }
 
         mutating func parseQuoted(

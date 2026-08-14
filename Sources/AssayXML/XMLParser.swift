@@ -70,7 +70,7 @@ extension XML {
                 return nil
             }
             var reader = AssayReader(base: base, count: buf.count, limits: limits)
-            var parser = Parser(limits: limits)
+            var parser = Parser(limits: limits, inputBytes: buf.count)
             return parser.parseDocument(&reader, &sink)
         }
     }
@@ -88,16 +88,33 @@ extension XML {
         let limits: Limits
         /// Internal general entities from the DOCTYPE internal subset.
         var entities: [String: String] = [:]
+        /// Entities currently being expanded, so `<!ENTITY a "&a;">` is caught as a cycle
+        /// rather than recursing until the stack runs out. XML 1.0 §4.1 forbids recursion
+        /// outright, so this is a well-formedness error and not a budget question.
+        var expanding: Set<String> = []
         /// Total bytes produced by entity expansion, capped to stop billion-laughs.
         var expansionBudget: Int
         /// Namespace bindings, as a stack of scopes: prefix -> URI. "" is the default ns.
         var namespaces: [[String: String]] = [[:]]
 
-        init(limits: Limits) {
+        init(limits: Limits, inputBytes: Int) {
             self.limits = limits
-            // Generous but finite. A document that legitimately needs more than 8 MB of
-            // entity expansion is not a document Assay is for.
-            self.expansionBudget = min(limits.maxBytes, 8 << 20)
+            // BOUNDED BY RATIO, not by an absolute size, which is the same rule
+            // `Tests/AssayTests/AmplificationTests.swift` applies everywhere else: the
+            // question a resource-exhaustion bound has to answer is "how much output can a
+            // small input buy?"
+            //
+            // A flat 8 MB cap answered it wrong, and this is not hypothetical — once nested
+            // entities actually expanded, the classic billion-laughs document produced
+            // 1,000,000 bytes from 290 and passed, because a megabyte is comfortably under
+            // eight. The amplification is the attack; the absolute figure is beside the
+            // point.
+            //
+            // 32x matches the node-per-byte bound used for YAML aliases, with a 64 KB floor
+            // so a small document may still use entities freely. Nothing legitimate comes
+            // close: entity text is short and reused, so real expansion is a few times the
+            // input at most.
+            self.expansionBudget = min(limits.maxBytes, max(64 << 10, inputBytes &* 32))
         }
 
         // MARK: Document
@@ -535,7 +552,28 @@ extension XML {
                         }
                         replacement = String(scalar)
                     } else if let declared = entities[name] {
-                        replacement = declared
+                        // RE-SCAN the replacement. A declared entity's text is itself
+                        // markup, so `<!ENTITY b "&a;&a;">` must resolve `a` — appending
+                        // the raw text instead, which is what this did until 2026-08-14,
+                        // yields the literal string "&a;&a;" and quietly gives the caller
+                        // the wrong value.
+                        //
+                        // It also means the billion-laughs bound is now doing the work the
+                        // file header always claimed it did. Before, a nested bomb was
+                        // "safe" only because nothing expanded: 290 bytes in, 30 bytes out,
+                        // and every one of them wrong. Now the expansion is real and the
+                        // budget is what stops it.
+                        guard !expanding.contains(name) else {
+                            sink.add(Issue(code: .custom("xml_recursive_entity"),
+                                           params: ["entity": .string(name)],
+                                           received: "&\(name);"))
+                            return nil
+                        }
+                        expanding.insert(name)
+                        let resolved = expandEntities(declared, &r, &sink)
+                        expanding.remove(name)
+                        guard let resolved else { return nil }
+                        replacement = resolved
                     } else {
                         // An undeclared entity is an error, never a silent pass-through.
                         // Silently emitting the raw text is how XXE mitigations get bypassed.
@@ -547,7 +585,10 @@ extension XML {
                 }
 
                 // Billion laughs: bound total expansion, not nesting depth. Depth alone
-                // does not stop `&a;` repeated ten thousand times.
+                // does not stop `&a;` repeated ten thousand times. Charged at every level,
+                // so a nested bomb pays for the work at each layer rather than only for the
+                // bytes that survive to the top — which is the quantity that actually
+                // explodes.
                 expansionBudget -= replacement.utf8.count
                 guard expansionBudget > 0 else {
                     sink.add(Issue(code: .custom("xml_entity_expansion_limit"),

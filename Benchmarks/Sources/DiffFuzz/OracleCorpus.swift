@@ -31,6 +31,21 @@ let handWrittenYAML: [(name: String, text: String)] = [
     ("flow-in-block", "a: [1, 2, 3]\nb: {x: 1, y: 2}\n"),
     ("empty-values", "a:\nb: ~\nc: null\nd: \"\"\n"),
 
+    // Multi-line plain scalars — YAML 1.2 §7.3.3. A line break inside one folds to a
+    // single space and a blank line becomes a newline, which is fiddly enough that the
+    // parser refused them outright until 2026-08-14. The last two are NOT valid YAML: a
+    // plain scalar cannot be followed by a more-indented sequence entry or mapping key,
+    // and libyaml is the arbiter of that rather than this parser's opinion.
+    ("plain-multiline", "a: one\n  two\nb: 3\n"),
+    ("plain-multiline-3", "description: this is a long\n  description that\n  wraps\n"),
+    ("plain-multiline-blank", "a: one\n\n  two\n"),
+    ("plain-multiline-nested", "root:\n  note: one\n    two\n  other: 3\n"),
+    ("plain-multiline-seq", "- one\n  two\n- three\n"),
+    ("plain-multiline-top", "one\n  two\n"),
+    ("plain-multiline-comment", "a: one\n  # not content\nb: 3\n"),
+    ("plain-then-dash", "a: one\n  - x\n"),
+    ("plain-then-colon", "a: one\n  two: 3\n"),
+
     // The Norway problem and its neighbours. Assay keeps scalars unresolved precisely so
     // this is the schema's decision — but the RESOLVED comparison must still match libyaml.
     ("norway", "country: NO\nanswer: YES\nother: on\nnope: off\n"),

@@ -231,11 +231,32 @@ func yamsValue(_ node: Yams.Node) -> YValue? {
     }
 }
 
+/// Whether `text` carries anything a YAML parser should turn into a node — that is, any
+/// line with something on it once a `#` comment and surrounding whitespace are removed.
+func yamlHasContent(_ text: String) -> Bool {
+    for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+        var code = line
+        if let hash = code.firstIndex(of: "#") { code = code[code.startIndex..<hash] }
+        if code.contains(where: { !$0.isWhitespace }) { return true }
+    }
+    return false
+}
+
 func yamsYAML(_ text: String) -> [YValue]? {
     do {
         let nodes = try Yams.compose_all(yaml: text)
+        // ZERO documents from input that HAS content is a REFUSAL, not an acceptance, and
+        // libyaml expresses it that way rather than by throwing. `a: one\n  two: 3` — a
+        // plain scalar followed by a more-indented mapping key — comes back as an empty
+        // stream. Counting that as "the oracle accepted it" made Assay's explicit error look
+        // like a disagreement when the two in fact agree the document is bad.
+        //
+        // "Has content" must ignore comments as well as whitespace: a file of nothing but
+        // `# notes` legitimately parses to no documents, and a first version of this check
+        // that only skipped whitespace turned that into a false failure.
         var out: [YValue] = []
         for n in nodes { guard let v = yamsValue(n) else { return nil }; out.append(v) }
+        if out.isEmpty, yamlHasContent(text) { return nil }
         return out
     } catch {
         return nil
@@ -303,6 +324,12 @@ func runYAMLDifferential(
         case (nil, nil): r.bothRejected += 1
         case (nil, .some):
             r.assayOnlyRejected.append("\(name) [\(assayRejectionReason(text))]")
+            // `SHOW_ORACLE=1` prints what the oracle produced for a disagreement. Reading
+            // the oracle's actual answer is what settles these: it is how `a: one\n  - x`
+            // turned out to be the scalar "one - x" rather than a parser bug on either side.
+            if ProcessInfo.processInfo.environment["SHOW_ORACLE"] != nil {
+                print("      oracle for \(name): \(String(describing: theirs))")
+            }
         case (.some, nil): r.oracleOnlyRejected.append(name)
         case (.some(let a), .some(let b)):
             if a == b {

@@ -266,3 +266,93 @@ private enum DispatchTime {
                        + UInt64(ts.tv_nsec))
     }
 }
+
+// MARK: - XML entity expansion
+//
+// Nested entities were not re-expanded until 2026-08-14, so `<!ENTITY b "&a;">` yielded the
+// literal text `&a;`. That was two bugs wearing one coat. The obvious one is the wrong
+// value. The subtler one is that the file's own header claimed to "cap internal entity
+// expansion (billion laughs)" while the cap was never what saved it — nothing expanded, so
+// nothing needed capping, and a 290-byte bomb produced 30 harmless bytes for entirely the
+// wrong reason.
+//
+// Fixing the expansion made the bound load-bearing for the first time, and it immediately
+// failed: the classic billion-laughs document produced 1,000,000 bytes and passed, because
+// the budget was a flat 8 MB and a megabyte is under eight. The absolute figure was never
+// the right question. These tests bound the RATIO, as everything else in this file does.
+
+@Suite("XML entity expansion")
+struct XMLEntityTests {
+
+    private func text(_ doc: String) throws -> String {
+        try XML.parse(doc).root.text
+    }
+
+    @Test("a nested entity resolves rather than yielding its own source")
+    func nestedResolves() throws {
+        #expect(try text(#"<!DOCTYPE r [<!ENTITY a "world"><!ENTITY b "hello &a;">]><r>&b;</r>"#)
+                == "hello world")
+        #expect(try text("""
+        <!DOCTYPE r [<!ENTITY a "x"><!ENTITY b "&a;&a;"><!ENTITY c "&b;&b;">]><r>&c;</r>
+        """) == "xxxx")
+    }
+
+    @Test("predefined and numeric references still work inside a declared entity")
+    func mixedReferences() throws {
+        #expect(try text(#"<!DOCTYPE r [<!ENTITY e "a &amp; b">]><r>&e;</r>"#) == "a & b")
+        #expect(try text(#"<!DOCTYPE r [<!ENTITY e "&#65;&#x42;">]><r>&e;</r>"#) == "AB")
+    }
+
+    /// XML 1.0 §4.1 forbids recursion outright, so this is a well-formedness error rather
+    /// than something for the budget to absorb — and it must not recurse until the stack
+    /// runs out first.
+    @Test("a recursive entity is refused, directly and mutually")
+    func recursionRefused() {
+        for doc in [#"<!DOCTYPE r [<!ENTITY a "&a;">]><r>&a;</r>"#,
+                    #"<!DOCTYPE r [<!ENTITY a "&b;"><!ENTITY b "&a;">]><r>&a;</r>"#,
+                    #"<!DOCTYPE r [<!ENTITY a "&b;"><!ENTITY b "&c;"><!ENTITY c "&a;">]><r>&a;</r>"#] {
+            var sink = IssueSink()
+            let d = XML.decode(Array(doc.utf8), into: &sink)
+            #expect(d == nil || !sink.isValid, "recursion must not be accepted")
+            #expect(sink.issues.contains { $0.code == .custom("xml_recursive_entity") })
+        }
+    }
+
+    /// The bound that matters, stated as a ratio. 290 bytes buying a megabyte is the attack
+    /// whether or not a megabyte sounds small.
+    @Test("billion laughs is refused on amplification, not on absolute size")
+    func billionLaughs() {
+        let doc = """
+        <?xml version="1.0"?><!DOCTYPE l [\
+        <!ENTITY a "aaaaaaaaaa"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">\
+        <!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;"><!ENTITY d "&c;&c;&c;&c;&c;&c;&c;&c;&c;&c;">\
+        <!ENTITY e "&d;&d;&d;&d;&d;&d;&d;&d;&d;&d;"><!ENTITY f "&e;&e;&e;&e;&e;&e;&e;&e;&e;&e;">\
+        ]><l>&f;</l>
+        """
+        #expect(doc.utf8.count < 400, "the input really is tiny")
+        var sink = IssueSink()
+        let d = XML.decode(Array(doc.utf8), into: &sink)
+        #expect(d == nil || !sink.isValid)
+        #expect(sink.issues.contains { $0.code == .custom("xml_entity_expansion_limit") })
+    }
+
+    /// The floor, so a small document may still use entities the way documents do.
+    @Test("ordinary entity use is unaffected")
+    func ordinaryUseIsFine() throws {
+        let entity = #"<!ENTITY co "Example Corporation, Limited">"#
+        let body = String(repeating: "<p>&co;</p>", count: 200)
+        let doc = "<!DOCTYPE r [\(entity)]><r>\(body)</r>"
+        let root = try XML.parse(doc).root
+        #expect(root.childElements.count == 200)
+        #expect(root.childElements[0].text == "Example Corporation, Limited")
+    }
+
+    @Test("an external entity is still refused outright — that is XXE")
+    func xxeRefused() {
+        var sink = IssueSink()
+        _ = XML.decode(Array(#"""
+        <!DOCTYPE r [<!ENTITY x SYSTEM "file:///etc/passwd">]><r>&x;</r>
+        """#.utf8), into: &sink)
+        #expect(!sink.isValid)
+    }
+}

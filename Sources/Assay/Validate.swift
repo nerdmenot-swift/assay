@@ -117,8 +117,28 @@ extension Validatable {
     /// Run the schema's rules against one value and report everything.
     @inlinable
     public static func diagnose(_ value: Self, limits: Limits = .default) -> Validation {
+        diagnose(value, at: [], limits: limits)
+    }
+
+    /// Run the schema's rules against one value, reporting under a path YOU supply.
+    ///
+    /// The batch forms below prefix `[i]` — the element's index in the sequence handed to
+    /// them. For a reader that filtered, sampled, or resumed mid-file, that index is not
+    /// the row number, and reporting "row 3" for line 91,824 is worse than reporting no
+    /// row at all. A caller that knows the real position passes it:
+    ///
+    ///     for row in reader.rows(of: Trip.self) {
+    ///         issues += Trip.diagnose(row.value, at: [.index(row.lineNumber)]).issues
+    ///     }
+    ///
+    /// Any path shape works — `[.key("trips.parquet"), .index(91_824)]` names the file as
+    /// well — because a `PathComponent` array is exactly what every other issue carries.
+    @inlinable
+    public static func diagnose(
+        _ value: Self, at path: [PathComponent], limits: Limits = .default
+    ) -> Validation {
         var sink = IssueSink(limits: limits)
-        Self._assayCheck(value, into: &sink, at: [])
+        Self._assayCheck(value, into: &sink, at: path)
         return Validation(issues: sink.issues, warnings: sink.warnings,
                           truncatedIssues: sink.truncatedIssues)
     }
@@ -126,11 +146,20 @@ extension Validatable {
     /// Run the schema's rules against one value, throwing every issue at once.
     @inlinable
     public static func validate(_ value: Self, limits: Limits = .default) throws(AssayError) {
-        try diagnose(value, limits: limits).check()
+        try diagnose(value, at: [], limits: limits).check()
     }
 
-    /// Run the schema's rules over a batch. Issues carry `[i]` for the element, so a
-    /// million-row report still says which row.
+    /// The throwing form of `diagnose(_:at:)`.
+    @inlinable
+    public static func validate(
+        _ value: Self, at path: [PathComponent], limits: Limits = .default
+    ) throws(AssayError) {
+        try diagnose(value, at: path, limits: limits).check()
+    }
+
+    /// Run the schema's rules over a batch. Issues carry `[i]` for the element's index in
+    /// `values` — which is the row number only when the caller has handed over every row in
+    /// order. A reader that filtered or resumed wants `diagnose(_:at:)` per element instead.
     ///
     /// One sink for the whole batch, so `Limits.maxIssues` bounds the REPORT rather than
     /// each element — otherwise a file where every row is bad produces a million issues and

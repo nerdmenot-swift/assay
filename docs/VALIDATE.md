@@ -32,6 +32,9 @@ type with no rules gets no body and pays nothing — there is nothing to opt out
 static func validate(_ value: Self, limits: Limits = .default) throws(AssayError)
 static func diagnose(_ value: Self, limits: Limits = .default) -> Validation
 
+static func validate(_ value: Self, at path: [PathComponent], ...) throws(AssayError)
+static func diagnose(_ value: Self, at path: [PathComponent], ...) -> Validation
+
 static func validate(_ values: some Sequence<Self>, ...) throws(AssayError)
 static func diagnose(_ values: some Sequence<Self>, ...) -> Validation
 ```
@@ -45,6 +48,38 @@ The batch forms put `[i]` at the head of every issue path, so a million-row repo
 says which row. They share **one** `IssueSink`, so `Limits.maxIssues` bounds the report
 rather than each element; a per-element limit over a file where every row is bad produces a
 million issues and protects nothing.
+
+`[i]` is the element's index *in the sequence you handed over*, which is the row number only
+if you handed over every row in order. A reader that filtered, sampled or resumed mid-file
+passes the real position itself:
+
+```swift
+for row in reader.rows(of: Trip.self) {
+    issues += Trip.diagnose(row.value, at: [.index(row.lineNumber)]).issues
+}
+```
+
+Any path shape works — `[.key("trips.parquet"), .index(91_824)]` names the file too —
+because a `PathComponent` array is exactly what every other issue carries.
+
+### A schema that only validates
+
+`@Schema(formats: [])` emits the rules and **no decoder**. That is the shape a type wants
+when something else decodes it:
+
+```swift
+@Schema(formats: [])
+struct Trip {
+    @Validate(.min(1)) var vendor: String
+    @Validate(.range(1...9)) var passengers: Int
+}
+```
+
+It is worth 55% of the expansion — **118 ms/type with a JSON body it never calls, 52.8 ms
+without** (best of three, 100 types, 10 fields). `formats: []` used to fall back to JSON on
+the reasoning that a type nobody can parse is a mistake; for a type decoded by a Parquet or
+CSV reader it is the point. The case where it really would produce nothing — no decoder, no
+`encodes: true`, and no rules — is a compile error that names the fix.
 
 `@AsyncCheck` gets `async` overloads with the same ordering the decode paths use: the
 synchronous pass collects everything first, async checks run only if it was clean, and over

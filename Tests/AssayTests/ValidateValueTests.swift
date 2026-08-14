@@ -322,3 +322,108 @@ struct ValidateValueCheckTests {
         #expect(withRules.contains("Assay.Validatable"))
     }
 }
+
+
+// MARK: - The seam an external reader uses
+//
+// docs/VALIDATE.md §5. A specialised reader — Parquet, CSV, a database driver — decodes at
+// its own speed in its own module, and Assay runs the rules afterwards. Two things that
+// seam needs, both of which were missing when it was first measured against a real reader.
+
+/// A type something ELSE decodes. No JSON body, no RawValue body — just the rules.
+@Schema(formats: [])
+struct ExternallyDecoded: Equatable {
+    @Validate(.min(1)) var vendor: String
+    @Validate(.range(1...9)) var passengers: Int
+}
+
+@Suite("Validation-only schemas")
+struct ValidationOnlySchemaTests {
+
+    /// `formats: []` used to fall back to JSON, on the reasoning that a type nobody can
+    /// parse is a mistake. For a type decoded by someone else it is the whole point, and
+    /// the JSON body it was given cost 118 ms/type against 52.8 for the rules alone.
+    @Test("formats: [] emits the rules and no decoder")
+    func noDecoderEmitted() {
+        let (code, diags) = expandSchemaForTesting("""
+        @Schema(formats: []) struct S { @Validate(.min(1)) var a: String }
+        """)
+        #expect(diags.isEmpty)
+        #expect(code.contains("_assayCheck"), "the rules are still there")
+        #expect(code.contains("Assay.Validatable"))
+        #expect(!code.contains("JSONAssayable"), "and no JSON decoder")
+        #expect(!code.contains("_assay(from reader"))
+    }
+
+    @Test("the rules run exactly as they do on a decoding type")
+    func rulesStillRun() throws {
+        #expect(ExternallyDecoded.diagnose(
+            ExternallyDecoded(vendor: "VTS", passengers: 3)).isValid)
+        let d = ExternallyDecoded.diagnose(ExternallyDecoded(vendor: "", passengers: 99))
+        #expect(d.issues.count == 2)
+        #expect(throws: AssayError.self) {
+            try ExternallyDecoded.validate(ExternallyDecoded(vendor: "", passengers: 1))
+        }
+    }
+
+    /// The one case `formats: []` really would be a mistake, caught where the diagnostic
+    /// can name the fix rather than by silently restoring the JSON body.
+    @Test("formats: [] with nothing to validate is a compile error")
+    func nothingToEmit() {
+        let (_, diags) = expandSchemaForTesting("@Schema(formats: []) struct S { var a: Int }")
+        #expect(diags.contains { $0.contains("would generate nothing") }, "got \(diags)")
+    }
+
+    @Test("but encodes: true is enough on its own")
+    func encodingCounts() {
+        let (_, diags) = expandSchemaForTesting("""
+        @Schema(formats: [], encodes: true) struct S { var a: Int }
+        """)
+        #expect(diags.isEmpty)
+    }
+}
+
+@Suite("Reporting under a caller's own path")
+struct CallerSuppliedPathTests {
+
+    /// The batch form prefixes `[i]` — the index within the sequence it was handed. A
+    /// reader that filtered, sampled or resumed mid-file has a different row number, and
+    /// saying "row 3" for line 91,824 is worse than saying nothing.
+    @Test("a caller can name the real row")
+    func namedRow() {
+        let bad = ExternallyDecoded(vendor: "", passengers: 99)
+        #expect(ExternallyDecoded.diagnose(bad).issues.map(\.path.pathDescription)
+                == ["vendor", "passengers"])
+        #expect(ExternallyDecoded.diagnose(bad, at: [.index(91_824)])
+                    .issues.map(\.path.pathDescription)
+                == ["[91824].vendor", "[91824].passengers"])
+    }
+
+    @Test("any path shape works, including naming the file")
+    func arbitraryPath() {
+        let bad = ExternallyDecoded(vendor: "", passengers: 99)
+        let d = ExternallyDecoded.diagnose(
+            bad, at: [.key("trips.parquet"), .index(91_824)])
+        #expect(d.issues.first?.path.pathDescription == "trips.parquet[91824].vendor")
+    }
+
+    @Test("the throwing form takes a path too")
+    func throwingForm() {
+        let bad = ExternallyDecoded(vendor: "", passengers: 99)
+        do {
+            try ExternallyDecoded.validate(bad, at: [.index(7)])
+            Issue.record("expected a throw")
+        } catch let e as AssayError {
+            #expect(e.issues.first?.path.pathDescription == "[7].vendor")
+        } catch {
+            Issue.record("wrong error type")
+        }
+    }
+
+    @Test("an empty path is the default, and matches diagnose(_:)")
+    func emptyPathIsDefault() {
+        let bad = ExternallyDecoded(vendor: "", passengers: 99)
+        #expect(ExternallyDecoded.diagnose(bad, at: []).issues.map(\.path.pathDescription)
+                == ExternallyDecoded.diagnose(bad).issues.map(\.path.pathDescription))
+    }
+}

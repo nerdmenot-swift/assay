@@ -321,6 +321,22 @@ public struct SchemaMacro: ExtensionMacro {
         }
         body += Self.asyncCheckRunner(typeName, checkDecls)
 
+        // A type with no decode body, no encoder and no rules would expand to nothing at
+        // all. That is always a mistake, and it is the only reason `formats: []` needs
+        // guarding — said here, where the diagnostic can name the fix, rather than by
+        // quietly turning the empty set back into JSON.
+        if !formats.json, !formats.raw, !formats.xml, !wantsEncoding,
+           !Self.hasValidation(activeS, checkDecls) {
+            context.diagnose(Diagnostic(
+                node: Syntax(node),
+                message: SimpleDiagnostic(
+                    "@Schema(formats: []) emits no decode body, and this type declares no "
+                    + "@Validate, no @Check and no `encodes: true`, so the macro would "
+                    + "generate nothing. Add a rule if you want `\(typeName).validate(_:)`, "
+                    + "or remove `formats: []` to decode JSON.")))
+            return []
+        }
+
         var conformances: [String] = []
         if formats.json { conformances.append("Assay.JSONAssayable") }
         if formats.raw { conformances.append("Assay.RawDecodable") }
@@ -375,10 +391,17 @@ public struct SchemaMacro: ExtensionMacro {
                 names.append(t)
             }
             if names.contains("all") { return (true, true, true) }
+            // `formats: []` means NO decode body, and it is a real configuration rather
+            // than a mistake to correct. A type decoded by something else — a Parquet or
+            // CSV reader that knows its own layout — still wants `@Validate` rules and
+            // `T.validate(_:)`, and making it carry a JSON decoder it will never call costs
+            // it the full per-field expansion (docs/VALIDATE.md §4). The case where this
+            // really would produce nothing useful is caught at expansion instead, where the
+            // diagnostic can say so.
+            if names.isEmpty { return (false, false, false) }
             let json = names.contains("json")
             let raw = names.contains("yaml") || names.contains("xml")
-            // An empty or unrecognised set would silently emit nothing decodable, so fall
-            // back to the default rather than producing a type nobody can parse.
+            // An unrecognised name falls back rather than silently emitting nothing.
             return (json || !raw, raw, names.contains("xml"))
         }
         return (true, false, false)

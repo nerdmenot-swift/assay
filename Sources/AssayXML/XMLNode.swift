@@ -67,13 +67,27 @@ extension XML {
         public var name: Name
         public var value: String
 
-        public init(name: Name, value: String) {
+        /// Where the attribute's VALUE sits in the source, for carets. Excluded from `==`
+        /// and `hash`: a span is provenance, not value.
+        public var valueSpan: SourceSpan?
+
+        public init(name: Name, value: String, valueSpan: SourceSpan? = nil) {
             self.name = name
             self.value = value
+            self.valueSpan = valueSpan
         }
 
         public init(_ name: String, _ value: String) {
             self.init(name: Name(name), value: value)
+        }
+
+        public static func == (a: Attribute, b: Attribute) -> Bool {
+            a.name == b.name && a.value == b.value
+        }
+
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(name)
+            hasher.combine(value)
         }
     }
 
@@ -85,10 +99,30 @@ extension XML {
         /// Ordered, and this ordering *is* significant.
         public var children: [Node]
 
-        public init(name: Name, attributes: [Attribute] = [], children: [Node] = []) {
+        /// Where this element's CONTENT sits — between `>` and `</`, or the whole tag for
+        /// an empty element. That is what a caret should underline when a field decoded
+        /// from `<port>notanumber</port>` fails: the text, not the markup around it.
+        ///
+        /// Excluded from `==` and `hash`, for the same reason as everywhere else: two
+        /// documents differing only in layout must stay equal.
+        public var contentSpan: SourceSpan?
+
+        public init(name: Name, attributes: [Attribute] = [], children: [Node] = [],
+                    contentSpan: SourceSpan? = nil) {
             self.name = name
             self.attributes = attributes
             self.children = children
+            self.contentSpan = contentSpan
+        }
+
+        public static func == (a: Element, b: Element) -> Bool {
+            a.name == b.name && a.attributes == b.attributes && a.children == b.children
+        }
+
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(name)
+            hasher.combine(attributes)
+            hasher.combine(children)
         }
 
         public init(_ name: String, attributes: [Attribute] = [], children: [Node] = []) {
@@ -223,13 +257,15 @@ extension RawValue {
         // Attributes first, then children, both in document order. Duplicates are kept —
         // `<tag/><tag/>` is ordinary XML and a Dictionary would silently drop one.
         for a in element.attributes {
-            members.append(.init(key: a.name.local, value: .string(a.value)))
+            members.append(.init(key: a.name.local, value: .string(a.value),
+                                 span: a.valueSpan))
         }
 
         for child in element.children {
             switch child {
             case .element(let e):
-                members.append(.init(key: e.name.local, value: RawValue(e)))
+                members.append(.init(key: e.name.local, value: RawValue(e),
+                                     span: e.contentSpan))
             case .text(let s), .cdata(let s):
                 // Character data has no key. Whitespace-only runs between elements are
                 // formatting, not data, and are dropped; anything else is preserved under

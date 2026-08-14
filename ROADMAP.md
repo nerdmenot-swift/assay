@@ -274,34 +274,35 @@ faithfully.
 
 ## 12. Source spans for YAML and XML
 
-**Status: partial, and the split is worth being precise about.**
+**Status: BUILT 2026-08-13.** Schema issues on YAML and XML now carry a caret, as JSON's
+always have.
 
-*Syntax* errors in YAML and XML already render with carets, because the parsers report them from
-a live cursor:
+The gap was structural rather than an oversight. JSON decodes from bytes with the cursor in
+hand, so a rule violation reports the offset it is standing on. YAML and XML parse to a node
+model, project it to `RawValue`, and decode from that — and the byte offset was gone by the
+time a `@Validate` rule ran. The same failure rendered with a caret through JSON and without
+one through YAML, which is the wrong way round for the library's headline feature.
 
-```
-d.yaml:2:12: error: unexpected character in a flow collection; expected ',' or a closing bracket
-  1 │ name: api
-  2 │ replicas: [}]
-    │            ^
-```
+`RawValue.Member` now carries an optional `span`, filled by whichever parser knows the
+offset. YAML records it per mapping pair, XML per element content and per attribute value —
+inside the quotes, so a schema issue underlines the value and not the name. Every one of
+those fields is **excluded from `==` and `hash`**, so two documents differing only in
+whitespace stay equal; a span is provenance, not value.
 
-*Schema* issues — a type mismatch on a field, a `@Validate` violation — do not:
+Two things it cost, both measured:
 
-```
-d.yaml: error: replicas must be at least 1
-```
+- **~2% on YAML** (`YAML.parse` 6.86x over Yams to 6.69x; struct decode 11.50x to 11.27x),
+  and nothing on XML or JSON. The first implementation cost **25%** by scanning forward from
+  the value looking for a trailing comment, which is O(value) per pair; scanning backward
+  from the end and stopping at the previous newline is O(one line) and got it back.
+- Two guards keep the backward scan correct without tracking quote state: a value ending in
+  a quote is a quoted scalar whose `#` is content, and a walk that reaches a newline is
+  looking at a multi-line value that cannot have a trailing comment.
 
-The reason is structural. YAML and XML decode through the `RawValue` projection, and the node
-trees drop byte offsets when they are built, so by the time a rule runs there is nothing left to
-point at. JSON decodes straight from bytes and keeps its spans throughout.
-
-Closing this means carrying offsets on `YAML.Node` and `XML.Node` and threading them through the
-projection. Mechanical rather than hard, and the highest ratio of user-visible value to work on
-this list — the caret is the headline feature and half the formats do not get it where it counts
-most.
-
----
+**Still without spans:** elements inside a sequence or dictionary value. `Member.span` is
+per mapping member, which is the granularity a schema field needs — "the value at this key".
+An `@Validate` rule on an array *element* reports with a path and no caret, exactly as it did
+before.
 
 ## 13. Streaming
 

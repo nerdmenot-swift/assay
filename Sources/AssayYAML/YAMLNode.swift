@@ -74,9 +74,32 @@ extension YAML {
         public var key: Node
         public var value: Node
 
-        public init(key: Node, value: Node) {
+        /// Where the VALUE sits in the source document, for carets.
+        ///
+        /// YAML parses to a node model before anything schema-shaped runs, so without this
+        /// the byte offset is gone by the time a `@Validate` rule fires — which is why a
+        /// YAML schema issue used to render with no caret while the identical JSON one
+        /// pointed straight at the offending value. It rides on the pair rather than on
+        /// `Node` because that is the granularity a schema field needs: "the value at this
+        /// key", which is what every field-level issue is about.
+        ///
+        /// **Excluded from `==` and `hash`.** Two documents that differ only in whitespace
+        /// must still compare equal; a span is provenance, not value.
+        public var valueSpan: SourceSpan?
+
+        public init(key: Node, value: Node, valueSpan: SourceSpan? = nil) {
             self.key = key
             self.value = value
+            self.valueSpan = valueSpan
+        }
+
+        public static func == (a: Pair, b: Pair) -> Bool {
+            a.key == b.key && a.value == b.value
+        }
+
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(key)
+            hasher.combine(value)
         }
     }
 
@@ -218,7 +241,7 @@ extension RawValue {
                 // The narrowing that makes this projection lossy rather than total.
                 guard case .scalar(let k) = p.key else { return nil }
                 guard let v = RawValue(p.value) else { return nil }
-                out.append(.init(key: k.content, value: v))
+                out.append(.init(key: k.content, value: v, span: p.valueSpan))
             }
             self = .mapping(out)
         }

@@ -37,7 +37,7 @@ extension RawValue {
     @inlinable
     public func assayString(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
-        coerce: Bool = false
+        coerce: Bool = false, at span: SourceSpan? = nil
     ) -> String? {
         if case .string(let s) = self { return s }
         if coerce {
@@ -48,58 +48,58 @@ extension RawValue {
             default: break
             }
         }
-        Self.mismatch(&sink, path, key, "string", self)
+        Self.mismatch(&sink, path, key, "string", self, span)
         return nil
     }
 
     @inlinable
     public func assayInt(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
-        coerce: Bool = false
+        coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Int? {
         if case .int(let i) = self, let n = Int(exactly: i) { return n }
         if coerce, let n = coercedInt() { return n }
-        Self.mismatch(&sink, path, key, "integer", self)
+        Self.mismatch(&sink, path, key, "integer", self, span)
         return nil
     }
 
     @inlinable
     public func assayInt64(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
-        coerce: Bool = false
+        coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Int64? {
         if case .int(let i) = self { return i }
         if coerce, let n = coercedInt() { return Int64(n) }
-        Self.mismatch(&sink, path, key, "integer", self)
+        Self.mismatch(&sink, path, key, "integer", self, span)
         return nil
     }
 
     @inlinable
     public func assayInt32(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
-        coerce: Bool = false
+        coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Int32? {
         if case .int(let i) = self, let n = Int32(exactly: i) { return n }
         if coerce, let n = coercedInt(), let v = Int32(exactly: n) { return v }
-        Self.mismatch(&sink, path, key, "integer", self)
+        Self.mismatch(&sink, path, key, "integer", self, span)
         return nil
     }
 
     @inlinable
     public func assayUInt(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
-        coerce: Bool = false
+        coerce: Bool = false, at span: SourceSpan? = nil
     ) -> UInt? {
         if case .int(let i) = self, let n = UInt(exactly: i) { return n }
         if coerce, let n = coercedInt(), let v = UInt(exactly: n) { return v }
-        Self.mismatch(&sink, path, key, "unsigned integer", self)
+        Self.mismatch(&sink, path, key, "unsigned integer", self, span)
         return nil
     }
 
     @inlinable
     public func assayDouble(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
-        coerce: Bool = false
+        coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Double? {
         switch self {
         case .double(let d): return d
@@ -107,22 +107,22 @@ extension RawValue {
         default: break
         }
         if coerce, case .string(let s) = self, let d = Double(s) { return d }
-        Self.mismatch(&sink, path, key, "number", self)
+        Self.mismatch(&sink, path, key, "number", self, span)
         return nil
     }
 
     @inlinable
     public func assayFloat(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
-        coerce: Bool = false
+        coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Float? {
-        assayDouble(&sink, path, key, coerce: coerce).map(Float.init)
+        assayDouble(&sink, path, key, coerce: coerce, at: span).map(Float.init)
     }
 
     @inlinable
     public func assayBool(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
-        coerce: Bool = false
+        coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Bool? {
         if case .bool(let b) = self { return b }
         if coerce {
@@ -141,7 +141,7 @@ extension RawValue {
             default: break
             }
         }
-        Self.mismatch(&sink, path, key, "boolean", self)
+        Self.mismatch(&sink, path, key, "boolean", self, span)
         return nil
     }
 
@@ -170,13 +170,14 @@ extension RawValue {
     @usableFromInline
     static func mismatch(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
-        _ expected: String, _ found: RawValue
+        _ expected: String, _ found: RawValue, _ span: SourceSpan? = nil
     ) {
         sink.add(Issue(
             code: .typeMismatch,
             path: path + [.key(String(describing: key))],
             params: ["expected": .string(expected)],
-            received: found.describe()))
+            received: found.describe(),
+            location: span))
     }
 
     @inline(never)
@@ -267,8 +268,8 @@ extension RawValue {
     @inline(never)
     public static func mismatchPublic(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
-        _ expected: String, _ found: RawValue
+        _ expected: String, _ found: RawValue, _ span: SourceSpan? = nil
     ) {
-        mismatch(&sink, path, key, expected, found)
+        mismatch(&sink, path, key, expected, found, span)
     }
 }

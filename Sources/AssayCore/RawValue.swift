@@ -33,9 +33,32 @@ public enum RawValue: Sendable, Hashable {
         public var key: String
         public var value: RawValue
 
-        public init(key: String, value: RawValue) {
+        /// Where this member's VALUE began in the source document, when the parser knew.
+        ///
+        /// This is what lets a YAML or XML schema issue render a caret. The JSON path
+        /// never needs it — it decodes from bytes with the cursor in hand — but the tree
+        /// formats build a node model first, and without this the offset is gone by the
+        /// time a rule runs. `nil` is always allowed and always safe: the renderer has
+        /// handled span-less issues since the first missing-field error.
+        ///
+        /// **Excluded from `==` and `hash`, deliberately.** Two documents with the same
+        /// content and different whitespace must remain equal, and `@Extras` hands these
+        /// to users as ordinary data. A span is provenance, not value.
+        public var span: SourceSpan?
+
+        public init(key: String, value: RawValue, span: SourceSpan? = nil) {
             self.key = key
             self.value = value
+            self.span = span
+        }
+
+        public static func == (a: Member, b: Member) -> Bool {
+            a.key == b.key && a.value == b.value
+        }
+
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(key)
+            hasher.combine(value)
         }
     }
 }

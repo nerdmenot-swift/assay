@@ -48,6 +48,12 @@ extension SchemaMacro {
 
         var locals = ""
         var requiredMask: UInt64 = 0
+        // A span local per field that can report one, mirroring the JSON body. On this path
+        // the span comes from `RawValue.Member`, which the YAML and XML parsers fill in;
+        // it is nil for any producer that does not track offsets, and nil is always safe.
+        for (i, f) in fields.enumerated() where f.needsSpan {
+            locals += "    var __sp\(i): Assay.SourceSpan? = nil\n"
+        }
         for (i, f) in fields.enumerated() {
             locals += "    var __f\(i): \(f.decodedType)? = \(f.defaultExpr ?? "nil")\n"
             if !f.isOptional && f.defaultExpr == nil && f.fallback == nil {
@@ -79,6 +85,9 @@ extension SchemaMacro {
             for (i, f, key) in byLength[len]! {
                 checks += "\(first ? "" : " else ")if __k == \"\(key)\" {\n"
                 checks += "                    __presence |= \(1 << UInt64(i))\n"
+                if f.needsSpan {
+                    checks += "                    __sp\(i) = __m.span\n"
+                }
                 checks += "                    \(rawDecodeStatement(field: f, index: i))\n"
                 checks += "                }"
                 first = false
@@ -201,7 +210,9 @@ extension SchemaMacro {
             return "__f\(i) = __v.assayDate(&sink, path, \"\(key)\", \(formats))\(wrap)"
         }
 
-        if f.fallback != nil, let call = rawScalarCall(base, key: key, coerce: f.coerce) {
+        let spanRef = f.needsSpan ? "__sp\(i)" : nil
+        if f.fallback != nil,
+           let call = rawScalarCall(base, key: key, coerce: f.coerce, span: spanRef) {
             return """
             let __fck\(i) = sink.checkpoint()
                             if !__v.isNull { __f\(i) = __v.\(call) }
@@ -278,7 +289,7 @@ extension SchemaMacro {
             """
         }
 
-        if let call = rawScalarCall(base, key: key, coerce: f.coerce) {
+        if let call = rawScalarCall(base, key: key, coerce: f.coerce, span: spanRef) {
             if f.isOptional {
                 return "if !__v.isNull { __f\(i) = __v.\(call) }"
             }
@@ -347,8 +358,15 @@ extension SchemaMacro {
         return "\(type)._assay(from: \(v), into: &sink, at: path + [.key(\"\(key)\")])"
     }
 
-    static func rawScalarCall(_ type: String, key: String, coerce: Bool) -> String? {
-        let c = coerce ? ", coerce: true" : ""
+    /// `span` is the expression naming this field's captured span, or nil for a position
+    /// that has none. Only a top-level mapping member carries one: `RawValue.Member.span`
+    /// is where the YAML and XML parsers record an offset, and an element nested inside an
+    /// array or dictionary value has no slot of its own. Those decode without a caret, the
+    /// same way they do today.
+    static func rawScalarCall(
+        _ type: String, key: String, coerce: Bool, span: String? = nil
+    ) -> String? {
+        let c = (coerce ? ", coerce: true" : "") + (span.map { ", at: \($0)" } ?? "")
         switch type {
         case "String":  return "assayString(&sink, path, \"\(key)\"\(c))"
         case "Int":     return "assayInt(&sink, path, \"\(key)\"\(c))"

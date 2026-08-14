@@ -464,6 +464,7 @@ cross-module import gets caught rather than accidentally working.
 | [`docs/STREAMING.md`](docs/STREAMING.md) | why streaming is out of scope, and what it would cost |
 | [`docs/ENCODING.md`](docs/ENCODING.md) | the six semantics questions behind encoding, and how each was answered |
 | [`docs/VALIDATE.md`](docs/VALIDATE.md) | validating a value you already have, and the law that decides what it can check |
+| [`docs/CONFORMANCE.md`](docs/CONFORMANCE.md) | what each parser accepts and refuses, and how that is checked |
 | [`docs/KEYED-SOURCE.md`](docs/KEYED-SOURCE.md) | a decode path that was built, measured and withdrawn — and the columnar one that survived |
 | [`ROADMAP.md`](ROADMAP.md) | what is deferred, and why |
 | [`CLAUDE.md`](CLAUDE.md) | settled decisions and hard constraints on generated code |

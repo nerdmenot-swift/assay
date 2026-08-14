@@ -26,6 +26,7 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 | `@Extras` + `unknownKeys: .ignore/.warn/.reject/.collect` | **built**, with Damerau did-you-mean |
 | `parse(mmapped:)` (`AssayFoundation`) | **built** — 216x less memory footprint, 3.6x faster |
 | Renderers (`.terminal`/`.plain`/`.json`/`.problemDetails`) | **built** — golden caret tests |
+| Source spans for YAML and XML | **built 2026-08-13** — schema issues carry carets on all three formats now. `RawValue.Member.span`, excluded from `==`/`hash`. ~2% on YAML, nothing elsewhere; sequence/dictionary *elements* still have no span |
 | `@Validate` + rule engine | **built** — hand-rolled `.email`/`.url`/`.uuid`/`.hostname`, type-checked at expansion |
 | `@Check` / `@AsyncCheck` / `@Preprocess` / `@Transform` / `@Fallback` | **built** |
 | Enum conformances (`RawRepresentable` String/Int, `CaseIterable`) | **built** |
@@ -281,18 +282,15 @@ x86-64 AVX2 ever matters, C is the only way there.
 
 ## Start here now
 
-Since resolved from this list: `Date` and `@DateFormat` (2026-08-06 — built, measured at
+Since resolved from this list: source spans for YAML and XML (2026-08-13 — `ROADMAP.md` §12,
+carets on all three formats, ~2% on YAML and nothing elsewhere), `Date` and `@DateFormat` (2026-08-06 — built, measured at
 6.06×, differentially verified; `ROADMAP.md` §2 records what remains deferred and why), and
 the loss against yyjson (2026-08-09 — 0.66× on the use-case shape, 0.77× float-dense, 0.06×
 DOM-vs-DOM, all published). What remains, in order:
 
-1. **Source spans for YAML and XML.** `ROADMAP.md` §12. Syntax errors already carry carets;
-   schema issues do not, because the node trees drop byte offsets when they are built. The
-   caret is the headline feature and half the formats do not get it where it counts most.
-   Highest user-visible value per unit of work on the whole list.
-2. **Linux and x86-64 numbers.** CI builds and tests there; nothing is benchmarked there.
+1. **Linux and x86-64 numbers.** CI builds and tests there; nothing is benchmarked there.
    Every published ratio is one arm64 Mac and says so.
-3. **Cold start**, where a macro emitting no `CodingKeys` should win structurally.
+2. **Cold start**, where a macro emitting no `CodingKeys` should win structurally.
 
 Three things that are done and worth not redoing: the allocation gate exists (live blocks,
 with its limits documented rather than buried — `.mallocCountTotal` was rejected because

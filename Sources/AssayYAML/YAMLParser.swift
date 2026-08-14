@@ -187,6 +187,70 @@ extension YAML {
             return docs
         }
 
+        /// The span of what was just parsed, from `start` to the cursor, with trailing
+        /// whitespace, separators and any line comment removed.
+        ///
+        /// Trimming is the whole job. A YAML value parse stops wherever the next construct
+        /// begins — after the newline, after blank lines, after a `#` comment, after the
+        /// `,` in flow style — so the raw start-to-cursor range routinely runs to the end
+        /// of the document. Underlining all of that is worse than underlining nothing.
+        ///
+        /// **Scanned BACKWARD from the end, and bounded to one line.** The obvious version
+        /// walks forward from `start` tracking quote state to find the comment, which is
+        /// correct and costs a second pass over every value: it measured a 25% regression
+        /// on `YAML.parse` (6.86x over Yams down to 5.18x), because the scan is O(value)
+        /// and runs per pair. Backward from the end stops at the previous newline, so it is
+        /// O(one line) regardless of how large the value is.
+        ///
+        /// Two guards make the backward scan safe without quote tracking:
+        ///
+        ///   * A value ending in `"` or `'` is a quoted scalar, so any `#` inside it is
+        ///     content — `key: "a # b"` must keep its hash.
+        ///   * If the backward walk reaches a newline before `start`, the value spans
+        ///     several lines and no trailing comment can belong to it. A `#` inside a
+        ///     block scalar therefore stays put.
+        ///
+        /// `#` only opens a comment when preceded by whitespace or at the start of a line,
+        /// which is what makes `key: a#b` a single plain scalar rather than a comment.
+        func trimmedSpan(_ r: inout AssayReader, from start: Int) -> SourceSpan? {
+            var end = r.byteOffset
+            guard end > start else { return nil }
+
+            @inline(__always) func isBlank(_ b: UInt8) -> Bool { b == 0x20 || b == 0x09 }
+
+            while end > start {
+                guard let b = r.byte(absolute: end - 1) else { break }
+                if isBlank(b) || b == 0x0A || b == 0x0D || b == UInt8(ascii: ",") {
+                    end -= 1
+                    continue
+                }
+                break
+            }
+            guard end > start else { return nil }
+
+            // A quoted scalar owns every byte inside its quotes.
+            let last = r.byte(absolute: end - 1)
+            if last != UInt8(ascii: "\""), last != UInt8(ascii: "'") {
+                var i = end - 1
+                while i > start {
+                    guard let b = r.byte(absolute: i) else { break }
+                    if b == 0x0A || b == 0x0D { break }        // multi-line: no comment
+                    if b == UInt8(ascii: "#"), let prev = r.byte(absolute: i - 1),
+                       isBlank(prev) {
+                        end = i
+                        while end > start, let p = r.byte(absolute: end - 1), isBlank(p) {
+                            end -= 1
+                        }
+                        break
+                    }
+                    i -= 1
+                }
+            }
+
+            guard end > start else { return nil }
+            return SourceSpan(lo: start, len: end - start)
+        }
+
         // MARK: Nodes
 
         mutating func parseNode(
@@ -425,6 +489,12 @@ extension YAML {
                 skipInlineSpace(&r)
 
                 // Value on the same line, or a nested block on following lines.
+                //
+                // The span is captured around the value parse and then trimmed, because
+                // `parseNode` leaves the cursor past the value's trailing newline and any
+                // blanks or comments after it. An untrimmed span would underline the rest
+                // of the file, which is worse than no caret at all.
+                let valueStart = r.byteOffset
                 var value: Node
                 if r.currentByte == nil || r.currentByte == 0x0A || r.currentByte == 0x0D
                     || r.currentByte == UInt8(ascii: "#") {
@@ -448,7 +518,8 @@ extension YAML {
                 if case .scalar(let ks) = key, ks.content == "<<", ks.tag == nil {
                     mergeSources.append(value)
                 } else {
-                    pairs.append(Pair(key: key, value: value))
+                    pairs.append(Pair(key: key, value: value,
+                                      valueSpan: trimmedSpan(&r, from: valueStart)))
                 }
             }
             for source in mergeSources { mergeInto(&pairs, from: source) }
@@ -576,12 +647,14 @@ extension YAML {
                 }
                 r.advanceBy(1)
                 skipBlanksAndComments(&r)
+                let valueStart = r.byteOffset
                 guard let value = parseFlowNode(&r, &sink, depth: depth + 1) else { return nil }
 
                 if case .scalar(let ks) = key, ks.content == "<<" {
                     mergeSources.append(value)
                 } else {
-                    pairs.append(Pair(key: key, value: value))
+                    pairs.append(Pair(key: key, value: value,
+                                      valueSpan: trimmedSpan(&r, from: valueStart)))
                 }
 
                 skipBlanksAndComments(&r)

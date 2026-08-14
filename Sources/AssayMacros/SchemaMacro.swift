@@ -266,12 +266,16 @@ public struct SchemaMacro: ExtensionMacro {
         }
         if formats.raw {
             if !body.isEmpty { body += "\n\n" }
+            // `spans: true` here as well as on the JSON path. The span locals are filled
+            // from `RawValue.Member.span`, which the YAML and XML parsers record; a
+            // producer that tracks no offsets leaves them nil, and a nil span renders the
+            // same span-less issue it always did.
             body += Self.rawDecodeBody(typeName: typeName, fields: activeS,
                                        extras: extras, policy: policy, ordered: ordered,
                                        emitKnownKeys: !formats.json,
-                                       validation: Self.postDecodeSection(activeS, spans: false),
+                                       validation: Self.postDecodeSection(activeS, spans: true),
                                        checks: Self.checkCalls(typeName, checkDecls, activeS,
-                                                               spans: false))
+                                                               spans: true))
         }
         if wantsEncoding {
             for message in Self.encodeDiagnostics(activeS) {

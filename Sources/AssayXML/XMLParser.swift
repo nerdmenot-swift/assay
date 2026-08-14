@@ -177,7 +177,10 @@ extension XML {
 
             // Attributes are parsed before the name is resolved, because xmlns bindings
             // declared on this element apply to the element's own name.
-            var rawAttributes: [(String, String, SourceSpan)] = []
+            // Two spans per attribute: the whole `name="value"` for a duplicate-attribute
+            // report, and the VALUE alone for a schema caret. A schema issue is about the
+            // value, so underlining the name with it would point at the wrong thing.
+            var rawAttributes: [(String, String, SourceSpan, SourceSpan)] = []
             var scope: [String: String] = [:]
 
             while true {
@@ -199,7 +202,11 @@ extension XML {
                     return nil
                 }
                 skipSpace(&r)
+                let valueStart = r.byteOffset
                 guard let aValue = parseAttributeValue(&r, &sink) else { return nil }
+                // Inside the quotes, which is what a caret should underline.
+                let valueSpan = SourceSpan(lo: valueStart + 1,
+                                           len: max(0, r.byteOffset - valueStart - 2))
 
                 if aName == "xmlns" {
                     scope[""] = aValue
@@ -207,7 +214,9 @@ extension XML {
                     scope[String(aName.dropFirst(6))] = aValue
                 } else {
                     rawAttributes.append(
-                        (aName, aValue, SourceSpan(lo: attrStart, len: r.byteOffset - attrStart)))
+                        (aName, aValue,
+                         SourceSpan(lo: attrStart, len: r.byteOffset - attrStart),
+                         valueSpan))
                 }
             }
 
@@ -218,7 +227,7 @@ extension XML {
             var attributes: [XML.Attribute] = []
             attributes.reserveCapacity(rawAttributes.count)
             var seen = Set<XML.Name>()
-            for (n, v, span) in rawAttributes {
+            for (n, v, span, valueSpan) in rawAttributes {
                 let resolved = resolve(n, isAttribute: true)
                 // Duplicate attributes are a well-formedness error in XML, unlike
                 // duplicate child elements which are ordinary.
@@ -227,19 +236,27 @@ extension XML {
                                    path: [.key(rawName), .key(n)],
                                    received: n, location: span))
                 }
-                attributes.append(XML.Attribute(name: resolved, value: v))
+                attributes.append(XML.Attribute(name: resolved, value: v,
+                                                valueSpan: valueSpan))
             }
 
-            // Empty element: <tag/>
+            // Empty element: <tag/>. There is no content to underline, so the caret goes
+            // under the tag name — the only thing in the document that exists.
             if r.consume("/>") {
-                return XML.Element(name: name, attributes: attributes, children: [])
+                return XML.Element(name: name, attributes: attributes, children: [],
+                                   contentSpan: SourceSpan(lo: nameStart,
+                                                           len: rawName.utf8.count))
             }
             guard r.consume(">") else {
                 r.report(&sink, .custom("xml_unterminated_tag"))
                 return nil
             }
+            // Everything between `>` and the matching `</` is this element's content, and
+            // that is what a schema issue about this element is about.
+            let contentStart = r.byteOffset
 
             var children: [XML.Node] = []
+            var contentEnd = contentStart
 
             while true {
                 guard !r.atEnd else {
@@ -251,6 +268,7 @@ extension XML {
                 }
 
                 if r.matches("</") {
+                    contentEnd = r.byteOffset
                     _ = r.consume("</")
                     guard let close = scanName(&r) else {
                         r.report(&sink, .custom("xml_bad_name"))
@@ -300,7 +318,10 @@ extension XML {
                 if !text.isEmpty { children.append(.text(text)) }
             }
 
-            return XML.Element(name: name, attributes: attributes, children: children)
+            return XML.Element(name: name, attributes: attributes, children: children,
+                               contentSpan: SourceSpan(
+                                   lo: contentStart,
+                                   len: max(0, contentEnd - contentStart)))
         }
 
         // MARK: Namespace resolution

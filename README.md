@@ -359,7 +359,7 @@ Foundation, the thesis is wrong and the SIMD work is moot.*
 | Dictionary decode (`[String: T]`, the stated worst case) | Foundation | **6.95×** |
 | YAML node parse | Yams (`compose`, libyaml) | **6.62×** |
 | YAML struct decode | Yams `YAMLDecoder` (Codable) | **11.36×** |
-| XML tree parse (asymmetric — read `RESULTS.md`) | Foundation `XMLParser` | **1.30×** |
+| XML tree parse (asymmetric, and **macOS only** — read `RESULTS.md`) | Foundation `XMLParser` | **1.30×** |
 
 The thesis in one line: **the parser was never the bottleneck; the `Codable` container boundary
 was.** ZippyJSON bolted simdjson — the fastest JSON parser in existence — onto `Decodable` and

@@ -32,7 +32,8 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 | Enum conformances (`RawRepresentable` String/Int, `CaseIterable`) | **built** |
 | Differential + fuzz | **built and gated in CI** — 75 files agree with `JSONSerialization`; 9,680 mutations/run |
 | YAML/XML differential oracles | **built and green** — vs Yams/libyaml and Foundation `XMLParser`; found and fixed 2 real parser bugs (block-sequence dash, XML line-ending normalisation) on first run |
-| YAML/XML benchmarks | **run** — 6.62× node parse vs Yams, 11.36× struct decode vs `YAMLDecoder`, 1.30× XML vs Foundation (asymmetric in Foundation's favour — read `Benchmarks/RESULTS.md` before quoting). The JSON thesis does not transfer; these are tree decoders |
+| YAML/XML benchmarks | **run** — 6.69× node parse vs Yams, 11.27× struct decode vs `YAMLDecoder`, 1.30× XML vs Foundation (asymmetric in Foundation's favour — read `Benchmarks/RESULTS.md` before quoting). The JSON thesis does not transfer; these are tree decoders |
+| Linux benchmarks | **run 2026-08-15** — `Benchmarks/linux-bench.sh`. Struct decode 8.64× (macOS 8.98×), so the thesis is not a Darwin artefact. **XML INVERTS: 0.54× on Linux against 1.30× on macOS**, because `FoundationXML` is libxml2 there. x86-64 remains unmeasured and emulation was refused |
 | Streaming | **out of scope**, decision recorded in `docs/STREAMING.md` |
 | Encoding | **JSON + YAML + XML built** (`@Schema(encodes: true)`). YAML renders through the `RawValue` seam; XML cannot (placement is not expressible there) so it has its own generated body. XML defaults settled by surveying Jackson/Go/.NET/serde. The six semantics questions and their answers are in `docs/ENCODING.md`; round-trip is a stated law with a closed exception list |
 | Allocation counts | **measured and gated** — live blocks, not total malloc traffic. Read `Benchmarks/Sources/AssayBench/Allocations.swift`'s three stated limitations before quoting a number |
@@ -315,8 +316,9 @@ carets on all three formats, ~2% on YAML and nothing elsewhere), `Date` and `@Da
 the loss against yyjson (2026-08-09 — 0.66× on the use-case shape, 0.77× float-dense, 0.06×
 DOM-vs-DOM, all published). What remains, in order:
 
-1. **Linux and x86-64 numbers.** CI builds and tests there; nothing is benchmarked there.
-   Every published ratio is one arm64 Mac and says so.
+1. **x86-64 numbers.** Linux is now measured (`Benchmarks/linux-bench.sh`, 2026-08-15) and
+   the thesis holds there. x86-64 is not, and emulation would time the emulator rather than
+   the code — `Experiments/01-jump-table`'s jump-table threshold is still arm64-only.
 2. **Cold start**, where a macro emitting no `CodingKeys` should win structurally.
 
 Three things that are done and worth not redoing: the allocation gate exists (live blocks,
@@ -368,7 +370,10 @@ Swift — do not put numbers for those anywhere.
   "musl's allocator is slow" argument is stale.
 - `withUnsafeTemporaryAllocation`'s stack cliff is **1024 bytes**, not 4 KB.
 - `String(unsafeUninitializedCapacity:)` is **SE-0263**, not SE-0309.
-- Foundation's `XMLParser` on Linux does **not** use Obj-C bridging. Do not assert it.
+- Foundation's `XMLParser` on Linux does **not** use Obj-C bridging. Do not assert it. It is
+  `swift-corelibs-foundation`'s `FoundationXML` over **libxml2**, and it is fast: Assay's XML
+  parser measures 0.54× against it on Linux while measuring 1.30× on Darwin. "Assay's XML is
+  faster than Foundation's" is a Darwin-only claim.
 - `import Builtin` needs `.enableExperimentalFeature("BuiltinModule")`, **not** `-parse-stdlib`.
 - "Structs + generics + non-escaping closures = ARC-free" is folklore; only *transitively trivial*
   structs qualify.

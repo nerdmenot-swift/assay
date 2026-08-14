@@ -48,6 +48,15 @@
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
+// `mallinfo2` is declared in malloc.h, which the Glibc module does not re-export, so it is
+// invisible to `import Glibc` alone. Declaring the shape here is the portable way to reach
+// it — only `uordblks` is read, and only for a bytes figure the gate never asserts on.
+private struct CMallinfo2 {
+    var arena: Int = 0, ordblks: Int = 0, smblks: Int = 0, hblks: Int = 0
+    var hblkhd: Int = 0, usmblks: Int = 0, fsmblks: Int = 0, uordblks: Int = 0
+    var fordblks: Int = 0, keepcost: Int = 0
+}
+@_silgen_name("mallinfo2") private func c_mallinfo2() -> CMallinfo2
 #endif
 
 struct AllocationSnapshot {
@@ -75,8 +84,8 @@ struct AllocationSnapshot {
         }
         return AllocationSnapshot(blocks: blocks, bytes: bytes)
         #elseif canImport(Glibc)
-        let info = mallinfo2()
-        return AllocationSnapshot(blocks: nil, bytes: Int(info.uordblks))
+        let info = c_mallinfo2()
+        return AllocationSnapshot(blocks: nil, bytes: info.uordblks)
         #else
         return AllocationSnapshot(blocks: nil, bytes: 0)
         #endif

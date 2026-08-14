@@ -806,3 +806,78 @@ rule-free type is unaffected. Best-of-three at 100 types, 10 fields:
 `Experiments/03-compile-time/gate.sh` gates it rather than optimising it away: 100 ms for a
 rule-free type, 145 for a rule-carrying one (single-shot runs land near 128, so the margin
 covers the spread rather than the best case).
+
+
+---
+
+# Linux, measured — and one ratio that inverts
+
+**2026-08-15.** Every number in this file above this line is one arm64 Mac, and said so.
+This is the second platform.
+
+**Swift 6.3.3 on both sides**, same toolchain version, same corpus, same harness. Linux runs
+under Apple's Virtualization.framework: aarch64, 2 vCPU, 4 GiB. That makes the *absolute*
+timings meaningless — a virtualised 2-core box is not a machine anyone deploys on — but the
+ratios are measured against a baseline running on the same box under the same conditions,
+which is what makes them portable. A slow machine slows both sides.
+
+| | macOS arm64 | Linux aarch64 |
+|---|---|---|
+| struct decode vs Foundation | 8.98x | **8.64x** |
+| prefix + skip | 6.28x | **6.10x** |
+| generic value model | 1.47x | **2.07x** |
+| `[String: T]` dictionaries | 7.25x | **6.01x** |
+| YAML node parse vs Yams | 6.69x | **7.68x** |
+| YAML struct decode vs `YAMLDecoder` | 11.27x | **14.02x** |
+| **XML tree parse vs Foundation** | **1.30x** | **0.54x** |
+| vs yyjson, use case | 0.67x | 0.58x |
+| vs yyjson, float-dense | 0.77x | 0.60x |
+| UTF-8 validation, share of decode | 4.2% | 4.1% |
+
+## The headline: the thesis is not a Darwin artefact
+
+8.64x against 8.98x. The falsification condition in `docs/PERFORMANCE.md` — comfortably clear
+ZippyJSON's 1.38x — is met on Linux by the same margin it is met on macOS. That was the
+question worth answering, and the answer is that deleting the `Codable` boundary at compile
+time is a structural win rather than a property of one platform's Foundation.
+
+## The one that inverts, and why
+
+**XML goes from winning by 1.30x to losing by 0.54x** — Foundation's parser is roughly twice
+Assay's speed on Linux, where it was slower on Darwin. This is the largest platform
+difference in the suite and it is not noise.
+
+The reason is that "Foundation's `XMLParser`" names two different programs.
+`swift-corelibs-foundation` implements `FoundationXML` over **libxml2**, a mature C parser;
+Darwin's is the older Apple implementation. So the Linux row is Assay's hand-written Swift
+against C, and the Darwin row is not.
+
+Read with the asymmetry that was already stated for this arm: Assay builds and keeps the
+whole document tree, while the Foundation baseline runs a counting delegate and keeps
+nothing. Against C, doing strictly more work, half the speed is a coherent result rather
+than a defect — but "Assay's XML is faster than Foundation's" is a **Darwin-only** claim and
+must not be repeated without the platform attached.
+
+## The rest
+
+- **The generic value model is better on Linux** (2.07x against 1.47x), for the mirror-image
+  reason: `JSONSerialization` on Linux is pure Swift, and on Darwin it is C.
+- **The loss to yyjson is larger** (0.58x against 0.67x). yyjson is the same C on both, so
+  this is Swift's own generated code being relatively further behind here.
+- **YAML is better on Linux** in both arms. Yams wraps libyaml on both platforms, so the
+  difference is on Assay's side.
+- **The allocation gate passes**, with block counts reported as unavailable — `mallinfo2`
+  gives bytes in use and no block count, and the harness reports nothing rather than guessing.
+
+## What is still not measured, and will not be faked
+
+**x86-64.** No x86-64 hardware was available, and running the suite under emulation would
+produce timings that describe the emulator. `Experiments/01-jump-table`'s finding — N >= 10
+lowers to a jump table, below that a balanced binary search tree — remains verified on arm64
+only, and `sweep.sh` must be re-run on x86-64 before it is claimed there.
+
+Three portability fixes to the harness were needed to get this far, and they are the reason
+no Linux number existed before: `mallinfo2` is declared in `malloc.h`, which the Glibc module
+does not re-export; `XMLParser` lives in `FoundationXML` off Darwin; and `DiffFuzz` uses
+CoreFoundation (`CFGetTypeID`) that Linux has no equivalent for, so the differential suite
+still runs on macOS only.

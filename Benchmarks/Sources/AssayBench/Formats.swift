@@ -31,6 +31,11 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+// Foundation's XMLParser lives in a separate module off Darwin. Importing it conditionally
+// is what lets this file — and therefore every published YAML/XML ratio — run on Linux.
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
 import Assay
 import AssayYAML
 import AssayXML

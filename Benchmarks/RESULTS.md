@@ -876,8 +876,17 @@ produce timings that describe the emulator. `Experiments/01-jump-table`'s findin
 lowers to a jump table, below that a balanced binary search tree — remains verified on arm64
 only, and `sweep.sh` must be re-run on x86-64 before it is claimed there.
 
-Three portability fixes to the harness were needed to get this far, and they are the reason
-no Linux number existed before: `mallinfo2` is declared in `malloc.h`, which the Glibc module
-does not re-export; `XMLParser` lives in `FoundationXML` off Darwin; and `DiffFuzz` uses
-CoreFoundation (`CFGetTypeID`) that Linux has no equivalent for, so the differential suite
-still runs on macOS only.
+Two portability fixes to the harness were needed to get this far, and they are the reason no
+Linux number existed before: `mallinfo2` is declared in `malloc.h`, which the Glibc module
+does not re-export, and `XMLParser` lives in `FoundationXML` off Darwin.
+
+**The differential suite still runs on macOS only**, and the reason is worth writing down
+because the obvious fix is a trap. `DiffFuzz` needs to tell an `NSNumber` holding `true` from
+one holding `1`, or `{"a": true}` and `{"a": 1}` become indistinguishable and the oracle
+quietly stops testing the difference. The Darwin idiom is
+`CFGetTypeID(n) == CFBooleanGetTypeID()`; Linux has no CoreFoundation. Substituting the
+portable `strcmp(n.objCType, "c")` compiles everywhere and **costs about 20x on macOS** —
+`objCType` is a message send per value where the CF comparison is two loads, and sampling the
+process shows every cycle inside it. So the differential keeps the fast Darwin call and Linux
+coverage waits for a check that is cheap on both. `swift test` (393 tests) already runs
+identically on both platforms; it is only the oracle harness that is pinned.

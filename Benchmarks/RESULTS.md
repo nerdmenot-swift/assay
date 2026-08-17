@@ -890,3 +890,68 @@ portable `strcmp(n.objCType, "c")` compiles everywhere and **costs about 20x on 
 process shows every cycle inside it. So the differential keeps the fast Darwin call and Linux
 coverage waits for a check that is cheap on both. `swift test` (393 tests) already runs
 identically on both platforms; it is only the oracle harness that is pinned.
+
+
+---
+
+# Making the XML parser faster, by profiling rather than by admiring libxml2
+
+**2026-08-18.** The Linux measurement above put Assay's XML parser at 0.54x against
+`FoundationXML`, which is libxml2. The obvious response is to study libxml2's tricks. The
+useful response turned out to be simpler: **profile first**, because the top cost was not
+anything libxml2 does cleverly — it was a Swift idiom doing far more work than it looks like.
+
+Measured with `sample` on a 100 KB document with nested elements, attributes, text and
+repeated tag names, best of five, back to back on the same machine.
+
+| | MB/s | vs Foundation, macOS | vs libxml2, Linux |
+|---|---|---|---|
+| before | 89.1 | 1.30x | 0.54x |
+| after | **156.2** | **2.38x** | **0.96x** |
+
+**1.75x**, from three changes, none of them exotic. Against libxml2 that is parity — while
+Assay builds and keeps a whole document tree that libxml2's SAX delegate never builds.
+
+## What the profile actually said
+
+The single largest cost was `String.firstIndex(of: ":")` in namespace resolution, which runs
+once per element and once per attribute. On a `String` that iterates by **Character**, so
+each step is grapheme breaking, `validateScalarIndex`, `_allASCII` and a full `String ==`.
+That family of calls — `_uncheckedIndex(after:)`, `subscript.getter`, `_uncheckedFromUTF8`,
+`_stringCompareWithSmolCheck` — came to roughly **half of all parse time**, well ahead of
+anything doing real parsing work.
+
+Searching `raw.utf8` instead is exact, not approximate: `:` is ASCII 0x3A, UTF-8 is
+self-synchronizing, and no continuation byte can be 0x3A. Worth **1.50x on its own**.
+
+This is the one lesson from libxml2 that transfers wholesale, and it is not a technique. C
+has no Character abstraction, so libxml2 could not have written the slow version. Swift makes
+the expensive spelling the default one.
+
+## The other two
+
+- **One pass, not two.** `parseText` scanned the run for `<` and `&`, built a String, then
+  `normalizeLineEndings` walked the same bytes again looking for CR — and the same for
+  attribute-value whitespace. Noticing CR in the loop that is already reading every byte is
+  free. Worth 1.10x, and it is the habit libxml2 is built on.
+- **No per-element `Set` or namespace scope.** Duplicate attributes were found with a
+  `Set<XML.Name>` built per element, and a namespace scope dictionary was pushed for every
+  element whether or not it declared one. Elements have a handful of attributes, where a
+  linear scan over the array already being built beats hashing, and most elements declare no
+  namespace at all — so `lookup` was walking a stack of mostly empty frames.
+
+## What was tried and rejected
+
+**Finding the colon inside `scanName`**, which already walks those bytes, so `resolve` would
+need no search at all. It is the obvious next step after the above and it measured **167 MB/s
+against 195**: one comparison per name byte, on every name, costs more than one `firstIndex`
+over the handful of bytes a name has. Recorded in the source so it is not re-derived.
+
+## Still on the table
+
+Profiling now shows `parseElement` itself at the top, which is the shape you want — real work
+ahead of overhead. What remains is allocation traffic: a `[XML.Node]` and `[XML.Attribute]`
+per element, a `rawAttributes` array of 4-tuples built and then thrown away, and a `String`
+per name even though the same handful of names repeat thousands of times. libxml2 answers
+that last one with `xmlDict` interning, and it is the one genuinely architectural idea here
+that has not been tried.

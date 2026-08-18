@@ -227,8 +227,11 @@ These are not style preferences. Violating any of them silently destroys the per
    binary search tree** (~⌈log₂N⌉ predicted compares). Never a linear scan. Mapping the candidate
    index to a dense enum is still worth doing — it removes the range check, and at small N one
    comparison level — but it is a small win, not the difference between a table and a scan.
-   Verified on arm64 only; re-run `Experiments/01-jump-table/sweep.sh` on x86-64 before
-   claiming it there.
+   **x86-64 measured 2026-08-20 and the threshold is NOT target-independent: a table appears
+   at N ≥ 4 for `UInt8` and N ≥ 3 for a dense enum**, so every realistic struct gets a real
+   table there while arm64 uses a search tree below ten. The constraint holds on both, with
+   more margin on x86-64. `TARGET=x86_64-apple-macosx13.0 sweep.sh` cross-emits the assembly,
+   so this needs no x86-64 machine — only throughput does.
 3. **Never capture the issue buffer in an escaping closure.** `inout [Issue]` is statically
    enforced and free; boxing it adds a `beginAccess`/`endAccess` pair per field.
 4. **Emit many medium functions, not one giant flat decode body.** (This also serves the

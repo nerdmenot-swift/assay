@@ -75,11 +75,44 @@ LLVM's heuristic is making the right call, not failing.
 4. **§4.1's warning still stands for `String`.** Nothing here tests string switching;
    `_findStringSwitchCase` remains a linear scan and the macro must never emit one.
 
-## Caveat
+## x86-64, measured 2026-08-20 — and the threshold is NOT target-independent
 
-Verified on arm64 only. x86-64 SimplifyCFG uses the same `SwitchToLookupTable` /
-jump-table machinery and the threshold is target-independent in LLVM's source, but the
-sweep has not been re-run there. Re-run `sweep.sh` on x86-64 before claiming it.
+The caveat this section used to carry said x86-64 "uses the same `SwitchToLookupTable`
+machinery and the threshold is target-independent in LLVM's source", and asked for the sweep
+to be re-run before claiming it. Re-run:
+
+| N | arm64 `UInt8` | arm64 enum | x86-64 `UInt8` | x86-64 enum |
+|---|---|---|---|---|
+| 2 | — | — | — | — |
+| 3 | — | — | — | **table** |
+| 4 | — | — | **table** | table |
+| 5–8 | — | — | table | table |
+| 10+ | **table** | **table** | table | table |
+
+**x86-64 forms a jump table at N ≥ 4 for a `UInt8` switch and N ≥ 3 for a dense enum, where
+arm64 needs 10.** The guess that the threshold was target-independent was wrong: LLVM's
+lookup-table decision runs through `TargetTransformInfo`, and the two targets price an
+indirect branch differently.
+
+**This strengthens the design rather than complicating it.** The macro's dispatch is a real
+table on x86-64 for every realistic struct, and a balanced binary search tree — never a
+linear scan — on arm64 below ten fields. Hard constraint 2 holds on both, with more margin on
+x86-64 than on the machine it was written on.
+
+It also confirms the note that mapping the candidate index to a dense enum is worth doing:
+on x86-64 the enum reaches a table one arm *earlier* than the raw `UInt8`, because the
+range check the enum removes is itself part of what SimplifyCFG is pricing.
+
+### How it was checked without an x86-64 machine
+
+`TARGET=x86_64-apple-macosx13.0 ./sweep.sh` **cross-emits** the assembly. Nothing is run, so
+no emulator, SDK or second machine is involved — and code generation is precisely the class
+of question that can be answered without executing anything. The `Benchmarks` workflow runs
+the same sweep natively on an x86-64 runner, which is a check on this method rather than the
+other way round.
+
+Throughput is a different matter and still needs real hardware: emulated or cross-emitted
+timings describe the emulator.
 
 ## Reproduce
 
@@ -87,6 +120,7 @@ sweep has not been re-run there. Re-run `sweep.sh` on x86-64 before claiming it.
 ./gen.sh const && swiftc -O -emit-ir switches.swift      -o switches.ll   # 1a: constant arms
 ./gen.sh code   && swiftc -O -S      switches_code.swift  -o switches_code.s # 1b: divergent code
 ./sweep.sh                                                                     # 1c: threshold
+TARGET=x86_64-apple-macosx13.0 ./sweep.sh    # 1c on another architecture, cross-emitted
 ```
 
 **Note on 1a:** the first attempt used `acc += 1000 + i` case bodies. Those are affine in

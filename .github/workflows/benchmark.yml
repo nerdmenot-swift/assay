@@ -1,0 +1,150 @@
+name: Benchmarks
+
+# SEPARATE FROM CI, and not on every push, deliberately.
+#
+# `ci.yml` gates. This does not: it collects numbers. Wall clock on a shared hosted runner
+# is noise wearing a number's clothes, and `CLAUDE.md`'s honesty rules are explicit that CI
+# may be gated on allocation counts and never on time. So every timing here is published to
+# the job summary and nothing fails because a number moved.
+#
+# It exists because every published ratio in this repository was one arm64 Mac for the
+# project's whole life, and each one said so. A stated caveat is not a measurement. Docker
+# on an Apple Silicon host closed the Linux half (`Benchmarks/linux-bench.sh`, 2026-08-15)
+# and could not close the x86-64 half at all: there is no x86-64 hardware there and
+# emulation would time the emulator.
+#
+# The most valuable thing here is NOT throughput. It is `codegen`, below.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, Monday 04:00 UTC. Often enough to catch a toolchain regression, rare enough
+    # that a scheduled job nobody reads is not burning an hour of runner time a day.
+    - cron: '0 4 * * 1'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # THE ONE THAT MATTERS. `Experiments/01-jump-table` established that LLVM lowers a dense
+  # integer switch to a real jump table at N >= 10 and to a balanced binary search tree
+  # below it — never a linear scan. That result is load-bearing: `CLAUDE.md`'s hard
+  # constraint 2 rests on it, and the macro's whole dispatch strategy follows from it.
+  #
+  # It was verified on arm64 only, and `CLAUDE.md` has said so ever since. This settles it,
+  # because a claim about CODE GENERATION checked on one target is the kind this repository
+  # is meant to refuse.
+  #
+  # The sweep exits nonzero if it cannot find the generated symbols in the assembly, so a
+  # silently-empty result cannot be mistaken for "no jump table".
+  codegen:
+    name: Jump-table threshold (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    container: swift:6.3.3
+    continue-on-error: ${{ matrix.optional }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86-64
+            runner: ubuntu-latest
+            optional: false
+          # ARM Linux runners are not available on every plan; treated the way ci.yml
+          # treats Windows and Android — run it, do not block on it.
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            optional: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sweep the switch-arm count
+        id: sweep
+        run: |
+          set -o pipefail
+          Experiments/01-jump-table/sweep.sh 2>&1 | tee /tmp/sweep.txt
+      - name: Publish
+        if: always()
+        run: |
+          {
+            echo "## Jump-table threshold — ${{ matrix.arch }}"
+            echo ""
+            echo '`jmptbl` counts indirect branches; `cmps` counts comparisons. A jump table'
+            echo 'appears when the first becomes nonzero. On arm64 the threshold is N >= 10.'
+            echo ""
+            echo '```'
+            cat /tmp/sweep.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Throughput, collected and published. Never gated.
+  #
+  # AssayBench does exit nonzero on a live-allocation threshold, and that check is real —
+  # but it self-disables off Darwin, because glibc's mallinfo2 reports bytes with no block
+  # count and the harness reports "unavailable" rather than guessing. So on Linux this job
+  # fails only on a build error or a crash.
+  throughput:
+    name: Throughput (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    container: swift:6.3.3
+    continue-on-error: ${{ matrix.optional }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86-64
+            runner: ubuntu-latest
+            optional: false
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            optional: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate the corpus
+        working-directory: Benchmarks
+        run: swift run -c release CorpusGen
+      - name: Run the sweep
+        working-directory: Benchmarks
+        run: |
+          set -o pipefail
+          swift run -c release AssayBench 2>&1 | tee /tmp/bench.txt
+      - name: Publish
+        if: always()
+        run: |
+          {
+            echo "## Throughput — ${{ matrix.arch }}, Linux"
+            echo ""
+            echo '**Ratios only.** A shared two-core hosted runner cannot produce a'
+            echo 'meaningful absolute timing, but every ratio here is measured against a'
+            echo 'baseline running on the same box under the same conditions, so a slow or'
+            echo 'contended host slows both sides. Compare the RATIO column across runs and'
+            echo 'across architectures; ignore the nanoseconds.'
+            echo ""
+            echo '```'
+            grep -E "mean|^struct decode|^prefix|^generic value|allocation gate" \
+              /tmp/bench.txt || true
+            echo '```'
+            echo ""
+            echo "<details><summary>Full output</summary>"
+            echo ""
+            echo '```'
+            cat /tmp/bench.txt
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep the raw numbers
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ matrix.arch }}
+          path: /tmp/bench.txt
+          retention-days: 90
+
+# NOT DONE HERE, and each for a reason:
+#
+#   * No gating on time. See the header, and CLAUDE.md's honesty rules.
+#   * No `.instructions` / PMU counters. `perf_event_open` fails on hosted runners, there
+#     is no PMU, and package-benchmark silently reports zero — a check that cannot fail is
+#     worse than no check.
+#   * No comparison against a stored baseline. Runner hardware changes underneath you, so
+#     a drift threshold against last week's absolute numbers would fire on GitHub's fleet
+#     rather than on this code.

@@ -187,10 +187,11 @@ extension XML {
             }
 
             let nameStart = r.byteOffset
-            guard let rawName = scanName(&r) else {
+            guard let nameRange = scanNameRange(&r) else {
                 r.report(&sink, .custom("xml_bad_name"))
                 return nil
             }
+            let rawName = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
 
             // Attributes are parsed OUT OF LINE, in `scanAttributes` below. That is a
             // stack decision, not a tidiness one: `parseElement` recurses, so every byte in
@@ -209,7 +210,7 @@ extension XML {
             if pushedScope { namespaces.append(scope) }
             defer { if pushedScope { namespaces.removeLast() } }
 
-            let name = resolve(rawName, isAttribute: false)
+            let name = resolve(r, nameRange, isAttribute: false)
             var attributes: [XML.Attribute] = []
             attributes.reserveCapacity(rawAttributes.count)
             // Duplicates are found by scanning what has been appended already, not with a
@@ -217,11 +218,12 @@ extension XML {
             // contiguous array beats hashing — and the Set was a heap allocation per
             // element for a check that almost never fires.
             for (nameRange, v, span, valueSpan) in rawAttributes {
-                let n = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
-                let resolved = resolve(n, isAttribute: true)
+                let resolved = resolve(r, nameRange, isAttribute: true)
                 // Duplicate attributes are a well-formedness error in XML, unlike
                 // duplicate child elements which are ordinary.
                 if attributes.contains(where: { $0.name == resolved }) {
+                    // Cold: build the reported name only when there is something to report.
+                    let n = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
                     sink.add(Issue(code: .duplicateKey,
                                    path: [.key(rawName), .key(n)],
                                    received: n, location: span))
@@ -455,14 +457,33 @@ extension XML {
         /// step and it measured **167 MB/s against 195** — one comparison per name byte, on
         /// every name, costs more than one `firstIndex` over the handful of bytes a name
         /// has. Do not re-derive it.
-        func resolve(_ raw: String, isAttribute: Bool) -> XML.Name {
-            let utf8 = raw.utf8
-            guard let colon = utf8.firstIndex(of: UInt8(ascii: ":")) else {
-                if isAttribute { return XML.Name(raw) }
-                return XML.Name(raw, namespaceURI: lookup(""))
+        /// Split a possibly-prefixed name and attach its namespace.
+        ///
+        /// **The colon is found in the SOURCE BYTES, not in the String.** Both
+        /// `String.firstIndex` and `String.utf8.firstIndex` walk a view with a
+        /// representation check per byte — the first is grapheme-based and was half of all
+        /// parse time, and the second, which replaced it, still measured 236 samples and
+        /// was the third largest cost in the parser. Reading `r.byte(absolute:)` over a
+        /// range already in hand is the same number of byte comparisons through a plain
+        /// bounds-checked load, and it builds no intermediate String for the unprefixed
+        /// case — which is nearly every name.
+        ///
+        /// Third time on this one function. `String`'s convenient spellings are convenient.
+        func resolve(
+            _ r: borrowing AssayReader, _ range: Range<Int>, isAttribute: Bool
+        ) -> XML.Name {
+            var colonAt = -1
+            for i in range where unsafe r.byte(absolute: i) == UInt8(ascii: ":") {
+                colonAt = i
+                break
             }
-            let prefix = String(raw[raw.startIndex..<colon])
-            let local = String(raw[utf8.index(after: colon)...])
+            guard colonAt >= 0 else {
+                let whole = unsafe r.string(from: range.lowerBound, to: range.upperBound)
+                if isAttribute { return XML.Name(whole) }
+                return XML.Name(whole, namespaceURI: lookup(""))
+            }
+            let prefix = unsafe r.string(from: range.lowerBound, to: colonAt)
+            let local = unsafe r.string(from: colonAt + 1, to: range.upperBound)
             if prefix == "xml" {
                 return XML.Name(local, namespaceURI: "http://www.w3.org/XML/1998/namespace")
             }

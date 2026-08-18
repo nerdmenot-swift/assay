@@ -1069,7 +1069,30 @@ allocation is no longer what this parser spends its time on. It would be a large
 change bought with a stale measurement. Recorded so the idea is not picked up again from the
 older text.
 
-## Where the remaining 13% is, and why it is not reachable
+## Round three: the same function, a third time
+
+`resolve` has now been the top or near-top cost three separate times, and each fix uncovered
+the next layer of the same mistake.
+
+| spelling | cost |
+|---|---|
+| `raw.firstIndex(of: ":")` on a `String` | ~half of all parse time |
+| `raw.utf8.firstIndex(of: ":")` | 236 samples, third largest |
+| `r.byte(absolute:)` over the range already in hand | gone |
+
+`String.utf8` looks like a byte view and is not: it carries a representation check per byte,
+which is the same trap `FormatValidators` hit. Searching the SOURCE bytes over a range the
+scanner already produced is the same number of comparisons through a plain bounds-checked
+load, and it builds no intermediate `String` for the unprefixed case — which is nearly every
+name. **+3.6%.**
+
+Also tried, and worth 0.5%: hoisting the pointer out of the closure passed to
+`String(unsafeUninitializedCapacity:)`, so it captures two trivial values rather than
+reaching through a `~Copyable` `self`. Structurally right and almost free of benefit — the
+samples a profile attributes to `partial apply for closure #1` there are the memcpy itself,
+not thunk overhead. Recorded so it is not chased twice.
+
+## Where the remaining gap is, and why it is not reachable
 
 String construction and release is roughly **43% of parse time**, and that is structural
 rather than sloppy: `XML.Node` owns its Strings because it is a public `Sendable`, `Hashable`

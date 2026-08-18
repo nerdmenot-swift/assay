@@ -58,10 +58,14 @@ extension AssayReader {
 
     /// The no-escape path. Capacity is the exact byte count, so ≤15-byte values stay in
     /// the small-string representation: no allocation, no retain/release, no validation.
+    /// The pointer is hoisted out of the closure; see `AssayReader.string(from:to:)` for
+    /// why. `base + offset` written inside the closure captures `self`, which is
+    /// `~Copyable`, and the closure stops specializing.
     @inlinable @inline(__always)
     func makeString(at offset: Int, count n: Int) -> String {
-        unsafe String(unsafeUninitializedCapacity: n) { buffer in
-            unsafe buffer.baseAddress!.update(from: base + offset, count: n)
+        let src = unsafe base + offset
+        return unsafe String(unsafeUninitializedCapacity: n) { buffer in
+            unsafe buffer.baseAddress!.update(from: src, count: n)
             return n
         }
     }

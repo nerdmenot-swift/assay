@@ -8,6 +8,11 @@ name: CI
 #
 # So every flag below is set explicitly, including the ones that are already the default,
 # so that the matrix is readable as a claim rather than inferred from an absence.
+#
+# Windows and Android live in `unverified-platforms.yml`, not here. They have never been
+# run, so they must not be able to fail a release they have never participated in — and
+# `continue-on-error` cannot express that, because it is not a permitted key on a job that
+# calls a reusable workflow. A separate workflow is how "reports, does not gate" is spelled.
 
 on:
   push:
@@ -37,19 +42,6 @@ jobs:
       # real bug — AssayYAML/AssayXML importing Assay without declaring it.
       swift_flags: "--explicit-target-dependency-import-check error"
 
-  # Windows has NEVER run (the honesty rules forbid claiming it), so it must not be able
-  # to block a release it has never participated in. It reports, it does not gate;
-  # the day it is green and stays green, delete continue-on-error and move it back into
-  # the required job.
-  windows:
-    name: Windows (unverified — non-blocking)
-    continue-on-error: true
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@main
-    with:
-      enable_linux_checks: false
-      enable_windows_checks: true
-      enable_macos_checks: false
-
   # Static Linux (musl). Worth its own job because it is the configuration most likely to
   # expose an accidental libc or dlopen dependency.
   static-linux:
@@ -60,20 +52,6 @@ jobs:
       enable_windows_checks: false
       enable_macos_checks: false
       enable_linux_static_sdk_build: true
-
-  # Android, on an emulator. Macro cross-compilation to Android was the historical blocker
-  # and was fixed in SwiftPM #8670. Same posture as Windows: never run, so non-blocking
-  # until it has a green history.
-  android:
-    name: Android (unverified — non-blocking)
-    continue-on-error: true
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@main
-    with:
-      enable_linux_checks: false
-      enable_windows_checks: false
-      enable_macos_checks: false
-      enable_android_sdk_build: true
-      enable_android_sdk_checks: true
 
   # WebAssembly. Scoped to the Foundation-free targets: AssayFoundation needs file I/O
   # that WASI only provides behind an explicit directory mount.

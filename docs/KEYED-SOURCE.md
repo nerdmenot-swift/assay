@@ -55,9 +55,15 @@ columns and your struct has 8" is not a foundation for a decode path.
 
 The whole appeal was zero-copy: a row view pointing into a page the driver already has. A
 genuinely zero-copy row view is `~Escapable`, and `AssayReader` already faced this exact
-question and refused it — `@_lifetime` is `SUPPRESSIBLE_EXPERIMENTAL_FEATURE(Lifetimes)`
-with no accepted proposal, and a `~Escapable` type in the public surface would put an
-experimental-feature gate on the entire library.
+question and refused it.
+
+**The reason recorded at the time — that it would put an experimental-feature gate on the
+whole library — is measurably wrong**, and the correction is worth having because the real
+reason is stronger. As of Swift 6.3.3 a client consumes a `~Escapable` public type with no
+feature flag at all. What actually binds is value semantics: `Array` requires `Escapable`, so
+a `~Escapable` row cannot be an element of anything, cannot be stored in an escapable struct,
+cannot be `Equatable`, and cannot outlive the scope that made it. A protocol whose associated
+values are `~Escapable` constrains every caller to one closure.
 
 So the protocol was `~Copyable` only, and the sources that most wanted it structurally could
 not conform. It was designed for a caller it could not accept.

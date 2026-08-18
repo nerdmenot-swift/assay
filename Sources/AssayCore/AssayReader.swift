@@ -17,11 +17,21 @@
 // PHASE-1 DEVIATION, deliberate and documented:
 // docs/PERFORMANCE.md §3.3 specifies a `RawSpan`-backed `~Escapable` reader. This uses a
 // raw pointer behind a safe façade instead, following the recommendation in
-// docs/research/perf-swift-codegen.md §4.6 / §10 item 20: `@_lifetime` is still
-// `SUPPRESSIBLE_EXPERIMENTAL_FEATURE(Lifetimes)` with no accepted proposal, and a
-// `~Escapable` reader would put an experimental-feature gate on the whole library.
-// The public API takes bytes and never exposes a pointer, so the seam can move to
-// `RawSpan` without a source break once `Lifetimes` ships un-gated.
+// docs/research/perf-swift-codegen.md §4.6 / §10 item 20. The reason recorded there was
+// that `@_lifetime` is experimental and a `~Escapable` type "would put a feature gate on
+// the whole library".
+//
+// **That half is measurably wrong, as of Swift 6.3.3 (checked 2026-08-19).** A client
+// package consumes a `~Escapable` public type and calls its methods with no
+// `enableExperimentalFeature` at all, and the escape check still fires. The gate binds only
+// a client writing its own `@lifetime` annotation.
+//
+// The deviation stands on the other, stronger reason: `Escapable` is what `Array`,
+// `Optional`, `Equatable` and every ordinary stored property require. A `~Escapable` reader
+// would have to stay inside one scope and could never be held — which is fine for a reader
+// passed `inout` and never stored, and is exactly why this type is `~Copyable` only. The
+// public API takes bytes and never exposes a pointer, so the seam can still move to
+// `RawSpan` without a source break.
 //===----------------------------------------------------------------------===//
 
 /// A borrowed view of the input. Valid only for the duration of the enclosing

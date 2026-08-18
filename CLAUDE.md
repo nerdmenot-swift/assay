@@ -372,6 +372,19 @@ Swift — do not put numbers for those anywhere.
   "musl's allocator is slow" argument is stale.
 - `withUnsafeTemporaryAllocation`'s stack cliff is **1024 bytes**, not 4 KB.
 - `String(unsafeUninitializedCapacity:)` is **SE-0263**, not SE-0309.
+- **A `~Escapable` public type does NOT gate its clients** (verified 2026-08-19, Swift 6.3.3).
+  `AssayReader.swift` and `docs/KEYED-SOURCE.md` both say a `~Escapable` type in the public
+  surface "would put an experimental-feature gate on the whole library". Measured: a client
+  package **consumes** one and calls its methods with no `enableExperimentalFeature` at all,
+  and the escape check still fires — returning a borrowed view from a client function is a
+  compile error. The gate only binds a client that wants to write its OWN `@lifetime`
+  annotation. That premise has aged; the toolchain moved.
+- **The real reason to refuse `~Escapable` in this API is value semantics, and it is
+  decisive.** `Array` requires `Escapable`, so a node cannot have `children: [Node]` — the
+  whole tree must become index- or pointer-linked. It cannot be stored in any escapable
+  struct, cannot conform to `Equatable`/`Hashable`, and everything must happen inside the
+  parsing closure. That is not a flag; it is a different product, and it is why the answer is
+  "add a second API" rather than "reverse the decision".
 - Foundation's `XMLParser` on Linux does **not** use Obj-C bridging. Do not assert it. It is
   `swift-corelibs-foundation`'s `FoundationXML` over **libxml2**, and it is fast: Assay's XML
   parser measures 0.54× against it on Linux while measuring 1.30× on Darwin. "Assay's XML is

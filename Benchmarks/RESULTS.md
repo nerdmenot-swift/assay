@@ -1092,6 +1092,38 @@ reaching through a `~Copyable` `self`. Structurally right and almost free of ben
 samples a profile attributes to `partial apply for closure #1` there are the memcpy itself,
 not thunk overhead. Recorded so it is not chased twice.
 
+## Round four: two ideas measured, both closed
+
+**`children.reserveCapacity(4)` is optimal, and now measured rather than guessed.**
+`XML.Node` is 57 bytes with a stride of 64, so reserving four slots claims 256 bytes per
+element and a leaf with one text child uses 64 of them. That sounds wasteful enough to be
+worth tuning, and it is not:
+
+| reserve | MB/s |
+|---|---|
+| none | 191.3 |
+| 1 | 194.3 |
+| 2 | 200.2 |
+| **4** | **207.9** |
+| 8 | 203.0 |
+
+**Shrinking `XML.Name` cannot be done.** The idea was to store the namespace as an index into
+a per-document table and expose `namespaceURI` as a computed property — halving the
+refcounted fields on every element, and shrinking `Name` from 32 bytes to about 20, which
+would take `XML.Node`'s stride from 64 to 48 and cut array traffic by a quarter.
+
+The prize is real but small: a document with a realistic 61-byte namespace URI parses **4-5%
+slower** than the same document with an 11-byte one, at identical node count, because a URI
+under sixteen bytes lives in Swift's small-string form and is not refcounted at all while a
+longer one is retained once per name.
+
+It is not reachable. A computed `namespaceURI` needs the table; reaching the table from a
+`Name` costs a stored reference, which is the field being eliminated — 16 bytes of `String?`
+for 8 bytes of table reference plus 4 of index saves four bytes and adds an ARC field and a
+lifetime hazard. The alternative, moving the accessor to the document
+(`doc.uri(of: name)` instead of `name.namespaceURI`), is an API change that makes the common
+case worse to use. Measured, closed, and written down.
+
 ## Where the remaining gap is, and why it is not reachable
 
 String construction and release is roughly **43% of parse time**, and that is structural

@@ -1021,25 +1021,65 @@ ten — so the eight-byte loop rarely completes an iteration and the three broad
 are pure setup. It is the same lesson `docs/PERFORMANCE.md` §14 recorded when retiring the
 SIMD phase for JSON: the scan was not where the time was.
 
-## Still on the table
+## Interning: measured, and REJECTED
 
-**Flat node storage**, which is where the profile actually points. `XML.Element` holds
-`children: [XML.Node]`, so every element with children allocates an array, and array growth
-is the largest remaining cost by a wide margin. roxmltree stores an entire document in one
-flat vector with parent/child links as indices; nothing is allocated per node. That is a real
-redesign of `XML.Node` — it can keep owned Strings and stay `Sendable`/`Hashable`, so it does
-not collide with the `~Escapable` refusal, but the public shape becomes a view over flat
-storage rather than a nested enum.
+libxml2's `xmlDict` interns names, so a document saying `<tag>` a thousand times allocates
+one string and compares by pointer. It is the most-cited idea in fast XML parsing, and the
+profile pointed straight at it: String construction (625 samples) plus the ARC release that
+follows (662) together beat the parsing itself.
 
-**In-situ parsing**, which pugixml and RapidXML use to beat libxml2 by 2-4x, is NOT available
-here. They point into a mutable copy of the input and null-terminate it in place, so nodes
-borrow rather than own. In Swift that means `~Escapable` in the public surface, which this
-library refused for `AssayReader` and again for `KeyedSource`. The 2-4x is real and it is not
-reachable without paying a price already declined twice.
+Built properly — a direct-mapped cache keyed on the name's bytes, hash never trusted without
+a byte comparison, storing each name **already split** at its colon so a repeat never
+searches again.
 
-**`String` interning.** The same handful of names repeat thousands of times in any real document
-and each one is constructed fresh; libxml2 answers this with `xmlDict`, where repeated names
-share an allocation and comparison becomes pointer equality. It is the one genuinely
-architectural idea here that has not been tried, and it is a bigger change than anything
-above — Swift's small-string form already avoids the heap for names under 16 bytes, so the
-win is narrower than it is in C and would need measuring before it is believed.
+| | mean, tree vs tree |
+|---|---|
+| no cache | **0.87x** |
+| 512-slot cache | 0.54x |
+| 64-slot cache | 0.43x |
+
+**Worse, and worse again when made smaller.** Two reasons, both about Swift rather than
+about caching:
+
+1. **The setup is not free.** Five parallel arrays of 512 slots is ~25 KB allocated and
+   zeroed per parse. A 2.5 KB document measured **0.26x** — the cache cost ten times what
+   the parse did. Shrinking to 64 slots trades that for collisions, so the miss path pays
+   hash, verification *and* construction: 0.43x.
+2. **The thing being cached is already cheap.** Swift's small-string form keeps any name
+   under 16 bytes off the heap entirely, so building `tag` is a register-width copy.
+   `xmlDict` wins in C because there every string is a `malloc`. Hashing n bytes and then
+   verifying n bytes, through a bounds-checked accessor, cannot beat a memcpy of n bytes
+   that never touches the allocator.
+
+The general lesson outlasts the specific result: **a technique that is decisive in C can be a
+pessimisation in Swift, and the reason is usually that the stdlib already solved the problem
+the technique exists for.** The same shape appeared in `FormatValidators`, where walking
+`String.utf8` "to avoid an allocation" was slower than the allocation.
+
+## Flat node storage: no longer indicated
+
+An earlier version of this document named it as the next step. That was written against a
+profile taken BEFORE `children.reserveCapacity(4)` landed, and it does not survive the one
+taken after: `_ArrayBuffer._consumeAndCreateNew` has dropped out of the top thirteen
+entirely.
+
+roxmltree's design — one vector for the whole document, parent and child links as indices,
+nothing allocated per node — removes per-element array allocation, and per-element array
+allocation is no longer what this parser spends its time on. It would be a large public-API
+change bought with a stale measurement. Recorded so the idea is not picked up again from the
+older text.
+
+## Where the remaining 13% is, and why it is not reachable
+
+String construction and release is roughly **43% of parse time**, and that is structural
+rather than sloppy: `XML.Node` owns its Strings because it is a public `Sendable`, `Hashable`
+value type that outlives the input buffer.
+
+libxml2 does not pay that. pugixml and RapidXML pay less still — they parse **in situ**,
+mutating a copy of the input to terminate names in place and storing pointers into it, which
+is how they beat libxml2 by 2-4x. Every one of those designs has nodes that BORROW the input.
+
+In Swift that is `~Escapable` in the public surface. This library refused it for
+`AssayReader`, refused it again for `KeyedSource`, and `docs/KEYED-SOURCE.md` records what
+the second refusal cost. **The remaining gap to libxml2 is, quite precisely, the price of
+that decision** — 13%, for a value type that cannot dangle.

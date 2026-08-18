@@ -26,6 +26,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Inside a `container:`, GitHub runs steps under `sh -e`, not bash — and dash has no
+# `set -o pipefail`, so every step using it dies with "Illegal option" before running a
+# single command. Declaring the shell once here fixes all four jobs; the swift images
+# all ship bash.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   # THE ONE THAT MATTERS. `Experiments/01-jump-table` established that LLVM lowers a dense
   # integer switch to a real jump table at N >= 10 and to a balanced binary search tree
@@ -72,7 +80,7 @@ jobs:
             echo 'appears when the first becomes nonzero. On arm64 the threshold is N >= 10.'
             echo ""
             echo '```'
-            cat /tmp/sweep.txt
+            cat /tmp/sweep.txt 2>/dev/null || echo "(the sweep produced nothing)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -121,13 +129,13 @@ jobs:
             echo ""
             echo '```'
             grep -E "mean|^struct decode|^prefix|^generic value|allocation gate" \
-              /tmp/bench.txt || true
+              /tmp/bench.txt 2>/dev/null || echo "(no benchmark output)"
             echo '```'
             echo ""
             echo "<details><summary>Full output</summary>"
             echo ""
             echo '```'
-            cat /tmp/bench.txt
+            cat /tmp/bench.txt 2>/dev/null || echo "(none)"
             echo '```'
             echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -138,6 +146,7 @@ jobs:
           name: benchmark-${{ matrix.arch }}
           path: /tmp/bench.txt
           retention-days: 90
+          if-no-files-found: ignore
 
 # NOT DONE HERE, and each for a reason:
 #

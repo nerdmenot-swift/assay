@@ -981,9 +981,63 @@ it survives even though the optimisation it carries is marginal: the extraction 
 robustness fix. Before it, the parser was one modest addition away from this failure, and
 nothing said so.
 
+## Tree against tree: the honest number is 0.87x, not 0.54x
+
+**2026-08-19.** Every XML ratio published above compares Assay — which builds and KEEPS a
+document tree — against Foundation's `XMLParser`, which runs a counting delegate and keeps
+nothing. The asymmetry was stated each time, but a stated caveat is not a measurement, and
+"0.54x against libxml2" was never a like-for-like claim.
+
+Linking libxml2 directly and calling `xmlReadMemory`, so both sides build a full tree and
+free it inside the timed region:
+
+| records | bytes | libxml2 ns | Assay ns | ratio |
+|---|---|---|---|---|
+| 10 | 2,549 | 11,372 | 12,034 | 0.94x |
+| 50 | 12,629 | 48,038 | 58,134 | 0.83x |
+| 200 | 50,862 | 188,777 | 226,790 | 0.83x |
+| 800 | 204,595 | 772,335 | 869,079 | 0.89x |
+
+**mean 0.87x.** libxml2 is about 15% ahead at the same job — not the 85% the SAX comparison
+implied. Both parse the same documents and the element counts are asserted equal before
+timing. (macOS, system libxml2 from the SDK; the harness is a throwaway package linking
+`libxml-2.0`, not committed, because vendoring libxml2 the way `CYYJSON` is vendored is a far
+larger undertaking than the number justifies.)
+
+That reframes what is left to do. 15% is within reach; 85% would not have been.
+
+## Tried and rejected: word-at-a-time structural scanning
+
+quick-xml uses `memchr` to find `<`, and the same trick works without intrinsics — the SWAR
+test `(v &- 0x0101…) & ~v & 0x8080…` finds a zero byte, so applied to `v ^ needle` it finds a
+needle, and three needles (`<`, `&`, CR) are three ORed tests over one loaded word.
+
+Implemented, correct, all 393 tests pass, and **worth nothing**: 202.7 MB/s before, 202.2
+after, with the libxml2 ratio unmoved at 0.87x.
+
+The reason is the shape of real XML rather than anything wrong with the technique. Text runs
+in a document are mostly SHORT — `<tag>alpha</tag>` is five bytes, an element name is under
+ten — so the eight-byte loop rarely completes an iteration and the three broadcast constants
+are pure setup. It is the same lesson `docs/PERFORMANCE.md` §14 recorded when retiring the
+SIMD phase for JSON: the scan was not where the time was.
+
 ## Still on the table
 
-`String` interning. The same handful of names repeat thousands of times in any real document
+**Flat node storage**, which is where the profile actually points. `XML.Element` holds
+`children: [XML.Node]`, so every element with children allocates an array, and array growth
+is the largest remaining cost by a wide margin. roxmltree stores an entire document in one
+flat vector with parent/child links as indices; nothing is allocated per node. That is a real
+redesign of `XML.Node` — it can keep owned Strings and stay `Sendable`/`Hashable`, so it does
+not collide with the `~Escapable` refusal, but the public shape becomes a view over flat
+storage rather than a nested enum.
+
+**In-situ parsing**, which pugixml and RapidXML use to beat libxml2 by 2-4x, is NOT available
+here. They point into a mutable copy of the input and null-terminate it in place, so nodes
+borrow rather than own. In Swift that means `~Escapable` in the public surface, which this
+library refused for `AssayReader` and again for `KeyedSource`. The 2-4x is real and it is not
+reachable without paying a price already declined twice.
+
+**`String` interning.** The same handful of names repeat thousands of times in any real document
 and each one is constructed fresh; libxml2 answers this with `xmlDict`, where repeated names
 share an allocation and comparison becomes pointer equality. It is the one genuinely
 architectural idea here that has not been tried, and it is a bigger change than anything

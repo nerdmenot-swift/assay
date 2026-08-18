@@ -192,49 +192,13 @@ extension XML {
                 return nil
             }
 
-            // Attributes are parsed before the name is resolved, because xmlns bindings
-            // declared on this element apply to the element's own name.
-            // Two spans per attribute: the whole `name="value"` for a duplicate-attribute
-            // report, and the VALUE alone for a schema caret. A schema issue is about the
-            // value, so underlining the name with it would point at the wrong thing.
-            var rawAttributes: [(String, String, SourceSpan, SourceSpan)] = []
+            // Attributes are parsed OUT OF LINE, in `scanAttributes` below. That is a
+            // stack decision, not a tidiness one: `parseElement` recurses, so every byte in
+            // its frame is paid `maxDepth` times over. See the note on `scanAttributes`.
+            var rawAttributes: [(Range<Int>, String, SourceSpan, SourceSpan)] = []
             var scope: [String: String] = [:]
-
-            while true {
-                skipSpace(&r)
-                guard let c = r.currentByte else {
-                    r.report(&sink, .custom("xml_unterminated_tag"))
-                    return nil
-                }
-                if c == UInt8(ascii: ">") || c == UInt8(ascii: "/") { break }
-
-                let attrStart = r.byteOffset
-                guard let aName = scanName(&r) else {
-                    r.report(&sink, .custom("xml_bad_attribute_name"))
-                    return nil
-                }
-                skipSpace(&r)
-                guard r.consume("=") else {
-                    r.report(&sink, .custom("xml_expected_equals"))
-                    return nil
-                }
-                skipSpace(&r)
-                let valueStart = r.byteOffset
-                guard let aValue = parseAttributeValue(&r, &sink) else { return nil }
-                // Inside the quotes, which is what a caret should underline.
-                let valueSpan = SourceSpan(lo: valueStart + 1,
-                                           len: max(0, r.byteOffset - valueStart - 2))
-
-                if aName == "xmlns" {
-                    scope[""] = aValue
-                } else if aName.hasPrefix("xmlns:") {
-                    scope[String(aName.dropFirst(6))] = aValue
-                } else {
-                    rawAttributes.append(
-                        (aName, aValue,
-                         SourceSpan(lo: attrStart, len: r.byteOffset - attrStart),
-                         valueSpan))
-                }
+            guard scanAttributes(&r, &sink, into: &rawAttributes, scope: &scope) else {
+                return nil
             }
 
             // Push a scope ONLY when this element declares one. Most elements declare no
@@ -252,7 +216,8 @@ extension XML {
             // Set. Elements have a handful of attributes, where a linear scan over a
             // contiguous array beats hashing — and the Set was a heap allocation per
             // element for a check that almost never fires.
-            for (n, v, span, valueSpan) in rawAttributes {
+            for (nameRange, v, span, valueSpan) in rawAttributes {
+                let n = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
                 let resolved = resolve(n, isAttribute: true)
                 // Duplicate attributes are a well-formedness error in XML, unlike
                 // duplicate child elements which are ordinary.
@@ -281,6 +246,11 @@ extension XML {
             let contentStart = r.byteOffset
 
             var children: [XML.Node] = []
+            // Elements with children usually have several, and the profile showed this
+            // array's 1->2->4 growth chain as the largest single source of allocation in
+            // the parser. A leaf over-reserves three slots of a transient buffer, which is
+            // cheaper than the reallocations it avoids everywhere else.
+            children.reserveCapacity(4)
             var contentEnd = contentStart
 
             while true {
@@ -347,6 +317,111 @@ extension XML {
                                contentSpan: SourceSpan(
                                    lo: contentStart,
                                    len: max(0, contentEnd - contentStart)))
+        }
+
+        /// Parse an element's attributes, up to the `>` or `/>`.
+        ///
+        /// **`@inline(never)`, and that is load-bearing.** `parseElement` is recursive, so
+        /// its frame size is multiplied by `Limits.maxDepth` — 64 by default. This loop's
+        /// locals inlined into it grew that frame past what a thread stack allows, and a
+        /// 5,000-deep document then died with SIGBUS inside the amplification suite, nowhere
+        /// near the code that caused it. Swift Testing runs on threads with far less stack
+        /// than the main thread, which is what made it visible at all.
+        ///
+        /// The rule this is an instance of: **in a recursive descent parser, keep the
+        /// recursive function's frame small.** Work that does not itself recurse belongs
+        /// behind a call.
+        ///
+        /// Names are collected as byte RANGES rather than Strings. Most attribute names are
+        /// examined and discarded — `xmlns` and `xmlns:foo` are namespace declarations that
+        /// never become attributes — and building a String for each, then asking
+        /// `hasPrefix("xmlns:")` (Character-based, with the same cost `firstIndex` had) and
+        /// `String(dropFirst(6))`, is allocation and grapheme walking to throw the result
+        /// away. It also keeps the tuple free of a second String, so the array needs no ARC.
+        @inline(never)
+        mutating func scanAttributes(
+            _ r: inout AssayReader,
+            _ sink: inout IssueSink,
+            into rawAttributes: inout [(Range<Int>, String, SourceSpan, SourceSpan)],
+            scope: inout [String: String]
+        ) -> Bool {
+            while true {
+                skipSpace(&r)
+                guard let c = r.currentByte else {
+                    r.report(&sink, .custom("xml_unterminated_tag"))
+                    return false
+                }
+                if c == UInt8(ascii: ">") || c == UInt8(ascii: "/") { return true }
+
+                let attrStart = r.byteOffset
+                guard let aRange = scanNameRange(&r) else {
+                    r.report(&sink, .custom("xml_bad_attribute_name"))
+                    return false
+                }
+                skipSpace(&r)
+                guard r.consume("=") else {
+                    r.report(&sink, .custom("xml_expected_equals"))
+                    return false
+                }
+                skipSpace(&r)
+                let valueStart = r.byteOffset
+                guard let aValue = parseAttributeValue(&r, &sink) else { return false }
+                // Inside the quotes, which is what a caret should underline.
+                let valueSpan = SourceSpan(lo: valueStart + 1,
+                                           len: max(0, r.byteOffset - valueStart - 2))
+
+                if bytes(r, aRange, equal: "xmlns") {
+                    scope[""] = aValue
+                } else if bytes(r, aRange, hasPrefix: "xmlns:") {
+                    scope[r.string(from: aRange.lowerBound + 6, to: aRange.upperBound)] = aValue
+                } else {
+                    rawAttributes.append(
+                        (aRange, aValue,
+                         SourceSpan(lo: attrStart, len: r.byteOffset - attrStart),
+                         valueSpan))
+                }
+            }
+        }
+
+        /// A name's byte RANGE, without building a `String` for it.
+        mutating func scanNameRange(_ r: inout AssayReader) -> Range<Int>? {
+            guard let first = r.currentByte, isNameStart(first) else { return nil }
+            let start = r.byteOffset
+            while let c = r.currentByte, isNameChar(c) { r.advanceBy(1) }
+            return start..<r.byteOffset
+        }
+
+        /// Whether the bytes in `range` are exactly `literal`.
+        @inline(never)
+        func bytes(_ r: borrowing AssayReader, _ range: Range<Int>,
+                   equal literal: StaticString) -> Bool {
+            let n = literal.utf8CodeUnitCount
+            guard range.count == n else { return false }
+            return unsafe bytesMatch(r, range.lowerBound, literal, n)
+        }
+
+        /// Whether the bytes in `range` begin with `literal`.
+        @inline(never)
+        func bytes(_ r: borrowing AssayReader, _ range: Range<Int>,
+                   hasPrefix literal: StaticString) -> Bool {
+            let n = literal.utf8CodeUnitCount
+            guard range.count >= n else { return false }
+            return unsafe bytesMatch(r, range.lowerBound, literal, n)
+        }
+
+        @inline(never)
+        func bytesMatch(
+            _ r: borrowing AssayReader, _ start: Int, _ literal: StaticString, _ n: Int
+        ) -> Bool {
+            let p = unsafe literal.utf8Start
+            var i = 0
+            while i < n {
+                guard let b = r.byte(absolute: start + i), unsafe b == p[i] else {
+                    return false
+                }
+                i += 1
+            }
+            return true
         }
 
         // MARK: Namespace resolution

@@ -947,11 +947,45 @@ need no search at all. It is the obvious next step after the above and it measur
 against 195**: one comparison per name byte, on every name, costs more than one `firstIndex`
 over the handful of bytes a name has. Recorded in the source so it is not re-derived.
 
+## Round two: allocations, and a lesson that cost more than the speedup
+
+Profiling after round one put `parseElement` itself at the top — real work ahead of
+overhead, which is the shape you want — with array growth as the largest remaining cost.
+`_ArrayBuffer._consumeAndCreateNew` traced to three arrays built per element.
+
+**`children.reserveCapacity(4)` is the whole win: 1.08x.** The 1→2→4 reallocation chain was
+the single biggest allocation source in the parser. A leaf element over-reserves three slots
+of a transient buffer, which is cheaper than the two reallocations it saves everywhere else.
+
+**Deferring attribute names to byte ranges is NOT worth it, and is kept only because the
+refactor around it is.** The idea is sound — most attribute names are examined and discarded,
+since `xmlns` and `xmlns:foo` are declarations rather than attributes, so building a String
+and then asking `hasPrefix("xmlns:")` (Character-based, the same cost `firstIndex` had) is
+allocation and grapheme walking to throw the answer away. Measured: **+0.9% on ordinary
+documents and +2% on attribute-heavy ones**. That is the honest number.
+
+### The lesson, which is worth more than either
+
+Moving that loop's locals into `parseElement` **blew the stack**. Not on a huge document — on
+a 5,000-deep one, where the depth guard stops recursion at `Limits.maxDepth` (64) long before
+anything is materialised. It surfaced as `SIGBUS` in the *amplification* suite, nowhere near
+the code that caused it, and only because Swift Testing runs on threads with far less stack
+than the main thread.
+
+> **In a recursive descent parser, the recursive function's frame size is multiplied by the
+> depth limit.** `parseElement` at `maxDepth` 64 must fit its frame in a thread stack 64
+> times over. Inlining into it is a cost paid 64 times.
+
+`scanAttributes` is therefore `@inline(never)` and takes its locals with it, and that is why
+it survives even though the optimisation it carries is marginal: the extraction is a
+robustness fix. Before it, the parser was one modest addition away from this failure, and
+nothing said so.
+
 ## Still on the table
 
-Profiling now shows `parseElement` itself at the top, which is the shape you want — real work
-ahead of overhead. What remains is allocation traffic: a `[XML.Node]` and `[XML.Attribute]`
-per element, a `rawAttributes` array of 4-tuples built and then thrown away, and a `String`
-per name even though the same handful of names repeat thousands of times. libxml2 answers
-that last one with `xmlDict` interning, and it is the one genuinely architectural idea here
-that has not been tried.
+`String` interning. The same handful of names repeat thousands of times in any real document
+and each one is constructed fresh; libxml2 answers this with `xmlDict`, where repeated names
+share an allocation and comparison becomes pointer equality. It is the one genuinely
+architectural idea here that has not been tried, and it is a bigger change than anything
+above — Swift's small-string form already avoids the heap for names under 16 bytes, so the
+win is narrower than it is in C and would need measuring before it is believed.

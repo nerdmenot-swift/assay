@@ -48,16 +48,8 @@
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
-// `mallinfo2` is declared in malloc.h, which the Glibc module does not re-export, so it is
-// invisible to `import Glibc` alone. Declaring the shape here is the portable way to reach
-// it — only `uordblks` is read, and only for a bytes figure the gate never asserts on.
-private struct CMallinfo2 {
-    var arena: Int = 0, ordblks: Int = 0, smblks: Int = 0, hblks: Int = 0
-    var hblkhd: Int = 0, usmblks: Int = 0, fsmblks: Int = 0, uordblks: Int = 0
-    var fordblks: Int = 0, keepcost: Int = 0
-}
-@_silgen_name("mallinfo2") private func c_mallinfo2() -> CMallinfo2
 #endif
+import CHeapBytes
 
 struct AllocationSnapshot {
     /// Live heap blocks, or nil where the platform does not expose a count.
@@ -84,8 +76,13 @@ struct AllocationSnapshot {
         }
         return AllocationSnapshot(blocks: blocks, bytes: bytes)
         #elseif canImport(Glibc)
-        let info = c_mallinfo2()
-        return AllocationSnapshot(blocks: nil, bytes: info.uordblks)
+        // Through a C shim, NOT a `@_silgen_name` declaration of `mallinfo2` itself.
+        // That call returns a ten-field struct by value, and the ABI for that is
+        // target-specific — aarch64 uses registers, x86-64 SysV a hidden pointer. Declaring
+        // the struct in Swift worked on aarch64 and corrupted memory on x86-64, where the
+        // benchmark died in `swift_release` during teardown with no hint of the cause. It
+        // took running on a second architecture to find, which is the argument for doing so.
+        return AllocationSnapshot(blocks: nil, bytes: Int(assay_live_heap_bytes()))
         #else
         return AllocationSnapshot(blocks: nil, bytes: 0)
         #endif

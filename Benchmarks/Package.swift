@@ -43,6 +43,9 @@ let package = Package(
                 .define("YYJSON_DISABLE_NON_STANDARD", to: "1"),
             ]
         ),
+        // A one-function C shim so a struct-returning libc call stays on the C side of the
+        // ABI boundary. See CHeapBytes.h — this is a crash fix, not a convenience.
+        .target(name: "CHeapBytes", path: "Sources/CHeapBytes"),
         // A KeyedSource in ANOTHER MODULE, to settle whether the generic entry point
         // specialises across a module boundary — which is where every real driver lives.
         .target(
@@ -87,6 +90,7 @@ let package = Package(
                 .product(name: "Yams", package: "Yams"),
                 "CorpusRender",
                 "CYYJSON",
+                "CHeapBytes",
                 "ForeignSource",
             ],
             path: "Sources/AssayBench",

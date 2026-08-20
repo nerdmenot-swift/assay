@@ -45,6 +45,26 @@ FIELDS=${FIELDS:-10}
 # single-shot spread rather than the best case.
 VALIDATED_BUDGET_MS=${VALIDATED_BUDGET_MS:-145}
 
+# THE RATIO, which is what CI can actually check.
+#
+# Everything above is absolute wall clock, and that is right for a developer: the quantity
+# they care about is how long their build takes on their machine. It is wrong for CI. A
+# shared hosted runner measured 179 ms/type against the 87 ms this budget was calibrated
+# against — the same code, twice the number, because the hardware is half the speed. Gating
+# on it there fails on GitHub's fleet rather than on this repository's code.
+#
+# `schema / codable` is the portable form of the same question: how much more does @Schema
+# cost than the thing it replaces? It still varies with hardware — 3.3x locally, 2.3x on a
+# hosted runner, because the plugin round trip and the type checker scale differently — but
+# it varies far less, and a regression that matters moves it a lot.
+#
+# Held at 6.0 against a 2.3-3.5x observed range. Deliberately loose: this is a blowup
+# detector, not a performance gate, and the absolute budget above is the tight one.
+RATIO_BUDGET=${RATIO_BUDGET:-6.0}
+
+# Set CI=1 (GitHub sets it) to check the ratio only.
+CI="${CI:-}"
+
 out=$(FIELDS="$FIELDS" ./measure.sh)
 echo "$out"
 
@@ -58,10 +78,36 @@ fi
 per_type_ms=$(awk -v s="$schema" -v t="$TYPES" 'BEGIN{ printf "%.1f", s/t*1000 }')
 
 validated_ms=$(awk -v s="$validated" -v t="$TYPES" 'BEGIN{ printf "%.1f", s/t*1000 }')
+codable=$(echo "$out" | awk -v t="$TYPES" '$1==t{print $3}')
+ratio=$(awk -v s="$schema" -v c="$codable" 'BEGIN{ printf "%.2f", (c > 0) ? s/c : 0 }')
 
 echo ""
 echo "per-type cost: ${per_type_ms} ms   budget: ${BUDGET_MS} ms"
 echo "  with rules:  ${validated_ms} ms   budget: ${VALIDATED_BUDGET_MS} ms"
+echo "vs Codable:    ${ratio}x          budget: ${RATIO_BUDGET}x"
+
+if awk -v r="$ratio" -v b="$RATIO_BUDGET" 'BEGIN{ exit !(r > b) }'; then
+  cat >&2 <<EOF
+
+GATE FAILED — @Schema cost this much more than Codable:
+
+  measured: ${ratio}x
+  budget:   ${RATIO_BUDGET}x
+
+This is the hardware-independent check, so a slow runner is not the explanation. See
+docs/COMPILE-TIME.md §3.
+EOF
+  exit 1
+fi
+
+if [ -n "$CI" ]; then
+  echo ""
+  echo "CI: the ratio is gated, the absolute milliseconds are not. They were calibrated on"
+  echo "a developer machine and a hosted runner is roughly half its speed, so an absolute"
+  echo "budget here would fail on GitHub's fleet rather than on this code."
+  echo "GATE PASSED"
+  exit 0
+fi
 
 if awk -v m="$validated_ms" -v b="$VALIDATED_BUDGET_MS" 'BEGIN{ exit !(m > b) }'; then
   cat >&2 <<EOF

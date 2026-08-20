@@ -41,6 +41,12 @@ jobs:
       # Foundation dependency" is a claim that decays silently. It has already caught one
       # real bug — AssayYAML/AssayXML importing Assay without declaring it.
       swift_flags: "--explicit-target-dependency-import-check error"
+      # The reusable workflow defaults to testing 5.9 through nightly. Package.swift
+      # declares swift-tools-version 6.2, so 5.9, 5.10, 6.0 and 6.1 cannot resolve the
+      # manifest at all — they failed on the first CI run with "using Swift tools version
+      # 6.2.0 but the installed version is 6.1.0", which is a fact about the floor rather
+      # than a regression. Listed explicitly so the supported range is a claim.
+      linux_swift_versions: '["6.2", "6.3", "nightly-main", "nightly-6.4.x"]' 
 
   # Static Linux (musl). Worth its own job because it is the configuration most likely to
   # expose an accidental libc or dlopen dependency.
@@ -98,12 +104,18 @@ jobs:
           test "$A" = "$B" || { echo "corpus is not deterministic"; exit 1; }
           echo "deterministic: $A"
 
+  # macOS, NOT Linux, and that is a known limitation rather than a preference.
+  # DiffFuzz distinguishes an NSNumber holding `true` from one holding `1` with
+  # `CFGetTypeID`, and Linux has no CoreFoundation. Benchmarks/RESULTS.md records why the
+  # portable substitute was rejected: `strcmp(n.objCType, "c")` compiles everywhere and
+  # costs about 20x on macOS, because objCType is a message send per value.
   differential-and-fuzz:
-    name: Differential vs Foundation + fuzz
-    runs-on: ubuntu-latest
-    container: swift:6.3.3
+    name: Differential vs Foundation + fuzz (macOS)
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Select a toolchain new enough for the package
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
       - name: Generate the corpus
         working-directory: Benchmarks
         run: swift run -c release CorpusGen
@@ -122,6 +134,11 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      # The image's DEFAULT Xcode ships Swift 6.1 and Package.swift declares 6.2, so
+      # `swift run` fails on the manifest before touching any code. Picking the newest
+      # Xcode present survives image updates better than pinning a version.
+      - name: Select a toolchain new enough for the package
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
       - name: Generate the corpus
         working-directory: Benchmarks
         run: swift run -c release CorpusGen

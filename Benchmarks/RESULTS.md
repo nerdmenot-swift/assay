@@ -1138,3 +1138,57 @@ In Swift that is `~Escapable` in the public surface. This library refused it for
 `AssayReader`, refused it again for `KeyedSource`, and `docs/KEYED-SOURCE.md` records what
 the second refusal cost. **The remaining gap to libxml2 is, quite precisely, the price of
 that decision** — 13%, for a value type that cannot dangle.
+
+
+---
+
+# x86-64, at last — and the XML row that flipped back
+
+**2026-08-20.** `.github/workflows/benchmark.yml`, native on a GitHub-hosted x86-64 runner.
+This closes the caveat every ratio in this file has carried since the project began.
+
+| | macOS arm64 | Linux aarch64 | **Linux x86-64** |
+|---|---|---|---|
+| struct decode vs Foundation | 8.98x | 8.64x | **10.89x** |
+| prefix + skip | 6.28x | 6.10x | 5.96x |
+| generic value model | 1.47x | 2.07x | **3.15x** |
+| `[String: T]` dictionaries | 7.25x | 6.01x | 6.50x |
+| YAML node parse vs Yams | 6.69x | 7.68x | 7.16x |
+| YAML struct decode | 11.27x | 14.02x | 13.51x |
+| **XML vs Foundation** | 2.26x | 0.54x → | **1.39x** |
+| UTF-8 validation, share of decode | 4.2% | 4.1% | 4.6% |
+
+**The thesis is strongest on x86-64.** 10.89x, against 8.98x on the machine it was developed
+on. Deleting the `Codable` boundary at compile time is not a Darwin artefact and not an arm64
+artefact.
+
+**The XML row flipped back, and that is the parser work rather than the platform.** When
+Linux was first measured (2026-08-15) XML was **0.54x** against `FoundationXML`, which is
+libxml2 — the single loss in the suite, and the reason for the optimisation rounds above. The
+same comparison now reads **1.39x**. Assay's XML parser is faster than libxml2-backed
+Foundation on Linux while building and keeping a whole document tree that Foundation's SAX
+delegate never builds.
+
+**The generic value model widens as Foundation gets slower**: 1.47x on Darwin where
+`JSONSerialization` is C, 2.07x on aarch64 Linux, 3.15x on x86-64 Linux where it is pure
+Swift. That row says more about Foundation's platform split than about Assay.
+
+## The crash that only x86-64 could find
+
+The first x86-64 run did not produce these numbers. It died with `SIGSEGV` in
+`swift_release`, inside `AllocFailures.__deallocating_deinit`, during global teardown and
+nowhere near the cause.
+
+The cause was three commits old. Getting the benchmark to build on Linux needed `mallinfo2`,
+which is declared in `malloc.h` and not re-exported by the Glibc module, so it was declared
+in Swift and reached with `@_silgen_name`. That is ABI-unsound: `mallinfo2` returns a
+ten-field struct **by value**, and how a large struct is returned is target-specific —
+aarch64 passes it in registers, x86-64 SysV passes a hidden pointer. The mismatch corrupted
+memory, and the corruption surfaced only at exit.
+
+It is now behind a one-function C shim returning a `size_t`, so the struct return never
+crosses the language boundary.
+
+That bug was written, built clean, and ran green on macOS **and** on aarch64 Linux before
+being pushed. A second *architecture* found it in one run. "Every published ratio is one
+arm64 Mac" was a caveat about numbers; it was also hiding a crash.

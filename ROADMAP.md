@@ -342,6 +342,28 @@ issue cap already covers the memory concern that motivates it.
 
 ---
 
+## Android: `AssayFoundation` does not compile there
+
+**Found 2026-08-22, by CI reporting on it for the first time.** `unverified-platforms.yml`
+builds Android and does not gate on it, which is how this surfaced:
+
+```
+Sources/AssayFoundation/MappedFile.swift:140: error: module 'Foundation' has no member named 'open'
+Sources/AssayFoundation/MappedFile.swift:159: error: cannot find 'MAP_FAILED' in scope
+```
+
+`parse(mmapped:)` reaches POSIX `open`/`mmap`/`MAP_FAILED` through whatever the platform's
+libc module happens to re-export. On Darwin that is `Foundation`; on Android it is neither
+`Foundation` nor `Glibc` but the `Android` module, and `MAP_FAILED` is a macro that does not
+survive importing on every platform in any case.
+
+Scoped to `AssayFoundation`. The core, `AssayYAML` and `AssayXML` are unaffected — this is
+the one target that touches the filesystem, which is exactly why it is a separate product.
+
+Not fixed, because Android has never been a verified platform and fixing it blind would
+produce an untested claim. The honest sequence is: make it compile, get a green Android leg,
+then move Android out of `unverified-platforms.yml` and into `ci.yml`.
+
 ## Known behavioural gaps found by the pre-release audit
 
 | gap | state |

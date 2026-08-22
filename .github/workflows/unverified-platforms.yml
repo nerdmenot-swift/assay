@@ -37,6 +37,10 @@ jobs:
       enable_linux_checks: false
       enable_windows_checks: true
       enable_macos_checks: false
+      # Same floor as the Linux matrix in ci.yml: Package.swift declares
+      # swift-tools-version 6.2, so 5.9 and 5.10 cannot resolve the manifest. Without this
+      # the report is noise about an unsupportable toolchain rather than news about Windows.
+      windows_swift_versions: '["6.2", "6.3", "nightly-main"]' 
 
   # Android, on an emulator. Macro cross-compilation to Android was the historical blocker
   # and was fixed in SwiftPM #8670. Same posture as Windows: never run, so non-blocking

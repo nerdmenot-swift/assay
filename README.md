@@ -440,16 +440,23 @@ SplitMix64 with a fixed seed, so any finding reproduces exactly, and
 
 | platform | status |
 |---|---|
-| macOS (arm64) | tested, benchmarked |
-| Linux (x86-64, aarch64) | built and tested in CI |
+| macOS (arm64) | tested and benchmarked in CI |
+| Linux (x86-64) | tested and **benchmarked** in CI |
+| Linux (aarch64) | tested in CI; benchmarked locally |
+| iOS | built for the platform in CI |
 | Static Linux SDK (musl) | cross-compiles clean, both architectures |
 | WASI (wasm32) | cross-compiles clean |
-| Windows | CI leg **enabled** (swiftlang's reusable workflow), never actually run — no remote yet, and it cannot be built from macOS |
-| Android | not verified |
+| Windows | reported, never green — `unverified-platforms.yml` |
+| Android | reported, never green — `unverified-platforms.yml` |
 
-No `platforms:` clause, so no artificial floor. Embedded Swift is explicitly not a target. Every
-build in CI passes `--explicit-target-dependency-import-check error`, which is how an undeclared
-cross-module import gets caught rather than accidentally working.
+**Apple deployment floor: macOS 11, iOS 14, tvOS 14, watchOS 7, visionOS 1.** One release
+generation, forced by `String(unsafeUninitializedCapacity:)` (SE-0263) and by swift-syntax's
+macro plugin. `platforms:` constrains Apple platforms *only* — it sets no floor on Linux,
+Windows, Android or WebAssembly, which are governed by what the toolchain supports.
+
+Embedded Swift is explicitly not a target. Every build in CI passes
+`--explicit-target-dependency-import-check error`, which is how an undeclared cross-module
+import gets caught rather than accidentally working.
 
 ---
 

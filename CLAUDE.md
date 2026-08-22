@@ -170,7 +170,9 @@ first, async runs only if sync was clean, then concurrently.
 
 ### Packaging
 Products `Assay` (core + JSON), `AssayFoundation`, `AssayYAML`, `AssayXML`. Core takes bytes, not
-`Data`. No `platforms:` clause. `Limits` (maxIssues 100, maxDepth 64, maxBytes) with
+`Data`. `platforms:` names **every** Apple platform (macOS 11 / iOS 14 / tvOS 14 / watchOS 7 /
+visionOS 1) — listing macOS alone leaves the others on SwiftPM's ancient default rather than
+unconstrained, which broke the iOS build until 2026-08-22. `Limits` (maxIssues 100, maxDepth 64, maxBytes) with
 `d.truncatedIssues`. Embedded Swift is explicitly not a target.
 
 **Decided but NOT built** — `parse(body, contentType:, accepting:)`, where `accepting:` is

@@ -5,7 +5,7 @@
 
 //
 // Deliberate choices, each with a reason in docs/:
-//   * No `platforms:` clause — see docs/research/cross-platform-audit.md.
+//   * A `platforms:` clause covering every Apple platform — see the note on it below.
 //   * No `.unsafeFlags` anywhere, ever — see CLAUDE.md → hard constraints #10.
 //   * No `-enable-library-evolution`.
 //   * AssaySIMD is a separate target so the BuiltinModule feature is contained to it.
@@ -35,7 +35,18 @@ let package = Package(
     //   * `String(unsafeUninitializedCapacity:)` (SE-0263) requires macOS 11, and it is
     //     the one-copy string construction path in AssayCore/Strings.swift.
     // macOS 11 shipped November 2020, so the practical exclusion is negligible.
-    platforms: [.macOS(.v11)],
+    //
+    // EVERY APPLE PLATFORM IS LISTED, not just macOS, and the omission was a real bug. A
+    // `platforms:` entry sets the deployment floor for the platform it names and leaves
+    // every other Apple platform on SwiftPM's ancient default — so declaring macOS alone
+    // did not "leave iOS unconstrained", it pinned iOS to a target where
+    // `String(unsafeUninitializedCapacity:)` (iOS 14) and `Span` do not exist. Building for
+    // iOS failed on availability, and it went unnoticed because the iOS CI leg required a
+    // self-hosted runner and had never actually run.
+    //
+    // The versions are one release generation: macOS 11, iOS 14, tvOS 14, watchOS 7 all
+    // shipped together and all carry SE-0263. visionOS 1 postdates all of it.
+    platforms: [.macOS(.v11), .iOS(.v14), .tvOS(.v14), .watchOS(.v7), .visionOS(.v1)],
     products: [
         .library(name: "Assay",     targets: ["Assay"]),
         // Separate products so a JSON-only user never links YAML or XML. Each currently

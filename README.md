@@ -440,14 +440,23 @@ SplitMix64 with a fixed seed, so any finding reproduces exactly, and
 
 | platform | status |
 |---|---|
-| macOS (arm64) | tested and benchmarked in CI |
-| Linux (x86-64) | tested and **benchmarked** in CI |
-| Linux (aarch64) | tested in CI; benchmarked locally |
-| iOS | built for the platform in CI |
-| Static Linux SDK (musl) | cross-compiles clean, both architectures |
-| WASI (wasm32) | cross-compiles clean |
-| Windows | reported, never green — `unverified-platforms.yml` |
-| Android | reported, never green — `unverified-platforms.yml` |
+**Three supported platforms, and every one of them gates CI.** There is no fourth category
+of "enabled, reported, allowed to fail" — a signal that is always red is not a signal.
+
+| platform | status |
+|---|---|
+| macOS (arm64) | tested and benchmarked, gating |
+| Linux (x86-64) | tested and benchmarked, gating |
+| Windows (x86-64) | tested, gating |
+| Linux (aarch64) | tested and benchmarked, gating |
+| iOS | built for the platform, gating |
+| Static Linux SDK (musl) | cross-compiles clean, both architectures, gating |
+| WASI (wasm32) | cross-compiles clean, gating |
+
+Android is **not claimed**. `AssayFoundation` does not compile there — `parse(mmapped:)`
+reaches POSIX `open`/`mmap` through whatever the platform's libc module re-exports, and on
+Android that is none of the ones it tries. `ROADMAP.md` records the gap and the sequence for
+adopting it: make it compile, get a green leg, then add it here.
 
 **Apple deployment floor: macOS 11, iOS 14, tvOS 14, watchOS 7, visionOS 1.** One release
 generation, forced by `String(unsafeUninitializedCapacity:)` (SE-0263) and by swift-syntax's

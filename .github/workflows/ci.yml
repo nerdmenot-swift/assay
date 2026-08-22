@@ -1,5 +1,24 @@
 name: CI
 
+# THREE SUPPORTED PLATFORMS — macOS, Linux, Windows — and every one of them gates.
+#
+# There used to be a fourth category: platforms enabled in CI, reported, and allowed to
+# fail. It was well-intentioned and it did not work. "Reported but not gating" is a state
+# nobody reads: Windows sat red for being tested against a Swift version below the package
+# floor, Android sat red for a real portability gap in one target, and neither was
+# distinguishable at a glance from the build being broken. A signal that is always red is
+# not a signal.
+#
+# So the rule is now binary. A platform is supported, tested and gating — or it is not
+# claimed. Android is not claimed; the gap that CI found before it was removed is written
+# down in ROADMAP.md, with the sequence for adopting it properly.
+#
+# macOS and Windows are plain jobs on GitHub-hosted runners rather than calls into
+# swiftlang's reusable workflow. That workflow's Apple legs require `[self-hosted, macos]`
+# — the Swift project's own fleet — so on any other repository they queue until the 24-hour
+# maximum and cancel the run without ever failing. Owning them is both more honest and
+# faster.
+#
 # A platform is only "supported" if CI runs the test suite on it.
 # docs/research/cross-platform-audit.md §9 is blunt about the trap here: the standard
 # swiftlang reusable workflow tests **Linux and Windows only** out of the box, and every
@@ -32,6 +51,7 @@ jobs:
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@main
     with:
       enable_linux_checks: true
+      # Windows is a plain job below, not this. See the header.
       enable_windows_checks: false
       # macOS and iOS are OFF here and covered by the two jobs below instead. The reusable
       # workflow's Apple legs declare `runs-on: [self-hosted, macos, ...]` — they are built
@@ -95,6 +115,29 @@ jobs:
             -destination 'generic/platform=iOS' \
             -skipMacroValidation \
             build
+
+  # Windows. Third of the three, and gating like the other two.
+  #
+  # A plain job on `windows-latest` with the toolchain installed by a pinned action, which
+  # is what a sibling project already runs successfully — rather than the reusable
+  # workflow's Windows leg, which was testing Swift 5.9 against a package declaring 6.2 and
+  # so could only ever fail on the manifest.
+  windows:
+    name: Test (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      # Pinned to a COMMIT, not to a branch. This is a third-party action running in a
+      # workflow on this repository; a moving ref means whoever controls that branch
+      # chooses what executes here. Bump deliberately: read the diff, then move the SHA.
+      - uses: compnerd/gha-setup-swift@eeda069c5bc95ac8a9ac5cea7d4f588ae5420ca5
+        with:
+          swift-version: swift-6.3.3-release
+          swift-build: 6.3.3-RELEASE
+      - run: swift --version
+      - name: Test
+        run: swift test --explicit-target-dependency-import-check error
 
   # Static Linux (musl). Worth its own job because it is the configuration most likely to
   # expose an accidental libc or dlopen dependency.

@@ -33,8 +33,13 @@ jobs:
     with:
       enable_linux_checks: true
       enable_windows_checks: false
-      enable_macos_checks: true
-      enable_ios_checks: true
+      # macOS and iOS are OFF here and covered by the two jobs below instead. The reusable
+      # workflow's Apple legs declare `runs-on: [self-hosted, macos, ...]` — they are built
+      # for the Swift project's own runner fleet, and a repository without one does not get
+      # a failure, it gets a job that queues forever. Eight of them held a run open for the
+      # full 24-hour maximum before GitHub cancelled it, with nothing to show.
+      enable_macos_checks: false
+      enable_ios_checks: false
       enable_freebsd_checks: false
       # The single most useful flag in the whole cross-platform survey: it turns an
       # accidental transitive import into a build failure. Without it, "AssayCore has no
@@ -47,6 +52,49 @@ jobs:
       # 6.2.0 but the installed version is 6.1.0", which is a fact about the floor rather
       # than a regression. Listed explicitly so the supported range is a claim.
       linux_swift_versions: '["6.2", "6.3", "nightly-main", "nightly-6.4.x"]' 
+
+  # macOS, on a GitHub-hosted runner. This is the leg the reusable workflow cannot provide
+  # here, and it is not optional: `A platform is only "supported" if CI runs the test suite
+  # on it` is the first line of this file.
+  macos:
+    name: Test (macOS)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select a toolchain new enough for the package
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+      - run: swift --version
+      - name: Test
+        run: swift test --explicit-target-dependency-import-check error
+
+  # iOS, build only. A package cannot be *tested* on a simulator without a scheme and a
+  # destination, but it can be built for the platform, which is what catches an accidental
+  # AppKit or process-level dependency.
+  ios:
+    name: Build (iOS)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select a toolchain new enough for the package
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+      # The scheme is DISCOVERED, not hard-coded. Xcode generates `<package>-Package` for
+      # a SwiftPM package, but that name is a convention rather than a guarantee, and a
+      # workflow that guesses it fails with "scheme not found" — which reads like a broken
+      # build rather than a broken workflow.
+      - name: Build for iOS
+        run: |
+          set -euo pipefail
+          SCHEME=$(xcodebuild -list -json | python3 -c \
+            'import json,sys; d=json.load(sys.stdin); \
+             w=d.get("workspace") or d.get("project"); \
+             print(next(s for s in w["schemes"] if s.endswith("-Package")))')
+          echo "scheme: $SCHEME"
+          xcodebuild -scheme "$SCHEME" \
+            -destination 'generic/platform=iOS' \
+            -skipMacroValidation \
+            build
 
   # Static Linux (musl). Worth its own job because it is the configuration most likely to
   # expose an accidental libc or dlopen dependency.
@@ -77,6 +125,7 @@ jobs:
 
   # The compile-time budget, gated. docs/COMPILE-TIME.md §2.
   compile-time:
+    timeout-minutes: 60
     name: Compile-time budget
     runs-on: ubuntu-latest
     container: swift:6.3.3
@@ -89,6 +138,7 @@ jobs:
   # being byte-identical across regenerations, so this is a prerequisite rather than a
   # nicety.
   corpus:
+    timeout-minutes: 60
     name: Corpus determinism
     runs-on: ubuntu-latest
     container: swift:6.3.3
@@ -110,6 +160,7 @@ jobs:
   # portable substitute was rejected: `strcmp(n.objCType, "c")` compiles everywhere and
   # costs about 20x on macOS, because objCType is a message send per value.
   differential-and-fuzz:
+    timeout-minutes: 60
     name: Differential vs Foundation + fuzz (macOS)
     runs-on: macos-15
     steps:
@@ -130,6 +181,7 @@ jobs:
   # count at all, so on Linux the counter reports "unavailable" and disables itself rather
   # than guessing. Running it here would be decorative.
   allocations:
+    timeout-minutes: 60
     name: Allocation gate (macOS)
     runs-on: macos-15
     steps:

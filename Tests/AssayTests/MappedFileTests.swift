@@ -11,6 +11,8 @@ import AssayFoundation
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
+#elseif os(Windows)
+import ucrt
 #endif
 
 // NOTE: no `import Foundation` here, deliberately. swift-testing's Foundation integration
@@ -39,8 +41,33 @@ struct MappedDoc {
     var items: [MappedItem]
 }
 
-/// Write bytes to a temp file, hand over the path, remove it afterwards. POSIX rather
-/// than FileManager, for the reason in the header.
+// The file operations, per platform. POSIX rather than FileManager for the reason in the
+// header, which means Windows needs its own spelling: ucrt has the same calls under
+// underscored names, and `_O_BINARY` matters there because the C runtime otherwise
+// translates newlines and the byte count stops matching the file.
+#if os(Windows)
+private func osCreate(_ path: String) -> Int32 {
+    path.withCString {
+        _open($0, _O_CREAT | _O_WRONLY | _O_TRUNC | _O_BINARY, _S_IREAD | _S_IWRITE)
+    }
+}
+private func osWrite(_ fd: Int32, _ p: UnsafeRawPointer, _ n: Int) {
+    _ = _write(fd, p, UInt32(n))
+}
+private func osClose(_ fd: Int32) { _ = _close(fd) }
+private func osUnlink(_ path: String) { _ = path.withCString { _unlink($0) } }
+#else
+private func osCreate(_ path: String) -> Int32 {
+    path.withCString { open($0, O_CREAT | O_WRONLY | O_TRUNC, 0o644) }
+}
+private func osWrite(_ fd: Int32, _ p: UnsafeRawPointer, _ n: Int) {
+    _ = write(fd, p, n)
+}
+private func osClose(_ fd: Int32) { _ = close(fd) }
+private func osUnlink(_ path: String) { _ = path.withCString { unlink($0) } }
+#endif
+
+/// Write bytes to a temp file, hand over the path, remove it afterwards.
 private func withTempFile(
     _ bytes: [UInt8],
     _ body: (String) throws -> Void
@@ -48,21 +75,30 @@ private func withTempFile(
     let dir = ProcessInfoShim.tempDir
     let path = "\(dir)/assay-mmap-\(UInt64.random(in: 0..<(.max))).json"
 
-    let fd = path.withCString { open($0, O_CREAT | O_WRONLY | O_TRUNC, 0o644) }
+    let fd = osCreate(path)
     #expect(fd >= 0, "could not create \(path)")
     if !bytes.isEmpty {
-        _ = bytes.withUnsafeBufferPointer { write(fd, $0.baseAddress!, $0.count) }
+        bytes.withUnsafeBufferPointer { osWrite(fd, $0.baseAddress!, $0.count) }
     }
-    _ = close(fd)
-    defer { _ = path.withCString { unlink($0) } }
+    osClose(fd)
+    defer { osUnlink(path) }
 
     try body(path)
 }
 
 private enum ProcessInfoShim {
     static var tempDir: String {
+        // Forward slashes work as separators throughout the Windows API, so the path this
+        // builds is valid there without any joining logic of its own.
+        #if os(Windows)
+        for name in ["TEMP", "TMP"] {
+            if let t = name.withCString({ getenv($0) }) { return String(cString: t) }
+        }
+        return "C:/Windows/Temp"
+        #else
         if let t = getenv("TMPDIR") { return String(cString: t) }
         return "/tmp"
+        #endif
     }
 }
 

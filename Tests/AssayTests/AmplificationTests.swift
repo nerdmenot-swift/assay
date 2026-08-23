@@ -249,23 +249,17 @@ struct AmplificationTests {
 @Schema struct AmpTrimmed { @Preprocess(.trim) var s: String }
 @Schema(unknownKeys: .warn) struct AmpWarned { var known: Int = 0 }
 
-#if canImport(Darwin)
-import Darwin
-#elseif canImport(Glibc)
-import Glibc
-#endif
-
-/// Minimal monotonic clock, so this file does not import Foundation — the test target
-/// deliberately does not (swift-testing's Foundation overlay carries a macOS 13 floor).
-private enum DispatchTime {
-    struct Instant { var uptimeNanoseconds: UInt64 }
-    static func now() -> Instant {
-        var ts = timespec()
-        clock_gettime(CLOCK_MONOTONIC, &ts)
-        return Instant(uptimeNanoseconds: UInt64(ts.tv_sec) * 1_000_000_000
-                       + UInt64(ts.tv_nsec))
-    }
-}
+// A monotonic clock, from Dispatch rather than from `clock_gettime`.
+//
+// This file must not import Foundation: swift-testing's Foundation overlay carries a
+// macOS 13 floor, and importing it would raise the whole package's `platforms:` — and so
+// every CONSUMER's deployment floor — because of a test dependency.
+//
+// The previous shim called `clock_gettime` directly, which is POSIX and does not exist on
+// Windows; it broke the Windows leg the day that leg started gating. Dispatch ships on
+// Darwin, Linux and Windows alike, is not Foundation, and has no availability floor worth
+// the name.
+import Dispatch
 
 // MARK: - XML entity expansion
 //

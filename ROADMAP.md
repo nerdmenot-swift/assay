@@ -342,6 +342,40 @@ issue cap already covers the memory concern that motivates it.
 
 ---
 
+## Windows: the library builds, the test target crashes the compiler
+
+**Found 2026-08-27, the day Windows started gating.** `swift build` succeeds — every
+product, every target, warnings only. `swift test` does not get that far: compiling the
+test target ends in
+
+```
+error: fatalError
+```
+
+with no source location, after the macro plugin has already emitted expansion warnings for
+`YAMLEncodingTests.swift`. So the plugin produced its output and something downstream died.
+
+What is known:
+
+- **It is not the library.** `Sources/` compiles clean on Windows, which is the coverage the
+  job now gates on.
+- **It is not an explicit trap in the macro.** `AssayMacros` contains no `fatalError`, and
+  its only force-unwraps are dictionary lookups on keys inserted a line earlier.
+- **The suspect is expansion SIZE.** It dies around a
+  `@Schema(keys: .snakeCase, formats: .all, encodes: true)` type carrying nested structs, an
+  array of them, and a `[String: Int]` — three decode bodies plus three encode bodies, the
+  largest single expansion in the repository. Windows threads default to a 1 MB stack where
+  Unix gives 8 MB, and swift-syntax walks generated source recursively. The same shape is
+  already noted for WebAssembly in `ci.yml`: its toolset bumps the stack to 16 MB precisely
+  because a recursive parser blows the default.
+
+Not diagnosed further because it cannot be reproduced off Windows and each CI iteration is
+slow. The next step is to narrow it: build the test target with the `formats: .all,
+encodes: true` types reduced one at a time until it compiles, which identifies whether size
+is really the trigger.
+
+Until then Windows is **built and gating, not tested**, and the README says exactly that.
+
 ## Android: `AssayFoundation` does not compile there
 
 **Found 2026-08-22, by CI reporting on it for the first time.** `unverified-platforms.yml`

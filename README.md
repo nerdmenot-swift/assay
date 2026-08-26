@@ -447,7 +447,7 @@ of "enabled, reported, allowed to fail" — a signal that is always red is not a
 |---|---|
 | macOS (arm64) | tested and benchmarked, gating |
 | Linux (x86-64) | tested and benchmarked, gating |
-| Windows (x86-64) | tested, gating |
+| Windows (x86-64) | **built** and gating; tests blocked by a toolchain crash — `ROADMAP.md` |
 | Linux (aarch64) | tested and benchmarked, gating |
 | iOS | built for the platform, gating |
 | Static Linux SDK (musl) | cross-compiles clean, both architectures, gating |

@@ -58,8 +58,9 @@ jobs:
           - arch: x86-64
             runner: ubuntu-latest
             optional: false
-          # ARM Linux runners are not available on every plan; treated the way ci.yml
-          # treats Windows and Android — run it, do not block on it.
+          # ARM Linux runners are not available on every plan, so this leg reports without
+          # blocking. That is acceptable HERE and not in ci.yml: this workflow gates on
+          # nothing at all, so an optional job inside it changes no promise.
           - arch: arm64
             runner: ubuntu-24.04-arm
             optional: true

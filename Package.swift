@@ -23,8 +23,8 @@ import CompilerPluginSupport
 let package = Package(
     name: "Assay",
     // `platforms:` CONSTRAINS APPLE PLATFORMS ONLY. It sets no floor and imposes no
-    // requirement on Linux, Windows, Android or WebAssembly — those are governed entirely
-    // by what the toolchain supports. This line is not a statement that Assay is
+    // requirement on Linux, Windows or WebAssembly — those are governed entirely by what
+    // the toolchain supports. This line is not a statement that Assay is
     // Apple-only; it is the Apple deployment floor and nothing else.
     // (docs/research/cross-platform-audit.md §9.)
     //

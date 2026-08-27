@@ -1031,9 +1031,13 @@ for any of these in Assay's documentation.** Every figure in this document belon
 else's C, C++, Rust or Go, and is cited as evidence about *architecture*, not as a prediction
 about Assay's Swift.
 
-Three of five target platforms cannot be meaningfully benchmarked at all — Android emulator and
-Wasm timing are not trustworthy, and Windows has no CI story here. The honest fallback on those
-platforms is the allocation count, which is why §12.4 makes it the gate rather than a nice-to-have.
+Some target platforms cannot be meaningfully benchmarked at all — Wasm timing is not
+trustworthy, and Windows currently builds without running the test suite. The honest fallback
+there is the allocation count, which is why §12.4 makes it the gate rather than a nice-to-have.
+
+**Updated 2026-08-20:** Linux and x86-64 are now measured on real hardware, so the "one arm64
+Mac" caveat that qualified every ratio in this document is retired for those. See
+`Benchmarks/RESULTS.md`.
 
 ---
 

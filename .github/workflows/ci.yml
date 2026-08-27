@@ -4,14 +4,11 @@ name: CI
 #
 # There used to be a fourth category: platforms enabled in CI, reported, and allowed to
 # fail. It was well-intentioned and it did not work. "Reported but not gating" is a state
-# nobody reads: Windows sat red for being tested against a Swift version below the package
-# floor, Android sat red for a real portability gap in one target, and neither was
-# distinguishable at a glance from the build being broken. A signal that is always red is
-# not a signal.
+# nobody reads — a leg that is always red is indistinguishable at a glance from the build
+# being broken, so it stops being read at all, which is the opposite of what the category
+# was for.
 #
-# So the rule is now binary. A platform is supported, tested and gating — or it is not
-# claimed. Android is not claimed; the gap that CI found before it was removed is written
-# down in ROADMAP.md, with the sequence for adopting it properly.
+# So the rule is binary. A platform is supported, tested and gating — or it is not claimed.
 #
 # macOS and Windows are plain jobs on GitHub-hosted runners rather than calls into
 # swiftlang's reusable workflow. That workflow's Apple legs require `[self-hosted, macos]`
@@ -28,10 +25,10 @@ name: CI
 # So every flag below is set explicitly, including the ones that are already the default,
 # so that the matrix is readable as a claim rather than inferred from an absence.
 #
-# Windows and Android live in `unverified-platforms.yml`, not here. They have never been
-# run, so they must not be able to fail a release they have never participated in — and
-# `continue-on-error` cannot express that, because it is not a permitted key on a job that
-# calls a reusable workflow. A separate workflow is how "reports, does not gate" is spelled.
+# One trap worth keeping, because it costs a whole CI run to rediscover: `continue-on-error`
+# is NOT a permitted key on a job that calls a reusable workflow. GitHub rejects the entire
+# file at parse time, so every other job silently fails to run too — and `yaml.safe_load`
+# accepts it happily, which means local validation will not catch it.
 
 on:
   push:
@@ -44,8 +41,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Linux + Windows + macOS + iOS. Android and Wasm are separate jobs below because they
-  # need different scoping.
+  # The Linux test matrix. macOS, iOS and Windows are plain jobs below; the cross-compile
+  # SDK legs (musl, wasm) stay here because this workflow installs those SDKs for us.
   test:
     name: Test
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@main

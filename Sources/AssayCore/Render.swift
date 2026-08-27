@@ -30,12 +30,8 @@ import Darwin
 import ucrt
 #elseif canImport(Glibc)
 @preconcurrency import Glibc
-#elseif canImport(Android)
-@preconcurrency import Android
 #elseif canImport(Musl)
 @preconcurrency import Musl
-#elseif canImport(Bionic)
-@preconcurrency import Bionic
 #elseif canImport(WASILibc)
 @preconcurrency import WASILibc
 #endif

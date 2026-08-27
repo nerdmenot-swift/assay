@@ -376,28 +376,6 @@ is really the trigger.
 
 Until then Windows is **built and gating, not tested**, and the README says exactly that.
 
-## Android: `AssayFoundation` does not compile there
-
-**Found 2026-08-22, by CI reporting on it for the first time.** `unverified-platforms.yml`
-builds Android and does not gate on it, which is how this surfaced:
-
-```
-Sources/AssayFoundation/MappedFile.swift:140: error: module 'Foundation' has no member named 'open'
-Sources/AssayFoundation/MappedFile.swift:159: error: cannot find 'MAP_FAILED' in scope
-```
-
-`parse(mmapped:)` reaches POSIX `open`/`mmap`/`MAP_FAILED` through whatever the platform's
-libc module happens to re-export. On Darwin that is `Foundation`; on Android it is neither
-`Foundation` nor `Glibc` but the `Android` module, and `MAP_FAILED` is a macro that does not
-survive importing on every platform in any case.
-
-Scoped to `AssayFoundation`. The core, `AssayYAML` and `AssayXML` are unaffected — this is
-the one target that touches the filesystem, which is exactly why it is a separate product.
-
-Not fixed, because Android has never been a verified platform and fixing it blind would
-produce an untested claim. The honest sequence is: make it compile, get a green Android leg,
-then move Android out of `unverified-platforms.yml` and into `ci.yml`.
-
 ## Known behavioural gaps found by the pre-release audit
 
 | gap | state |
@@ -445,7 +423,6 @@ Not features, but they are equally part of "done":
 | gap | what is missing |
 |---|---|
 | **Windows** | The CI leg is enabled and has never run — the repository has no remote. Cannot be built from macOS either, so every Windows claim is unverified. |
-| **Android** | Same: the emulator job is configured, and has never run. |
 | **x86-64 Linux performance** | CI builds and tests there; no benchmark numbers. Every published ratio is one arm64 Mac. |
 | ~~**SIMD decoder comparison**~~ | **Closed 2026-08-08.** Measured against yyjson (hand-tuned C, `-O3`): **0.65×** on the use-case arm, **0.78×** on float-dense, **0.06×** DOM-vs-DOM. The predicted loss arrived and is published in `Benchmarks/RESULTS.md`. Still not compared to simdjson itself (C++, needs an interop shim) or to ZippyJSON. |
 | **Multi-megabyte documents** | Outside the target band and unmeasured. The corpus stops at 64 kB. |

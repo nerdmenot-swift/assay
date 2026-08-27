@@ -453,15 +453,10 @@ of "enabled, reported, allowed to fail" — a signal that is always red is not a
 | Static Linux SDK (musl) | cross-compiles clean, both architectures, gating |
 | WASI (wasm32) | cross-compiles clean, gating |
 
-Android is **not claimed**. `AssayFoundation` does not compile there — `parse(mmapped:)`
-reaches POSIX `open`/`mmap` through whatever the platform's libc module re-exports, and on
-Android that is none of the ones it tries. `ROADMAP.md` records the gap and the sequence for
-adopting it: make it compile, get a green leg, then add it here.
-
 **Apple deployment floor: macOS 11, iOS 14, tvOS 14, watchOS 7, visionOS 1.** One release
 generation, forced by `String(unsafeUninitializedCapacity:)` (SE-0263) and by swift-syntax's
 macro plugin. `platforms:` constrains Apple platforms *only* — it sets no floor on Linux,
-Windows, Android or WebAssembly, which are governed by what the toolchain supports.
+Windows or WebAssembly, which are governed by what the toolchain supports.
 
 Embedded Swift is explicitly not a target. Every build in CI passes
 `--explicit-target-dependency-import-check error`, which is how an undeclared cross-module

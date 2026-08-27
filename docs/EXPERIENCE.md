@@ -987,7 +987,7 @@ No `platforms:` clause in the manifest, following swift-nio, swift-log, swift-co
 
 ### What "supported" would have to mean
 
-A platform is only supported if continuous integration runs the test suite on it. The intended matrix is Linux, Windows, macOS, iOS, Android (on an emulator), WebAssembly and static-Linux/musl. Worth noting, because it is a trap: the standard Swift package testing workflow tests **Linux and Windows only** out of the box. Every other platform is an opt-in flag that defaults to false, which is how libraries end up claiming a platform list nobody ever ran.
+A platform is only supported if continuous integration runs the test suite on it. The matrix is Linux, macOS, Windows, iOS, WebAssembly and static-Linux/musl. Android is **not** a target. Worth noting, because it is a trap: the standard Swift package testing workflow tests **Linux and Windows only** out of the box. Every other platform is an opt-in flag that defaults to false, which is how libraries end up claiming a platform list nobody ever ran.
 
 Two specific things that will bite otherwise: WebAssembly needs an increased stack size, because the default is too small for a recursive-descent parser and the failure looks like a mysterious trap rather than a stack overflow. And the most common Swift setup action for CI does not support Windows at all — it throws an error saying so.
 

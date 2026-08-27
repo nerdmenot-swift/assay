@@ -87,21 +87,25 @@ jobs:
           Write-Host "probe exit: $LASTEXITCODE"
           Pop-Location
 
-      - name: "Probe 3 — verbose test-target build"
+      # WARNINGS SUPPRESSED. The generated decode bodies emit hundreds of
+      # "trailing closure is confusable" warnings, and the first attempt at this probe
+      # printed a 120-line tail that was every one of them and none of the error.
+      - name: "Probe 3 — test-target build, errors only"
         continue-on-error: true
         run: |
-          swift build --build-tests -v 2>&1 | Tee-Object -FilePath build.log | Out-Null
+          swift build --build-tests -Xswiftc -suppress-warnings 2>&1 |
+            Tee-Object -FilePath build.log
           Write-Host "exit: $LASTEXITCODE"
-          Write-Host "===== last 120 lines ====="
-          Get-Content build.log -Tail 120
 
-      - name: "Probe 3b — anything that looks like a crash"
+      - name: "Probe 3b — every error line, wherever it is in the log"
         if: always()
         continue-on-error: true
         run: |
           if (Test-Path build.log) {
-            Write-Host "===== crash-shaped lines ====="
-            Select-String -Path build.log `
-              -Pattern 'fatalError|Assertion|Stack dump|crashed|0x[0-9a-f]{8}|Segmentation|access violation|swift-frontend|plugin' `
-              | Select-Object -Last 60 | ForEach-Object { $_.Line }
+            Write-Host "log lines: $((Get-Content build.log).Count)"
+            Write-Host "===== lines containing 'error' ====="
+            Select-String -Path build.log -Pattern 'error' -CaseSensitive:$false |
+              ForEach-Object { $_.Line } | Select-Object -First 40
+            Write-Host "===== last 40 lines ====="
+            Get-Content build.log -Tail 40
           }

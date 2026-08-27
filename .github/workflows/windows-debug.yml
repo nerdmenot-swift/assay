@@ -1,0 +1,107 @@
+name: Windows debug
+
+# TEMPORARY. Delete once the Windows test-target crash is diagnosed.
+#
+# `swift test` on Windows ends in `error: fatalError` with no source location, after the
+# macro plugin has already emitted expansion warnings. That message says almost nothing, so
+# this runs three probes in one job to separate the possibilities:
+#
+#   1. Does the library still build?           (expected: yes — it does today)
+#   2. Does a MINIMAL package with one big     (isolates expansion size from everything
+#      `formats: .all, encodes: true` type      else in the test target)
+#      crash on its own?
+#   3. What does a verbose test-target build   (the actual failing command, and whatever
+#      actually print?                          the compiler or plugin writes to stderr)
+#
+# Manual dispatch only. It gates nothing and is not part of CI.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  diagnose:
+    name: Diagnose
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: compnerd/gha-setup-swift@eeda069c5bc95ac8a9ac5cea7d4f588ae5420ca5
+        with:
+          swift-version: swift-6.3.3-release
+          swift-build: 6.3.3-RELEASE
+      - run: swift --version
+
+      - name: "Probe 1 — library builds"
+        run: swift build 2>&1 | Select-Object -Last 5
+
+      # A package small enough that nothing else can be blamed. If this crashes, expansion
+      # size is the trigger and the test target is incidental. If it passes, the cause is
+      # something specific to the test target and this narrows it enormously.
+      - name: "Probe 2 — one large expansion, alone"
+        continue-on-error: true
+        run: |
+          New-Item -ItemType Directory -Force -Path probe/Sources/probe | Out-Null
+          @'
+          // swift-tools-version: 6.2
+          import PackageDescription
+          let package = Package(
+            name: "probe",
+            platforms: [.macOS(.v11), .iOS(.v14), .tvOS(.v14), .watchOS(.v7), .visionOS(.v1)],
+            dependencies: [.package(path: "..")],
+            targets: [.executableTarget(name: "probe", dependencies: [
+              .product(name: "Assay", package: "assay"),
+              .product(name: "AssayYAML", package: "assay"),
+              .product(name: "AssayXML", package: "assay")])])
+          '@ | Set-Content probe/Package.swift
+
+          @'
+          import Assay
+          import AssayCore
+
+          @Schema(keys: .snakeCase, formats: .all, encodes: true)
+          struct Inner: Equatable { var a: String; var b: Int }
+
+          @Schema(keys: .snakeCase, formats: .all, encodes: true)
+          struct Big: Equatable {
+              var name: String
+              var count: Int
+              var ratio: Double
+              var flag: Bool
+              var tags: [String] = []
+              var counts: [String: Int] = [:]
+              var nested: Inner
+              var items: [Inner] = []
+          }
+          print(Big.self)
+          '@ | Set-Content probe/Sources/probe/main.swift
+
+          Push-Location probe
+          swift build 2>&1 | Select-Object -Last 40
+          Write-Host "probe exit: $LASTEXITCODE"
+          Pop-Location
+
+      - name: "Probe 3 — verbose test-target build"
+        continue-on-error: true
+        run: |
+          swift build --build-tests -v 2>&1 | Tee-Object -FilePath build.log | Out-Null
+          Write-Host "exit: $LASTEXITCODE"
+          Write-Host "===== last 120 lines ====="
+          Get-Content build.log -Tail 120
+
+      - name: "Probe 3b — anything that looks like a crash"
+        if: always()
+        continue-on-error: true
+        run: |
+          if (Test-Path build.log) {
+            Write-Host "===== crash-shaped lines ====="
+            Select-String -Path build.log `
+              -Pattern 'fatalError|Assertion|Stack dump|crashed|0x[0-9a-f]{8}|Segmentation|access violation|swift-frontend|plugin' `
+              | Select-Object -Last 60 | ForEach-Object { $_.Line }
+          }

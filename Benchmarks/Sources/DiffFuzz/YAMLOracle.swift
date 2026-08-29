@@ -38,12 +38,15 @@ import Yams
 
 /// The shared vocabulary: what both parsers agree a document means, once resolved.
 ///
-/// `Sendable` is spelled out for the reason `CorpusGen/JSON.swift` documents at length: a
-/// recursive enum with a tuple payload containing itself sends the compiler's implicit
-/// Sendable inference into a cycle, and the error it produces names no file. This one had
-/// not tripped yet only because nothing forced the lookup; three lines declaring a
-/// `[(String, YValue)]` local in this module reproduced it exactly. Do not remove it.
-indirect enum YValue: Equatable, Sendable, CustomStringConvertible {
+/// `Member` is a named struct rather than the `(String, YValue)` tuple this used to carry.
+/// `CorpusGen/JSON.swift` documents the failure at length: a tuple containing the enum, in
+/// the enum's own stored payload, closes a loop in the compiler's Sendable inference, and
+/// the error it produces names no file, no line and no declaration.
+///
+/// This type had not tripped it only because nothing in the module forced the lookup. That
+/// was checked rather than assumed — three lines declaring a `[(String, YValue)]` local
+/// reproduced it exactly, on the tuple version. Do not turn it back.
+indirect enum YValue: Equatable, CustomStringConvertible {
     case null
     case bool(Bool)
     case int(Int64)
@@ -52,7 +55,17 @@ indirect enum YValue: Equatable, Sendable, CustomStringConvertible {
     case sequence([YValue])
     /// Ordered, because YAML mappings are ordered and dropping that would hide a real
     /// class of disagreement.
-    case mapping([(String, YValue)])
+    case mapping([Member])
+
+    /// One key-value pair. Named rather than a tuple; see above.
+    struct Member: Equatable {
+        var key: String
+        var value: YValue
+        init(_ key: String, _ value: YValue) {
+            self.key = key
+            self.value = value
+        }
+    }
 
     static func == (a: YValue, b: YValue) -> Bool {
         switch (a, b) {
@@ -70,7 +83,7 @@ indirect enum YValue: Equatable, Sendable, CustomStringConvertible {
         case (.sequence(let x), .sequence(let y)): return x == y
         case (.mapping(let x), .mapping(let y)):
             guard x.count == y.count else { return false }
-            for (p, q) in zip(x, y) where p.0 != q.0 || p.1 != q.1 { return false }
+            for (p, q) in zip(x, y) where p.key != q.key || p.value != q.value { return false }
             return true
         default: return false
         }
@@ -85,7 +98,7 @@ indirect enum YValue: Equatable, Sendable, CustomStringConvertible {
         case .string(let s): return "\"\(s)\""
         case .sequence(let a): return "[\(a.map(\.description).joined(separator: ", "))]"
         case .mapping(let m):
-            return "{\(m.map { "\($0.0): \($0.1)" }.joined(separator: ", "))}"
+            return "{\(m.map { "\($0.key): \($0.value)" }.joined(separator: ", "))}"
         }
     }
 }
@@ -119,13 +132,13 @@ func resolve(_ node: YAML.Node) -> YValue? {
         return .sequence(out)
 
     case .mapping(let pairs):
-        var out: [(String, YValue)] = []
+        var out: [YValue.Member] = []
         out.reserveCapacity(pairs.count)
         for p in pairs {
             // Non-scalar keys are legal YAML and are outside this oracle's vocabulary.
             guard case .scalar(let k) = p.key else { return nil }
             guard let v = resolve(p.value) else { return nil }
-            out.append((k.content, v))
+            out.append(.init(k.content, v))
         }
         return .mapping(out)
     }
@@ -203,7 +216,7 @@ func yamsValue(_ node: Yams.Node) -> YValue? {
         // feature there); Assay's parser expands it. Expand here, with the same
         // semantics Assay documents: an explicitly written pair always beats a merged
         // one, and merged pairs append after the explicit ones in source order.
-        var out: [(String, YValue)] = []
+        var out: [YValue.Member] = []
         var mergeSources: [Yams.Node] = []
         for (k, v) in map {
             guard case .scalar(let ks) = k else { return nil }
@@ -212,7 +225,7 @@ func yamsValue(_ node: Yams.Node) -> YValue? {
                 continue
             }
             guard let vv = yamsValue(v) else { return nil }
-            out.append((ks.string, vv))
+            out.append(.init(ks.string, vv))
         }
         for source in mergeSources {
             let mappings: [Yams.Node]
@@ -222,9 +235,9 @@ func yamsValue(_ node: Yams.Node) -> YValue? {
                 guard case .mapping(let inner) = m else { return nil }
                 for (k, v) in inner {
                     guard case .scalar(let ks) = k else { return nil }
-                    guard !out.contains(where: { $0.0 == ks.string }) else { continue }
+                    guard !out.contains(where: { $0.key == ks.string }) else { continue }
                     guard let vv = yamsValue(v) else { return nil }
-                    out.append((ks.string, vv))
+                    out.append(.init(ks.string, vv))
                 }
             }
         }
@@ -289,10 +302,10 @@ func jsonAsYValue(_ any: Any) -> YValue? {
         // JSONSerialization returns an unordered dictionary, so this comparison sorts both
         // sides by key. Mapping ORDER is therefore not checked by the JSON oracle — the
         // Yams oracle checks it, on ordered input.
-        var out: [(String, YValue)] = []
+        var out: [YValue.Member] = []
         for k in d.keys.sorted() {
             guard let v = jsonAsYValue(d[k]!) else { return nil }
-            out.append((k, v))
+            out.append(.init(k, v))
         }
         return .mapping(out)
     }
@@ -303,7 +316,8 @@ func sortedMappings(_ v: YValue) -> YValue {
     switch v {
     case .sequence(let a): return .sequence(a.map(sortedMappings))
     case .mapping(let m):
-        return .mapping(m.map { ($0.0, sortedMappings($0.1)) }.sorted { $0.0 < $1.0 })
+        return .mapping(m.map { YValue.Member($0.key, sortedMappings($0.value)) }
+                        .sorted { $0.key < $1.key })
     default: return v
     }
 }
@@ -394,17 +408,19 @@ func firstPathDifference(_ a: YValue, _ b: YValue, path: String = "") -> String?
         }
     case (.mapping(let x), .mapping(let y)):
         if x.count != y.count {
-            let mine = Set(x.map(\.0)), theirs = Set(y.map(\.0))
+            let mine = Set(x.map(\.key)), theirs = Set(y.map(\.key))
             let extra = mine.subtracting(theirs), missing = theirs.subtracting(mine)
             return "at \(path.isEmpty ? "<root>" : path): key counts differ"
                 + (extra.isEmpty ? "" : "; only Assay has \(extra.sorted())")
                 + (missing.isEmpty ? "" : "; only the oracle has \(missing.sorted())")
         }
         for (p, q) in zip(x, y) {
-            if p.0 != q.0 {
-                return "at \(path).\(p.0): key order or name differs (oracle says \(q.0))"
+            if p.key != q.key {
+                return "at \(path).\(p.key): key order or name differs (oracle says \(q.key))"
             }
-            if let d = firstPathDifference(p.1, q.1, path: "\(path).\(p.0)") { return d }
+            if let d = firstPathDifference(p.value, q.value, path: "\(path).\(p.key)") {
+                return d
+            }
         }
     default:
         return "at \(path.isEmpty ? "<root>" : path): Assay \(a) vs oracle \(b)"

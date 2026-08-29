@@ -57,16 +57,15 @@ struct SplitMix64: RandomNumberGenerator {
 
 /// Ordered JSON. `object` keeps insertion order so output is stable.
 ///
-/// `: Sendable` IS LOAD-BEARING AND MUST NOT BE TIDIED AWAY. It is not documentation --
-/// without it this package does not compile in debug, and the error names no file:
+/// `Member` IS A NAMED STRUCT AND MUST NOT BECOME A TUPLE AGAIN. `case object([(key:
+/// String, value: JSON)])` is the obvious spelling, it is what this file used to say, and
+/// it does not compile in debug. The error names no file, no line and no declaration:
 ///
 ///     <unknown>:0: error: circular reference
 ///
-/// The cycle is in the compiler's *inference* of Sendable for a recursive enum whose
-/// payload is an array of LABELLED TUPLES containing the enum itself. `-Xfrontend
-/// -debug-cycles` prints it:
+/// `-Xfrontend -debug-cycles` prints what it will not:
 ///
-///     TypeCheckFunctionBodyRequest(unknownKeys @ Shapes.swift:175)
+///     TypeCheckFunctionBodyRequest(unknownKeys @ Shapes.swift)
 ///      -> LookupConformance(Sendable for [(key: String, value: JSON)])
 ///       -> LookupConformance(Sendable for (key: String, value: JSON))
 ///        -> LookupConformance(Sendable for Pack{String, JSON})
@@ -75,23 +74,47 @@ struct SplitMix64: RandomNumberGenerator {
 ///           -> LookupConformance(Sendable for Array<(key: String, value: JSON)>)
 ///            -> (cyclic dependency)
 ///
-/// Writing the conformance explicitly takes a different path through the checker and the
-/// cycle does not form. The conformance is TRUE, not `@unchecked` -- every payload here is
-/// Sendable -- so this costs nothing and asserts nothing false.
+/// The loop closes because the tuple is in the enum's STORED PAYLOAD: inferring Sendable
+/// for `JSON` requires it of the payload, which requires it of the tuple, which requires
+/// it of `JSON`. Recursion through `JSON` is not itself the problem — `case array([JSON])`
+/// is just as recursive and has never been an issue.
 ///
-/// It only bites in DEBUG: release builds whole-module and does not issue the per-file
-/// `TypeCheckPrimaryFileRequest` that starts the chain. CI runs these tools with
-/// `-c release`, which is why the package could sit broken in debug without anyone noticing.
+/// That the payload is what matters is verified rather than assumed. With `Member` in
+/// place, a function declaring a `[(key: String, value: JSON)]` LOCAL — the same tuple, the
+/// same recursion, one position over — compiles fine. Removing it from the payload is the
+/// whole fix.
 ///
-/// The structural fix is a named `Member` struct instead of the tuple -- which is exactly
-/// what `AssayCore`'s `RawValue.Member` is, and why the library never hit this.
-indirect enum JSON: Sendable {
+/// HONEST LIMIT ON THIS EXPLANATION: a synthetic minimal case does not reproduce it. A
+/// fresh `indirect enum { case leaf; case node([(String, Self)]) }` plus a function forcing
+/// the same lookup compiles clean, with or without an `[Self]` case and with or without
+/// labels. So some further ingredient of the real type is involved and has not been
+/// isolated. What is established is the trace above, and that the struct removes it.
+///
+/// An explicit `: Sendable` on the enum also silences it, and that was the first fix here.
+/// It is narrower — it stops the inference request from being issued rather than removing
+/// the loop — so this file no longer relies on it, and does not declare it.
+///
+/// It only bit in DEBUG. Release builds whole-module and never issues the per-file
+/// `TypeCheckPrimaryFileRequest` that starts the chain, and every CI step exercising this
+/// package ran `-c release` — which is how it sat broken for an unknown length of time.
+/// CI now builds this package in debug as well.
+indirect enum JSON {
     case string(String)
     case int(Int)
     case double(Double)
     case bool(Bool)
     case array([JSON])
-    case object([(key: String, value: JSON)])
+    case object([Member])
+
+    /// One key-value pair. Named rather than a tuple; see above.
+    struct Member {
+        var key: String
+        var value: JSON
+        init(_ key: String, _ value: JSON) {
+            self.key = key
+            self.value = value
+        }
+    }
 }
 
 extension JSON {

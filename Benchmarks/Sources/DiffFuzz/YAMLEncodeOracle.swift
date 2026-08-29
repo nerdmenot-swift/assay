@@ -55,7 +55,7 @@ func runYAMLEncodeDifferential(corpus: URL) -> Int {
         // its contents against the field, not the envelope against the field.
         guard let whole = yamsValue(composed),
               case .mapping(let topLevel) = whole,
-              let theirs = topLevel.first(where: { $0.0 == "payload" })?.1 else {
+              let theirs = topLevel.first(where: { $0.key == "payload" })?.value else {
             fail("yaml-encode: \(name) is outside the oracle's vocabulary")
             continue
         }
@@ -89,7 +89,7 @@ private func rawMatchesY(_ mine: RawValue, _ theirs: YValue) -> Bool {
     case (.mapping(let a), .mapping(let b)):
         guard a.count == b.count else { return false }
         for (m, pair) in zip(a, b) {
-            guard m.key == pair.0, rawMatchesY(m.value, pair.1) else { return false }
+            guard m.key == pair.key, rawMatchesY(m.value, pair.value) else { return false }
         }
         return true
     default: return false

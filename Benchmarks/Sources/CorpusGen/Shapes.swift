@@ -95,12 +95,12 @@ func vEscaped(_ r: inout SplitMix64) -> JSON {
 
 func objectOf(_ r: inout SplitMix64, target: Int,
               _ gen: (inout SplitMix64) -> JSON) -> JSON {
-    var pairs: [(key: String, value: JSON)] = []
+    var pairs: [JSON.Member] = []
     var i = 0
     while true {
         var k = KEY_POOL[i % KEY_POOL.count]
         if i >= KEY_POOL.count { k = "\(k)_\(i / KEY_POOL.count)" }
-        pairs.append((k, gen(&r)))
+        pairs.append(.init(k, gen(&r)))
         i += 1
         if JSON.object(pairs).byteCount >= target { return .object(pairs) }
     }
@@ -111,7 +111,7 @@ func arrayOf(_ r: inout SplitMix64, target: Int,
     var items: [JSON] = []
     while true {
         items.append(gen(&r))
-        let doc = JSON.object([("items", .array(items))])
+        let doc = JSON.object([.init("items", .array(items))])
         if doc.byteCount >= target { return doc }
     }
 }
@@ -120,10 +120,10 @@ func structsOf(_ r: inout SplitMix64, _ target: Int) -> JSON {
     var items: [JSON] = []
     while true {
         items.append(.object([
-            ("id", vInt(&r)), ("name", vShortString(&r)),
-            ("created_at", vDate(&r)), ("active", vBool(&r)), ("score", vDouble(&r)),
+            .init("id", vInt(&r)), .init("name", vShortString(&r)),
+            .init("created_at", vDate(&r)), .init("active", vBool(&r)), .init("score", vDouble(&r)),
         ]))
-        let doc = JSON.object([("items", .array(items))])
+        let doc = JSON.object([.init("items", .array(items))])
         if doc.byteCount >= target { return doc }
     }
 }
@@ -137,14 +137,14 @@ func nested3(_ r: inout SplitMix64, _ target: Int) -> JSON {
         included = items
     }
     return .object([
-        ("meta", .object([("request_id", vUUID(&r)), ("timestamp", vDate(&r)),
-                          ("version", .string("v1"))])),
-        ("data", .object([
-            ("attributes", attributes),
-            ("relationships", .object([
-                ("owner", .object([("id", vInt(&r)), ("type", .string("user"))]))])),
+        .init("meta", .object([.init("request_id", vUUID(&r)), .init("timestamp", vDate(&r)),
+                          .init("version", .string("v1"))])),
+        .init("data", .object([
+            .init("attributes", attributes),
+            .init("relationships", .object([
+                .init("owner", .object([.init("id", vInt(&r)), .init("type", .string("user"))]))])),
         ])),
-        ("included", .array(included)),
+        .init("included", .array(included)),
     ])
 }
 
@@ -152,12 +152,12 @@ func nested3(_ r: inout SplitMix64, _ target: Int) -> JSON {
 func mixed(_ r: inout SplitMix64, _ target: Int) -> JSON {
     let gens: [(inout SplitMix64) -> JSON] =
         [vInt, vShortString, vBool, vDate, vUUID, vDouble, vLongString]
-    var pairs: [(key: String, value: JSON)] = []
+    var pairs: [JSON.Member] = []
     var i = 0
     while true {
         var k = KEY_POOL[i % KEY_POOL.count]
         if i >= KEY_POOL.count { k = "\(k)_\(i / KEY_POOL.count)" }
-        pairs.append((k, gens[i % gens.count](&r)))
+        pairs.append(.init(k, gens[i % gens.count](&r)))
         i += 1
         if JSON.object(pairs).byteCount >= target { return .object(pairs) }
     }
@@ -174,11 +174,11 @@ func optionalsAbsent(_ r: inout SplitMix64, _ target: Int) -> JSON {
 /// completely unmeasured in every published JSON benchmark (§4.4).
 func unknownKeys(_ r: inout SplitMix64, _ target: Int) -> JSON {
     guard case .object(let pairs) = mixed(&r, target) else { return .object([]) }
-    var merged: [(key: String, value: JSON)] = []
+    var merged: [JSON.Member] = []
     for (i, p) in pairs.enumerated() {
         merged.append(p)
         if i < pairs.count / 2 {
-            merged.append(("x_unknown_\(i)", vShortString(&r)))
+            merged.append(.init("x_unknown_\(i)", vShortString(&r)))
         }
     }
     return .object(merged)
@@ -199,8 +199,8 @@ func floatsDense(_ r: inout SplitMix64, _ target: Int) -> JSON {
             .double(r.double(in: -180...180)),
             .double(r.double(in: -90...90)),
         ]))
-        let doc = JSON.object([("type", .string("Polygon")),
-                               ("coordinates", .array(coords))])
+        let doc = JSON.object([.init("type", .string("Polygon")),
+                               .init("coordinates", .array(coords))])
         if doc.byteCount >= target { return doc }
     }
 }
@@ -215,24 +215,24 @@ func apimodel(_ r: inout SplitMix64, _ target: Int) -> JSON {
     var items: [JSON] = []
     while true {
         items.append(.object([
-            ("id", vUUID(&r)),
-            ("sequence", vInt(&r)),
-            ("name", vShortString(&r)),
-            ("description", vLongString(&r)),
-            ("created_at", vDate(&r)),
-            ("updated_at", vDate(&r)),
-            ("amount", vDouble(&r)),
-            ("active", vBool(&r)),
-            ("retry_count", vInt(&r)),
-            ("owner_id", vUUID(&r)),
+            .init("id", vUUID(&r)),
+            .init("sequence", vInt(&r)),
+            .init("name", vShortString(&r)),
+            .init("description", vLongString(&r)),
+            .init("created_at", vDate(&r)),
+            .init("updated_at", vDate(&r)),
+            .init("amount", vDouble(&r)),
+            .init("active", vBool(&r)),
+            .init("retry_count", vInt(&r)),
+            .init("owner_id", vUUID(&r)),
         ]))
         let doc = JSON.object([
-            ("request_id", vUUID(&r)),
-            ("generated_at", vDate(&r)),
-            ("page", .int(items.count)),
-            ("total_count", .int(items.count * 3)),
-            ("has_more", .bool(true)),
-            ("items", .array(items)),
+            .init("request_id", vUUID(&r)),
+            .init("generated_at", vDate(&r)),
+            .init("page", .int(items.count)),
+            .init("total_count", .int(items.count * 3)),
+            .init("has_more", .bool(true)),
+            .init("items", .array(items)),
         ])
         if doc.byteCount >= target { return doc }
     }
@@ -323,8 +323,8 @@ nonisolated(unsafe) let NEGATIVES: [Negative] = [
                  guard case .object(let pairs) = mixed(&r, 8_192) else { return [] }
                  return JSON.object(pairs.enumerated().map { i, p in
                      i % 3 == 0
-                         ? (p.key, i % 2 == 0 ? .array([.string("wrong")])
-                                              : .object([("wrong", .string("shape"))]))
+                         ? .init(p.key, i % 2 == 0 ? .array([.string("wrong")])
+                                              : .object([.init("wrong", .string("shape"))]))
                          : p
                  }).encoded
              }),
@@ -338,7 +338,7 @@ nonisolated(unsafe) let NEGATIVES: [Negative] = [
              build: { r in
                  guard case .object(let pairs) = mixed(&r, 8_192) else { return [] }
                  return JSON.object(pairs.enumerated().map { i, p in
-                     i < 20 ? (p.key, .string("")) : p
+                     i < 20 ? .init(p.key, .string("")) : p
                  }).encoded
              }),
     Negative(name: "deep-nesting", doc: "200 levels deep. Exercises Limits.maxDepth.",

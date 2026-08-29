@@ -39,12 +39,20 @@ extension SchemaMacro {
         case "Double": return ".double"
         case "Float":  return ".float"
         case "Bool":   return ".bool"
-        default:       return ".unsupported(\"\(type)\")"
+        default:       return ".custom(\"\(type)\")"
         }
     }
 
     /// A columnar source is a FLAT batch of scalar columns. Anything tree-shaped belongs
     /// on the RawValue path, and saying so at expansion beats a runtime surprise.
+    ///
+    /// What is NOT refused here is a field whose type the macro does not recognise. It used
+    /// to be, and that was the wrong shape of answer: expansion is syntactic, so `Date`,
+    /// `UUID`, a consumer's `Timestamp` and a genuine nested `@Schema` all arrive as the
+    /// same identifier token, and refusing the lot of them meant refusing four types that
+    /// have a perfectly good columnar representation in order to catch the one that does
+    /// not. Such a field now takes the `ColumnDecodable` path; the compiler checks the
+    /// conformance, which is the only thing in the pipeline that CAN check it.
     static func sourceDiagnostics(_ fields: [SchemaField]) -> [String] {
         var out: [String] = []
         for f in fields {
@@ -54,18 +62,6 @@ extension SchemaMacro {
                     + "is a batch of flat scalar columns and has no nested collections. "
                     + "Decode tree-shaped data through the RawValue path instead, or drop "
                     + "`sources: true`")
-            } else if manifestKind(base).hasPrefix(".unsupported") {
-                // Say only what expansion can actually establish. The previous wording
-                // here asserted "nested @Schema values are not addressable", which is a
-                // claim about what `\(base)` IS -- and a syntactic macro cannot know that.
-                // For `Date` and `UUID`, the two most likely spellings to land here, it
-                // was simply false, and it sent the reader to a document about a design
-                // that was withdrawn for unrelated reasons.
-                out.append("'\(f.identifier)' is declared \(f.typeName), which has no "
-                    + "columnar representation. A columnar source supplies String, Bool, "
-                    + "integer and floating-point columns. If \(base) is a nested @Schema, "
-                    + "a flat batch cannot address it (docs/KEYED-SOURCE.md); otherwise "
-                    + "decode this type through the RawValue path, or drop `sources: true`")
             }
         }
         return out
@@ -89,8 +85,14 @@ extension SchemaMacro {
                           validation: String) -> String {
         var pulls = ""
         for (i, f) in fields.enumerated() {
-            guard let accessor = columnAccessor(f.decodedType) else { continue }
-            let expected = manifestKind(f.decodedType).dropFirst()
+            guard isColumnar(f.decodedType) else { continue }
+            // What the missing-column issue names as the expected shape. NOT the manifest
+            // kind's spelling: `.custom("Instant")` carries quotes, and this is interpolated
+            // into a generated string literal. The declared type is the better answer here
+            // in any case -- "expected: Instant" beats "expected: custom".
+            let expected = columnAccessor(f.decodedType) != nil
+                ? String(manifestKind(f.decodedType).dropFirst())
+                : f.decodedType
             // A column the schema requires and the source lacks is reported ONCE for the
             // batch. Optional and defaulted fields simply carry no column.
             let onMissing = (f.isOptional || f.defaultExpr != nil)
@@ -101,24 +103,41 @@ extension SchemaMacro {
                             Assay._assayColumnMissing(&sink, path, "\(f.wireKey)", "\(expected)")
                         }
                 """
-            pulls += """
-                    let __c\(i) = source.\(accessor)("\(f.wireKey)", \(i))
-                    let __n\(i) = source.nulls("\(f.wireKey)", \(i))\(onMissing)
+            // Both fetches are ONE call per column for the whole batch, which is what makes
+            // the generic one on the second line affordable: it is the shape that cost
+            // KeyedSource 1.6-4.7x when it was paid per row, and dividing it by the row
+            // count is the entire reason this design works. See ColumnDecodable.swift.
+            if let accessor = columnAccessor(f.decodedType) {
+                pulls += """
+                        let __c\(i) = source.\(accessor)("\(f.wireKey)", \(i))
+                        let __n\(i) = source.nulls("\(f.wireKey)", \(i))\(onMissing)
 
-            """
+                """
+            } else {
+                pulls += """
+                        let __c\(i) = Assay._assayFetchColumn(
+                            \(f.decodedType).self, from: source, "\(f.wireKey)", \(i))\(onMissing)
+
+                """
+            }
         }
 
         var perRow = ""
         for (i, f) in fields.enumerated() {
             let base = f.decodedType
-            guard columnAccessor(base) != nil else { continue }
-            let convert = columnConvert(base, "__col\(i)[__r]")
+            guard isColumnar(base) else { continue }
             let fallbackToDefault = f.defaultExpr.map { "\($0)" }
             let absent = f.isOptional ? "nil" : (fallbackToDefault ?? "nil")
+            // The per-row call in the second branch names `base` concretely, in the module
+            // that declares the schema, so it is a direct call and not a witness one.
+            let (mask, convert) = columnAccessor(base) != nil
+                ? ("__n\(i)", columnConvert(base, "__col\(i)[__r]"))
+                : ("__col\(i).nulls",
+                   "\(base)(assayColumn: __col\(i), row: __r, metadata: __col\(i).metadata)")
             perRow += """
                         var __f\(i): \(base)? = \(absent)
                         if let __col\(i) = __c\(i), __r < __col\(i).count,
-                           !Assay._assayIsNullAt(__n\(i), __r) {
+                           !Assay._assayIsNullAt(\(mask), __r) {
                             __f\(i) = \(convert)
                         }
 
@@ -128,7 +147,7 @@ extension SchemaMacro {
         var unwraps = ""
         var args: [String] = []
         for (i, f) in fields.enumerated() {
-            guard columnAccessor(f.decodedType) != nil else { continue }
+            guard isColumnar(f.decodedType) else { continue }
             if f.isOptional {
                 args.append("\(f.identifier): __f\(i)")
             } else {
@@ -165,6 +184,17 @@ extension SchemaMacro {
             return __out
         }
         """
+    }
+
+    /// Whether a field gets columnar code at all.
+    ///
+    /// True for the built-in scalars, for `[UInt8]`, and — this is the change — for any
+    /// spelling the macro does not recognise, which now goes through `ColumnDecodable`.
+    /// False only for what expansion can actually prove is tree-shaped, which `sourceDiagnostics`
+    /// has already refused by the time this matters.
+    static func isColumnar(_ type: String) -> Bool {
+        if columnAccessor(type) != nil { return true }
+        return arrayElement(type) == nil && dictionaryValue(type) == nil
     }
 
     static func columnAccessor(_ type: String) -> String? {

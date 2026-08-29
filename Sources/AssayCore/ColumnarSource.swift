@@ -68,20 +68,23 @@ public struct FieldManifest: Sendable {
 
     public enum Kind: Sendable, Equatable {
         case string, int, int64, int32, uint, double, float, bool
-        /// A field this path cannot serve, carrying the declared type's spelling.
+        /// A field whose type is outside the built-in set, carrying its spelling.
         ///
-        /// Deliberately NOT called `.nested`, which is what it used to be called and was
-        /// wrong. A macro is syntactic: it sees the identifier `Timestamp` and nothing
-        /// else. It cannot know whether that names a nested `@Schema`, a struct from
-        /// another module, or a typealias for `Int64` — the type checker has not run and
-        /// will not run until after expansion. Naming the case `.nested` asserted a fact
-        /// the expansion is structurally incapable of establishing, and the diagnostic
-        /// built on it told users that `Date` was a nested schema.
+        /// Named for what expansion can actually establish, which is only the complement:
+        /// this identifier is not one of the built-ins above. A macro is syntactic — it
+        /// sees the token `Timestamp` and nothing else, and cannot know whether that names
+        /// a nested `@Schema`, a struct from another module, or a typealias for `Int64`,
+        /// because the type checker has not run and will not run until after expansion.
         ///
-        /// What the macro genuinely knows is the complement: the spelling is not one it
-        /// has a column accessor for. That is what this case means, and a binder that
-        /// wants to refuse has exactly as much information as before.
-        case unsupported(String)
+        /// This case used to be `.nested(String)`, which asserted a fact the expansion is
+        /// structurally incapable of establishing and was simply false for `Date`. It is
+        /// `.custom` rather than `.unsupported` because such a field is now *decodable*:
+        /// the type resolves through `ColumnDecodable`, which is where a consumer's own
+        /// scalar — a timestamp, a decimal, a fixed-width identifier — comes across.
+        ///
+        /// A binder inspecting the manifest still learns exactly what it needs: the
+        /// column is not one of the built-in shapes, and the declared spelling is here.
+        case custom(String)
     }
 
     public let fields: [Field]
@@ -164,12 +167,31 @@ public protocol ColumnarSource: ~Copyable {
     borrowing func boolColumn(_ key: StaticString, _ field: Int) -> [Bool]?
     borrowing func stringColumn(_ key: StaticString, _ field: Int) -> [String]?
 
+    /// A binary column, in Arrow's varbinary layout: every row's bytes concatenated, plus
+    /// an offsets array. See `BytesColumn` for why it is not `[[UInt8]]`.
+    ///
+    /// Defaulted to `nil`. A source whose format has no binary columns implements nothing.
+    borrowing func bytesColumn(_ key: StaticString, _ field: Int) -> BytesColumn?
+
     /// Which rows of this column are null, or `nil` when none are — the validity mask.
     borrowing func nulls(_ key: StaticString, _ field: Int) -> [Bool]?
+
+    /// Per-column facts the SOURCE knows and the schema must not bake in: a timestamp's
+    /// unit, a decimal's scale.
+    ///
+    /// This is the seam that keeps unit out of the type. A parquet timestamp column is
+    /// millis or micros or nanos according to its own metadata, and a schema that hard-codes
+    /// one is wrong against files that use another — so the unit travels with the column,
+    /// as data, and the receiving type reads it. Defaulted, because most columns have none.
+    borrowing func columnMetadata(_ key: StaticString, _ field: Int) -> ColumnMetadata
 }
 
 extension ColumnarSource where Self: ~Copyable {
     public borrowing func nulls(_ key: StaticString, _ field: Int) -> [Bool]? { nil }
+    public borrowing func bytesColumn(_ key: StaticString, _ field: Int) -> BytesColumn? { nil }
+    public borrowing func columnMetadata(_ key: StaticString, _ field: Int) -> ColumnMetadata {
+        .none
+    }
 }
 
 /// A column the schema needs and the source does not carry, or carries at the wrong type.

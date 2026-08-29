@@ -459,3 +459,43 @@ Full reasoning and tables: `docs/PERFORMANCE.md` §14 and `Benchmarks/RESULTS.md
 stays empty. Experiments #2–#4 remain valid and are worth keeping — they establish that `Builtin`
 intrinsics resolve, emit real NEON, and survive versioned dependency resolution, and that
 `-mattr=+avx2` does nothing. That is a door left open, not a plan.
+
+## Small integer widths on the tree path — and `[UInt8]` behind them
+
+`UInt8`, `Int8`, `UInt16`, `Int16`, `UInt32`, `UInt64` are not scalars anywhere in Assay.
+`Int`, `Int32`, `Int64`, `UInt`, `Double`, `Float`, `Bool` and `String` are the whole set.
+
+This surfaced on 2026-08-30 while building the columnar extension point, from an unexpected
+direction. `[UInt8]` is the natural client of a bytes column — a blob field, no wrapper type
+— and it cannot be made to work, because the *tree* path fails first: `var payload: [UInt8]`
+in any `@Schema` type produces "type 'UInt8' has no member '_assay'" from the JSON body,
+long before the columnar body is consulted. A `ColumnDecodable` conformance for `[UInt8]`
+would have been a road to a bricked-up door, so it was not shipped.
+
+The work is not conceptually hard and it is not small: range-checked decode primitives per
+width, then `CodeGen`, `RawCodeGen`, `ValidationGen`, `EncodeGen`, `RawEncodeGen` and
+`XMLEncodeGen` each carry their own type switch, plus round-trip and boundary tests across
+JSON, YAML and XML. Six files and a test matrix, for a set of types Swift API design mostly
+steers people away from at model boundaries.
+
+Deferred rather than refused. Binary data reaches a schema today through a consumer type
+whose `Column` is `BytesColumn`, which is what the bytes column is for, and the columnar
+half is already built and waiting — see `docs/COLUMN-DECODABLE.md`.
+
+## `Date` and `UUID` as `ColumnDecodable`
+
+Not built, and the placement is the decision rather than the code, which is a few lines.
+
+They belong in **`AssayFoundation`**, not `AssayCore`. The core is Foundation-free by
+design — the whole `Date` architecture already turns on this, with parsers returning epoch
+seconds and the macro emitting `Date(timeIntervalSince1970:)` into the user's module — and a
+conformance in `AssayCore` would drag Foundation into it. Our protocol on their type in our
+module is a legal, warning-free conformance wherever it lives.
+
+`Date` must **not** become a native columnar type, which is the ergonomic pull to resist.
+`Date` is seconds-as-`Double`, so a native `Date` column bakes in a unit and cannot
+round-trip a nanosecond column at all — precisely the failure `ColumnMetadata` exists to
+prevent. The asymmetry with the tree path is real and defensible: on the JSON path the wire
+form is *text* and Assay must parse it, which is why `@DateFormat` and the hand-written
+ISO-8601 parsers exist; on the columnar path the source hands over a *number whose unit only
+the source knows*. Different problems, different answers.

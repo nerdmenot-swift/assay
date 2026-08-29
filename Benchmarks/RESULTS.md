@@ -654,6 +654,63 @@ states, and a **missing required column is reported once for the batch** rather 
 row — a property of the source, not of each record, in the same spirit as
 `BoundPlan.missingRequired` failing before the first row is touched.
 
+## The columnar extension point — what a consumer's own scalar costs
+
+**2026-08-30.** `ColumnDecodable` lets a type Assay has never heard of — a `Timestamp`, a
+`Decimal128`, a fixed-width identifier — be a field of a `@Schema(sources: true)` type.
+The measured question is whether it reintroduces the dispatch cost that killed the row path.
+
+Same store, same column, same two-field schema, 100,000 rows. The only difference is whether
+the field is declared `Int64` or a `ColumnDecodable` type carried by `Int64`.
+
+| field type | ns/batch | ns/row |
+|---|---|---|
+| `Int64`, built in | 4,264,854 | 42.65 |
+| `Micros`, `ColumnDecodable` | 4,228,770 | **42.29** |
+
+**0.99×.** Three runs gave 0.99×, 0.99× and 1.02×, so the hook is free and the spread is the
+measurement rather than the feature.
+
+That is not luck, and the shape it avoids was measured first, in isolation, across a real
+module boundary, converting one `Int64` per value:
+
+| shape | ns/value |
+|---|---|
+| baseline — copy `Int64`, no conversion | 0.34 |
+| concrete `init`, as the macro emits it | 0.35 |
+| through a generic parameter in the library | **21.35** |
+| through an existential | 3.74 |
+| generic fetch per column + concrete `init` per row | **0.47** |
+
+The 21.35 row is `KeyedSource`'s shape — a call through a generic parameter inside Assay, in
+a loop the consumer drives, which `@inlinable` cannot rescue because SE-0193 forbids it on
+generated bodies. It is **57× the concrete call**, and in a path whose per-row budget is
+~50 ns it is the 1.6–4.7× that path was retired for.
+
+`ColumnDecodable` splits it: the generic call is `Column._assayFetch`, made **once per
+column**, so its cost divides by the row count; the per-row call names a concrete type in
+the module that declares the schema, exactly as the macro already emits
+`Date(timeIntervalSince1970:)`.
+
+### Bytes columns: flat-plus-offsets, and what the alternative would have cost
+
+`BytesColumn` is Arrow's varbinary layout — every row's bytes in one buffer plus an offsets
+array — rather than `[[UInt8]]`. Identical arithmetic over identical bytes, at only **16
+bytes per row**:
+
+| access | ns/batch | ns/row |
+|---|---|---|
+| `range(at:)` into the flat buffer | 5,493,146 | 54.93 |
+| `bytes(at:)`, one `Array` per row | 8,422,521 | **84.23** |
+
+**1.53×**, or 27–29 ns/row across runs, and it grows with the blob. `[[UInt8]]` would charge
+that to every reader whether or not it wanted a copy — and a Parquet or Arrow reader already
+*has* the flat buffer and the offsets, because that is how the format stores them.
+
+The analogy with `stringColumn` returning `[String]` does not carry, which is worth stating
+because it is the obvious objection: short strings ride in small-string form and never touch
+the heap, and a blob never does.
+
 ## Where the generic entry point actually costs — and the API conclusion that follows
 
 **2026-08-09.** `docs/KEYED-SOURCE.md` claimed the generic entry point "specialises within a

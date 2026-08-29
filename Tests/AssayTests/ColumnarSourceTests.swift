@@ -58,33 +58,54 @@ struct ColumnarDiagnosticTests {
         }
     }
 
-    @Test("an unrepresentable field is refused, pointing at the document")
-    func nestedRefused() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema(sources: true) struct S { var inner: Other }
-        """)
-        #expect(diags.contains { $0.contains("KEYED-SOURCE.md") })
-    }
-
-    /// The message must not claim to know what the type IS.
+    /// An unrecognised type is EMITTED FOR, not refused.
     ///
-    /// Expansion is syntactic: `Date` and `Other` arrive as identical identifier tokens,
-    /// so any sentence asserting "nested @Schema" is a guess that happens to be wrong for
-    /// every scalar a caller is actually likely to reach for. Both spellings must produce
-    /// a message that stays true under either reading, and it must name the type — the
-    /// diagnostic's one job is to tell the reader which field stopped the build.
-    @Test("the refusal does not assert the field is a nested schema")
-    func doesNotMisdescribeScalars() {
-        for (type, field) in [("Date", "takenAt"), ("UUID", "id"), ("Timestamp", "at")] {
-            let (_, diags) = expandSchemaForTesting("""
+    /// This is the behaviour change the extension point exists for. Expansion is syntactic:
+    /// `Date`, `UUID`, a consumer's `Timestamp` and a genuine nested `@Schema` all arrive
+    /// as the same identifier token, so refusing everything unrecognised refused four
+    /// perfectly representable types in order to catch the one that is not. The conformance
+    /// is now what decides, and only the compiler can check it.
+    @Test("an unrecognised type routes through ColumnDecodable rather than being refused")
+    func unknownTypesTakeTheHook() {
+        for (type, field) in [("Date", "takenAt"), ("UUID", "id"), ("Timestamp", "at"),
+                              ("Decimal128", "amount")] {
+            let (src, diags) = expandSchemaForTesting("""
             @Schema(sources: true) struct S { var \(field): \(type) }
             """)
-            let d = try? #require(diags.first { $0.contains(field) })
-            #expect(d?.contains("no columnar representation") == true, "for: \(type)")
-            #expect(d?.contains(type) == true, "for: \(type)")
-            // "If X is a nested @Schema" is conditional and honest; a bare assertion is not.
-            #expect(d?.contains("If \(type) is a nested @Schema") == true, "for: \(type)")
+            #expect(diags.isEmpty, "\(type) should expand cleanly, got: \(diags)")
+            // One generic fetch per column...
+            #expect(src.contains("_assayFetchColumn(\n        \(type).self")
+                    || src.contains("_assayFetchColumn(\(type).self")
+                    || src.contains("\(type).self, from: source"), "for: \(type)")
+            // ...and a per-row call that names the type concretely, which is the whole
+            // reason this costs 0.47 ns/value and KeyedSource's shape cost 21.
+            #expect(src.contains("\(type)(assayColumn:"), "for: \(type)")
+            #expect(src.contains(".custom(\"\(type)\")"), "manifest kind, for: \(type)")
         }
+    }
+
+    /// `[UInt8]` is still refused, and NOT because of the columnar path.
+    ///
+    /// A blob field would be a natural fit for the bytes column, and the reason it does not
+    /// work is upstream of all of this: `UInt8` is not a scalar on the tree path, so
+    /// `var payload: [UInt8]` cannot appear in any `@Schema` type at all. Pinned here so
+    /// that whoever adds the small integer widths finds the columnar half already waiting.
+    @Test("[UInt8] is refused, blocked by the tree path rather than by this one")
+    func bytesFieldStillBlocked() {
+        let (_, diags) = expandSchemaForTesting("""
+        @Schema(sources: true) struct S { var payload: [UInt8] }
+        """)
+        #expect(diags.contains { $0.contains("flat scalar columns") })
+    }
+
+    /// A genuine nested schema now fails in the type checker rather than at expansion.
+    /// Expansion cannot tell it apart from `Date`; what it CAN do is not guess.
+    @Test("a tree-shaped field is still refused at expansion")
+    func collectionsStillRefused() {
+        let (_, diags) = expandSchemaForTesting("""
+        @Schema(sources: true) struct S { var rows: [Other] }
+        """)
+        #expect(diags.contains { $0.contains("flat scalar columns") })
     }
 
     @Test("sources: false emits nothing — the compile budget is why it is opt-in")
@@ -163,8 +184,225 @@ struct ColumnStore: ColumnarSource, ~Copyable {
     borrowing func stringColumn(_ key: StaticString, _ field: Int) -> [String]? {
         strings[String(describing: key)]
     }
+    var blobs: [String: BytesColumn] = [:]
+    var meta: [String: ColumnMetadata] = [:]
+
     borrowing func nulls(_ key: StaticString, _ field: Int) -> [Bool]? {
         masks[String(describing: key)]
+    }
+    borrowing func bytesColumn(_ key: StaticString, _ field: Int) -> BytesColumn? {
+        blobs[String(describing: key)]
+    }
+    borrowing func columnMetadata(_ key: StaticString, _ field: Int) -> ColumnMetadata {
+        meta[String(describing: key)] ?? .none
+    }
+}
+
+// MARK: - The extension point, exercised
+
+/// A consumer's own scalar. Assay has never heard of this type, and the point of the
+/// exercise is that it does not need to: the `ColumnDecodable` conformance below is the
+/// entire columnar integration.
+///
+/// `@Schema` here supplies the TREE path — `_assay(from:)` for JSON and for `RawValue` —
+/// which a field type needs regardless of where it is read from, because a `@Schema` type's
+/// standing promise is `T.parse(json:)`. The two halves are independent and both required.
+@Schema
+struct Instant: Equatable {
+    var epochNanoseconds: Int64
+}
+
+extension Instant: ColumnDecodable {
+    /// `Int64` and not `Double`, which is the reason `AssayCarrier` includes it. A `Double`
+    /// carries 2^53 nanoseconds — about 104 days — so it cannot hold a modern instant at
+    /// nanosecond resolution at all.
+    init?(assayColumn c: borrowing ColumnBuffer<Int64>, row: Int, metadata m: ColumnMetadata) {
+        // The unit came from the COLUMN, not from this type. Two files with the same
+        // logical schema are allowed to disagree, which is why it cannot live in the type.
+        let scale: Int64
+        switch m.unit {
+        case -9: scale = 1
+        case -6: scale = 1_000
+        case -3: scale = 1_000_000
+        default: return nil          // a unit this type cannot represent: report the row
+        }
+        // Overflow-checked, and NOT for tidiness. A value that is plausible at microsecond
+        // magnitude is 1.7e15, and reading that same column as milliseconds multiplies by
+        // 1e6 and leaves Int64 entirely -- so a source that mislabels its unit would trap
+        // inside somebody else's decode loop. `init?` already means "I cannot represent
+        // this", which is the correct answer and costs one instruction to give.
+        let (n, overflowed) = c[row].multipliedReportingOverflow(by: scale)
+        guard !overflowed else { return nil }
+        epochNanoseconds = n
+    }
+}
+
+/// A blob-backed scalar, to exercise the flat-plus-offsets column.
+@Schema
+struct Fingerprint: Equatable {
+    var hex: String
+}
+
+extension Fingerprint: ColumnDecodable {
+    init?(assayColumn c: borrowing BytesColumn, row: Int, metadata: ColumnMetadata) {
+        // Read through the range and index the flat buffer: this copies nothing and
+        // retains nothing, which is what flat-plus-offsets buys over `[[UInt8]]`.
+        guard let r = c.range(at: row), r.count == 4 else { return nil }
+        var out = ""
+        out.reserveCapacity(8)
+        for i in r { out += String(c.bytes[i], radix: 16, uppercase: false).leftPadded() }
+        hex = out
+    }
+}
+
+extension String {
+    fileprivate func leftPadded() -> String { count == 1 ? "0" + self : self }
+}
+
+@Schema(sources: true)
+struct Sample: Equatable {
+    var id: Int64
+    var at: Instant
+    var mark: Fingerprint
+    var note: String?
+}
+
+@Suite("The columnar extension point")
+struct ColumnDecodableTests {
+
+    static func store(rows n: Int, unit: Int32 = -6) -> ColumnStore {
+        ColumnStore(
+            rowCount: n,
+            ints: ["id": (0..<n).map { Int64($0) },
+                   "at": (0..<n).map { Int64(1_700_000_000_000_000 + $0) }],
+            blobs: ["mark": BytesColumn(rows: (0..<n).map {
+                        [UInt8($0 % 251), 0xAB, 0xCD, UInt8($0 % 7)] })],
+            meta: ["at": ColumnMetadata(unit: unit)])
+    }
+
+    @Test("a type Assay has never heard of decodes, and the unit comes from the column")
+    func customScalar() {
+        var sink = IssueSink(limits: .default)
+        let rows = Sample._assayBatch(from: Self.store(rows: 64), into: &sink, at: [])
+        #expect(sink.issues.isEmpty)
+        #expect(rows.count == 64)
+        // micros x 1_000 = nanos. The schema never named a unit.
+        #expect(rows[3].at == Instant(epochNanoseconds: 1_700_000_000_000_003_000))
+        #expect(rows[3].mark == Fingerprint(hex: "03abcd03"))
+        #expect(rows[0].note == nil)
+    }
+
+    /// The same bytes, the same schema, a different column unit. This is the case a type
+    /// that hard-codes its unit gets wrong, and the reason `ColumnMetadata` exists.
+    @Test("the same column at a different unit decodes to different instants")
+    func unitIsData() {
+        var sink = IssueSink(limits: .default)
+        let nanos = Sample._assayBatch(from: Self.store(rows: 4, unit: -9), into: &sink, at: [])
+        let micros = Sample._assayBatch(from: Self.store(rows: 4, unit: -6), into: &sink, at: [])
+        #expect(sink.issues.isEmpty)
+        #expect(micros[1].at.epochNanoseconds == nanos[1].at.epochNanoseconds * 1_000)
+    }
+
+    /// The same column read at a unit that pushes it out of Int64. A source that mislabels
+    /// its metadata must produce issues, not a trap in the caller's loop.
+    @Test("a conversion that overflows reports the row rather than trapping")
+    func overflowIsReported() {
+        var sink = IssueSink(limits: .default)
+        // 1.7e15 microseconds read as milliseconds is 1.7e21, well past Int64.
+        let rows = Sample._assayBatch(from: Self.store(rows: 3, unit: -3), into: &sink, at: [])
+        #expect(rows.isEmpty)
+        #expect(sink.issues.count == 3)
+        #expect(sink.issues[0].path == [.index(0), .key("at")])
+    }
+
+    /// `init?` returning nil is how a type says "this column can hold that, I cannot".
+    /// It must land as a normal row issue, with the path and the row index.
+    @Test("a conversion that fails reports the row, not the batch")
+    func refusedConversion() {
+        var sink = IssueSink(limits: .default)
+        // unit 0 is the `default:` arm of Instant's initialiser, which returns nil.
+        let rows = Sample._assayBatch(from: Self.store(rows: 3, unit: 0), into: &sink, at: [])
+        #expect(rows.isEmpty, "every row's required field failed to convert")
+        #expect(sink.issues.count == 3, "one per row, not one for the batch")
+        #expect(sink.issues.allSatisfy { $0.code == .missing })
+        #expect(sink.issues[1].path == [.index(1), .key("at")])
+    }
+
+    @Test("a validity mask nulls a custom column exactly as it does a built-in one")
+    func nullsApply() {
+        var store = Self.store(rows: 4)
+        store.masks["at"] = [false, true, false, false]
+        var sink = IssueSink(limits: .default)
+        let rows = Sample._assayBatch(from: store, into: &sink, at: [])
+        #expect(rows.count == 3, "row 1 is null and `at` is required")
+        #expect(sink.issues.count == 1)
+        #expect(sink.issues[0].path == [.index(1), .key("at")])
+    }
+
+    /// A required column the source does not carry is a property of the SOURCE, so it is
+    /// reported once — the same rule the built-in columns already follow.
+    @Test("a missing custom column is reported once for the batch")
+    func missingColumn() {
+        var sink = IssueSink(limits: .default)
+        var store = Self.store(rows: 100)
+        store.ints["at"] = nil
+        _ = Sample._assayBatch(from: store, into: &sink, at: [])
+        let missing = sink.issues.filter { $0.code == .custom("missing_column") }
+        #expect(missing.count == 1)
+        #expect(missing.first?.params["expected"] == .string("Instant"),
+                "the declared type, not the manifest kind's spelling")
+    }
+}
+
+@Suite("Bytes columns")
+struct BytesColumnTests {
+
+    @Test("flat-plus-offsets round-trips what a row-of-blobs source hands over")
+    func roundTrip() {
+        let rows: [[UInt8]] = [[], [1], [2, 3, 4], [], [5, 6]]
+        let c = BytesColumn(rows: rows)
+        #expect(c.count == 5)
+        #expect(c.bytes == [1, 2, 3, 4, 5, 6], "one buffer, not five")
+        #expect(c.offsets == [0, 0, 1, 4, 4, 6])
+        for (i, r) in rows.enumerated() {
+            #expect(c.bytes(at: i) == r)
+            #expect(c.slice(at: i).map(Array.init) == r)
+        }
+    }
+
+    /// The offsets come from the source, so they are input, not an invariant. A reader with
+    /// a bug must produce a nil row, never a trap in someone else's decode loop.
+    @Test("malformed offsets yield nil rows rather than trapping")
+    func malformedOffsets() {
+        let cases: [[Int]] = [
+            [0, 5, 3],           // not monotonic
+            [0, 99],             // past the end of the buffer
+            [-1, 2],             // negative
+            [],                  // no offsets at all
+        ]
+        for offsets in cases {
+            let c = BytesColumn(bytes: [1, 2, 3], offsets: offsets)
+            for r in -1...3 {
+                #expect(c.bytes(at: r) == nil || c.range(at: r) != nil, "offsets \(offsets)")
+                _ = c.slice(at: r)
+            }
+        }
+        // The specific one worth naming: a valid-length offsets array with a backwards pair.
+        #expect(BytesColumn(bytes: [1, 2, 3], offsets: [0, 5, 3]).bytes(at: 0) == nil)
+        #expect(BytesColumn(bytes: [1, 2, 3], offsets: [0, 2, 99]).bytes(at: 1) == nil)
+        #expect(BytesColumn(bytes: [1, 2, 3], offsets: [0, 2, 99]).bytes(at: 0) == [1, 2])
+    }
+
+    @Test("a source that leaves nulls and metadata off the column still gets them")
+    func fallsBackToPerColumnAccessors() {
+        let store = ColumnStore(
+            rowCount: 2,
+            masks: ["mark": [true, false]],
+            blobs: ["mark": BytesColumn(rows: [[1, 2, 3, 4], [5, 6, 7, 8]])],
+            meta: ["mark": ColumnMetadata(scale: 7)])
+        let c = BytesColumn._assayFetch(from: store, "mark", 0)
+        #expect(c?.nulls == [true, false])
+        #expect(c?.metadata.scale == 7)
     }
 }
 

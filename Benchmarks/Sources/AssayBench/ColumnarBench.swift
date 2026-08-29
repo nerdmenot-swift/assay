@@ -166,3 +166,131 @@ func runSourceBenchmarks() {
     print("Blocks are LIVE blocks per decoded value; read Allocations.swift's three stated")
     print("limitations before quoting them.")
 }
+
+// MARK: - The extension point
+
+// What a consumer's own scalar costs, measured against the same data read as a built-in.
+//
+// The question is the one that killed `KeyedSource`: a protocol call the CONSUMER's loop
+// drives cannot be inlined away, because `@inlinable` on a generated body is forbidden
+// (SE-0193). The claim here is that `ColumnDecodable` does not have that shape -- the
+// generic call is `Column._assayFetch`, made once per COLUMN, and the per-row call names a
+// concrete type in the module that declares the schema. If that claim is wrong, the two
+// rows of the first table below will not be within noise of each other.
+
+@Schema
+struct Micros: Equatable { var v: Int64 }
+
+extension Micros: ColumnDecodable {
+    init?(assayColumn c: borrowing ColumnBuffer<Int64>, row: Int, metadata: ColumnMetadata) {
+        v = c[row] &* 1_000
+    }
+}
+
+/// Reads through `range(at:)` and indexes the flat buffer. No allocation, no retain.
+@Schema
+struct Digest: Equatable { var h: Int64 }
+
+extension Digest: ColumnDecodable {
+    init?(assayColumn c: borrowing BytesColumn, row: Int, metadata: ColumnMetadata) {
+        guard let r = c.range(at: row) else { return nil }
+        var acc: Int64 = 0
+        for i in r { acc = acc &* 31 &+ Int64(c.bytes[i]) }
+        h = acc
+    }
+}
+
+/// Identical arithmetic, but materialises the row first. This is precisely the per-row cost
+/// a `[[UInt8]]` column would impose on every reader, whether or not it wanted a copy --
+/// which is the measurement behind choosing flat-plus-offsets.
+@Schema
+struct DigestCopying: Equatable { var h: Int64 }
+
+extension DigestCopying: ColumnDecodable {
+    init?(assayColumn c: borrowing BytesColumn, row: Int, metadata: ColumnMetadata) {
+        guard let b = c.bytes(at: row) else { return nil }
+        var acc: Int64 = 0
+        for x in b { acc = acc &* 31 &+ Int64(x) }
+        h = acc
+    }
+}
+
+@Schema(sources: true) struct NativeRow: Equatable { var id: Int64; var at: Int64 }
+@Schema(sources: true) struct HookRow: Equatable { var id: Int64; var at: Micros }
+@Schema(sources: true) struct BytesRow: Equatable { var id: Int64; var d: Digest }
+@Schema(sources: true) struct BytesCopyRow: Equatable { var id: Int64; var d: DigestCopying }
+
+struct HookStore: ColumnarSource {
+    var rowCount: Int
+    let ids: [Int64], ats: [Int64]
+    let blob: BytesColumn
+
+    borrowing func int64Column(_ key: StaticString, _ field: Int) -> [Int64]? {
+        field == 0 ? ids : ats
+    }
+    borrowing func doubleColumn(_ key: StaticString, _ field: Int) -> [Double]? { nil }
+    borrowing func boolColumn(_ key: StaticString, _ field: Int) -> [Bool]? { nil }
+    borrowing func stringColumn(_ key: StaticString, _ field: Int) -> [String]? { nil }
+    borrowing func bytesColumn(_ key: StaticString, _ field: Int) -> BytesColumn? { blob }
+    borrowing func columnMetadata(_ key: StaticString, _ field: Int) -> ColumnMetadata {
+        ColumnMetadata(unit: -6)
+    }
+}
+
+func runColumnDecodableBenchmarks() {
+    print("")
+    print("The columnar extension point — a consumer's own scalar vs a built-in column")
+    print("Same store, same column, same 2-field schema. The only difference is whether")
+    print("the field's type is Int64 or a ColumnDecodable type carried by Int64.")
+
+    let n = 100_000
+    let store = HookStore(
+        rowCount: n,
+        ids: (0..<n).map { Int64($0) },
+        ats: (0..<n).map { Int64(1_700_000_000_000_000 + $0) },
+        blob: BytesColumn(rows: (0..<n).map { i in
+            (0..<16).map { UInt8((i &+ $0) % 256) } }))
+    let reps = max(1, 200_000 / n)
+
+    print("")
+    print(pad("field type", 34) + pad("ns/batch", 12) + pad("ns/row", 10))
+    print(String(repeating: "-", count: 56))
+
+    let native = measure(iterations: reps) {
+        precondition(NativeRow.batch(from: store).values.count == n)
+    }
+    let hook = measure(iterations: reps) {
+        precondition(HookRow.batch(from: store).values.count == n)
+    }
+    print(pad("Int64, built in", 34)
+          + pad(String(format: "%.0f", native), 12)
+          + pad(String(format: "%.2f", native / Double(n)), 10))
+    print(pad("Micros, ColumnDecodable", 34)
+          + pad(String(format: "%.0f", hook), 12)
+          + pad(String(format: "%.2f", hook / Double(n)), 10))
+    print(String(format: "the hook costs %.2f ns/row over the built-in column (%.2fx)",
+                 (hook - native) / Double(n), hook / native))
+
+    print("")
+    print("Bytes columns — flat-plus-offsets vs materialising each row")
+    print("Identical arithmetic over identical bytes; the second one copies the row first,")
+    print("which is what a [[UInt8]] column would charge every reader unconditionally.")
+    print("")
+    print(pad("access", 34) + pad("ns/batch", 12) + pad("ns/row", 10))
+    print(String(repeating: "-", count: 56))
+
+    let flat = measure(iterations: reps) {
+        precondition(BytesRow.batch(from: store).values.count == n)
+    }
+    let copying = measure(iterations: reps) {
+        precondition(BytesCopyRow.batch(from: store).values.count == n)
+    }
+    print(pad("range(at:) into the flat buffer", 34)
+          + pad(String(format: "%.0f", flat), 12)
+          + pad(String(format: "%.2f", flat / Double(n)), 10))
+    print(pad("bytes(at:), one Array per row", 34)
+          + pad(String(format: "%.0f", copying), 12)
+          + pad(String(format: "%.2f", copying / Double(n)), 10))
+    print(String(format: "materialising costs %.2f ns/row, %.2fx, at 16 bytes per row",
+                 (copying - flat) / Double(n), copying / flat))
+}

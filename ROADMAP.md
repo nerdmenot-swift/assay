@@ -482,20 +482,12 @@ Deferred rather than refused. Binary data reaches a schema today through a consu
 whose `Column` is `BytesColumn`, which is what the bytes column is for, and the columnar
 half is already built and waiting — see `docs/COLUMN-DECODABLE.md`.
 
-## `Date` and `UUID` as `ColumnDecodable`
+## `Date` and `UUID` as `ColumnDecodable` — BUILT 2026-08-30
 
-Not built, and the placement is the decision rather than the code, which is a few lines.
+Shipped in `AssayFoundation`. `Date` carries `ColumnBuffer<Int64>` with the unit from
+`ColumnMetadata`; `UUID` carries `BytesColumn` and accepts the 16-byte binary form or the
+36-byte canonical text form. `UUID` also gained the tree path it never had, so `var id: UUID`
+is now a legal field. 8,079 differential checks against Foundation. `docs/COLUMN-DECODABLE.md`.
 
-They belong in **`AssayFoundation`**, not `AssayCore`. The core is Foundation-free by
-design — the whole `Date` architecture already turns on this, with parsers returning epoch
-seconds and the macro emitting `Date(timeIntervalSince1970:)` into the user's module — and a
-conformance in `AssayCore` would drag Foundation into it. Our protocol on their type in our
-module is a legal, warning-free conformance wherever it lives.
-
-`Date` must **not** become a native columnar type, which is the ergonomic pull to resist.
-`Date` is seconds-as-`Double`, so a native `Date` column bakes in a unit and cannot
-round-trip a nanosecond column at all — precisely the failure `ColumnMetadata` exists to
-prevent. The asymmetry with the tree path is real and defensible: on the JSON path the wire
-form is *text* and Assay must parse it, which is why `@DateFormat` and the hand-written
-ISO-8601 parsers exist; on the columnar path the source hands over a *number whose unit only
-the source knows*. Different problems, different answers.
+What stays deferred is `Date` as a *native* columnar type, and deliberately: it would fix a
+unit at compile time, which is the failure `ColumnMetadata` exists to prevent.

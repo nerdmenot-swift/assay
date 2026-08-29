@@ -73,6 +73,10 @@ let package = Package(
                 .product(name: "Assay", package: "assay"),
                 .product(name: "AssayYAML", package: "assay"),
                 .product(name: "AssayXML", package: "assay"),
+                // For the Date/UUID column conformances, which cannot be tested in the
+                // library's own test target: importing Foundation there pulls
+                // swift-testing's _Testing_Foundation overlay and its macOS 13 floor.
+                .product(name: "AssayFoundation", package: "assay"),
                 .product(name: "Yams", package: "Yams"),
                 "CorpusRender",
             ],

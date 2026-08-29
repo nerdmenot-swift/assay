@@ -341,6 +341,9 @@ print("XML encode differential: \(xmlEncodeChecks) documents Assay wrote that Fo
 let dateChecks = runDateDifferential()
 print("date differential: \(dateChecks) instants agree with Foundation exactly")
 
+let foundationColumnChecks = runFoundationColumnDifferential()
+print("Date/UUID differential: \(foundationColumnChecks) checks against Foundation, on the tree and columnar paths")
+
 let rejectChecks = runRejectDifferential()
 print("reject differential: \(rejectChecks) documents, RFC 8259 accept/reject verdicts")
 

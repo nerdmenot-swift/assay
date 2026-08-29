@@ -196,11 +196,79 @@ and a set of range-checked primitives — which is a separate change with its ow
 `ROADMAP.md` carries it. Binary data reaches a schema today through a consumer type whose
 `Column` is `BytesColumn`, which is what the bytes column is for.
 
-**`Date` and `UUID` conformances.** Deliberately not shipped in `AssayCore`, which is
-Foundation-free by design. They belong in `AssayFoundation`, and `Date` in particular must
-not become a native columnar type: `Date` is seconds-as-`Double`, so a native `Date` column
-would bake in a unit and lose precision in exactly the nanosecond case that motivated
-`ColumnMetadata`. `ROADMAP.md`.
+*(`Date` and `UUID` were on this list and are now built — see below.)*
+
+## `Date` and `UUID`
+
+Both ship in **`AssayFoundation`**, not `AssayCore`, which is Foundation-free by design.
+No `@retroactive` is needed: SE-0364's check is same-*package*, not same-module, so
+conforming a Foundation type to an Assay protocol from another Assay target is a
+first-party conformance. The compiler says so explicitly if you try.
+
+### `Date`
+
+`Column = ColumnBuffer<Int64>`, with the unit read from `ColumnMetadata`: 0 seconds,
+-3 milli, -6 micro, -9 nano. Any other unit reports the row rather than guessing.
+
+`Int64` and not `Double` because that is what column stores hold — Arrow's TIMESTAMP is
+int64, Parquet's is INT64 with a logical unit, Postgres and DuckDB are int64 microseconds —
+and because nanoseconds need it.
+
+The conversion divides *before* converting, which is load-bearing rather than tidy:
+`Double(1_700_000_000_000_000_000)` needs 61 bits of significand against Double's 53, so
+scaling after the conversion throws away hundreds of nanoseconds before the multiply
+happens. Dividing first keeps the seconds exact — 1.7e9 is well inside 2^53 — and spends
+the rounding only on the fraction, where `Date` runs out anyway.
+
+**`Date` is still not a native columnar type, and that is the point.** Adding
+`case "Date": return "int64Column"` to the macro would be shorter and wrong: it would fix a
+unit at compile time, which is exactly what `ColumnMetadata` exists to prevent. A source
+whose timestamps really are `Double` seconds declares a five-line wrapper with
+`Column = ColumnBuffer<Double>`; a *text* date column is `@DateFormat`'s job, and a bare
+conformance has nowhere to put that choice.
+
+### `UUID`
+
+`UUID` needed more than a conformance: it was not a field type at all. `var id: UUID` in any
+`@Schema` failed with *"type 'UUID' has no member '_assay'"* — the same trap that stopped
+`[UInt8]`. So `AssayFoundation` supplies both halves:
+
+- the **tree path**, `_assay(from:)` for the JSON reader and for `RawValue`, which is the
+  informal seam the macro already uses for any type it does not special-case. Nothing was
+  added to the macro.
+- the **columnar path**, `Column = BytesColumn`.
+
+`BytesColumn` rather than `ColumnBuffer<String>`, and the reason is the *text* case rather
+than the binary one. Binary is the majority — Arrow and Parquet store a UUID as
+FixedSizeBinary(16), as do Postgres and DuckDB on the wire — but a `String` carrier would be
+actively worse for sources that hold text. A CSV or NDJSON reader already has the bytes
+contiguously with offsets, which *is* a `BytesColumn`; asking it for `[String]` forces a
+36-byte allocation per row (past the small-string limit, so a real malloc) purely to be
+parsed and discarded. Length disambiguates with nothing to resolve: canonical text is 36
+bytes, raw is 16, and a row is never both.
+
+**Acceptance is the `.uuid` rule's, exactly.** `FormatValidators.isUUID` already settles what
+Assay considers a UUID — canonical 8-4-4-4-12, no braces, no `urn:uuid:`, no bare 32-hex —
+and decoding must not be more permissive than validating, or a document could parse and then
+fail its own schema. That is also why this does not just call `UUID(uuidString:)`: that
+initialiser has two different C implementations selected by platform, and the non-Darwin one
+is sscanf-based with libc-dependent edge cases, so a UUID your Mac accepts can be rejected on
+Linux. The shape check happens against bytes; Foundation is only handed strings already
+proven acceptable.
+
+### How they are tested
+
+In `Benchmarks/Sources/DiffFuzz/FoundationColumnOracle.swift`, not in `Tests/`, for the
+reason `DateOracle.swift` already records: importing Foundation into the library's test
+target pulls swift-testing's `_Testing_Foundation` overlay and its macOS 13 floor against
+this package's macOS 11. The conformances are *on* Foundation types, so no stub exercises
+them.
+
+**8,079 checks**, gated in CI. Foundation generates every UUID and renders it; both Assay
+paths must return it bit-identically. Acceptance is run against `FormatValidators.isUUID`
+over a list of near-misses — bare 32-hex, braced, `urn:uuid:`, misplaced hyphens, trailing
+space — on the JSON path *and* the columnar text path, so the branches cannot drift from
+each other. Instants round-trip at all four units, with sub-second fractions and negatives.
 
 ## The generality test
 

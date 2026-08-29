@@ -58,12 +58,33 @@ struct ColumnarDiagnosticTests {
         }
     }
 
-    @Test("a nested @Schema field is refused, pointing at the document")
+    @Test("an unrepresentable field is refused, pointing at the document")
     func nestedRefused() {
         let (_, diags) = expandSchemaForTesting("""
         @Schema(sources: true) struct S { var inner: Other }
         """)
         #expect(diags.contains { $0.contains("KEYED-SOURCE.md") })
+    }
+
+    /// The message must not claim to know what the type IS.
+    ///
+    /// Expansion is syntactic: `Date` and `Other` arrive as identical identifier tokens,
+    /// so any sentence asserting "nested @Schema" is a guess that happens to be wrong for
+    /// every scalar a caller is actually likely to reach for. Both spellings must produce
+    /// a message that stays true under either reading, and it must name the type — the
+    /// diagnostic's one job is to tell the reader which field stopped the build.
+    @Test("the refusal does not assert the field is a nested schema")
+    func doesNotMisdescribeScalars() {
+        for (type, field) in [("Date", "takenAt"), ("UUID", "id"), ("Timestamp", "at")] {
+            let (_, diags) = expandSchemaForTesting("""
+            @Schema(sources: true) struct S { var \(field): \(type) }
+            """)
+            let d = try? #require(diags.first { $0.contains(field) })
+            #expect(d?.contains("no columnar representation") == true, "for: \(type)")
+            #expect(d?.contains(type) == true, "for: \(type)")
+            // "If X is a nested @Schema" is conditional and honest; a bare assertion is not.
+            #expect(d?.contains("If \(type) is a nested @Schema") == true, "for: \(type)")
+        }
     }
 
     @Test("sources: false emits nothing — the compile budget is why it is opt-in")

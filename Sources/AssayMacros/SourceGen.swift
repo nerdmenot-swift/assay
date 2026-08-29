@@ -39,7 +39,7 @@ extension SchemaMacro {
         case "Double": return ".double"
         case "Float":  return ".float"
         case "Bool":   return ".bool"
-        default:       return ".nested(\"\(type)\")"
+        default:       return ".unsupported(\"\(type)\")"
         }
     }
 
@@ -54,10 +54,18 @@ extension SchemaMacro {
                     + "is a batch of flat scalar columns and has no nested collections. "
                     + "Decode tree-shaped data through the RawValue path instead, or drop "
                     + "`sources: true`")
-            } else if manifestKind(base).hasPrefix(".nested") {
-                out.append("'\(f.identifier)' is declared \(f.typeName); nested @Schema "
-                    + "values are not addressable from a flat columnar source. "
-                    + "See docs/KEYED-SOURCE.md")
+            } else if manifestKind(base).hasPrefix(".unsupported") {
+                // Say only what expansion can actually establish. The previous wording
+                // here asserted "nested @Schema values are not addressable", which is a
+                // claim about what `\(base)` IS -- and a syntactic macro cannot know that.
+                // For `Date` and `UUID`, the two most likely spellings to land here, it
+                // was simply false, and it sent the reader to a document about a design
+                // that was withdrawn for unrelated reasons.
+                out.append("'\(f.identifier)' is declared \(f.typeName), which has no "
+                    + "columnar representation. A columnar source supplies String, Bool, "
+                    + "integer and floating-point columns. If \(base) is a nested @Schema, "
+                    + "a flat batch cannot address it (docs/KEYED-SOURCE.md); otherwise "
+                    + "decode this type through the RawValue path, or drop `sources: true`")
             }
         }
         return out

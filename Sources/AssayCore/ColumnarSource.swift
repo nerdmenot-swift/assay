@@ -68,9 +68,20 @@ public struct FieldManifest: Sendable {
 
     public enum Kind: Sendable, Equatable {
         case string, int, int64, int32, uint, double, float, bool
-        /// A nested `@Schema` type, named. Not decodable from a flat source in the first
-        /// increment; present so a binder can see it and refuse.
-        case nested(String)
+        /// A field this path cannot serve, carrying the declared type's spelling.
+        ///
+        /// Deliberately NOT called `.nested`, which is what it used to be called and was
+        /// wrong. A macro is syntactic: it sees the identifier `Timestamp` and nothing
+        /// else. It cannot know whether that names a nested `@Schema`, a struct from
+        /// another module, or a typealias for `Int64` — the type checker has not run and
+        /// will not run until after expansion. Naming the case `.nested` asserted a fact
+        /// the expansion is structurally incapable of establishing, and the diagnostic
+        /// built on it told users that `Date` was a nested schema.
+        ///
+        /// What the macro genuinely knows is the complement: the spelling is not one it
+        /// has a column accessor for. That is what this case means, and a binder that
+        /// wants to refuse has exactly as much information as before.
+        case unsupported(String)
     }
 
     public let fields: [Field]

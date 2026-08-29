@@ -19,7 +19,7 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 | Phase-1 decoder + `@Schema` macro | **built** — 196 tests in 25 suites |
 | Falsification condition | **PASSED, 5.44× over Foundation (8.64× float-dense)** — `Benchmarks/RESULTS.md` |
 | Full corpus sweep | **built and run** — 9.17× struct decode (25 files), 6.43× prefix+skip (45), 1.49× generic value model (75) |
-| Cross-platform | **three supported platforms, all gating**: macOS and Linux (x86-64 + aarch64) run the tests; Windows **builds** — its test target crashes the compiler, `ROADMAP.md`. Plus iOS build, static Linux (musl, 2 arches) and wasm32 cross-compiles. Android is not a target |
+| Cross-platform | **three supported platforms, all gating**: macOS, Linux (x86-64 + aarch64) and Windows all run the test suite. Plus iOS build, static Linux (musl, 2 arches) and wasm32 cross-compiles. Android is not a target |
 | Compile-time budget | **measured and gated** — ~87 ms/type at 10 fields rule-free (gate 100 ms), ~114 ms for a type with a rule on nearly every field (gate 145 ms) |
 | Value models (`JSON.Value`, `YAML.Node`, `XML.Node`, `RawValue`) | **built** — `docs/VALUE-MODELS.md` |
 | YAML and XML parsers | **built** — hand-written, XXE refused by construction |

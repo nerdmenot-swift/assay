@@ -82,15 +82,8 @@ jobs:
       - name: Select a toolchain new enough for the package
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
       - run: swift --version
-      # BUILD gates; TEST does not run yet, and the reason is recorded in ROADMAP.md
-      # rather than hidden behind a green tick. The library and every product compile
-      # cleanly here — that is real portability coverage and it is what this job asserts.
-      # Compiling the TEST target crashes the toolchain (`error: fatalError`, no source
-      # location) on the largest macro expansion in the suite. Claiming "tested on
-      # Windows" while that is true would be the same dishonesty the unverified-platform
-      # category was removed for.
-      - name: Build every product
-        run: swift build --explicit-target-dependency-import-check error
+      - name: Test
+        run: swift test --explicit-target-dependency-import-check error
 
   # iOS, build only. A package cannot be *tested* on a simulator without a scheme and a
   # destination, but it can be built for the platform, which is what catches an accidental
@@ -127,7 +120,7 @@ jobs:
   # workflow's Windows leg, which was testing Swift 5.9 against a package declaring 6.2 and
   # so could only ever fail on the manifest.
   windows:
-    name: Build (Windows)
+    name: Test (Windows)
     runs-on: windows-latest
     timeout-minutes: 90
     steps:
@@ -140,15 +133,8 @@ jobs:
           swift-version: swift-6.3.3-release
           swift-build: 6.3.3-RELEASE
       - run: swift --version
-      # BUILD gates; TEST does not run yet, and the reason is recorded in ROADMAP.md
-      # rather than hidden behind a green tick. The library and every product compile
-      # cleanly here — that is real portability coverage and it is what this job asserts.
-      # Compiling the TEST target crashes the toolchain (`error: fatalError`, no source
-      # location) on the largest macro expansion in the suite. Claiming "tested on
-      # Windows" while that is true would be the same dishonesty the unverified-platform
-      # category was removed for.
-      - name: Build every product
-        run: swift build --explicit-target-dependency-import-check error
+      - name: Test
+        run: swift test --explicit-target-dependency-import-check error
 
   # Static Linux (musl). Worth its own job because it is the configuration most likely to
   # expose an accidental libc or dlopen dependency.

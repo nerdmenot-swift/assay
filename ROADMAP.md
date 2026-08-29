@@ -342,39 +342,48 @@ issue cap already covers the memory concern that motivates it.
 
 ---
 
-## Windows: the library builds, the test target crashes the compiler
+## Windows: diagnosed, and the first hypothesis was wrong
 
-**Found 2026-08-27, the day Windows started gating.** `swift build` succeeds — every
-product, every target, warnings only. `swift test` does not get that far: compiling the
-test target ends in
+**Recorded because the wrong guess is the useful part.** `swift test` on Windows ended in
+`error: fatalError` with no source location. This document previously blamed expansion size,
+reasoning that Windows threads default to a 1 MB stack against Unix's 8 MB and that
+swift-syntax walks generated source recursively — which is a coherent story, matches a note
+already in `ci.yml` about WebAssembly needing a 16 MB stack, and is **not what was happening**.
+
+A throwaway diagnostic workflow settled it in two runs by asking three questions at once:
+
+1. Does the library build? **Yes.**
+2. Does a minimal package containing one large `formats: .all, encodes: true` type build?
+   **Yes** — so expansion size is not the trigger and the stack theory is dead.
+3. What does a verbose test-target build actually print?
+
+Question 3 gave nothing on the first attempt, because the generated decode bodies emit
+hundreds of "trailing closure is confusable" warnings and a 120-line tail was every one of
+them and none of the error. Rebuilding with `-suppress-warnings` produced a single line:
 
 ```
-error: fatalError
+MappedFileTests.swift:51:9: error: '_open' is unavailable: Variadic function is unavailable
 ```
 
-with no source location, after the macro plugin has already emitted expansion warnings for
-`YAMLEncodingTests.swift`. So the plugin produced its output and something downstream died.
+`_open` is variadic in ucrt — `int _open(const char*, int, ...)` — and Swift cannot import a
+C variadic function. The cause was a Windows shim added days earlier in the belief it was the
+portable spelling; it had never been compiled on Windows because Windows had never been
+tested. The fix replaces POSIX `open`/`write`/`close`/`unlink` with `fopen`/`fwrite`/
+`fclose`/`remove`, which are not variadic, are C89, and exist under exactly those names on
+Darwin, Glibc, Musl and ucrt alike — so the platform branching disappeared rather than
+gaining a third arm.
 
-What is known:
+Two things worth keeping from this:
 
-- **It is not the library.** `Sources/` compiles clean on Windows, which is the coverage the
-  job now gates on.
-- **It is not an explicit trap in the macro.** `AssayMacros` contains no `fatalError`, and
-  its only force-unwraps are dictionary lookups on keys inserted a line earlier.
-- **The suspect is expansion SIZE.** It dies around a
-  `@Schema(keys: .snakeCase, formats: .all, encodes: true)` type carrying nested structs, an
-  array of them, and a `[String: Int]` — three decode bodies plus three encode bodies, the
-  largest single expansion in the repository. Windows threads default to a 1 MB stack where
-  Unix gives 8 MB, and swift-syntax walks generated source recursively. The same shape is
-  already noted for WebAssembly in `ci.yml`: its toolset bumps the stack to 16 MB precisely
-  because a recursive parser blows the default.
-
-Not diagnosed further because it cannot be reproduced off Windows and each CI iteration is
-slow. The next step is to narrow it: build the test target with the `formats: .all,
-encodes: true` types reduced one at a time until it compiles, which identifies whether size
-is really the trigger.
-
-Until then Windows is **built and gating, not tested**, and the README says exactly that.
+- **`error: fatalError` is SwiftPM saying "a compile subprocess died", nothing more.** It
+  carries no location and no stack. The same message appeared while verifying this fix on
+  Linux, where the cause was `signal 9` — four stray containers competing for a 4 GiB VM.
+  Two entirely different causes, one message. Treat it as "something died, go find out
+  what", and suppress warnings before theorising: the actual Windows diagnostic was an
+  ordinary unavailability error buried under hundreds of them.
+- **A plausible mechanism is not evidence.** The stack story explained the symptom, cited a
+  real platform difference, and was wrong. It cost one diagnostic run to disprove and would
+  have cost far more to act on.
 
 ## Known behavioural gaps found by the pre-release audit
 

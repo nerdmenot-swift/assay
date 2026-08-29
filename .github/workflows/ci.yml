@@ -207,6 +207,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Select a toolchain new enough for the package
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+      # Every other step here is `-c release`, and that is exactly how this package sat
+      # broken in debug for an unknown length of time: `swift build` in Benchmarks/ failed
+      # with `<unknown>:0: error: circular reference`, naming no file, because release
+      # builds whole-module and never issues the per-file type-check request that starts
+      # the cycle. Debug is what a contributor types first, so it is what CI must cover.
+      # See Sources/CorpusGen/JSON.swift for the cycle itself.
+      - name: Build debug — release-only CI is how the debug break went unnoticed
+        working-directory: Benchmarks
+        run: swift build
       - name: Generate the corpus
         working-directory: Benchmarks
         run: swift run -c release CorpusGen

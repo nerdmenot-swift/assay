@@ -56,7 +56,36 @@ struct SplitMix64: RandomNumberGenerator {
 }
 
 /// Ordered JSON. `object` keeps insertion order so output is stable.
-indirect enum JSON {
+///
+/// `: Sendable` IS LOAD-BEARING AND MUST NOT BE TIDIED AWAY. It is not documentation --
+/// without it this package does not compile in debug, and the error names no file:
+///
+///     <unknown>:0: error: circular reference
+///
+/// The cycle is in the compiler's *inference* of Sendable for a recursive enum whose
+/// payload is an array of LABELLED TUPLES containing the enum itself. `-Xfrontend
+/// -debug-cycles` prints it:
+///
+///     TypeCheckFunctionBodyRequest(unknownKeys @ Shapes.swift:175)
+///      -> LookupConformance(Sendable for [(key: String, value: JSON)])
+///       -> LookupConformance(Sendable for (key: String, value: JSON))
+///        -> LookupConformance(Sendable for Pack{String, JSON})
+///         -> LookupConformance(Sendable for JSON)
+///          -> ImplicitKnownProtocolConformanceRequest(JSON, Sendable)
+///           -> LookupConformance(Sendable for Array<(key: String, value: JSON)>)
+///            -> (cyclic dependency)
+///
+/// Writing the conformance explicitly takes a different path through the checker and the
+/// cycle does not form. The conformance is TRUE, not `@unchecked` -- every payload here is
+/// Sendable -- so this costs nothing and asserts nothing false.
+///
+/// It only bites in DEBUG: release builds whole-module and does not issue the per-file
+/// `TypeCheckPrimaryFileRequest` that starts the chain. CI runs these tools with
+/// `-c release`, which is why the package could sit broken in debug without anyone noticing.
+///
+/// The structural fix is a named `Member` struct instead of the tuple -- which is exactly
+/// what `AssayCore`'s `RawValue.Member` is, and why the library never hit this.
+indirect enum JSON: Sendable {
     case string(String)
     case int(Int)
     case double(Double)

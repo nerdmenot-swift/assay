@@ -37,7 +37,13 @@ import AssayYAML
 import Yams
 
 /// The shared vocabulary: what both parsers agree a document means, once resolved.
-indirect enum YValue: Equatable, CustomStringConvertible {
+///
+/// `Sendable` is spelled out for the reason `CorpusGen/JSON.swift` documents at length: a
+/// recursive enum with a tuple payload containing itself sends the compiler's implicit
+/// Sendable inference into a cycle, and the error it produces names no file. This one had
+/// not tripped yet only because nothing forced the lookup; three lines declaring a
+/// `[(String, YValue)]` local in this module reproduced it exactly. Do not remove it.
+indirect enum YValue: Equatable, Sendable, CustomStringConvertible {
     case null
     case bool(Bool)
     case int(Int64)

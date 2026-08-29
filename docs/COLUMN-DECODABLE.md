@@ -66,6 +66,34 @@ Returning `nil` reports the row as missing, with the field's path and row index,
 a null or a short column does. It is the right answer for a value the column can hold and
 this type cannot represent — including an overflow, which is why the example checks one.
 
+### A columnar-only type pays for nothing else
+
+```swift
+@Schema(formats: [], sources: true)
+struct Reading {
+    var id: Int64
+    var at: Timestamp      // ColumnDecodable; no tree path of any kind
+    var value: Double
+}
+```
+
+`formats: []` with `sources: true` is the correct spelling for a type that decodes from a
+column store and nothing else — a SQLite, Postgres, DuckDB or ClickHouse driver, an Arrow
+or Parquet reader. It emits `_assayManifest` and `_assayBatch` and nothing more: no JSON
+decoder, no `RawDecodable`. That is the same argument `ROADMAP.md` §1 makes for `encodes:`
+being opt-in — a decode-only type must not pay for an encoder it never calls.
+
+It is also the *only* correct spelling, not merely the tidiest, once any field is a
+consumer's own scalar. `formats: .json` will not compile for such a type: the JSON byte
+path calls `T._assay(from: AssayReader…)`, which is not a public protocol requirement, so
+a `ColumnDecodable` conformance alone gives `type 'Timestamp' has no member '_assay'`.
+Before this spelling was accepted, the only thing that built was `formats: .yaml,
+sources: true` plus a `RawDecodable` conformance per custom type that would never be
+called.
+
+`@Schema(formats: [])` with no rules, no `encodes:` and no `sources:` is still refused —
+that one really would generate nothing.
+
 ### The unit is data, not type
 
 `ColumnMetadata` carries `unit`, `scale` and `flags`, and it comes from the **source**, not

@@ -164,6 +164,7 @@ public struct SchemaMacro: ExtensionMacro {
 
         let policy = Self.unknownKeys(from: node)
         let wantsEncoding = Self.encodes(from: node)
+        let wantsSources = Self.sources(from: node)
         let coerceAll = Self.coerceScalars(from: node)
         let formats = Self.formats(from: node)
 
@@ -303,7 +304,7 @@ public struct SchemaMacro: ExtensionMacro {
                                                      extras: extras)
             }
         }
-        if Self.sources(from: node) {
+        if wantsSources {
             for message in Self.sourceDiagnostics(activeS) {
                 context.diagnose(Diagnostic(node: Syntax(node),
                                             message: SimpleDiagnostic(message)))
@@ -321,19 +322,35 @@ public struct SchemaMacro: ExtensionMacro {
         }
         body += Self.asyncCheckRunner(typeName, checkDecls)
 
-        // A type with no decode body, no encoder and no rules would expand to nothing at
-        // all. That is always a mistake, and it is the only reason `formats: []` needs
-        // guarding — said here, where the diagnostic can name the fix, rather than by
-        // quietly turning the empty set back into JSON.
-        if !formats.json, !formats.raw, !formats.xml, !wantsEncoding,
+        // A type that would expand to NOTHING AT ALL is always a mistake, and it is the
+        // only reason `formats: []` needs guarding — said here, where the diagnostic can
+        // name the fix, rather than by quietly turning the empty set back into JSON.
+        //
+        // Every way of generating a body has to be listed, and `sources` belongs in that
+        // list: `@Schema(formats: [], sources: true)` emits `_assayManifest` and
+        // `_assayBatch`, so refusing it told the truth about `formats: []` and a falsehood
+        // about the declaration in front of it. That mattered more than a missing clause
+        // usually does, because there was no other correct spelling. A columnar-only type
+        // carrying a consumer's own scalar cannot say `formats: .json` either — the JSON
+        // byte path calls `T._assay(from: AssayReader…)`, which is not a public protocol
+        // requirement — so the only thing that compiled was `formats: .yaml, sources: true`
+        // plus a `RawDecodable` conformance per custom type that would never be called, to
+        // obtain a columnar decoder. That workaround would have ended up in real code.
+        //
+        // It is also the argument `ROADMAP.md` §1 already makes for `encodes:` being
+        // opt-in: a decode-only type must not pay for an encoder it never calls. A
+        // columnar-only type not paying for a JSON decoder it never calls is the same
+        // claim, and the guard was inconsistent with the design around it.
+        if !formats.json, !formats.raw, !formats.xml, !wantsEncoding, !wantsSources,
            !Self.hasValidation(activeS, checkDecls) {
             context.diagnose(Diagnostic(
                 node: Syntax(node),
                 message: SimpleDiagnostic(
                     "@Schema(formats: []) emits no decode body, and this type declares no "
-                    + "@Validate, no @Check and no `encodes: true`, so the macro would "
-                    + "generate nothing. Add a rule if you want `\(typeName).validate(_:)`, "
-                    + "or remove `formats: []` to decode JSON.")))
+                    + "@Validate, no @Check, no `encodes: true` and no `sources: true`, so "
+                    + "the macro would generate nothing. Add a rule if you want "
+                    + "`\(typeName).validate(_:)`, `sources: true` to decode from a column "
+                    + "store, or remove `formats: []` to decode JSON.")))
             return []
         }
 
@@ -349,7 +366,7 @@ public struct SchemaMacro: ExtensionMacro {
         if wantsEncoding && formats.json { conformances.append("Assay.JSONEncodableSchema") }
         if wantsEncoding && formats.raw { conformances.append("Assay.RawEncodableSchema") }
         if wantsEncoding && formats.xml { conformances.append("Assay.XMLEncodableSchema") }
-        if Self.sources(from: node) { conformances.append("Assay.SourceDecodable") }
+        if wantsSources { conformances.append("Assay.SourceDecodable") }
 
         let ext = try ExtensionDeclSyntax(
             "extension \(raw: typeName): \(raw: conformances.joined(separator: ", "))") {

@@ -108,6 +108,43 @@ struct ColumnarDiagnosticTests {
         #expect(diags.contains { $0.contains("flat scalar columns") })
     }
 
+    /// `formats: []` with `sources: true` is the ONLY correct spelling for a type that
+    /// decodes from a column store and nothing else, so it has to compile.
+    ///
+    /// It used to be refused, with a diagnostic saying the macro "would generate nothing" —
+    /// untrue of that declaration, which emits both a manifest and a batch body. The cost
+    /// was not the wrong sentence: a columnar-only type carrying a consumer's own scalar
+    /// cannot use `formats: .json` either, because the JSON byte path calls
+    /// `T._assay(from: AssayReader…)` and that is not a public protocol requirement. The
+    /// only thing that compiled was `formats: .yaml, sources: true` plus a `RawDecodable`
+    /// conformance per custom type that would never be called.
+    @Test("formats: [] with sources: true expands, and emits a real body")
+    func sourcesAloneIsEnough() {
+        let (src, diags) = expandSchemaForTesting("""
+        @Schema(formats: [], sources: true)
+        struct Reading { var id: Int64; var value: Double }
+        """)
+        #expect(diags.isEmpty, "got: \(diags)")
+        #expect(src.contains("_assayManifest"))
+        #expect(src.contains("_assayBatch"))
+        #expect(src.contains("SourceDecodable"))
+        // The point of `formats: []` is what is NOT paid for.
+        #expect(!src.contains("JSONAssayable"))
+        #expect(!src.contains("RawDecodable"))
+    }
+
+    /// The case the guard is actually for, which is still a mistake worth refusing.
+    @Test("formats: [] with nothing else at all is still refused")
+    func emptyFormatsWithNothingIsStillRefused() {
+        let (_, diags) = expandSchemaForTesting("""
+        @Schema(formats: []) struct S { var a: Int }
+        """)
+        let d = diags.first { $0.contains("generate nothing") }
+        #expect(d != nil)
+        // The message enumerates every way out, so `sources` has to appear among them now.
+        #expect(d?.contains("sources: true") == true, "got: \(d ?? "none")")
+    }
+
     @Test("sources: false emits nothing — the compile budget is why it is opt-in")
     func optInIsReal() {
         let (without, _) = expandSchemaForTesting("@Schema struct S { var a: Int }")

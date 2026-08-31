@@ -91,7 +91,9 @@ extension SchemaMacro {
         switch type {
         case "String":              return ".string(\(expr))"
         case "Bool":                return ".bool(\(expr))"
-        case "Int", "Int32", "UInt": return ".int(Int64(\(expr)))"
+        case "Int", "Int32", "UInt",
+             "Int8", "Int16", "UInt8", "UInt16", "UInt32", "UInt64":
+            return ".int(Int64(\(expr)))"
         case "Int64":               return ".int(\(expr))"
         case "Double":              return ".double(\(expr))"
         case "Float":               return ".double(Double(\(expr)))"

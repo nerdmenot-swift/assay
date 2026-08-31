@@ -97,6 +97,72 @@ extension RawValue {
     }
 
     @inlinable
+    public func assayInt8(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        coerce: Bool = false, at span: SourceSpan? = nil
+    ) -> Int8? {
+        if case .int(let i) = self, let n = Int8(exactly: i) { return n }
+        if coerce, let n = coercedInt(), let v = Int8(exactly: n) { return v }
+        Self.mismatch(&sink, path, key, "integer", self, span)
+        return nil
+    }
+
+    @inlinable
+    public func assayInt16(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        coerce: Bool = false, at span: SourceSpan? = nil
+    ) -> Int16? {
+        if case .int(let i) = self, let n = Int16(exactly: i) { return n }
+        if coerce, let n = coercedInt(), let v = Int16(exactly: n) { return v }
+        Self.mismatch(&sink, path, key, "integer", self, span)
+        return nil
+    }
+
+    @inlinable
+    public func assayUInt8(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        coerce: Bool = false, at span: SourceSpan? = nil
+    ) -> UInt8? {
+        if case .int(let i) = self, let n = UInt8(exactly: i) { return n }
+        if coerce, let n = coercedInt(), let v = UInt8(exactly: n) { return v }
+        Self.mismatch(&sink, path, key, "unsigned integer", self, span)
+        return nil
+    }
+
+    @inlinable
+    public func assayUInt16(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        coerce: Bool = false, at span: SourceSpan? = nil
+    ) -> UInt16? {
+        if case .int(let i) = self, let n = UInt16(exactly: i) { return n }
+        if coerce, let n = coercedInt(), let v = UInt16(exactly: n) { return v }
+        Self.mismatch(&sink, path, key, "unsigned integer", self, span)
+        return nil
+    }
+
+    @inlinable
+    public func assayUInt32(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        coerce: Bool = false, at span: SourceSpan? = nil
+    ) -> UInt32? {
+        if case .int(let i) = self, let n = UInt32(exactly: i) { return n }
+        if coerce, let n = coercedInt(), let v = UInt32(exactly: n) { return v }
+        Self.mismatch(&sink, path, key, "unsigned integer", self, span)
+        return nil
+    }
+
+    @inlinable
+    public func assayUInt64(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        coerce: Bool = false, at span: SourceSpan? = nil
+    ) -> UInt64? {
+        if case .int(let i) = self, let n = UInt64(exactly: i) { return n }
+        if coerce, let n = coercedInt(), let v = UInt64(exactly: n) { return v }
+        Self.mismatch(&sink, path, key, "unsigned integer", self, span)
+        return nil
+    }
+
+    @inlinable
     public func assayDouble(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil

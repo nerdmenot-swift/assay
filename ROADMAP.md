@@ -460,27 +460,44 @@ stays empty. Experiments #2–#4 remain valid and are worth keeping — they est
 intrinsics resolve, emit real NEON, and survive versioned dependency resolution, and that
 `-mattr=+avx2` does nothing. That is a door left open, not a plan.
 
-## Small integer widths on the tree path — and `[UInt8]` behind them
+## Small integer widths — BUILT 2026-08-31
 
-`UInt8`, `Int8`, `UInt16`, `Int16`, `UInt32`, `UInt64` are not scalars anywhere in Assay.
-`Int`, `Int32`, `Int64`, `UInt`, `Double`, `Float`, `Bool` and `String` are the whole set.
+`Int8`, `Int16`, `UInt8`, `UInt16`, `UInt32` and `UInt64` are field types on every path:
+JSON, `RawValue` (YAML/XML), validation rules, all three encoders, and the columnar
+manifest. `[UInt8]` works with them, and now maps to `bytesColumn` through the
+`ColumnDecodable` conformance that was written and withheld — see
+`docs/COLUMN-DECODABLE.md`.
 
-This surfaced on 2026-08-30 while building the columnar extension point, from an unexpected
-direction. `[UInt8]` is the natural client of a bytes column — a blob field, no wrapper type
-— and it cannot be made to work, because the *tree* path fails first: `var payload: [UInt8]`
-in any `@Schema` type produces "type 'UInt8' has no member '_assay'" from the JSON body,
-long before the columnar body is consulted. A `ColumnDecodable` conformance for `[UInt8]`
-would have been a road to a bricked-up door, so it was not shipped.
+**`UInt64` cannot reach its own maximum**, and that is inherited rather than introduced:
+`scanInt64` returns `Int64`, so any unsigned value above `Int64.max` fails to scan. `UInt`
+has had exactly this ceiling since it was added. Lifting it needs a `scanUInt64` in the
+number parser — its own change, with its own tests. There is a test pinning the current
+behaviour so whoever writes it finds a green assertion rather than a surprise.
 
-The work is not conceptually hard and it is not small: range-checked decode primitives per
-width, then `CodeGen`, `RawCodeGen`, `ValidationGen`, `EncodeGen`, `RawEncodeGen` and
-`XMLEncodeGen` each carry their own type switch, plus round-trip and boundary tests across
-JSON, YAML and XML. Six files and a test matrix, for a set of types Swift API design mostly
-steers people away from at model boundaries.
+Two pre-existing bugs surfaced while doing this and were fixed with it, both in the
+functions being extended:
 
-Deferred rather than refused. Binary data reaches a schema today through a consumer type
-whose `Column` is `BytesColumn`, which is what the bytes column is for, and the columnar
-half is already built and waiting — see `docs/COLUMN-DECODABLE.md`.
+- **`decodeInt64` and `decodeInt32` never called `beginValue()`**, so validation carets on
+  those fields pointed at the wrong bytes — for `{"wide": 999, ...}` the span came out as
+  (lo: 0, len: 9), the start of the document. `Int` was correct, which is why it survived
+  the golden caret tests.
+- **`write(_ v: UInt)` reinterpreted the bit pattern** rather than converting, so every
+  unsigned value above `Int64.max` encoded as negative: `UInt.max` came out as `-1`.
+  Well-formed JSON carrying a different number, against a stated round-trip law. Not
+  reachable by decoding, since the scanner caps input at `Int64.max`; reachable by any
+  program that constructs the value and encodes it.
+
+## Array element issues do not carry the element index
+
+Found 2026-08-31, not fixed, and general rather than specific to any element type: an
+out-of-range element in `[Int32]`, `[UInt8]` or any other array reports its issue at
+`[.key("xs")]` with no `.index(1)` component. The value and the field are named; which
+element failed is not.
+
+The fix belongs in array codegen, where it would land for every element type at once, and
+it is a behaviour change to every array diagnostic — so it is its own commit rather than a
+rider on something else. `Tests/AssayTests/IntegerWidthTests.swift` asserts the current
+behaviour deliberately, so this does not start failing when somebody fixes it.
 
 ## `Date` and `UUID` as `ColumnDecodable` — BUILT 2026-08-30
 

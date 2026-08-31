@@ -160,6 +160,18 @@ public struct XMLWriter: ~Copyable {
     @inlinable
     public mutating func element(_ name: String, _ v: UInt) { element(name, String(v)) }
     @inlinable
+    public mutating func element(_ name: String, _ v: Int8) { element(name, String(v)) }
+    @inlinable
+    public mutating func element(_ name: String, _ v: Int16) { element(name, String(v)) }
+    @inlinable
+    public mutating func element(_ name: String, _ v: UInt8) { element(name, String(v)) }
+    @inlinable
+    public mutating func element(_ name: String, _ v: UInt16) { element(name, String(v)) }
+    @inlinable
+    public mutating func element(_ name: String, _ v: UInt32) { element(name, String(v)) }
+    @inlinable
+    public mutating func element(_ name: String, _ v: UInt64) { element(name, String(v)) }
+    @inlinable
     public mutating func element(_ name: String, _ v: Bool) {
         element(name, v ? "true" : "false")
     }

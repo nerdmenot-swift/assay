@@ -48,6 +48,7 @@ extension AssayReader {
     public mutating func decodeInt64(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Int64? {
+        beginValue()
         if let v = scanInt64() { return v }
         failed(&sink, path, key, "integer")
         return nil
@@ -57,6 +58,7 @@ extension AssayReader {
     public mutating func decodeInt32(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Int32? {
+        beginValue()
         if let v = scanInt64(), let n = Int32(exactly: v) { return n }
         failed(&sink, path, key, "integer")
         return nil
@@ -185,6 +187,7 @@ extension AssayReader {
     public mutating func decodeInt64OrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Int64?? {
+        beginValue()
         if scanNull() { return .some(nil) }
         if let v = scanInt64() { return .some(v) }
         failed(&sink, path, key, "integer")
@@ -195,6 +198,7 @@ extension AssayReader {
     public mutating func decodeInt32OrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Int32?? {
+        beginValue()
         if scanNull() { return .some(nil) }
         if let v = scanInt64(), let n = Int32(exactly: v) { return .some(n) }
         failed(&sink, path, key, "integer")
@@ -386,5 +390,225 @@ extension AssayReader {
         if let b = scanBool() { return b ? "true" : "false" }
         failed(&sink, path, key, "string")
         return nil
+    }
+}
+
+// MARK: - The narrow fixed-width integers
+
+// Int8/Int16/UInt8/UInt16/UInt32/UInt64, added 2026-08-31. Int, Int32, Int64 and UInt were
+// the whole set before that, which meant `var b: UInt8` did not compile in ANY `@Schema`
+// type -- and with it `[UInt8]`, the obvious way to carry a blob. That is what blocked the
+// columnar bytes column from having a usable field type; see docs/COLUMN-DECODABLE.md.
+//
+// Spelled out one width at a time rather than written once over `FixedWidthInteger`. The
+// header of `CodeGen.scalarCall` states the reason as a rule -- "monomorphic per type;
+// there is no generic FixedWidthInteger dispatch anywhere on the decode path, which is the
+// whole reason a macro decoder can be fast here" -- and a generic helper here would put one
+// back at the leaf, where it is hottest and where `@inlinable` has to carry it across the
+// module boundary into the user's code.
+//
+// UInt64 CANNOT REPRESENT ITS FULL RANGE, and that is inherited rather than introduced:
+// `scanInt64` returns `Int64`, so any unsigned value above `Int64.max` fails to scan. `UInt`
+// has had exactly this ceiling since it was added and this width matches it. Lifting it
+// needs a `scanUInt64` in the number parser, which is its own change with its own tests.
+
+extension AssayReader {
+
+    @inlinable
+    public mutating func decodeInt8(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> Int8? {
+        beginValue()
+        if let v = scanInt64(), let n = Int8(exactly: v) { return n }
+        failed(&sink, path, key, "integer")
+        return nil
+    }
+
+    @inlinable
+    public mutating func decodeInt8OrNull(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> Int8?? {
+        beginValue()
+        if scanNull() { return .some(nil) }
+        if let v = scanInt64(), let n = Int8(exactly: v) { return .some(n) }
+        failed(&sink, path, key, "integer")
+        return nil
+    }
+
+    @inlinable
+    public mutating func decodeInt8Coercing(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> Int8? {
+        guard let v = decodeIntCoercing(&sink, path, key) else { return nil }
+        guard let n = Int8(exactly: v) else {
+            overflowed(&sink, path, key, v)
+            return nil
+        }
+        return n
+    }
+
+    @inlinable
+    public mutating func decodeInt16(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> Int16? {
+        beginValue()
+        if let v = scanInt64(), let n = Int16(exactly: v) { return n }
+        failed(&sink, path, key, "integer")
+        return nil
+    }
+
+    @inlinable
+    public mutating func decodeInt16OrNull(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> Int16?? {
+        beginValue()
+        if scanNull() { return .some(nil) }
+        if let v = scanInt64(), let n = Int16(exactly: v) { return .some(n) }
+        failed(&sink, path, key, "integer")
+        return nil
+    }
+
+    @inlinable
+    public mutating func decodeInt16Coercing(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> Int16? {
+        guard let v = decodeIntCoercing(&sink, path, key) else { return nil }
+        guard let n = Int16(exactly: v) else {
+            overflowed(&sink, path, key, v)
+            return nil
+        }
+        return n
+    }
+
+    @inlinable
+    public mutating func decodeUInt8(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> UInt8? {
+        beginValue()
+        if let v = scanInt64(), let n = UInt8(exactly: v) { return n }
+        failed(&sink, path, key, "unsigned integer")
+        return nil
+    }
+
+    @inlinable
+    public mutating func decodeUInt8OrNull(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> UInt8?? {
+        beginValue()
+        if scanNull() { return .some(nil) }
+        if let v = scanInt64(), let n = UInt8(exactly: v) { return .some(n) }
+        failed(&sink, path, key, "unsigned integer")
+        return nil
+    }
+
+    @inlinable
+    public mutating func decodeUInt8Coercing(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> UInt8? {
+        guard let v = decodeIntCoercing(&sink, path, key) else { return nil }
+        guard let n = UInt8(exactly: v) else {
+            overflowed(&sink, path, key, v)
+            return nil
+        }
+        return n
+    }
+
+    @inlinable
+    public mutating func decodeUInt16(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> UInt16? {
+        beginValue()
+        if let v = scanInt64(), let n = UInt16(exactly: v) { return n }
+        failed(&sink, path, key, "unsigned integer")
+        return nil
+    }
+
+    @inlinable
+    public mutating func decodeUInt16OrNull(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> UInt16?? {
+        beginValue()
+        if scanNull() { return .some(nil) }
+        if let v = scanInt64(), let n = UInt16(exactly: v) { return .some(n) }
+        failed(&sink, path, key, "unsigned integer")
+        return nil
+    }
+
+    @inlinable
+    public mutating func decodeUInt16Coercing(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> UInt16? {
+        guard let v = decodeIntCoercing(&sink, path, key) else { return nil }
+        guard let n = UInt16(exactly: v) else {
+            overflowed(&sink, path, key, v)
+            return nil
+        }
+        return n
+    }
+
+    @inlinable
+    public mutating func decodeUInt32(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> UInt32? {
+        beginValue()
+        if let v = scanInt64(), let n = UInt32(exactly: v) { return n }
+        failed(&sink, path, key, "unsigned integer")
+        return nil
+    }
+
+    @inlinable
+    public mutating func decodeUInt32OrNull(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> UInt32?? {
+        beginValue()
+        if scanNull() { return .some(nil) }
+        if let v = scanInt64(), let n = UInt32(exactly: v) { return .some(n) }
+        failed(&sink, path, key, "unsigned integer")
+        return nil
+    }
+
+    @inlinable
+    public mutating func decodeUInt32Coercing(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> UInt32? {
+        guard let v = decodeIntCoercing(&sink, path, key) else { return nil }
+        guard let n = UInt32(exactly: v) else {
+            overflowed(&sink, path, key, v)
+            return nil
+        }
+        return n
+    }
+
+    @inlinable
+    public mutating func decodeUInt64(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> UInt64? {
+        beginValue()
+        if let v = scanInt64(), let n = UInt64(exactly: v) { return n }
+        failed(&sink, path, key, "unsigned integer")
+        return nil
+    }
+
+    @inlinable
+    public mutating func decodeUInt64OrNull(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> UInt64?? {
+        beginValue()
+        if scanNull() { return .some(nil) }
+        if let v = scanInt64(), let n = UInt64(exactly: v) { return .some(n) }
+        failed(&sink, path, key, "unsigned integer")
+        return nil
+    }
+
+    @inlinable
+    public mutating func decodeUInt64Coercing(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> UInt64? {
+        guard let v = decodeIntCoercing(&sink, path, key) else { return nil }
+        guard let n = UInt64(exactly: v) else {
+            overflowed(&sink, path, key, v)
+            return nil
+        }
+        return n
     }
 }

@@ -84,18 +84,37 @@ struct ColumnarDiagnosticTests {
         }
     }
 
-    /// `[UInt8]` is still refused, and NOT because of the columnar path.
+    /// `[UInt8]` is a blob column, and the thing that used to block it was upstream.
     ///
-    /// A blob field would be a natural fit for the bytes column, and the reason it does not
-    /// work is upstream of all of this: `UInt8` is not a scalar on the tree path, so
-    /// `var payload: [UInt8]` cannot appear in any `@Schema` type at all. Pinned here so
-    /// that whoever adds the small integer widths finds the columnar half already waiting.
-    @Test("[UInt8] is refused, blocked by the tree path rather than by this one")
-    func bytesFieldStillBlocked() {
-        let (_, diags) = expandSchemaForTesting("""
+    /// This test asserted the opposite until 2026-08-31, and the reason is worth keeping:
+    /// the columnar half was built and waiting, but `UInt8` was not a scalar on the TREE
+    /// path, so `var payload: [UInt8]` could not appear in any `@Schema` type at all — the
+    /// JSON body failed with "type 'UInt8' has no member '_assay'" long before the columnar
+    /// body was consulted. Shipping the conformance then would have been a road to a
+    /// bricked-up door. The narrow integer widths landed and the door opened.
+    @Test("[UInt8] is a bytes column, not a refused collection")
+    func bytesIsAScalar() {
+        let (src, diags) = expandSchemaForTesting("""
         @Schema(sources: true) struct S { var payload: [UInt8] }
         """)
-        #expect(diags.contains { $0.contains("flat scalar columns") })
+        #expect(diags.isEmpty, "got: \(diags)")
+        #expect(src.contains(".bytes"), "manifest kind")
+        #expect(src.contains("[UInt8](assayColumn:"), "goes through ColumnDecodable")
+    }
+
+    /// Every narrow width rides `int64Column` and carries its own manifest kind, so a
+    /// binder can tell `UInt8` from `Int64` rather than being told they are the same.
+    @Test("the narrow integer widths are columnar scalars")
+    func narrowWidthsAreColumnar() {
+        for (type, kind) in [("Int8", "int8"), ("Int16", "int16"), ("UInt8", "uint8"),
+                             ("UInt16", "uint16"), ("UInt32", "uint32"), ("UInt64", "uint64")] {
+            let (src, diags) = expandSchemaForTesting("""
+            @Schema(sources: true) struct S { var x: \(type) }
+            """)
+            #expect(diags.isEmpty, "for \(type): \(diags)")
+            #expect(src.contains(".\(kind)"), "manifest kind for \(type)")
+            #expect(src.contains("int64Column"), "accessor for \(type)")
+        }
     }
 
     /// A genuine nested schema now fails in the type checker rather than at expansion.

@@ -159,7 +159,8 @@ extension SchemaMacro {
             """
         }
         switch type {
-        case "String", "Int", "Int64", "Int32", "UInt", "Bool":
+        case "String", "Int", "Int64", "Int32", "UInt", "Bool",
+             "Int8", "Int16", "UInt8", "UInt16", "UInt32", "UInt64":
             return "\(pad)w.element(\(name), \(expr))"
         case "Double", "Float":
             return "\(pad)w.element(\(name), w.doubleText(Double(\(expr)), &sink, path, \"\(key)\"))"

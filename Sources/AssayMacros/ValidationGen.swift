@@ -60,7 +60,9 @@ enum RuleTypeCheck {
         init(_ baseType: String) {
             switch baseType {
             case "String": self = .string
-            case "Int", "Int64", "Int32", "UInt": self = .integer
+            case "Int", "Int64", "Int32", "UInt",
+                 "Int8", "Int16", "UInt8", "UInt16", "UInt32", "UInt64":
+                self = .integer
             case "Double", "Float": self = .floating
             case "Bool": self = .bool
             case "Date", "Foundation.Date": self = .date
@@ -302,8 +304,11 @@ extension SchemaMacro {
     static func validationArgument(_ base: String, _ v: String) -> String {
         switch base {
         case "String", "Double", "[String]", "[Int]", "[Double]": return v
-        case "Int", "Int32", "Int64": return base == "Int64" ? v : "Int64(\(v))"
-        case "UInt": return "UInt64(\(v))"
+        case "Int", "Int32", "Int64", "Int8", "Int16":
+            return base == "Int64" ? v : "Int64(\(v))"
+        // The unsigned widths all fit UInt64 exactly, so they share its overload.
+        case "UInt", "UInt8", "UInt16", "UInt32", "UInt64":
+            return base == "UInt64" ? v : "UInt64(\(v))"
         case "Float": return "Double(\(v))"
         // Date rules compare epoch seconds; the property resolves in the user's module.
         case "Date", "Foundation.Date": return "\(v).timeIntervalSince1970"

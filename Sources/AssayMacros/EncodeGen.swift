@@ -151,7 +151,8 @@ extension SchemaMacro {
             """
         }
         switch type {
-        case "String", "Bool", "Int", "Int64", "Int32", "UInt":
+        case "String", "Bool", "Int", "Int64", "Int32", "UInt",
+             "Int8", "Int16", "UInt8", "UInt16", "UInt32", "UInt64":
             return "\(pad)w.write(\(expr))"
         case "Double", "Float":
             // Q4: NaN and infinity have no JSON spelling, so these take the sink.

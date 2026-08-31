@@ -50,6 +50,7 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 | `T.validate(_:)` / `T.diagnose(_ value:)` | **built** — the schema's rules against an already-constructed value, which is the seam a fast external reader wants. 79 ns/value, 87 ns/row batched. `docs/VALIDATE.md` |
 | Rule engine, allocation-free | **built and gated** — `.email` 179 → 25 ns, `.uuid` 50 → 28, `.min`/`.max` on String 22 → 14. Differential against the previous implementation as an oracle, 40,062 strings × 6 checks |
 | `@Unknown` open enums | **built** — `@Schema enum` + `@Unknown case other(String)`; encoding refuses an unrecognised variant unless `roundTrips: true`. Closed enums still need no macro |
+| Narrow integer widths + `[UInt8]` | **built 2026-08-31** — `Int8`/`Int16`/`UInt8`/`UInt16`/`UInt32`/`UInt64` on every path (JSON, RawValue, rules, all three encoders, columnar manifest), so `[UInt8]` is a field type and reaches `bytesColumn`. `UInt64` keeps `UInt`'s inherited ceiling at `Int64.max` — `scanInt64` is the carrier — and a test pins it. Surfaced and fixed two pre-existing bugs: `decodeInt64`/`decodeInt32` skipped `beginValue()` so their validation carets pointed at the wrong bytes, and `write(_ v: UInt)` reinterpreted the bit pattern so `UInt.max` encoded as `-1` |
 | `@Inline`, `@Wraps`, `Assayer<T>` | **not built** — `ROADMAP.md` |
 
 Everything below that is not marked above is still design, not measurement.

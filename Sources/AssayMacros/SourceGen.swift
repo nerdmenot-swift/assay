@@ -29,8 +29,20 @@ extension SchemaMacro {
         """
     }
 
+    /// A blob column. Spelled out rather than derived, because `arrayElement` says "an
+    /// array of UInt8" and the whole point is that this one is a scalar.
+    static func isBytes(_ type: String) -> Bool {
+        type == "[UInt8]" || type == "Array<UInt8>"
+    }
+
     static func manifestKind(_ type: String) -> String {
         switch type {
+        case "Int8":   return ".int8"
+        case "Int16":  return ".int16"
+        case "UInt8":  return ".uint8"
+        case "UInt16": return ".uint16"
+        case "UInt32": return ".uint32"
+        case "UInt64": return ".uint64"
         case "String": return ".string"
         case "Int":    return ".int"
         case "Int64":  return ".int64"
@@ -39,7 +51,7 @@ extension SchemaMacro {
         case "Double": return ".double"
         case "Float":  return ".float"
         case "Bool":   return ".bool"
-        default:       return ".custom(\"\(type)\")"
+        default:       return isBytes(type) ? ".bytes" : ".custom(\"\(type)\")"
         }
     }
 
@@ -57,6 +69,9 @@ extension SchemaMacro {
         var out: [String] = []
         for f in fields {
             let base = f.decodedType
+            // `[UInt8]` is a blob, not a nested collection — it goes to `bytesColumn`
+            // through the `ColumnDecodable` conformance on `Array where Element == UInt8`.
+            guard !isBytes(base) else { continue }
             if arrayElement(base) != nil || dictionaryValue(base) != nil {
                 out.append("'\(f.identifier)' is declared \(f.typeName); a columnar source "
                     + "is a batch of flat scalar columns and has no nested collections. "
@@ -92,7 +107,7 @@ extension SchemaMacro {
             // in any case -- "expected: Instant" beats "expected: custom".
             let expected = columnAccessor(f.decodedType) != nil
                 ? String(manifestKind(f.decodedType).dropFirst())
-                : f.decodedType
+                : (isBytes(f.decodedType) ? "bytes" : f.decodedType)
             // A column the schema requires and the source lacks is reported ONCE for the
             // batch. Optional and defaulted fields simply carry no column.
             let onMissing = (f.isOptional || f.defaultExpr != nil)
@@ -193,7 +208,7 @@ extension SchemaMacro {
     /// False only for what expansion can actually prove is tree-shaped, which `sourceDiagnostics`
     /// has already refused by the time this matters.
     static func isColumnar(_ type: String) -> Bool {
-        if columnAccessor(type) != nil { return true }
+        if columnAccessor(type) != nil || isBytes(type) { return true }
         return arrayElement(type) == nil && dictionaryValue(type) == nil
     }
 
@@ -202,7 +217,9 @@ extension SchemaMacro {
         case "String": return "stringColumn"
         case "Bool": return "boolColumn"
         case "Double", "Float": return "doubleColumn"
-        case "Int", "Int64", "Int32", "UInt": return "int64Column"
+        case "Int", "Int64", "Int32", "UInt",
+             "Int8", "Int16", "UInt8", "UInt16", "UInt32", "UInt64":
+            return "int64Column"
         default: return nil
         }
     }

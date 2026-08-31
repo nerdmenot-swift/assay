@@ -68,6 +68,9 @@ public struct FieldManifest: Sendable {
 
     public enum Kind: Sendable, Equatable {
         case string, int, int64, int32, uint, double, float, bool
+        case int8, int16, uint8, uint16, uint32, uint64
+        /// A `[UInt8]` field — a binary blob, served by `bytesColumn`.
+        case bytes
         /// A field whose type is outside the built-in set, carrying its spelling.
         ///
         /// Named for what expansion can actually establish, which is only the complement:

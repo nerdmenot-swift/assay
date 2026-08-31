@@ -341,15 +341,19 @@ public func _assayFetchColumn<T: ColumnDecodable, S: ColumnarSource & ~Copyable>
     T.Column._assayFetch(from: source, key, field)
 }
 
-// NO `extension Array: ColumnDecodable where Element == UInt8`, deliberately.
-//
-// It would compile and it would be unreachable. `UInt8` is not a scalar on the tree path,
-// so `var payload: [UInt8]` cannot appear in ANY `@Schema` type -- the JSON body fails with
-// "type 'UInt8' has no member '_assay'" long before the columnar body is consulted. A
-// conformance here would be a road to a bricked-up door.
-//
-// Binary data reaches a schema through a consumer type whose `Column` is `BytesColumn`,
-// which is what the bytes column is for. Making `[UInt8]` itself a field type means adding
-// the small integer widths to the tree path, the encoder and the rule engine -- six files
-// and a set of range-checked primitives -- and that is a separate change with its own tests.
-// `ROADMAP.md` carries it.
+// MARK: - Built-in conformances
+
+/// `[UInt8]` as a field type, so a schema can carry a blob without a wrapper.
+///
+/// This was deliberately ABSENT until 2026-08-31, and the note that stood here explained
+/// why: it would have compiled and been unreachable, because `UInt8` was not a scalar on
+/// the tree path, so `var payload: [UInt8]` could not appear in any `@Schema` type at all.
+/// The narrow integer widths landed, the door is no longer bricked up, and this is the
+/// conformance it was waiting for.
+extension Array: ColumnDecodable where Element == UInt8 {
+    @inlinable
+    public init?(assayColumn column: borrowing BytesColumn, row: Int, metadata: ColumnMetadata) {
+        guard let b = column.bytes(at: row) else { return nil }
+        self = b
+    }
+}

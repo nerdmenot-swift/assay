@@ -201,7 +201,30 @@ public struct JSONWriter: ~Copyable {
     @inlinable
     public mutating func write(_ v: Int32) { writeInteger(Int64(v)) }
     @inlinable
-    public mutating func write(_ v: UInt) { writeInteger(Int64(bitPattern: UInt64(v))) }
+    public mutating func write(_ v: Int8) { writeInteger(Int64(v)) }
+    @inlinable
+    public mutating func write(_ v: Int16) { writeInteger(Int64(v)) }
+    @inlinable
+    public mutating func write(_ v: UInt8) { writeInteger(Int64(v)) }
+    @inlinable
+    public mutating func write(_ v: UInt16) { writeInteger(Int64(v)) }
+    @inlinable
+    public mutating func write(_ v: UInt32) { writeInteger(Int64(v)) }
+
+    // UInt and UInt64 need their own path. This used to read
+    // `writeInteger(Int64(bitPattern: UInt64(v)))`, which REINTERPRETS rather than converts:
+    // `UInt.max` encoded as `-1`, and every unsigned value above `Int64.max` came out
+    // negative. docs/ENCODING.md states round-trip as a law, and that broke it silently --
+    // the document was well-formed JSON, just a different number. Found 2026-08-31 while
+    // adding the narrow widths, because the obvious way to write `UInt64` was to copy this.
+    //
+    // The values are not reachable through DECODING -- `scanInt64` caps the input at
+    // `Int64.max` -- so this only bit a value the program constructed itself and then
+    // encoded. That is exactly the case an encoder must get right.
+    @inlinable
+    public mutating func write(_ v: UInt) { writeUnsignedInteger(UInt64(v)) }
+    @inlinable
+    public mutating func write(_ v: UInt64) { writeUnsignedInteger(v) }
 
     /// Digits written backwards into a fixed stack buffer, then reversed — no `String`,
     /// no allocation, and `Int64.min` needs no special case because the accumulation is
@@ -217,6 +240,27 @@ public struct JSONWriter: ~Copyable {
         if n < 0 { byte(0x2D) } else { n = -n }
         while n != 0 {
             digits.append(UInt8(0x30 &+ Int(-(n % 10))))
+            n /= 10
+        }
+        var i = digits.count - 1
+        while i >= 0 { out.append(digits[i]); i &-= 1 }
+    }
+
+    /// The same digits-backwards trick as `writeInteger`, over the full unsigned range.
+    ///
+    /// Separate rather than folded in, because the negative-accumulation trick that lets
+    /// `writeInteger` handle `Int64.min` without a special case has no unsigned analogue --
+    /// and routing unsigned values through it is what produced `-1` for `UInt.max`.
+    @inlinable
+    mutating func writeUnsignedInteger(_ v: UInt64) {
+        separate()
+        needsComma = true
+        if v == 0 { byte(0x30); return }
+        var digits = [UInt8]()
+        digits.reserveCapacity(20)
+        var n = v
+        while n != 0 {
+            digits.append(UInt8(0x30 &+ Int(n % 10)))
             n /= 10
         }
         var i = digits.count - 1

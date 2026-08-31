@@ -216,13 +216,9 @@ inside somebody else's decode loop.
 
 ## Not built
 
-**`[UInt8]` as a field type.** It looks like the natural client of the bytes column and it
-does not work, for a reason upstream of all of this: `UInt8` is not a scalar on the tree
-path, so `var payload: [UInt8]` cannot appear in *any* `@Schema` type. Making it work means
-adding the small integer widths to the decoder, the encoder and the rule engine — six files
-and a set of range-checked primitives — which is a separate change with its own tests.
-`ROADMAP.md` carries it. Binary data reaches a schema today through a consumer type whose
-`Column` is `BytesColumn`, which is what the bytes column is for.
+*(`[UInt8]` was on this list and is now built: the narrow integer widths landed on
+2026-08-31, so `var payload: [UInt8]` compiles, and it maps to `bytesColumn` through
+`extension Array: ColumnDecodable where Element == UInt8`. `ROADMAP.md`.)*
 
 *(`Date` and `UUID` were on this list and are now built — see below.)*
 

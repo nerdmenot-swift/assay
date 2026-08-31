@@ -30,6 +30,7 @@ ROOT="$(cd ../.. && pwd)"
 WORK="${TMPDIR:-/tmp}/assay-ct"
 FIELDS=${FIELDS:-10}
 CONFIG=${CONFIG:-debug}
+REPEATS=${REPEATS:-3}
 
 rm -rf "$WORK"
 mkdir -p "$WORK/Sources/M"
@@ -48,18 +49,45 @@ EOF
 ./gen_types.sh 1 "$FIELDS" schema > "$WORK/Sources/M/Types.swift"
 ( cd "$WORK" && swift build -c "$CONFIG" >/dev/null 2>&1 )
 
+# MINIMUM of REPEATS builds, not a single one.
+#
+# The minimum is the right statistic and not merely a nicer one: build time is a floor plus
+# contention, so noise only ever ADDS. A single sample is that floor plus whatever else the
+# machine happened to be doing, which is why this gate produced two false failures in one
+# afternoon -- 177.8 ms and 147.0 ms against a 145 ms budget, on a tree that measures
+# 130-137 ms when the machine is quiet. A gate that cries wolf is one people learn to click
+# past, and this one guards the number docs/COMPILE-TIME.md says the adoption decision
+# turns on. The runtime benchmarks already report minimum-of-5; this was the odd one out.
+#
+# It also buys ACCURACY, not just calm. The previous budgets were widened to cover
+# single-shot spread -- the comment in gate.sh said so outright -- which made the gate both
+# flaky and less sensitive. Sampling properly lets them come back down.
+#
+# THE TRAP, which is why the loop is not just `for i; do time swift build; done`: SwiftPM is
+# incremental. Repeats over byte-identical sources are no-ops of ~0.1 s, and a minimum over
+# those would report a build time near zero and pass every budget forever -- silent, and in
+# the direction that hides regressions. The marker comment makes each repeat's source
+# genuinely different, so every one is a real compile of module M. Run with SHOW_SAMPLES=1
+# to see the individual timings and confirm that is still true.
 time_build() {
-  local mode="$1" n="$2"
-  ./gen_types.sh "$n" "$FIELDS" "$mode" > "$WORK/Sources/M/Types.swift"
+  local mode="$1" n="$2" i best="" t
   # bash's `time` with TIMEFORMAT gives real seconds to 3dp with no external tooling.
   local TIMEFORMAT='%R'
-  { time ( cd "$WORK" && swift build -c "$CONFIG" >/dev/null 2>&1 ) ; } 2>&1 \
-    | awk '{ printf "%.2f", $1 }' 
+  for i in $(seq 1 "$REPEATS"); do
+    ./gen_types.sh "$n" "$FIELDS" "$mode" > "$WORK/Sources/M/Types.swift"
+    echo "// repeat $i" >> "$WORK/Sources/M/Types.swift"
+    t=$( { time ( cd "$WORK" && swift build -c "$CONFIG" >/dev/null 2>&1 ) ; } 2>&1 )
+    if [ -z "$best" ] || awk -v a="$t" -v b="$best" 'BEGIN{ exit !(a < b) }'; then
+      best="$t"
+    fi
+    [ -n "${SHOW_SAMPLES:-}" ] && echo "    $mode n=$n repeat $i: $t" >&2
+  done
+  awk -v b="$best" 'BEGIN{ printf "%.2f", b }'
 }
 
 echo "Compile-time cost of @Schema"
 swift --version 2>&1 | head -1
-echo "fields per type: $FIELDS   config: $CONFIG   deps prebuilt: yes"
+echo "fields per type: $FIELDS   config: $CONFIG   deps prebuilt: yes   min of: $REPEATS"
 echo ""
 printf "%-8s %10s %10s %10s %11s %12s %12s\n" \
   "types" "plain" "codable" "schema" "validated" "vs-plain" "vs-codable"

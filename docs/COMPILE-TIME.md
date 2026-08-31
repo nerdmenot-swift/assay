@@ -38,10 +38,17 @@ Measured, not estimated. Method and raw numbers in
 
 **~84 ms per `@Schema` type at 10 fields, in the default configuration.**
 
-> Measured repeatedly at 83–87 ms on the same machine and toolchain, so treat it as a band
-> rather than a figure — the spread between consecutive runs is larger than the drift the
-> whole validation and checks feature set added. The gate is at 100 ms for that reason: a
-> threshold tight enough to trip on run-to-run noise is a threshold that gets disabled.
+> A band rather than a figure, but a much narrower one since 2026-08-30: every timing is now
+> the **minimum of three builds** rather than a single one, and consecutive runs read
+> 80.0 / 83.6 / 85.0 ms. It used to be a single build, and consecutive runs read anywhere
+> from 88 to 94 — with the rule-carrying arm spanning 131 to 178 and failing its budget
+> twice in one afternoon on unchanged code.
+>
+> Build time is a floor plus contention, so noise only ever *adds*; the minimum is the
+> least-contaminated sample. The runtime benchmarks have always reported minimum-of-5 for
+> the same reason, and this measurement was the odd one out. The gate stays at 100 ms: a
+> threshold tight enough to trip on run-to-run noise is a threshold that gets disabled, and
+> the fix for noise is to measure better, not to widen until the noise fits.
 
 ```
 JSON body (default)         ≈  9 ms fixed + 7.3 ms × fields   →  ~82 ms
@@ -86,8 +93,9 @@ nothing. "Emit less code per field" buys everything.
 something to measure." That was the right instinct; this is the number behind it. Four
 thousand types is roughly **five minutes**.
 
-**CI gate: 100 ms per type at 10 fields, measured in the default configuration.**
-Currently ~82 ms.
+**CI gate: 100 ms per type at 10 fields, measured in the default configuration, as the
+minimum of three builds.** Currently ~80–85 ms; ~120–129 ms for a type carrying a rule on
+nearly every field, against a 145 ms budget.
 
 Worth recording how this number moved, because it is a case study in the rule above.
 Multi-format support pushed it to 118 ms and the budget was raised to 140 with a

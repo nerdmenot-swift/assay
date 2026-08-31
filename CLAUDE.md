@@ -20,7 +20,7 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 | Falsification condition | **PASSED, 5.44× over Foundation (8.64× float-dense)** — `Benchmarks/RESULTS.md` |
 | Full corpus sweep | **built and run** — 9.17× struct decode (25 files), 6.43× prefix+skip (45), 1.49× generic value model (75) |
 | Cross-platform | **three supported platforms, all gating**: macOS, Linux (x86-64 + aarch64) and Windows all run the test suite. Plus iOS build, static Linux (musl, 2 arches) and wasm32 cross-compiles. Android is not a target |
-| Compile-time budget | **measured and gated** — ~87 ms/type at 10 fields rule-free (gate 100 ms), ~114 ms for a type with a rule on nearly every field (gate 145 ms) |
+| Compile-time budget | **measured and gated** — ~80-85 ms/type at 10 fields rule-free (gate 100 ms), ~120-129 ms for a type with a rule on nearly every field (gate 145 ms). Every timing is the **minimum of 3 builds** since 2026-08-30; it was a single build, and the rule-carrying arm flaked twice in one afternoon (177.8 and 147.0 against 145) on unchanged code. Spread on that arm went ~36% → ~8%; the budgets did not move |
 | Value models (`JSON.Value`, `YAML.Node`, `XML.Node`, `RawValue`) | **built** — `docs/VALUE-MODELS.md` |
 | YAML and XML parsers | **built** — hand-written, XXE refused by construction |
 | `@Extras` + `unknownKeys: .ignore/.warn/.reject/.collect` | **built**, with Damerau did-you-mean |
@@ -218,7 +218,7 @@ literal (16%), and one line of generated code per field (a further 4%, 20% on wi
 Why it is a gate and not a footnote: a developer replaces `: Codable` with `@Schema` across their
 model layer in one commit and then waits for a build. **The adoption decision is made at compile
 time, before the first runtime benchmark is run.** CI gates at 100 ms/type
-(`Experiments/03-compile-time/gate.sh`); currently 87 ms.
+(`Experiments/03-compile-time/gate.sh`); currently ~82 ms, minimum of 3 builds.
 
 ## Hard constraints on generated code
 

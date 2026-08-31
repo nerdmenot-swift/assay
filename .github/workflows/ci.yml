@@ -164,6 +164,12 @@ jobs:
       swift_flags: "--target AssayCore --target AssayYAML --target AssayXML"
 
   # The compile-time budget, gated. docs/COMPILE-TIME.md §2.
+  #
+  # This job triples in wall clock from 2026-08-30, and deliberately: every timing is now the
+  # minimum of three builds rather than a single one. CI enforces only the hardware-independent
+  # `schema / codable` ratio, and that is precisely the reading sampling helps most — it went
+  # from the noisiest number here to stable within 1%. Roughly 10 minutes against a 60 minute
+  # timeout.
   compile-time:
     timeout-minutes: 60
     name: Compile-time budget

@@ -12,8 +12,20 @@
 # Wall clock is normally the wrong thing to gate on, and docs/PERFORMANCE.md §12.4 says so
 # for the *runtime* benchmarks. Compile time is the exception: the quantity users care
 # about IS wall clock, there is no allocation-count proxy for it, and the signal here is
-# large (a regression that matters is tens of percent, not single digits). The threshold
-# is set well above measurement noise to compensate.
+# large (a regression that matters is tens of percent, not single digits).
+#
+# EVERY NUMBER BELOW IS A MINIMUM OF `REPEATS` BUILDS (default 3), not a single one. It was
+# a single one until 2026-08-30, and the gate flaked accordingly: two false failures in one
+# afternoon, 177.8 ms and 147.0 ms against a 145 ms budget, on a tree that measures 120-129
+# when the machine is quiet. Build time is a floor plus contention, so noise only ever
+# ADDS and the minimum is the least-contaminated sample -- the same reason the runtime
+# benchmarks have always reported minimum-of-5. Measured spread on the arm that flaked went
+# from ~36% to ~8%; the ratio below is now stable to under 1%.
+#
+# The budgets did NOT move as a result. Sampling properly lowered the central values by
+# ~10 ms and they were already inside their budgets, so the change buys sensitivity and
+# calm rather than headroom. What changed is that each budget's stated basis is now the
+# measurement it is actually compared against.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -22,6 +34,9 @@ cd "$(dirname "$0")"
 # Held at 100 ms. The multi-format decode body briefly pushed this to 118 ms and the
 # budget was raised to 140; making formats OPT-IN (@Schema(formats:), default .json)
 # brought the default back to ~82 ms, so the original budget stands.
+#
+# Min-of-3 measures 80.0 / 83.6 / 85.0 over three consecutive runs, so 100 carries ~18%
+# headroom over the worst of them. This arm was never the one that flaked.
 #
 # This gate deliberately measures the DEFAULT configuration, because that is what a JSON
 # user pays. A type opting into `.all` costs ~118 ms, which is a cost that type asked for.
@@ -39,10 +54,16 @@ FIELDS=${FIELDS:-10}
 # fields, which is exactly what the 7.3 ms/field model in docs/COMPILE-TIME.md §2 predicts;
 # there is no fat in it to remove, so it is gated rather than optimised away.
 #
-# Held at 145, which is the same ~13% headroom the primary budget above carries (88 of
-# 100). Best-of-three at 100 types measures 114 ms; a single build — which is all a gate
-# run does — lands around 128. A gate that flakes gets disabled, so the margin covers the
-# single-shot spread rather than the best case.
+# Held at 145. This is the arm that flaked, and the reason it did was the measurement, not
+# the budget: a single build landed anywhere from 131 to 178 ms depending on what else the
+# machine was doing. Min-of-3 measures 119.8 / 124.6 / 129.4 over three consecutive runs,
+# so 145 carries ~12% headroom over the worst of them — the same margin the primary budget
+# above now carries, arrived at honestly instead of by padding for noise.
+#
+# Not tightened to ~135 even though the numbers would allow it. This gate exists to catch a
+# regression of tens of percent — a per-field line that should have been an @inlinable
+# runtime call — and a budget sitting 5% above the measurement buys no extra detection of
+# that while making a slower machine or a new toolchain look like a code regression.
 VALIDATED_BUDGET_MS=${VALIDATED_BUDGET_MS:-145}
 
 # THE RATIO, which is what CI can actually check.
@@ -54,12 +75,19 @@ VALIDATED_BUDGET_MS=${VALIDATED_BUDGET_MS:-145}
 # on it there fails on GitHub's fleet rather than on this repository's code.
 #
 # `schema / codable` is the portable form of the same question: how much more does @Schema
-# cost than the thing it replaces? It still varies with hardware — 3.3x locally, 2.3x on a
-# hosted runner, because the plugin round trip and the type checker scale differently — but
-# it varies far less, and a regression that matters moves it a lot.
+# cost than the thing it replaces? It still varies with hardware — the plugin round trip and
+# the type checker scale differently — but it varies far less, and a regression that matters
+# moves it a lot.
 #
-# Held at 6.0 against a 2.3-3.5x observed range. Deliberately loose: this is a blowup
-# detector, not a performance gate, and the absolute budget above is the tight one.
+# The observed values MOVED UP when sampling changed, and that is expected rather than a
+# regression: `codable` has more warm-up slack than `schema`, so taking minimums speeds the
+# denominator proportionally more. Single-shot read 3.3x locally and 2.3x on a hosted
+# runner; min-of-3 reads 4.12 / 4.13 / 4.14 locally — stable to under 1%, where it used to
+# be the noisiest thing here. A hosted runner should land near 3x on the same reasoning.
+#
+# Held at 6.0, which is ~45% above the worst local reading. Deliberately loose: this is a
+# blowup detector, not a performance gate, and the absolute budgets above are the tight
+# ones. It is also the ONLY check CI enforces, so it must not fail on hardware.
 RATIO_BUDGET=${RATIO_BUDGET:-6.0}
 
 # Set CI=1 (GitHub sets it) to check the ratio only.

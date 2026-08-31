@@ -83,7 +83,9 @@ VALIDATED_BUDGET_MS=${VALIDATED_BUDGET_MS:-145}
 # regression: `codable` has more warm-up slack than `schema`, so taking minimums speeds the
 # denominator proportionally more. Single-shot read 3.3x locally and 2.3x on a hosted
 # runner; min-of-3 reads 4.12 / 4.13 / 4.14 locally — stable to under 1%, where it used to
-# be the noisiest thing here. A hosted runner should land near 3x on the same reasoning.
+# be the noisiest thing here. A hosted runner reads 3.20x under the same sampling (measured
+# 2026-08-31, ubuntu-latest / swift:6.3.3), against 148.4 ms and 251.0 ms absolute — which
+# is the whole reason those two are not gated here.
 #
 # Held at 6.0, which is ~45% above the worst local reading. Deliberately loose: this is a
 # blowup detector, not a performance gate, and the absolute budgets above are the tight

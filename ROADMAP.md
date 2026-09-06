@@ -509,31 +509,31 @@ is now a legal field. 8,079 differential checks against Foundation. `docs/COLUMN
 What stays deferred is `Date` as a *native* columnar type, and deliberately: it would fix a
 unit at compile time, which is the failure `ColumnMetadata` exists to prevent.
 
-## The eagerly-built diagnostic path — partially acted on, 2026-09-06
+## The eagerly-built diagnostic path — RESOLVED 2026-09-07, no change needed
 
 A report measured `path + [.index(__r)]` per row on the columnar path and
-`path + [.key(k), .index(i)]` per element on the JSON path, and proposed removing both.
+`path + [.key(k), .index(i)]` per element on the JSON path, and proposed removing both. Its
+measurements reproduce exactly; its conclusion does not survive checking against the real
+generated code.
 
-**Columnar: done.** The row path is now emitted inside the branches that read it when the
-schema has no rules, and kept as a per-row binding when it does (the rule engine takes the
-path per validated *field*, so inlining there would turn one allocation per row into one per
-rule per row). Both spellings are pinned by tests.
+**Columnar: the optimiser already does it.** Emitting the row path inside the failure
+branches produces *byte-identical machine code* to emitting it once per row — same 548
+instructions, same five `PathComponent` buffer calls, empty `diff` of the disassemblies. The
+macro change was made, measured, found to be a no-op and reverted.
 
-**JSON: deliberately not done.** The proposal was to stop representing an in-progress path
-as a materialised `[PathComponent]` — a parent pointer plus one component, materialised only
-when an `Issue` is built — which touches `Issue`, `IssueSink` and every `_assay` signature.
-Deleting the concat outright from the macro, purely to measure, moved a nested array element
-from 61.89 to 60.66 ns. The 56 ns between `[Int64]` and `[JOne]` is object framing, key
-matching, a non-inlined per-element `_assay` call and struct construction. Not justified.
+**JSON: not justified.** Deleting the concat outright from the macro, purely to measure,
+moved a nested array element from 61.89 to 60.66 ns. The invasive redesign it was proposed
+for — a parent pointer instead of a materialised `[PathComponent]`, touching `Issue`,
+`IssueSink` and every `_assay` signature — buys nothing.
 
-**What could not be settled, and should be.** The control — the real generated `_assayBatch`
-— would not give a stable number. The same body measured ~4 ns/row in some builds of the
-benchmark package and ~45 in others, differing only by an unrelated function being present
-in the module, and the swing appeared both with and without the change. `batch(from:)` is a
-protocol extension generic over `Self`, so whether `_assayBatch` specialises into the caller
-— and with it whether a dead allocation gets sunk — is decided by inlining pressure
-elsewhere. The change shipped on the strength of the mechanism (12x in a body where the
-optimiser cannot sink it, 0 where it can) rather than on an end-to-end delta, which is a
-weaker basis than this repository usually accepts and is recorded as such.
-`Benchmarks/Sources/AssayBench/DiagnosticPathBench.swift` holds the measurements and the
-trap that makes reproductions of this look worse than the product.
+**The instability was the benchmark.** Every arm observed only `.count` of the decoded
+array, which lets the optimiser discard the decode non-deterministically; that produced
+~4 ns/row in some builds and ~45 in others and sent the investigation after a
+specialisation theory that was wrong. Forcing the values live through an `@inline(never)`
+consumer makes every arm stable. `@inlinable` on `SourceDecodable.batch(from:)` was tried
+on the same wrong theory and had no reliable effect; also reverted.
+
+`Benchmarks/Sources/AssayBench/DiagnosticPathBench.swift` keeps the measurements and the
+methodological trap: a hand-rolled reproduction needs `@inline(never)`, which is exactly
+what prevents the optimisation being measured, so reproductions look worse than the product.
+

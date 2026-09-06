@@ -159,6 +159,36 @@ extension SchemaMacro {
             """
         }
 
+        // THE ROW PATH IS BUILT WHERE IT IS READ, NOT ONCE PER ROW.
+        //
+        // `let path = path + [.index(__r)]` at the top of the loop is one Array allocation
+        // per row, for a value a clean batch never looks at: it is read only by
+        // `_assayRowMissing`, which is a failure branch, and by the rule engine.
+        //
+        // At -O the optimiser will SOMETIMES sink that allocation into the cold branches on
+        // its own, and when it does the eager form costs nothing. It is not reliable. The
+        // control arm in `DiagnosticPathBench` measured the same generated body at 4.2 ns/row
+        // and at 45 ns/row in two builds of this package that differed only by an unrelated
+        // source file -- a 10x swing in the product, decided by inlining pressure somewhere
+        // else entirely. Emitting it in the branch that reads it removes the dependence on
+        // that decision, which is the actual reason to do it; the win is 10x when the
+        // optimiser was going to miss and nil when it was not.
+        //
+        // It cannot simply be inlined at every use. The rule engine takes the path as an
+        // argument and runs per validated FIELD, so substituting the expression there would
+        // turn one allocation per row into one per rule per row -- a regression for exactly
+        // the schemas already paying the most. So: keep the binding when the loop body needs
+        // it eagerly, inline it into the failure branches when nothing does.
+        //
+        // The test is deliberately CONSERVATIVE: any validation work at all keeps the
+        // binding. Only the rule calls actually read the path -- a lone `@Preprocess` does
+        // not -- so a schema with preprocessing and no rules keeps an allocation it could
+        // drop. That costs what it costs today, so it is not a regression, and the
+        // alternative is grepping generated source for `path`, which would tie this decision
+        // to the incidental spelling of code emitted somewhere else.
+        let validationNeedsPath = !validation.isEmpty
+        let rowPath = validationNeedsPath ? "path" : "path + [.index(__r)]"
+
         var unwraps = ""
         var args: [String] = []
         for (i, f) in fields.enumerated() {
@@ -168,7 +198,7 @@ extension SchemaMacro {
             } else {
                 unwraps += """
                             guard let __v\(i) = __f\(i) else {
-                                Assay._assayRowMissing(&sink, path, "\(f.wireKey)")
+                                Assay._assayRowMissing(&sink, \(rowPath), "\(f.wireKey)")
                                 continue
                             }
 
@@ -176,6 +206,10 @@ extension SchemaMacro {
                 args.append("\(f.identifier): __v\(i)")
             }
         }
+
+        let rowPathBinding = validationNeedsPath
+            ? "\n            let path = path + [.index(__r)]"
+            : ""
 
         return """
         /// Decode a whole batch, one sequential pass per column.
@@ -191,8 +225,7 @@ extension SchemaMacro {
         \(pulls)    var __out: [\(typeName)] = []
             __out.reserveCapacity(source.rowCount)
 
-            for __r in 0..<source.rowCount {
-                let path = path + [.index(__r)]
+            for __r in 0..<source.rowCount {\(rowPathBinding)
         \(perRow)\(validation)
         \(unwraps)        __out.append(\(typeName)(\(args.joined(separator: ", "))))
             }

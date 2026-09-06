@@ -323,6 +323,80 @@ struct Sample: Equatable {
     var note: String?
 }
 
+/// The row path is emitted differently depending on whether the loop needs it eagerly:
+/// inlined into the failure branches when the schema has no rules, bound once per row when
+/// it does. Both spellings have to produce the same diagnostics, so both are pinned here.
+@Schema(sources: true)
+struct RowPathPlain: Equatable { var a: Int64; var b: Int64 }
+
+@Schema(sources: true)
+struct RowPathRuled: Equatable {
+    var a: Int64
+    @Validate(.range(0...100)) var b: Int64
+}
+
+@Suite("Row indices survive both row-path spellings")
+struct RowPathTests {
+
+    /// A store whose second column stops early, so rows 2 and 3 are missing `b`.
+    struct Short: ColumnarSource {
+        var rowCount = 4
+        borrowing func int64Column(_ k: StaticString, _ f: Int) -> [Int64]? {
+            f == 0 ? [1, 2, 3, 4] : [1, 2]
+        }
+        borrowing func doubleColumn(_ k: StaticString, _ f: Int) -> [Double]? { nil }
+        borrowing func boolColumn(_ k: StaticString, _ f: Int) -> [Bool]? { nil }
+        borrowing func stringColumn(_ k: StaticString, _ f: Int) -> [String]? { nil }
+    }
+
+    /// No rules — the path is built inside `_assayRowMissing`'s branch. If that expression
+    /// were ever wrong, this is where it shows: the index has to be the row that failed,
+    /// not the row the loop happened to be on when the value was materialised.
+    @Test("a rule-free schema names the failing row")
+    func plainNamesTheRow() {
+        var sink = IssueSink(limits: .default)
+        let rows = RowPathPlain._assayBatch(from: Short(), into: &sink, at: [])
+        #expect(rows.count == 2)
+        #expect(sink.issues.map(\.path) == [[.index(2), .key("b")], [.index(3), .key("b")]])
+    }
+
+    /// Rules present — the binding is kept, and must still be the same path.
+    @Test("a rule-carrying schema names the failing row identically")
+    func ruledNamesTheRow() {
+        var sink = IssueSink(limits: .default)
+        let rows = RowPathRuled._assayBatch(from: Short(), into: &sink, at: [])
+        #expect(rows.count == 2)
+        #expect(sink.issues.map(\.path) == [[.index(2), .key("b")], [.index(3), .key("b")]])
+    }
+
+    /// And a rule failure, which is the other reader of the path.
+    @Test("a rule failure carries the row index")
+    func ruleFailureCarriesIndex() {
+        struct Bad: ColumnarSource {
+            var rowCount = 3
+            borrowing func int64Column(_ k: StaticString, _ f: Int) -> [Int64]? {
+                f == 0 ? [1, 2, 3] : [5, 999, 7]
+            }
+            borrowing func doubleColumn(_ k: StaticString, _ f: Int) -> [Double]? { nil }
+            borrowing func boolColumn(_ k: StaticString, _ f: Int) -> [Bool]? { nil }
+            borrowing func stringColumn(_ k: StaticString, _ f: Int) -> [String]? { nil }
+        }
+        var sink = IssueSink(limits: .default)
+        _ = RowPathRuled._assayBatch(from: Bad(), into: &sink, at: [])
+        #expect(sink.issues.count == 1)
+        #expect(sink.issues[0].path == [.index(1), .key("b")])
+    }
+
+    /// A non-empty parent path must survive too — the inlined form appends to it rather
+    /// than replacing it.
+    @Test("a nested parent path is preserved, not discarded")
+    func parentPathPreserved() {
+        var sink = IssueSink(limits: .default)
+        _ = RowPathPlain._assayBatch(from: Short(), into: &sink, at: [.key("data")])
+        #expect(sink.issues.first?.path == [.key("data"), .index(2), .key("b")])
+    }
+}
+
 @Suite("The columnar extension point")
 struct ColumnDecodableTests {
 

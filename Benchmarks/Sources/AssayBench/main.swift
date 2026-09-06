@@ -463,6 +463,7 @@ runDateBenchmarks(corpusDir: corpusDir, sizes: sizes)
 // ---- The third decode path ----
 runSourceBenchmarks()
 runColumnDecodableBenchmarks()
+runPathAB()
 runValidateBenchmarks()
 runRuleCostBenchmarks()
 

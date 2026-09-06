@@ -508,3 +508,32 @@ is now a legal field. 8,079 differential checks against Foundation. `docs/COLUMN
 
 What stays deferred is `Date` as a *native* columnar type, and deliberately: it would fix a
 unit at compile time, which is the failure `ColumnMetadata` exists to prevent.
+
+## The eagerly-built diagnostic path — partially acted on, 2026-09-06
+
+A report measured `path + [.index(__r)]` per row on the columnar path and
+`path + [.key(k), .index(i)]` per element on the JSON path, and proposed removing both.
+
+**Columnar: done.** The row path is now emitted inside the branches that read it when the
+schema has no rules, and kept as a per-row binding when it does (the rule engine takes the
+path per validated *field*, so inlining there would turn one allocation per row into one per
+rule per row). Both spellings are pinned by tests.
+
+**JSON: deliberately not done.** The proposal was to stop representing an in-progress path
+as a materialised `[PathComponent]` — a parent pointer plus one component, materialised only
+when an `Issue` is built — which touches `Issue`, `IssueSink` and every `_assay` signature.
+Deleting the concat outright from the macro, purely to measure, moved a nested array element
+from 61.89 to 60.66 ns. The 56 ns between `[Int64]` and `[JOne]` is object framing, key
+matching, a non-inlined per-element `_assay` call and struct construction. Not justified.
+
+**What could not be settled, and should be.** The control — the real generated `_assayBatch`
+— would not give a stable number. The same body measured ~4 ns/row in some builds of the
+benchmark package and ~45 in others, differing only by an unrelated function being present
+in the module, and the swing appeared both with and without the change. `batch(from:)` is a
+protocol extension generic over `Self`, so whether `_assayBatch` specialises into the caller
+— and with it whether a dead allocation gets sunk — is decided by inlining pressure
+elsewhere. The change shipped on the strength of the mechanism (12x in a body where the
+optimiser cannot sink it, 0 where it can) rather than on an end-to-end delta, which is a
+weaker basis than this repository usually accepts and is recorded as such.
+`Benchmarks/Sources/AssayBench/DiagnosticPathBench.swift` holds the measurements and the
+trap that makes reproductions of this look worse than the product.

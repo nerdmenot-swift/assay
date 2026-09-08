@@ -175,6 +175,34 @@ public enum XMLPlacement: Sendable {
     case wrapped
 }
 
+/// Sugar for the validated-scalar wrapper. `EXPERIENCE.md` §8.
+///
+/// ```swift
+/// @Wraps(String.self, .email)
+/// struct EmailAddress {}
+///
+/// @Schema struct User { var email: EmailAddress }   // just works
+/// ```
+///
+/// Generates the storage, a failable `init?(_:)`, `Equatable`, `Hashable`,
+/// `CustomStringConvertible`, and the `AssayerBacked` conformance that makes the type a
+/// legal field of any `@Schema` type — from JSON, YAML and XML.
+///
+/// This is an attribute on a **type declaration**. The first edition of `EXPERIENCE.md`
+/// wrote `@Wraps(String.self, .email) var EmailAddress` — a variable named like a type, with
+/// no annotation and no value — which is illegal three ways over.
+///
+/// `init?(_:)` and the decode path run the **same rule array**, which is what makes "this
+/// type cannot hold an invalid value" true rather than nearly true. The wrapped type is
+/// restricted to `String`, `Int64`, `Double` and `Bool`: a macro sees a type's name and
+/// nothing else, so it cannot emit a reader for one it does not recognise. For anything
+/// else, write the `AssayerBacked` conformance by hand — this macro is only sugar over it.
+@attached(member, names: named(raw), named(__assayWrapRules), named(init))
+@attached(extension, conformances: AssayerBacked, Equatable, Hashable,
+          CustomStringConvertible, names: arbitrary)
+public macro Wraps(_ wrapped: Any.Type, _ rules: Rule...) =
+    #externalMacro(module: "AssayMacros", type: "WrapsMacro")
+
 /// Place a field in an XML document. See `XMLPlacement`.
 @attached(peer)
 public macro XML(_ placement: XMLPlacement) =

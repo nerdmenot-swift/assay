@@ -237,46 +237,38 @@ sum-type story first, which is item 6.
 
 ---
 
-## 6. `@Wraps` and `@Unknown`
+## 6. `@Wraps` and `@Unknown` — BOTH BUILT
 
-**Status: not implemented.** `EXPERIENCE.md` §8.
+`@Unknown` shipped 2026-08-09. **`@Wraps` shipped 2026-09-08**, and it waited for
+`Assayer<T>` for a concrete reason rather than by accident: before `AssayerBacked` existed a
+wrapper had to hand-write `_assay` twice — bytes and `RawValue` — so this macro would have
+emitted two decode bodies per wrapper, a real compile-time cost on a type whose whole job is
+to hold one scalar.
+
+It now emits a `static let assaySchema` and nothing else; the bodies come from
+`AssayerBacked`'s `@inlinable` defaults, which exist once in `Assay` rather than once per
+wrapper. That is sugar over a hand-writable spelling, which is the layering the rest of the
+library uses.
 
 ```swift
 @Wraps(String.self, .email)
-struct EmailAddress {}            // storage, conformance, Equatable, Hashable, init?
+struct EmailAddress {}
 ```
 
-A type that cannot hold an invalid value, from one line. The attribute goes on a **type
-declaration** (the first edition's `@Wraps(...) var EmailAddress` was illegal three ways over
-and is corrected in §8).
+- **`init?(_:)` and the decoder run the same rule array**, which is what makes "this type
+  cannot hold an invalid value" true rather than nearly true.
+- **The wrapped type is restricted** to `String`, `Int64`, `Double`, `Bool`. A macro sees a
+  type's name and nothing else, so it cannot emit a reader for one it does not recognise;
+  anything else gets a diagnostic naming the alternative.
+- **Rules are type-checked at expansion** by the same `RuleTypeCheck` `@Validate` uses, so
+  `.email` on an `Int64` wrapper is a compile error in both places for the same reason.
+- `Equatable`/`Hashable`/`CustomStringConvertible` are *declared* and synthesised — the macro
+  cannot check that `String` is `Equatable`, so letting the type checker do it is the only
+  sound route.
 
-```swift
-enum Status: String {
-    case active, suspended
-    @Unknown case other(String)   // forward compatibility for server-added variants
-}
-```
-
-**`@Unknown` is BUILT (2026-08-09).** It was blocked on item 1 — what an unknown variant does
-on the encode side is exactly the kind of question that should be answered before the decode
-side commits to a spelling — and that question is now answered in `docs/ENCODING.md` q2:
-decoding captures anything unrecognised, and **encoding refuses it unless
-`@Unknown(roundTrips: true)` opts in.**
-
-The spelling above does not compile and has been corrected: a Swift enum with a raw type
-cannot have a case with an associated value. `@Schema` supplies the mapping instead, and a
-*closed* enum still needs no macro at all.
-
-```swift
-@Schema enum Status {
-    case active, suspended
-    @Unknown case other(String)
-}
-```
-
-`@Wraps` is still unbuilt.
-
----
+The test that matters is that a wrapper and `@Validate(.email)` on a plain `String` produce
+**identical issues** — same code, path and params. A wrapper is not a second validation
+mechanism; it is the same one, reached differently.
 
 ## 7. `Assayer<T>` — BUILT 2026-09-08
 

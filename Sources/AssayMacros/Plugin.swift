@@ -22,5 +22,6 @@ struct AssayPlugin: CompilerPlugin {
         InverseMacro.self,
         XMLMacro.self,
         UnknownMacro.self,
+        WrapsMacro.self,
     ]
 }

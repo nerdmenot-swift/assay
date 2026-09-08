@@ -246,3 +246,29 @@ struct MacroExpansionTests {
         #expect(!expansion.contains("__presence & 4 == 0"))
     }
 }
+
+/// The `@Wraps` equivalent of `expandSchemaForTesting`. Runs both attachments, since the
+/// diagnostics this macro emits come from the shared `parse` step that each calls.
+func expandWrapsForTesting(
+    _ source: String
+) -> (expansion: String, diagnostics: [String]) {
+    let file = Parser.parse(source: source)
+    let context = BasicMacroExpansionContext(
+        sourceFiles: [file: .init(moduleName: "Test", fullFilePath: "test.swift")])
+    guard let decl = file.statements.compactMap({ $0.item.as(StructDeclSyntax.self) }).first,
+          let attribute = decl.attributes.compactMap({ $0.as(AttributeSyntax.self) })
+            .first(where: { $0.attributeName.trimmedDescription == "Wraps" }) else {
+        return ("", ["no @Wraps attribute found"])
+    }
+    let members = (try? WrapsMacro.expansion(
+        of: attribute, providingMembersOf: decl, in: context)) ?? []
+    let exts = (try? WrapsMacro.expansion(
+        of: attribute, attachedTo: decl,
+        providingExtensionsOf: TypeSyntax(stringLiteral: decl.name.text),
+        conformingTo: [], in: context)) ?? []
+    let text = (members.map(\.description) + exts.map(\.description)).joined(separator: "\n")
+    // Both attachments run the same diagnostic path, so the same message appears twice.
+    var seen: Set<String> = []
+    let diags = context.diagnostics.map(\.message).filter { seen.insert($0).inserted }
+    return (text, diags)
+}

@@ -283,12 +283,38 @@ Stated because the unified design's one real advantage was that it was cheaper:
    materialise the unknown key as a `String`, which is unavoidable since an unknown key has
    no compile-time literal it was matched against.
 
-3. **`Hashable` with `.double`.** NaN makes the conformance quietly dishonest. Either
-   document a total-order caveat or drop `Hashable` where floats are reachable.
+3. ~~**`Hashable` with `.double`.**~~ **RESOLVED 2026-09-08 — the caveat, documented, plus
+   a real bug found while documenting it.** `RawValue` and `JSON.Value` compare and hash
+   `.double` by bit pattern, which is the "total-order caveat" option; it was already
+   implemented and only its *placement* was wrong (a file comment, not quick-help).
 
-4. **Does `YAML.Node` need `Hashable` at all**, given mapping keys are `Node`? It must, to
-   be usable as a key — which means the NaN problem from (3) is load-bearing there rather
-   than cosmetic.
+   The bug: bit-pattern comparison **is not an equivalence relation**. `Double.nan` is
+   `0x7ff8…` and `Double.signalingNaN` is `0x7ff4…`, so two values that are both NaN
+   compared unequal — while the comment directly above them claimed `.double(.nan) ==
+   .double(.nan)` is true. It was true only for identically-produced NaNs. All NaNs are now
+   folded to one key, which costs one `isNaN` test on a path no decode touches and makes the
+   promise the comment already made.
+
+   Worth knowing where this bites hardest: on x86-64 the default quiet NaN from an invalid
+   operation conventionally carries a sign bit that ARM's does not, so `0.0/0.0` and
+   `Double.nan` can differ there while being identical on Apple silicon. That is why the
+   property test is written as reflexivity/symmetry/transitivity over a table rather than as
+   examples — CI's Linux x86-64 leg is the one adjudicating it.
+
+   `.double(0.0) != .double(-0.0)` is **kept**: the writers emit `0` and `-0` distinctly, so
+   it is a real content difference. And `@Validate(.unique)` on a user's `[Double]` keeps
+   *Swift's* semantics, which disagree with these in both directions — documented on the
+   overload rather than reconciled, because the array is the user's and so are its element
+   semantics.
+
+4. ~~**Does `YAML.Node` need `Hashable` at all**, given mapping keys are `Node`?~~
+   **RESOLVED — and the question's premise was false.** It said the NaN problem from (3) is
+   "load-bearing there rather than cosmetic". `YAML.Node` has no floating-point case at all:
+   `Scalar.content` is an unresolved `String`, so `.nan` is `.scalar(".nan")` and resolution
+   happens on demand at the schema's request. That is the Norway-problem decision in §2
+   paying off in a place it was not designed for. `XML.Node` is all `String` likewise. Both
+   conformances were honest the whole time; the question was written against a model the
+   library does not have.
 
 5. **Flat aliases or not.** `JSONValue` is what the ecosystem expects. Adding it costs
    nothing until someone has their own; not adding it costs a little familiarity.

@@ -116,7 +116,8 @@ extension JSON.Value {
         case (.null, .null): return true
         case (.bool(let a), .bool(let b)): return a == b
         case (.int(let a), .int(let b)): return a == b
-        case (.double(let a), .double(let b)): return a.bitPattern == b.bitPattern
+        case (.double(let a), .double(let b)):
+            return _assayDoubleKey(a) == _assayDoubleKey(b)
         case (.string(let a), .string(let b)): return a == b
         case (.array(let a), .array(let b)): return a == b
         case (.object(let a), .object(let b)): return a == b
@@ -129,7 +130,7 @@ extension JSON.Value {
         case .null: hasher.combine(0)
         case .bool(let b): hasher.combine(1); hasher.combine(b)
         case .int(let i): hasher.combine(2); hasher.combine(i)
-        case .double(let d): hasher.combine(3); hasher.combine(d.bitPattern)
+        case .double(let d): hasher.combine(3); hasher.combine(_assayDoubleKey(d))
         case .string(let s): hasher.combine(4); hasher.combine(s)
         case .array(let xs): hasher.combine(5); hasher.combine(xs)
         case .object(let m): hasher.combine(6); hasher.combine(m)

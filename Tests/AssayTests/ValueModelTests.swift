@@ -273,3 +273,82 @@ struct XMLNodeTests {
         #expect(raw["b"] == .string("2"))
     }
 }
+
+@Suite("Float equality in the value models")
+struct FloatEqualityTests {
+
+    /// Every interesting `Double`, including two NaNs with different bit patterns.
+    static let doubles: [Double] = [
+        0.0, -0.0, 1.0, -1.0, .infinity, -.infinity,
+        .nan, .signalingNaN, 0.0 / 0.0, Double(bitPattern: 0x7ff8_0000_dead_beef),
+        .leastNonzeroMagnitude, .greatestFiniteMagnitude,
+    ]
+
+    /// The property, not examples. `Hashable`'s contract needs an equivalence relation, and
+    /// bit-pattern comparison alone is not one: `Double.nan` is `0x7ff8…` and
+    /// `Double.signalingNaN` is `0x7ff4…`, so two values that are both NaN compared unequal.
+    ///
+    /// **This test matters most where it is not being run right now.** The divergence is
+    /// wider on x86-64, where the default quiet NaN from an invalid operation conventionally
+    /// carries a sign bit ARM's does not — so `0.0/0.0` and `Double.nan` can differ there
+    /// while being identical on this machine. CI runs the suite on Linux x86-64; that leg is
+    /// the one adjudicating this.
+    @Test("RawValue equality is a genuine equivalence relation over Double")
+    func rawValueEquivalence() {
+        let vs = Self.doubles.map { RawValue.double($0) }
+        for a in vs { #expect(a == a, "reflexive: \(a)") }
+        for a in vs { for b in vs {
+            #expect((a == b) == (b == a), "symmetric: \(a) \(b)")
+        } }
+        for a in vs { for b in vs { for c in vs where a == b && b == c {
+            #expect(a == c, "transitive: \(a) \(b) \(c)")
+        } } }
+        // Equal values must hash equally, which is the half a Set actually depends on.
+        for a in vs { for b in vs where a == b {
+            #expect(a.hashValue == b.hashValue, "hash agrees with ==: \(a) \(b)")
+        } }
+    }
+
+    @Test("JSON.Value equality is a genuine equivalence relation over Double")
+    func jsonValueEquivalence() {
+        let vs = Self.doubles.map { JSON.Value.double($0) }
+        for a in vs { #expect(a == a, "reflexive: \(a)") }
+        for a in vs { for b in vs {
+            #expect((a == b) == (b == a), "symmetric: \(a) \(b)")
+        } }
+        for a in vs { for b in vs where a == b {
+            #expect(a.hashValue == b.hashValue, "hash agrees with ==: \(a) \(b)")
+        } }
+    }
+
+    /// The two consequences the doc comment promises, pinned so neither drifts.
+    @Test("all NaNs are one value; the two zeroes are two values")
+    func nanFoldedZeroesSeparate() {
+        #expect(RawValue.double(.nan) == RawValue.double(.signalingNaN))
+        #expect(RawValue.double(.nan) == RawValue.double(0.0 / 0.0))
+        #expect(RawValue.double(.nan) == RawValue.double(Double(bitPattern: 0x7ff8_0000_dead_beef)))
+        #expect(Set([RawValue.double(.nan)]).contains(.double(.signalingNaN)))
+
+        // Kept distinct on purpose: the writers emit `0` and `-0` differently, so this is a
+        // real content difference rather than an artefact.
+        #expect(RawValue.double(0.0) != RawValue.double(-0.0))
+    }
+
+    /// `.unique` over a user's `[Double]` uses SWIFT's equality, which disagrees with
+    /// `RawValue`'s in both directions. Pinned rather than reconciled — the array is the
+    /// user's, so its element semantics are the user's. See `_assayValidate(_ v: [Double] …)`.
+    @Test("@Validate(.unique) keeps Swift's float semantics, not RawValue's")
+    func uniqueUsesSwiftSemantics() {
+        var sink = IssueSink(limits: .default)
+        // Swift: NaN != NaN, so these two are "different" and .unique passes.
+        _assayValidate([Double.nan, Double.nan], [.unique], override: nil,
+                       field: "xs", at: nil, path: [], &sink)
+        #expect(sink.issues.isEmpty, "RawValue would call these equal; Swift does not")
+
+        // Swift: 0.0 == -0.0, so these two are "the same" and .unique fails.
+        var sink2 = IssueSink(limits: .default)
+        _assayValidate([0.0, -0.0], [.unique], override: nil,
+                       field: "xs", at: nil, path: [], &sink2)
+        #expect(sink2.issues.count == 1, "RawValue would call these different; Swift does not")
+    }
+}

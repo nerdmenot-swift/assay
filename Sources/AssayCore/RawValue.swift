@@ -129,25 +129,49 @@ extension RawValue {
 }
 
 // MARK: - Hashable and the NaN problem
-//
-// docs/VALUE-MODELS.md open question 3. `Double`'s IEEE equality says NaN != NaN, which
-// violates Hashable's contract (a value must equal itself). Rather than leave the
-// conformance quietly dishonest, `.double` compares and hashes by **bit pattern**.
-//
-// Two visible consequences, documented rather than discovered:
-//   * `.double(.nan) == .double(.nan)` is **true** here, unlike `Double`'s own `==`.
-//   * `.double(0.0) == .double(-0.0)` is **false** here, unlike `Double`'s own `==`.
-//
-// This is the same trade the standard library makes for `Double` as a Dictionary key via
-// `Hashable`, and it is the only choice that keeps `RawValue` usable in a Set or as a key.
+
+
+/// The bit pattern to hash and compare a `Double` by, with every NaN folded to one.
+///
+/// Comparing `.double` by raw bit pattern is what makes these models usable in a `Set` or
+/// as a dictionary key, and the trade is documented above. It is also, without this fold,
+/// **not an equivalence relation**: `Double.nan` is `0x7ff8…` and `Double.signalingNaN` is
+/// `0x7ff4…`, so two values that are both NaN compare unequal. Measured on arm64
+/// 2026-09-08; the divergence is wider on x86-64, where the default quiet NaN produced by
+/// an invalid operation conventionally carries the sign bit that ARM's does not — which is
+/// why the property test for this runs on the Linux x86-64 CI leg rather than only here.
+///
+/// Folding costs one `isNaN` test on a path that no decode touches, and buys reflexivity
+/// over the whole `Double` domain, which is what the comment above already promised.
+@inlinable
+func _assayDoubleKey(_ d: Double) -> UInt64 {
+    d.isNaN ? Double.nan.bitPattern : d.bitPattern
+}
 
 extension RawValue {
+    /// Equality with **float semantics that are not `Double`'s**, deliberately.
+    ///
+    /// `Double`'s IEEE equality says `NaN != NaN`, which violates `Hashable`'s contract that
+    /// a value equals itself. Rather than leave the conformance quietly dishonest, `.double`
+    /// compares and hashes by bit pattern with every NaN folded to one. Two consequences,
+    /// and they are stated here rather than in a file comment because quick-help is where a
+    /// caller will meet them:
+    ///
+    /// - `.double(.nan) == .double(.nan)` is **true**, unlike `Double`'s own `==`. This holds
+    ///   for *any* two NaNs, including `.signalingNaN` and a NaN with a different payload —
+    ///   it did not before 2026-09-08, when the fold was added.
+    /// - `.double(0.0) == .double(-0.0)` is **false**, unlike `Double`'s own `==`. Kept: the
+    ///   writers emit `0` and `-0` distinctly, so it is a real content difference.
+    ///
+    /// This is the same trade the standard library makes for `Double` as a dictionary key.
+    /// It is *not* the trade `@Validate(.unique)` makes on a user's `[Double]` — see there.
     public static func == (lhs: RawValue, rhs: RawValue) -> Bool {
         switch (lhs, rhs) {
         case (.null, .null): return true
         case (.bool(let a), .bool(let b)): return a == b
         case (.int(let a), .int(let b)): return a == b
-        case (.double(let a), .double(let b)): return a.bitPattern == b.bitPattern
+        case (.double(let a), .double(let b)):
+            return _assayDoubleKey(a) == _assayDoubleKey(b)
         case (.string(let a), .string(let b)): return a == b
         case (.sequence(let a), .sequence(let b)): return a == b
         case (.mapping(let a), .mapping(let b)): return a == b
@@ -164,7 +188,7 @@ extension RawValue {
         case .int(let i):
             hasher.combine(2); hasher.combine(i)
         case .double(let d):
-            hasher.combine(3); hasher.combine(d.bitPattern)
+            hasher.combine(3); hasher.combine(_assayDoubleKey(d))
         case .string(let s):
             hasher.combine(4); hasher.combine(s)
         case .sequence(let xs):

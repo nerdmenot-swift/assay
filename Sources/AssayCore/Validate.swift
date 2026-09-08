@@ -394,6 +394,18 @@ public func _assayValidate(
     }
 }
 
+/// Rules over a `[Double]`.
+///
+/// **`.unique` here uses `Double`'s own equality, not `RawValue`'s**, and the two disagree
+/// in both directions. Swift says `NaN != NaN`, so `[.nan, .nan]` **passes** `.unique`; Swift
+/// says `0.0 == -0.0`, so `[0.0, -0.0]` **fails** it. `RawValue.==` folds NaN and separates
+/// the zeroes, giving the opposite answer on both.
+///
+/// Left that way deliberately, and the reason is whose value it is: this rule runs over the
+/// user's own `[Double]`, whose element semantics are Swift's. Substituting a different
+/// equality because a *different type in this library* needed one would be exactly the kind
+/// of quiet surprise the library exists to remove. Stated so it is a contract; pinned by
+/// tests in `Tests/AssayTests/ValueModelTests.swift`.
 @inlinable
 public func _assayValidate(
     _ v: [Double], _ rules: [Rule], override: String?, field: StaticString,

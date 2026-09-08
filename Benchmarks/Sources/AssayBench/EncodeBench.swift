@@ -24,6 +24,22 @@
 // The comparison is the honest one a migrating project would make: `Encodable` +
 // `JSONEncoder` against `@Schema(encodes: true)` + `encodedJSON()`, over the same corpus
 // shapes the decode arms use, at the same sizes.
+//
+// WHICH `JSONEncoder`, because it changes what the ratio means. Foundation's JSON encoder
+// was rewritten in pure Swift for swift-foundation; the legacy Darwin one boxed values
+// through `NSNumber` and was materially slower, so a ratio against it would be a ratio
+// against something nobody runs any more.
+//
+// Verified rather than assumed, on 2026-09-08 / macOS 26 / Xcode toolchain. The linked
+// symbol is `Foundation.JSONEncoder.encode<A>(A) throws -> Data` from the system
+// `Foundation.framework`, which is in the dyld shared cache and so cannot be read with
+// `nm`. The discriminator is behavioural: the legacy implementation widened `Float` to
+// `Double` through `NSNumber`, so `Float(0.1)` encoded as `0.10000000149011612`. Here it
+// encodes as `0.1`. That is the rewrite.
+//
+// So this ratio is against a current baseline. If it is ever re-run somewhere the old
+// implementation is live -- an older OS, a Linux corelibs build -- the number will flatter
+// Assay and should be labelled with the platform rather than quoted bare.
 //===----------------------------------------------------------------------===//
 
 import Foundation

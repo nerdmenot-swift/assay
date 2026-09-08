@@ -1,8 +1,9 @@
 # Assay — the developer experience
 
 > **This is the API specification, written before the implementation, and it describes a
-> larger surface than exists today.** Most of it is built. **Two** pieces named here are
-> not: `parse(plist:)` (§1) and `jsonSchema(for:)`/`StandardSchema` (§§14–15).
+> larger surface than exists today.** Most of it is built. **One** piece named here is
+> not: `jsonSchema(for:)`/`StandardSchema` (§§14–15). `parse(plist:)` (§1) shipped
+> 2026-09-09.
 > `@Inline` and `@Key(path:)` (§4), `@Wraps` (§8), `Assayer<T>` (§17), `@OneOrMany` (§9),
 > `@XML(root:)`, `@Schema(context:)` (§10) and
 > `parse(body:contentType:accepting:)` (§12) all shipped on 2026-09-08; `@PickFirst` (§9)
@@ -758,9 +759,18 @@ var createdAt: Date                          // ISO 8601, the default
 ## 12. One struct, many formats — that the struct asks for
 
 *Built: `@Schema(formats:)`, `parse(json:)`, `parse(yaml:)`, `parse(xml:)`,
-`parseAll(yaml:)`, `parse(mmapped:)`, `coerceScalars`. Still specified but not built:
-`parse(plist:)`, `parse(bytes, as:)`, `parse(body, contentType:accepting:)`,
-`parse(contentsOf:)`, and the `@XML` placement attributes.*
+`parseAll(yaml:)`, `parse(mmapped:)`, `coerceScalars`, the `@XML` placement attributes,
+`parse(body, contentType:accepting:)`, and — 2026-09-09 — `parse(plist:)`, binary and XML,
+in the `AssayPlist` product. Still specified but not built: `parse(bytes, as:)` and
+`parse(contentsOf:)`.*
+
+Property lists are worth a note the rest of this section does not need. `parse(plist:)` reads
+**both** flavours behind one entry point, discriminated by the exact `bplist00` magic — which
+is not the content sniffing §12 refuses below, because the caller has already named the format
+and binary/XML are two encodings of it. `parse(binaryPlist:)` and `parse(xmlPlist:)` exist for
+a caller who needs to require one. The binary format is a random-access object graph rather
+than a document, and carries two amplification attacks that `Limits` did not previously cover;
+[`PLIST.md`](PLIST.md) is the account.
 
 ```swift
 @Schema(formats: [.json, .yaml])
@@ -1314,4 +1324,4 @@ Everything in the first edition's open questions about the macro shape, the `@Wr
 
 *Second edition, written before anything here had been compiled — there was no Swift toolchain in that environment, so every API was designed against the compiler's source and its test suite rather than against a build. The macro-shaped claims were checked against swift-syntax 600.0.1 and the Swift 6.3 compiler tests; the platform claims against the Foundation and package sources listed in `_crossplatform_audit.md`. The first thing to do on a machine with a toolchain, it said, was to prove the `@Validate` attribute in section 5 actually compiles.*
 
-*It does. As of 2026-07-27 this document is implemented rather than proposed: sections 1–13 and 16–19 describe working, tested code, and the `@Validate` spelling in §5 compiles exactly as written, including the message-as-a-rule trick that motivated the `ExpressibleByStringLiteral` conformance. `Date` and `@DateFormat` (§11) followed on 2026-08-06 — including candidate chains (`@DateFormat(.iso8601, .unixMillis)`, fallback matches warn like `@Key(or:)`), compile-time-checked patterns, and the `.before`/`.after`/`.between` rules; `.past`/`.future` wait on a clock seam. Encoding (§14) followed on 2026-08-09 for JSON, YAML and XML, and `@Unknown` (§8) with it — both were on this list and both now ship. What is **not** built is listed with its reasons in [`ROADMAP.md`](../ROADMAP.md): `jsonSchema(for:)` and `StandardSchema` (§§14–15), plists, and index segments in `@Key(path:)`. Where this document and the code disagree, that is a bug in one of them; `ROADMAP.md` says which.*
+*It does. As of 2026-07-27 this document is implemented rather than proposed: sections 1–13 and 16–19 describe working, tested code, and the `@Validate` spelling in §5 compiles exactly as written, including the message-as-a-rule trick that motivated the `ExpressibleByStringLiteral` conformance. `Date` and `@DateFormat` (§11) followed on 2026-08-06 — including candidate chains (`@DateFormat(.iso8601, .unixMillis)`, fallback matches warn like `@Key(or:)`), compile-time-checked patterns, and the `.before`/`.after`/`.between` rules; `.past`/`.future` wait on a clock seam. Encoding (§14) followed on 2026-08-09 for JSON, YAML and XML, and `@Unknown` (§8) with it — both were on this list and both now ship. What is **not** built is listed with its reasons in [`ROADMAP.md`](../ROADMAP.md): `jsonSchema(for:)` and `StandardSchema` (§§14–15), and index segments in `@Key(path:)`. Where this document and the code disagree, that is a bug in one of them; `ROADMAP.md` says which.*

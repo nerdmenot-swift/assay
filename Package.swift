@@ -53,6 +53,11 @@ let package = Package(
         // vends its value model; the parsers land later.
         .library(name: "AssayYAML", targets: ["AssayYAML"]),
         .library(name: "AssayXML",  targets: ["AssayXML"]),
+        // Property lists, both flavours. Depends on AssayXML because the XML flavour IS an
+        // XML document and shipping a second parser to read it would be shipping a second
+        // XXE surface — the existing one refuses external entities by construction, which is
+        // exactly what a plist's <!DOCTYPE ... SYSTEM "http://www.apple.com/..."> needs.
+        .library(name: "AssayPlist", targets: ["AssayPlist"]),
         // Data/URL/FileManager conveniences, and parse(mmapped:) for files larger than
         // memory. Foundation-dependent by definition, so it stays out of the core.
         .library(name: "AssayFoundation", targets: ["AssayFoundation"]),
@@ -104,6 +109,13 @@ let package = Package(
             swiftSettings: [.strictMemorySafety()]
         ),
 
+        // Binary and XML property lists, and parse(plist:) on a @Schema type.
+        .target(
+            name: "AssayPlist",
+            dependencies: ["Assay", "AssayCore", "AssayXML"],
+            swiftSettings: [.strictMemorySafety()]
+        ),
+
         .testTarget(
             name: "AssayTests",
             dependencies: [
@@ -111,6 +123,7 @@ let package = Package(
                 "AssayCore",
                 "AssayYAML",
                 "AssayXML",
+                "AssayPlist",
                 "AssayFoundation",
                 // The macro implementation itself, so its diagnostics and expansions are
                 // unit-testable directly — no XCTest-based test-support module needed.

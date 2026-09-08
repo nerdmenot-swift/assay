@@ -60,11 +60,12 @@ Foundation** on the corpus below, from scalar Swift with no SIMD and no C.
     .product(name: "Assay", package: "assay"),            // core + JSON
     .product(name: "AssayYAML", package: "assay"),        // optional
     .product(name: "AssayXML", package: "assay"),         // optional
+    .product(name: "AssayPlist", package: "assay"),       // optional, binary + XML plists
     .product(name: "AssayFoundation", package: "assay"),  // Data/URL/mmap conveniences
 ])
 ```
 
-Four products, so a JSON-only user never links a YAML parser. The core takes bytes, not `Data`,
+Five products, so a JSON-only user never links a YAML parser. The core takes bytes, not `Data`,
 and imports no Foundation. Swift 6.2+.
 
 ---
@@ -476,6 +477,7 @@ import gets caught rather than accidentally working.
 | [`docs/ENCODING.md`](docs/ENCODING.md) | the six semantics questions behind encoding, and how each was answered |
 | [`docs/VALIDATE.md`](docs/VALIDATE.md) | validating a value you already have, and the law that decides what it can check |
 | [`docs/CONFORMANCE.md`](docs/CONFORMANCE.md) | what each parser accepts and refuses, and how that is checked |
+| [`docs/PLIST.md`](docs/PLIST.md) | property lists, and the two amplification attacks the binary format carries |
 | [`docs/KEYED-SOURCE.md`](docs/KEYED-SOURCE.md) | a decode path that was built, measured and withdrawn — and the columnar one that survived |
 | [`ROADMAP.md`](ROADMAP.md) | what is deferred, and why |
 | [`CLAUDE.md`](CLAUDE.md) | settled decisions and hard constraints on generated code |

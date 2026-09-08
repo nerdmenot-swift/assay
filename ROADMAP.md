@@ -487,12 +487,63 @@ The load-bearing test is that a rejected media type never reaches a parser: a bi
 XML payload offered to `accepting: [.json]` produces exactly one issue, from negotiation, and
 the XML parser is never entered.
 
-## 10. Property lists
+## 10. Property lists — BUILT 2026-09-09
 
-**Status: not implemented.** `EXPERIENCE.md` §1 lists `parse(plist:)`.
+`EXPERIENCE.md` §1, and the full account is in [`docs/PLIST.md`](docs/PLIST.md).
 
-Binary and XML plists, as a separate product on the `RawValue` projection path the YAML and XML
-decoders already use. Mechanically the smallest item on this list.
+**The deferral above said "mechanically the smallest item on this list". It was wrong in both
+halves, and the half it got wrong is the half with a security surface.**
+
+It is not one format. The XML flavour *is* the projection this section described, and reuses
+`AssayXML`'s parser — which matters beyond not writing a second one, because every XML plist
+ever written carries a `<!DOCTYPE ... SYSTEM "http://www.apple.com/DTDs/...">` and a reader
+that resolved it would be the textbook XXE. That parser refuses external entities by
+construction, so the refusal is inherited rather than reimplemented.
+
+**The binary flavour is not a projection, it is a parser** — a random-access object graph
+steered by a 32-byte trailer at the *end* of the file, where containers hold references and
+every value is reached by index through an offset table. Closer to reading an object file than
+a document. Nothing about the YAML or XML path applies, and it carries two amplification
+attacks that **no existing limit covered**:
+
+- **Reference cycles.** An array whose element ref points at itself. There is no syntax that
+  prevents it — a cycle is a well-formed graph. Closed by a *visiting set on the reference
+  path*, pushed and popped, deliberately not a global "seen" set: an object referenced twice
+  from two branches is **shared**, which is legal and which Foundation's own writer produces
+  by deduplicating repeated values.
+- **Shared-object amplification.** Ten arrays of a thousand references each — under a kilobyte
+  on disk, 10^30 nodes materialised, **no cycle**, and `maxDepth` does not fire because the
+  depth is ten. The plist spelling of billion-laughs. Closed by a node budget charged per
+  materialised node: a real document cannot materialise more nodes than it has bytes to
+  describe them with.
+
+Both bombs are constructed byte by byte in `Tests/AssayTests/PlistTests.swift`. A test that
+asserts a limit exists without building the input it bounds keeps passing when the limit is
+deleted.
+
+**A fuzz arm found a trap on its first run.** `Int(someUInt64)` traps above `Int.max`, and the
+object count, top-object index and offset-table address are all read as `UInt64` straight out
+of the file — so a malformed document crashed instead of reporting. In every other format Assay
+reads, a flipped byte gives a parse error a few bytes later; in a binary plist the trailer is
+the map everything else is read through, so one byte redirects every subsequent read. That is
+why the arm exists: 12,090 mutated, truncated and random documents per run, weighted towards
+the trailer, in `Benchmarks/Sources/DiffFuzz/PlistOracle.swift`, beside a differential that
+decodes 22 documents **Foundation wrote**.
+
+Settled decisions, each with its reasoning in `docs/PLIST.md`: `<data>` becomes a base64
+`.string` rather than a new `RawValue.data` case (which would break every exhaustive switch in
+this package and in user code, for one format's one type — and it makes both flavours produce
+the identical tree); a binary date is the stored `.double` in seconds since 2001-01-01 and an
+XML date is the ISO-8601 text, because converting either would mean choosing an epoch inside a
+Foundation-free core; a UID is an `.int`, since a keyed archive is a different format that
+happens to be written in a plist.
+
+**Two flavours behind one `parse(plist:)`, and that is not sniffing.** The caller already said
+the format is "property list"; binary and XML are two encodings of the one format they named,
+and the discriminator is eight exact magic bytes at offset zero rather than a recognised shape.
+`parse(binaryPlist:)` and `parse(xmlPlist:)` exist for a caller who needs to require one.
+
+Writing plists is not built — no subtlety there, it has simply not been asked for.
 
 ---
 

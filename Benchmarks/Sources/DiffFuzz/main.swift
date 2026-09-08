@@ -352,6 +352,16 @@ print("number differential: \(numberChecks) literals decode bit-exactly (oracle:
 
 if !runFormatDifferential() { Failures.shared.fail("format validators disagree with the naive oracle") }
 
+let (plistBinary, plistXML) = try runPlistDifferential()
+print("plist differential: \(plistBinary) binary + \(plistXML) XML documents Foundation")
+print("    wrote decode to the same tree")
+
+// The fuzz arm matters more here than the differential: a binary plist is steered by a
+// trailer at the END of the file, so one flipped byte redirects every subsequent read rather
+// than producing a parse error nearby. It found an Int(UInt64) trap on its first run.
+let plistRuns = try runPlistFuzz()
+print("plist fuzz: \(plistRuns) mutated/truncated/random documents, no crashes, no traps")
+
 let iterations = try runFuzz(corpus: corpus)
 print("fuzz: \(iterations) mutated/truncated inputs, no crashes, no hangs")
 

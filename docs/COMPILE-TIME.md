@@ -192,6 +192,28 @@ error: referencing static method 'parse(yaml:limits:sourceName:)' on 'RawDecodab
 The same split makes a nested-type mismatch catchable too: a `.yaml` parent containing a
 `.json`-only child fails to compile, rather than failing at parse time on a payload.
 
+## 4b. Array fields cost more than rules, and nothing measured that until now
+
+**~102 ms per type at 10 array fields, against ~70 for the same fields as scalars** — so an
+array-heavy type is roughly **1.4×** a scalar one, and *more expensive than a `@Validate` on
+every field* (~97 ms). Measured 2026-09-08; before that every arm of the harness declared
+scalars only, so this shape had never been near the budget.
+
+That gap mattered because `arrayDecode` is the one generator that does not follow the rule
+this document sets out in §3: per-field generated code should be **one line calling an
+`@inlinable` runtime primitive**, with anything conditional living in `AssayCore`. An array
+field instead emits an inline decode loop — brackets, element scan, append, terminator — per
+field, per type. Two changes in one week touched that loop (element indices, `@OneOrMany`)
+without any way to see what they cost.
+
+**Reported, not gated.** The 100 ms budget was calibrated on the default scalar shape, and
+holding a second shape to a number calibrated for the first is how a budget stops meaning
+anything. What the number is for is watching it: if it grows, the fix is known — move
+scalar-element array decode to monomorphic runtime primitives, one per element type, exactly
+as `scalarCall` already does for plain fields. That would make `@OneOrMany` free instead of
+costly and would very likely *lower* per-field cost for every existing `[String]` and `[Int]`
+field. `ROADMAP.md` §5 records it.
+
 ## 5. What is not yet measured
 
 Stated because an unmeasured axis should never read as a measured one.

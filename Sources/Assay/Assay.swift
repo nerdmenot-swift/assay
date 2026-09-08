@@ -66,6 +66,16 @@ public protocol SourceDecodable: Assayable {
 /// (`@XML(.attribute)`) is not expressible in `RawValue` and never will be — it is the
 /// narrow intersection of the three formats. Placement is compile-time knowledge, so the
 /// macro bakes it into the emitted calls. See `XMLWriter`.
+/// A type that declared `@XML(root:)` and therefore wants its root element checked.
+///
+/// Separate from `RawDecodable` deliberately. Widening that protocol would put an
+/// XML-shaped requirement on every `formats: [.yaml]` type, which is a format a YAML user
+/// has no business knowing about. Conformance is emitted only when the attribute is present,
+/// so an unannotated type does not participate and nothing checks its root.
+public protocol XMLRooted {
+    nonisolated static var _assayXMLExpectedRoot: String? { get }
+}
+
 public protocol XMLEncodableSchema: Assayable {
     nonisolated func _assayEncodeXML(
         into w: inout XMLWriter,
@@ -106,7 +116,7 @@ public protocol JSONAssayable: Assayable {
 // `Assayable` is deliberately absent from this list: both `JSONAssayable` and
 // `RawDecodable` refine it, so declaring it here would promise a conformance the expansion
 // does not itself emit.
-@attached(extension, conformances: JSONAssayable, RawDecodable, Validatable, AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema, XMLEncodableSchema, SourceDecodable, names: arbitrary)
+@attached(extension, conformances: JSONAssayable, RawDecodable, Validatable, AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema, XMLEncodableSchema, SourceDecodable, XMLRooted, names: arbitrary)
 public macro Schema(
     keys: KeyNamingStyle = .camelCase,
     unknownKeys: UnknownKeys = .ignore,
@@ -168,6 +178,30 @@ public enum XMLPlacement: Sendable {
 /// Place a field in an XML document. See `XMLPlacement`.
 @attached(peer)
 public macro XML(_ placement: XMLPlacement) =
+    #externalMacro(module: "AssayMacros", type: "XMLMacro")
+
+/// Name the document's root element. Goes on the TYPE, not on a var.
+///
+/// ```swift
+/// @Schema(formats: .xml, encodes: true) @XML(root: "book")
+/// struct Book { var title: String }
+/// ```
+///
+/// Two directions, and they are deliberately asymmetric:
+///
+/// - **Encoding** writes this name instead of the type's. Without the attribute the type's
+///   own name is used, which is what `_assayXMLRoot` already did.
+/// - **Decoding** *checks* it, and a mismatch is an issue rather than a warning. Without the
+///   attribute decoding does not look at the root at all — a root element is very often a
+///   wrapper the schema does not model (`<soap:Envelope>`, `<response>`), so checking one
+///   nobody declared would reject documents that are fine. But if you wrote it down, you
+///   asserted a fact about the wire, and an assertion that is silently tolerated is the
+///   class of thing this library exists to remove.
+///
+/// Matched on the local name only, consistent with the projection, which keys members by
+/// `local` and not by namespace URI.
+@attached(peer)
+public macro XML(root: String) =
     #externalMacro(module: "AssayMacros", type: "XMLMacro")
 
 /// The encode direction of a `@Transform`. `docs/ENCODING.md` question 3.

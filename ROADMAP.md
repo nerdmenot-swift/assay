@@ -148,7 +148,13 @@ would be worse than not shipping it.
 
 **Status: BUILT 2026-08-09.** `@XML(.attribute)`, `@XML(.text)` and `@XML(.wrapped)` all
 exist, checked at expansion (an `.attribute` on an array, or a `.wrapped` on a scalar, is a
-compile error). `@XML(root:)` is the one deferred piece and nothing depends on it.
+compile error). `@XML(root:)` **shipped 2026-09-08**; the deferred decision was what the default should be
+when unannotated, and the answer is an asymmetry: encoding always writes a root (the
+declared name, or the type's), decoding checks one only if you declared it. A root element
+is very often a wrapper the schema does not model — `<soap:Envelope>`, `<response>` — so
+checking one nobody asked for would refuse documents that are fine; but if you wrote it
+down you asserted a fact about the wire, and a mismatch is an **issue**, not a warning.
+Matched on the local name, consistent with the projection.
 
 **The array bug this uncovered is also fixed.** `[T]` fields did not decode from XML at all
 before 2026-08-09, in any shape — see below for what was wrong.
@@ -182,7 +188,14 @@ two decisions, not one**, and they are listed in `docs/ENCODING.md`'s "what rema
 Without these, XML decoding maps elements to fields by name and cannot distinguish an attribute
 from a child element. That covers a real slice of documents and not the interesting half.
 
-**Blocked on:** nothing but the work, and a decision about the default when unannotated.
+**Was blocked on:** a decision about the default when unannotated, recorded above.
+
+One implementation note worth carrying to `@Schema(context:)`, which has the same shape: the
+obvious way to make a check optional per type — a no-op on the wide protocol, shadowed by a
+real one on a constrained extension — **does not work**. Overloads resolve from the static
+type, and inside `extension RawDecodable` the compiler does not know `Self: XMLRooted`, so
+the no-op wins for every type including the ones that opted in. It compiles, runs, and checks
+nothing. A metatype cast (`Self.self as? any XMLRooted.Type`), once per document, does work.
 
 ---
 

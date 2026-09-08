@@ -165,6 +165,7 @@ public struct SchemaMacro: ExtensionMacro {
         let policy = Self.unknownKeys(from: node)
         let wantsEncoding = Self.encodes(from: node)
         let wantsSources = Self.sources(from: node)
+        let xmlRootName = Self.xmlRoot(from: declaration)
         let coerceAll = Self.coerceScalars(from: node)
         let formats = Self.formats(from: node)
 
@@ -301,9 +302,20 @@ public struct SchemaMacro: ExtensionMacro {
                 }
                 guard Self.xmlDiagnostics(activeS).isEmpty else { return [] }
                 body += "\n\n" + Self.xmlEncodeBody(typeName: typeName, fields: activeS,
-                                                     extras: extras)
+                                                     extras: extras, root: xmlRootName)
             }
         }
+        // The decode-side half of `@XML(root:)`. Emitted only when the attribute is present,
+        // so an unannotated type carries nothing and checks nothing — a root element is very
+        // often a wrapper the schema does not model, and rejecting one nobody declared would
+        // refuse documents that are fine.
+        if let r = xmlRootName, formats.xml {
+            if !body.isEmpty { body += "\n\n" }
+            body += """
+            nonisolated public static var _assayXMLExpectedRoot: String? { "\(r)" }
+            """
+        }
+
         if wantsSources {
             for message in Self.sourceDiagnostics(activeS) {
                 context.diagnose(Diagnostic(node: Syntax(node),
@@ -367,6 +379,7 @@ public struct SchemaMacro: ExtensionMacro {
         if wantsEncoding && formats.raw { conformances.append("Assay.RawEncodableSchema") }
         if wantsEncoding && formats.xml { conformances.append("Assay.XMLEncodableSchema") }
         if wantsSources { conformances.append("Assay.SourceDecodable") }
+        if xmlRootName != nil && formats.xml { conformances.append("Assay.XMLRooted") }
 
         let ext = try ExtensionDeclSyntax(
             "extension \(raw: typeName): \(raw: conformances.joined(separator: ", "))") {
@@ -433,6 +446,23 @@ public struct SchemaMacro: ExtensionMacro {
             return arg.expression.trimmedDescription == "true"
         }
         return false
+    }
+
+    /// `@XML(root: "book")` on the TYPE, or nil when unannotated.
+    ///
+    /// Read from the declaration's own attribute list rather than from `@Schema`'s
+    /// arguments, because that is where the specified spelling puts it. The peer macro
+    /// itself expands to nothing — it exists so the attribute is legal and so this can find
+    /// it, exactly like `@XML(_ placement:)` on a var.
+    static func xmlRoot(from decl: some DeclGroupSyntax) -> String? {
+        for attr in decl.attributes.compactMap({ $0.as(AttributeSyntax.self) })
+        where attr.attributeName.trimmedDescription == "XML" {
+            guard let args = attr.arguments?.as(LabeledExprListSyntax.self),
+                  let first = args.first, first.label?.text == "root",
+                  let lit = first.expression.as(StringLiteralExprSyntax.self) else { continue }
+            return lit.segments.trimmedDescription
+        }
+        return nil
     }
 
     /// `@Schema(sources: true)` — the KeyedSource decode body. Opt-in like every other

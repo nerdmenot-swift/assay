@@ -24,7 +24,8 @@ extension SchemaMacro {
     static func xmlEncodeBody(
         typeName: String,
         fields: [SchemaField],
-        extras: SchemaField?
+        extras: SchemaField?,
+        root: String? = nil
     ) -> String {
         // Attributes first — XML requires them in the start tag, and the writer closes
         // that tag on the first content call.
@@ -63,7 +64,7 @@ extension SchemaMacro {
         }
 
         return """
-        nonisolated public static var _assayXMLRoot: String { "\(typeName)" }
+        nonisolated public static var _assayXMLRoot: String { "\(root ?? typeName)" }
 
         nonisolated public func _assayEncodeXML(
             into w: inout Assay.XMLWriter,

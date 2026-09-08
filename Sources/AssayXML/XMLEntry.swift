@@ -23,6 +23,30 @@ public import AssayCore
 
 extension RawDecodable {
 
+    /// The `@XML(root:)` check, if this type declared one.
+    ///
+    /// A **metatype cast**, not an overload pair. The obvious spelling — a no-op on
+    /// `RawDecodable` shadowed by a real one on `RawDecodable where Self: XMLRooted` — does
+    /// not work, and the reason is worth recording because the same trap is waiting in
+    /// `@Schema(context:)`: overloads are chosen from the STATIC type, and inside
+    /// `extension RawDecodable` the compiler does not know `Self: XMLRooted`, so the no-op
+    /// wins for every type including the ones that declared a root. It compiled, ran, and
+    /// checked nothing.
+    ///
+    /// The cast happens once per document, not per field, and only for types that decode
+    /// XML at all.
+    @inlinable
+    static func _assayCheckXMLRoot(_ doc: XML.Document, _ sink: inout IssueSink) {
+        guard let rooted = Self.self as? any XMLRooted.Type,
+              let expected = rooted._assayXMLExpectedRoot else { return }
+        let actual = doc.root.name.local
+        guard actual != expected else { return }
+        sink.add(Issue(code: .custom("xml_root_mismatch"),
+                       path: [],
+                       params: ["expected": .string(expected)],
+                       received: actual))
+    }
+
     /// Decode from XML, or throw with every issue found.
     public static func parse(
         xml bytes: [UInt8],
@@ -52,6 +76,7 @@ extension RawDecodable {
                              truncatedIssues: sink.truncatedIssues,
                              source: SourceBytes(bytes), sourceName: sourceName)
         }
+        Self._assayCheckXMLRoot(doc, &sink)
         let raw = RawValue(doc)
         let value = Self._assay(from: raw, into: &sink, at: [])
         return Diagnosis(value: sink.isValid ? value : nil,

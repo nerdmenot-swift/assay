@@ -194,9 +194,16 @@ public enum Renderer {
             out += "  \(pad)\(number) │ \(text)\n"
 
             if n == line {
-                // The caret column is 1-based and counts bytes; for the ASCII-dominant
-                // config/API case that equals display columns. Multi-byte alignment is a
-                // known approximation, noted in the docs.
+                // The caret column is 1-based and COUNTS BYTES, not display columns. For
+                // the ASCII-dominant config/API case those are the same number. They are
+                // not the same for a line containing multi-byte UTF-8 before the caret --
+                // the caret lands too far right, by one column per continuation byte --
+                // and not for a terminal applying east-asian wide or combining-mark rules,
+                // which no byte or scalar count can predict. Getting it exactly right needs
+                // a width table this library will not carry.
+                //
+                // This comment used to end "noted in the docs". It was not, anywhere. Said
+                // here instead, where the approximation is.
                 let lineLength = range.count
                 let spaces = String(repeating: " ", count: max(0, caretColumn - 1))
                 let run = max(1, min(caretLength, max(1, lineLength - caretColumn + 1)))

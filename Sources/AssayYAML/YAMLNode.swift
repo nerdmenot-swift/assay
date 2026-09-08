@@ -25,9 +25,9 @@
 // `.scalar(content: "NO", tag: nil)` here, and whether that means `false` is a question
 // answered by the schema, not silently by the parser.
 //
-// NOTE: no parser yet. AssayYAML currently vends the model only; `parse(yaml:)` lands with
-// the scanner. The type is built first deliberately — docs/VALUE-MODELS.md §2 makes the
-// point that the model has to be right before the parser is written against it.
+// THE MODEL WAS BUILT BEFORE THE PARSER, deliberately — docs/VALUE-MODELS.md §2 makes the
+// point that the model has to be right before a parser is written against it, and the
+// unresolved-scalar decision above is why. `parse(yaml:)` lives in `YAMLParser.swift`.
 //===----------------------------------------------------------------------===//
 
 public import AssayCore

@@ -275,8 +275,10 @@ carries the full reasoning; in short:
   semantics were correct. The premise that justified it — "an allocation per value per
   record" — was false.
 - It could not accept the borrowed rows it existed for. A genuinely zero-copy row view is
-  `~Escapable`, and Assay refuses to put an experimental-feature gate on its public
-  surface.
+  `~Escapable`, and value semantics rule that out: `Array` requires `Escapable`, so such a
+  row cannot be an element of anything, cannot be `Equatable`, and cannot outlive the scope
+  that made it. (The experimental-feature-gate reason recorded originally is measurably
+  wrong — see `docs/KEYED-SOURCE.md`.)
 - Its cost landed worst exactly where a driver lives: a `rows(of: T.self)` loop is generic
   over the schema, `@inlinable` is forbidden on generated bodies (SE-0193), and the
   witness-table call is paid per row — 1.6–4.7×.

@@ -17,8 +17,13 @@
 //     allocation per value per record" — was false. `RawValue.mapping` is ONE allocation
 //     per record, and short keys do not allocate at all.
 //   * It could not accept the borrowed rows it existed for. A genuinely zero-copy row view
-//     is `~Escapable`, and Assay refuses to put an experimental-feature gate on its public
-//     surface — the same call `AssayReader` already made.
+//     is `~Escapable`, and value semantics rule that out of this API: `Array` requires
+//     `Escapable`, so such a row cannot be an element of anything, cannot be stored in an
+//     escapable struct, cannot be `Equatable`, and cannot outlive the scope that made it.
+//     (The reason first recorded here was that a `~Escapable` public type would put an
+//     experimental-feature gate on the whole library. That was measured on 2026-08-19 and
+//     is FALSE — a client consumes one with no flag at all. The decision stands on the
+//     value-semantics reason, which is stronger. docs/KEYED-SOURCE.md.)
 //   * Its cost lands worst exactly where a driver lives. A `db.query(as: User.self)` loop
 //     is generic over the schema, `@inlinable` is forbidden on generated bodies (SE-0193),
 //     so the witness-table call is paid per row: 1.6-4.7x.
@@ -43,8 +48,9 @@
 /// index, and it is also what lets a columnar source invert the loop and fill a batch
 /// column-by-column.
 ///
-/// It is published even though the bound decode path is not built yet, because the
-/// manifest is the part that has to be right first.
+/// It was published before the bound decode path existed, because the manifest is the part
+/// that has to be right first. Both now ship: `BoundPlan` below resolves a manifest against
+/// one source's layout once per stream, and `_assayBatch` fills a batch from it.
 public struct FieldManifest: Sendable {
     public struct Field: Sendable {
         /// The wire key, after `keys:` conversion and `@Key` overrides.

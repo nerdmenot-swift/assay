@@ -31,10 +31,12 @@
 // `String`, and coercion stays the schema's visible job via `@Coerce` — never implicit,
 // per EXPERIENCE.md §7.
 //
-// NOTE: no parser yet. AssayXML currently vends the model only. cross-platform-audit.md
-// §4 already concluded `XMLParser` cannot back this (its lineNumber/columnNumber are valid
-// only during delegate callbacks, with no byte ranges, so it cannot produce the carets
-// §3 promises) — a hand-written scanner or a vendored pure-Swift parser is required.
+// THE PARSER IS `XMLParser.swift`, hand-written, and the reason it is hand-written is worth
+// keeping: cross-platform-audit.md §4 concluded Foundation's `XMLParser` cannot back this
+// model, because its lineNumber/columnNumber are valid only during delegate callbacks and
+// carry no byte ranges, so it cannot produce the carets §3 promises. The prescription was a
+// hand-written scanner; that is what shipped, and it has since been optimised 1.89× (see
+// `Benchmarks/RESULTS.md`).
 //===----------------------------------------------------------------------===//
 
 public import AssayCore

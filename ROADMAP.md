@@ -22,8 +22,9 @@ let d = article.diagnoseEncode()            // partial bytes + issues, same rend
 Opt-in, because generated body size dominates expansion cost and a decode-only type must not
 pay for an encoder it never calls — the compile-time gate is unmoved at ~87 ms.
 
-Five of the six semantics questions were answered, accepted and implemented; the sixth
-(`@Unknown(roundTrips:)`) is blocked on `@Unknown` existing at all (§6).
+All six semantics questions were answered, accepted and implemented. The sixth
+(`@Unknown(roundTrips:)`) was blocked on `@Unknown` existing at all; `@Unknown` shipped
+2026-08-09 (§6), and encoding now refuses an unrecognised variant unless `roundTrips: true`.
 
 YAML encodes through the `RawValue` seam — the decode pipeline run backwards. XML does not,
 and cannot: placement is not expressible in `RawValue`, so XML has a generated body with
@@ -46,12 +47,11 @@ placement and `@DateFormat` patterns are all stored in the generated schema even
 decode path does not read them back. That is why encoding is additive later instead of a
 redesign, and it is being paid for now.
 
-**Blocked on:** deciding the semantics questions in [`docs/ENCODING.md`](docs/ENCODING.md),
-in writing, before any code. That document now exists — it enumerates six questions (this
-section named three and miscounted them as five), states the options for each, and carries a
-recommendation and its reasoning. **The recommendations are proposals awaiting a yes or no,
-not decisions.** Accepting or rejecting them is the work that unblocks encoding; the last
-section lists what building it then costs.
+**Was blocked on:** deciding the semantics questions in [`docs/ENCODING.md`](docs/ENCODING.md),
+in writing, before any code. That document enumerates six questions (this section originally
+named three and miscounted them as five), and **all six were accepted and implemented on
+2026-08-09** — its own header says so. The paragraph that stood here described them as
+"proposals awaiting a yes or no" for some weeks after they had been answered and built.
 
 ---
 
@@ -88,8 +88,9 @@ parsed once at rule construction, violations rendered as dates.
 - **Full UTS-35 patterns** (locale month names, eras). Deliberately excluded from the
   core forever — `EXPERIENCE.md` §11's ICU-cost argument — and still unbuilt in the
   Foundation-dependent layer where it would be an opt-in.
-- **Date *encoding***, with the rest of encoding (§1). `@DateFormat` placement data is
-  preserved for it.
+- ~~**Date *encoding***~~ — **built 2026-08-09** with the rest of encoding (§1). The
+  preserved `@DateFormat` placement data is what made it additive rather than a redesign,
+  which was the whole bet §1 describes.
 
 ---
 
@@ -152,13 +153,20 @@ compile error). `@XML(root:)` is the one deferred piece and nothing depends on i
 **The array bug this uncovered is also fixed.** `[T]` fields did not decode from XML at all
 before 2026-08-09, in any shape — see below for what was wrong.
 
-**Also found 2026-08-09, previously undocumented: `[T]` fields do not decode from XML at
-all.** Neither repeated siblings (`<tags>a</tags><tags>b</tags>`) nor a wrapper
-(`<tags><item>a</item></tags>`) decodes into a `[String]` field. Scalars work — attributes,
-elements, or a mix of both, since the `RawValue` projection flattens all three into one
-keyspace — but arrays fail, because the projection produces a `.mapping` with repeated keys
-and the schema path expects a `.sequence`. Repeated members are preserved by the projection
-(a `Dictionary` would have dropped them), so the information is there and ungrouped.
+**What that bug was, and it is fixed in both shapes.** `[T]` fields did not decode from XML
+at all: the projection produced a `.mapping` with repeated keys where the schema path expected
+a `.sequence`. Repeated members were preserved (a `Dictionary` would have dropped them), so
+the information was there and ungrouped. Both spellings now work, and they work differently
+on purpose — verified 2026-09-08:
+
+```swift
+var tags: [String]                  // <tags>a</tags><tags>b</tags>  — repeated siblings
+@XML(.wrapped) var tags: [String]   // <tags><item>a</item></tags>   — a wrapper element
+```
+
+Repeated siblings need no annotation because that is simply how XML spells a sequence. The
+wrapper form does need one, and that is the right asymmetry: `<tags>` containing `<item>`
+elements is indistinguishable from a nested object without the schema saying which it means.
 
 This matters for encoding beyond being a bug: `docs/ENCODING.md` question 5 commits the
 encoder to targeting `.input` — writing the document `parse` accepts — so an XML encoder
@@ -431,12 +439,21 @@ Not features, but they are equally part of "done":
 
 | gap | what is missing |
 |---|---|
-| **Windows** | The CI leg is enabled and has never run — the repository has no remote. Cannot be built from macOS either, so every Windows claim is unverified. |
-| **x86-64 Linux performance** | CI builds and tests there; no benchmark numbers. Every published ratio is one arm64 Mac. |
+| ~~**Windows**~~ | **Closed 2026-08-29.** The row below is what this said until then, and it is worth keeping visible: *"The CI leg is enabled and has never run — the repository has no remote. Cannot be built from macOS either, so every Windows claim is unverified."* A remote exists, `Test (Windows)` runs on `windows-latest` on every push and gates, and it found a real bug on its first green-to-red transition — `_open` is variadic in ucrt and Swift cannot import C variadics, in a shim that had never been compiled on Windows because Windows had never been tested. |
+| ~~**x86-64 Linux performance**~~ | **Closed 2026-08-20.** Measured on a GitHub-hosted runner via `.github/workflows/benchmark.yml`: **struct decode 10.89×**, the best of the three platforms, and XML **1.39×** over libxml2-backed Foundation. It also found an x86-64-only crash — a struct-returning libc call declared with `@_silgen_name` — that macOS and aarch64 Linux both ran green. `Experiments/01-jump-table`'s threshold is now measured on both architectures and is **not** target-independent: a table appears at N ≥ 4 for `UInt8` on x86-64 against N ≥ 10 on arm64. |
 | ~~**SIMD decoder comparison**~~ | **Closed 2026-08-08.** Measured against yyjson (hand-tuned C, `-O3`): **0.65×** on the use-case arm, **0.78×** on float-dense, **0.06×** DOM-vs-DOM. The predicted loss arrived and is published in `Benchmarks/RESULTS.md`. Still not compared to simdjson itself (C++, needs an interop shim) or to ZippyJSON. |
 | **Multi-megabyte documents** | Outside the target band and unmeasured. The corpus stops at 64 kB. |
 | ~~**`[String: T]` dictionary fields**~~ | **Closed 2026-08-07** — implemented on both decode paths, recursive, non-String keys diagnosed at expansion. The "worst case" measured **6.95× over Foundation** (`Benchmarks/RESULTS.md`); the predicted narrowing is visible in the size trend, the predicted risk was not. |
-| **Total malloc traffic** | The allocation gate counts *live* blocks, which misses transient allocations freed inside a decode. `.mallocCountTotal` would catch those and needs jemalloc. |
+| **Total malloc traffic** | The allocation gate counts *live* blocks, which misses transient allocations freed inside a decode. `.mallocCountTotal` would catch those and needs jemalloc, which cannot run on the musl or wasm legs at all — so closing this is either a bounded Darwin/Linux-only addition or a permanent gap, and it should be recorded as whichever it turns out to be. |
+| **Encoding throughput** | Encoding has correctness oracles in `Benchmarks/Sources/DiffFuzz/` and **no performance arm at all** — `grep encode Benchmarks/Sources/AssayBench` returns nothing. `docs/ENCODING.md` §288 already forbids quoting a number until one exists; this row is that prohibition made visible. |
+| **Cold start** | Named in `CLAUDE.md`'s "Start here now" and never measured. A macro emitting no `CodingKeys` should win structurally, which is exactly the kind of should that this file exists to stop anyone asserting. |
+
+**A note on how two of these closed, because it is the more useful lesson.** The Windows and
+x86-64 rows sat here describing a repository with no remote for some time after the remote
+existed and both legs were green. Nothing detected that; a reader asking "what is unverified?"
+was told something false by the document whose job is to answer exactly that. Rows here are
+now expected to be struck through with a date and a number when they close, and a plan that
+touches verification should re-read this table rather than trusting it.
 
 ---
 

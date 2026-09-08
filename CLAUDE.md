@@ -202,6 +202,13 @@ API-shaped payload). Apple's prototype that changes nothing about parsing and on
 container protocol reports ~6×. ~83% of a Swift decode is the Codable boundary. The macro deletes
 it at compile time.
 
+**Measured directly 2026-09-09, and it was a citation until then.** ZippyJSON is now a
+benchmark dependency rather than a number read from someone else's table: **Assay is 3.0×
+faster than it** on this machine, against this Foundation, on this corpus — scalar Swift with
+no SIMD anywhere against simdjson underneath, the only structural difference being the
+container. ZippyJSON measures **1.65–1.96× over Foundation here**, *better* than the 1.38× it
+was cited at, so the result is not a matter of hobbling it. `Benchmarks/RESULTS.md`.
+
 **Falsification condition, written down on purpose:** if a scalar Swift phase-1 implementation
 does not comfortably clear ZippyJSON's 1.38× over Foundation on the corpus in
 `docs/PERFORMANCE.md` §12.2, the thesis is wrong and the SIMD/C work is moot. Do not proceed past

@@ -79,6 +79,16 @@ allocations, which is a different and smaller sentence.
 
 ### 1.1 The two experiments that were already run
 
+**ZippyJSON — now measured here rather than cited (2026-09-09).** `Benchmarks/Sources/AssayBench/ZippyBench.swift`
+makes it a benchmark dependency, so the number below is no longer someone else's table: on
+macOS/arm64 against the swift-foundation rewrite, **ZippyJSON reads 1.65–1.96× over
+Foundation** — better than its cited figure — and **Assay is 3.0× faster than ZippyJSON**.
+Scalar Swift with no SIMD against simdjson underneath; the only structural difference is the
+container. That is this document's central claim tested in its strongest available form, and
+the reason phase 4 could be retired unbuilt.
+
+The cited figures, kept because the argument below was built on them:
+
 **ZippyJSON.** simdjson underneath, `Decodable` on top. Measured 1.38× average over Foundation,
 and **1.04×** on the payload shape closest to a real API response. That is the ceiling of "make
 the parser faster and keep Swift's decoding API". Its source shows exactly why: every value

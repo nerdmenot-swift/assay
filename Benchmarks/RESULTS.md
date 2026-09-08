@@ -1393,3 +1393,54 @@ arrange.
 
 **Linux remains open.** `mallinfo2` reports bytes, not counts, and no equivalent hook exists.
 The arm prints "unavailable" there rather than a guessed number.
+
+
+## ZippyJSON — first measured 2026-09-09, and it is the comparison the thesis is stated against
+
+`Benchmarks/Sources/AssayBench/ZippyBench.swift`, macOS/arm64, release, ZippyJSON 1.2.x built
+as its own manifest specifies.
+
+`CLAUDE.md`'s falsification condition names this decoder by name:
+
+> if a scalar Swift phase-1 implementation does not comfortably clear ZippyJSON's 1.38× over
+> Foundation on the corpus in `docs/PERFORMANCE.md` §12.2, the thesis is wrong and the SIMD/C
+> work is moot.
+
+and so does the argument it rests on: *"ZippyJSON bolted simdjson onto `Decodable` and got
+1.38× over Foundation."* **Until now that 1.38× was a citation** — someone else's machine,
+someone else's corpus, and the *legacy* Darwin JSON decoder rather than the swift-foundation
+rewrite this harness compares against everywhere else.
+
+```
+items       bytes  Foundation     Zippy     Assay   Zippy/F   Assay/F   Assay/Z
+1             285        3148      1904       458     1.65x     6.87x     4.15x
+10           2221       17118      9048      2926     1.89x     5.85x     3.09x
+50          10821       77034     39338     12969     1.96x     5.94x     3.03x
+200         43072      302197    154211     51088     1.96x     5.92x     3.02x
+```
+
+Three runs: the `Assay/Z` column reads 2.94–3.15× at 10 items and above, 3.88–4.15× at one.
+
+**The thesis is confirmed in its strongest available form.** Assay is scalar Swift with no SIMD
+anywhere — phase 4 was retired unbuilt — and it decodes **3.0× faster than a decoder with
+simdjson underneath**. The only structural difference is that ZippyJSON has a
+`KeyedDecodingContainer` and Assay does not. If the container boundary were not the dominant
+cost, that column could not be above 1.0.
+
+**The comparison is not flattering Assay by hobbling ZippyJSON — the opposite.** ZippyJSON
+measures **1.65–1.96× over Foundation here**, comfortably *better* than the 1.38× it was cited
+at, because the harness gives it a payload shape it does well on and builds it as its own
+package specifies. It is doing better than its published number and still loses by 3×.
+
+Fairness, since a rigged comparison proves nothing: same bytes and same struct shape for all
+three; both decoders constructed once outside the loop; Assay decodes from `[UInt8]` and the
+other two from `Data`, each its own native input, because converting either would measure a
+bridge; and all three must produce equal field values before any of them is timed.
+
+**Still not measured: simdjson directly.** That needs a C++ interop shim, and it answers a
+different question — "how fast is the parser?" — which yyjson already answers (Assay loses
+0.65× on the use-case arm, published above). The question this arm answers is the one the
+thesis is about: that same class of parser, *wired to `Decodable`*.
+
+Darwin/arm64 only. `ZippyJSON` is a benchmark-package dependency and is not linked by anything
+the library ships.

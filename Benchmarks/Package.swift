@@ -20,6 +20,16 @@ let package = Package(
         // be checked against an independent one, and it is confined to this package so
         // the shipping library's dependency graph stays untouched.
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.1.0"),
+        // ZippyJSON — simdjson bolted onto `Decodable`, and the single most load-bearing
+        // external number in this project. `CLAUDE.md`'s falsification condition is stated
+        // in terms of it: *"if a scalar Swift phase-1 implementation does not comfortably
+        // clear ZippyJSON's 1.38x over Foundation ... the thesis is wrong."* That 1.38x was
+        // read from someone else's published table. Depending on it here replaces a citation
+        // with a measurement, on this machine, on this corpus, against this Foundation.
+        //
+        // BENCHMARK PACKAGE ONLY, like Yams and yyjson. It pulls in C++, Objective-C and two
+        // transitive packages; none of that goes anywhere near the shipping library.
+        .package(url: "https://github.com/michaeleisel/ZippyJSON.git", from: "1.2.0"),
     ],
     targets: [
         // The corpus generator. No dependency on Assay — it must be runnable before the
@@ -93,6 +103,8 @@ let package = Package(
                 // The BASELINE for the YAML rows, exactly as it is the oracle for the
                 // differential: Yams is what a Swift project would otherwise use.
                 .product(name: "Yams", package: "Yams"),
+                // The comparison the falsification condition names. See the dependency note.
+                .product(name: "ZippyJSON", package: "ZippyJSON"),
                 "CorpusRender",
                 "CYYJSON",
                 "CHeapBytes",

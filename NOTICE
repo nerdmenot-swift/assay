@@ -33,3 +33,26 @@ Vendored at Benchmarks/Sources/CYYJSON as a BENCHMARK BASELINE only. It is not a
 dependency of any shipped product, is not linked into a client binary, and no
 Assay source file imports it. It exists so the comparison against a SIMD-tier C
 parser in Benchmarks/RESULTS.md can be reproduced.
+
+--------------------------------------------------------------------------------
+
+Benchmark-only package dependencies
+
+These are SwiftPM dependencies of Benchmarks/Package.swift, which is a separate
+package. They are not dependencies of any shipped product, are not linked into a
+client binary, and no Assay source file imports them. They exist as ORACLES and
+BASELINES so the numbers in Benchmarks/RESULTS.md can be reproduced.
+
+  Yams (https://github.com/jpsim/Yams)
+    Copyright (c) 2016 JP Simard
+    Licensed under the MIT License
+    Wraps libyaml. The differential oracle for Assay's YAML parser, and the
+    baseline for the YAML rows.
+
+  ZippyJSON (https://github.com/michaeleisel/ZippyJSON)
+    Copyright (c) 2019 Michael Eisel
+    Licensed under the MIT License
+    simdjson wired to Decodable. The decoder Assay's falsification condition is
+    stated against; see Benchmarks/RESULTS.md. Brings transitive dependencies on
+    ZippyJSONCFamily and JJLISO8601DateFormatter, also MIT, likewise
+    benchmark-only.

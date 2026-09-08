@@ -461,6 +461,7 @@ runKeyPathBenchmarks()
 runColdStartBenchmarks()
 runLargeDocumentBenchmarks()
 runTotalAllocationBenchmarks()
+runZippyBenchmarks()
 
 // ---- Dates ----
 runDateBenchmarks(corpusDir: corpusDir, sizes: sizes)

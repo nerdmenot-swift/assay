@@ -332,10 +332,20 @@ carets on all three formats, ~2% on YAML and nothing elsewhere), `Date` and `@Da
 the loss against yyjson (2026-08-09 — 0.66× on the use-case shape, 0.77× float-dense, 0.06×
 DOM-vs-DOM, all published). What remains, in order:
 
-1. **x86-64 numbers.** Linux is now measured (`Benchmarks/linux-bench.sh`, 2026-08-15) and
-   the thesis holds there. x86-64 is not, and emulation would time the emulator rather than
-   the code — `Experiments/01-jump-table`'s jump-table threshold is still arm64-only.
-2. **Cold start**, where a macro emitting no `CodingKeys` should win structurally.
+Both items that were here are now closed, and what they measured is worth carrying:
+
+1. ~~**x86-64 numbers**~~ — closed 2026-08-20 on a hosted runner. Struct decode **10.89×**,
+   the best of the three platforms.
+2. ~~**Cold start**~~ — closed 2026-09-09. The "should" held, and by more than expected:
+   **first decode 7.7–7.9× against 6.6–6.8× steady state**, so the one-time per-type work is
+   where the gap is *widest*. Method note that generalises: the headline is the **median** of
+   60 one-shot per-type samples. A total-based version of the same arm gave 3.3×, 5.8× and
+   5.2× on three runs of one build, because a few first-of-everything outliers dominate a sum.
+
+What remains open is in `ROADMAP.md`'s verification table: **total malloc traffic** (needs
+jemalloc, which cannot run on the musl or wasm legs), **simdjson/ZippyJSON** (needs a C++
+interop shim), and three of `COMPILE-TIME.md` §5's compile-time axes — previews,
+cross-compilation and Linux.
 
 Three things that are done and worth not redoing: the allocation gate exists (live blocks,
 with its limits documented rather than buried — `.mallocCountTotal` was rejected because

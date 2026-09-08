@@ -1283,3 +1283,64 @@ Compile time is **reported, not gated**, exactly like the `arrays` arm beside it
 ms/type** where every field is behind a path (five groups of two), against 71.8 ms for the
 flat scalar arm the 100 ms budget was calibrated on. `Experiments/03-compile-time/gate.sh`
 prints both.
+
+
+## Cold start — first measured 2026-09-09
+
+`Benchmarks/Sources/AssayBench/ColdStartBench.swift`, macOS/arm64, release.
+
+`CLAUDE.md`'s "Start here now" listed this as item 2, with the claim *"a macro emitting no
+`CodingKeys` should win structurally"* — and `ROADMAP.md`'s verification table flagged it as
+"exactly the kind of should that this file exists to stop anyone asserting". **The claim
+holds.**
+
+```
+decoder          median us    total us    max us
+JSONDecoder            8.4         581        42
+Assay                  1.1         107        32
+
+first decode:              7.7x, 7.9x   (two runs)
+steady state, same shape:  6.6x, 6.8x
+```
+
+**First decode is a LARGER advantage than steady state** — 7.7–7.9× against 6.6–6.8× — so the
+one-time per-type work is where the gap is widest. Subtracting steady state from first decode
+leaves ~0.8 µs of one-time cost for Assay against ~6.3 µs for `Codable`, which is the
+`CodingKeys` metadata and container machinery that a macro simply does not create.
+
+**Method, and one statistic that matters.** A type can be decoded for the *first* time exactly
+once per process, so a loop measures steady state. This is **60 distinct types, one sample
+each**, alternating between the two decoders so neither gets a warmer allocator.
+
+The headline is the **median of the per-type samples, not the total**. An earlier total-based
+version of this arm reported 3.3×, 5.8× and 5.2× on three runs of the same build: a handful of
+first-of-everything outliers (the `max` column: 32–42 µs against a 1–8 µs median) dominate a
+sum of sixty samples. The median moves by a few percent across the same runs. Both are printed.
+
+Process start — dyld, image loading — is a different thing that this does not measure, and it
+is dominated by linking Foundation at all rather than by either decoder.
+
+## Multi-megabyte documents — first measured 2026-09-09
+
+`Benchmarks/Sources/AssayBench/LargeDocBench.swift`. **Not a target band**, and
+`docs/PERFORMANCE.md` §14's "Assay claims no advantage on multi-megabyte documents" still
+stands. What was missing was a number: "we do not optimise for it" and "we have not looked" are
+different sentences.
+
+```
+items           MB  Foundation     Assay    ratio  Assay MB/s
+2000           0.2      1.9 ms    0.3 ms    6.90x         704
+20000          2.0     19.6 ms    3.0 ms    6.63x         689
+80000          8.3     78.4 ms   11.9 ms    6.60x         696
+```
+
+**A prediction written into the harness before the run was wrong, and is recorded rather than
+edited out.** The reasoning was that output allocation must come to dominate — ten thousand
+`String`s reach `malloc` however they were parsed — so the ratio should shrink towards 1.0.
+It does not: 6.90× to 6.60× across a 40× size range, with throughput flat at ~700 MB/s.
+
+The reading that survives is stronger than the one predicted: **the advantage is per-value, not
+per-document.** Foundation's cost scales with the number of decoded values exactly as Assay's
+does, because the container boundary is crossed per value — so identical output allocation on
+both sides cancels rather than converging. Nothing falls off a cache cliff at 8 MB either,
+which is what a cache-shaped advantage would have done.

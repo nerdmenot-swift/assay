@@ -214,21 +214,104 @@ as `scalarCall` already does for plain fields. That would make `@OneOrMany` free
 costly and would very likely *lower* per-field cost for every existing `[String]` and `[Int]`
 field. `ROADMAP.md` §5 records it.
 
-## 5. What is not yet measured
+## 5. The other axes
 
-Stated because an unmeasured axis should never read as a measured one.
+Six were listed here as unmeasured. **Three were measured on 2026-09-09** and are below;
+three remain open and say so.
 
-1. **Incremental builds.** This is what developers feel all day, and it is not measured
-   here at all. A one-type edit should re-expand only that type; unverified.
-2. **Release configuration.** Debug only so far. Optimizer time on generated bodies is
-   additional and may scale differently.
-3. **Xcode / SwiftUI previews.** Anecdotally the most sensitive environment to macro cost;
-   no data.
-4. **Cross-compilation.** Macro cross-compilation to Android was fixed in SwiftPM #8670,
-   but its cost is unmeasured.
-5. **Linux.** One arm64 macOS machine.
-6. **Type-checker pathologies.** Nothing here explores whether a generated expression can
-   trip exponential inference. Worth `-Xfrontend -warn-long-expression-type-checking`.
+### 5.1 Incremental builds — MEASURED, and the answer is the good one
+
+`Experiments/03-compile-time/incremental.sh`. This was the one that mattered: a clean build is
+the *adoption decision*, made once, while an incremental build is what a developer feels all
+day. The risk was concrete rather than formal — a macro plugin is a separate process, and if
+one edited file invalidated every expansion in its module, `@Schema` would turn a one-line
+change to a model layer into a whole-module re-expansion that no clean-build number would ever
+show.
+
+Four scenarios, one type per **file** (a module compiled as one file has nothing to be
+incremental about), median of 3, debug:
+
+| scenario | 15 types | 45 types |
+|---|---|---|
+| `no-op` (nothing changed) | 1.03× | 1.00× |
+| `touch-plain` (an ordinary struct in the module) | 1.06× | 1.19× |
+| `touch-consumer` (a file that *uses* the schemas) | 1.06× | 1.19× |
+| `touch-schema` (one `@Schema` file of N) | 1.13× | 1.17× |
+
+All ratios are against the identical `Codable` module.
+
+**`touch-schema` ≈ `touch-plain`, and the gap does not grow with module size** — 0.03 s at 15
+types, nothing measurable at 45. Editing one schema costs what editing any file costs. If
+expansion were module-wide the gap would scale with the type count; it does not.
+
+**`touch-consumer` ≈ `touch-plain`** — merely *using* a schema does not re-expand it, which was
+the expensive failure mode.
+
+What a schema-heavy module does cost is a flat ~1.2× on any incremental edit at 45 types,
+including edits to files with no schema in them. That is the module having more code in it,
+not the edit being expensive.
+
+### 5.2 Release configuration — MEASURED, and it is the expensive one
+
+`CONFIG=release Experiments/03-compile-time/measure.sh`, medians of 3, same machine and same
+types as the debug table above.
+
+| types | plain | codable | schema | validated | arrays | paths | vs-codable |
+|---|---|---|---|---|---|---|---|
+| 1 | 0.41 | 0.45 | 0.74 | 0.75 | 1.16 | 0.87 | 1.64× |
+| 10 | 0.43 | 0.66 | 2.89 | 2.58 | 6.39 | 3.84 | 4.38× |
+| 25 | 0.43 | 0.99 | 6.34 | 5.66 | 15.29 | 9.20 | 6.40× |
+| 50 | 0.43 | 1.57 | 12.38 | 10.91 | 30.01 | 17.49 | 7.89× |
+| 100 | 0.47 | 2.69 | 25.57 | 21.35 | 60.48 | 33.03 | **9.51×** |
+
+**Release costs about 3.4× debug per type: ~245 ms against the ~72 ms the gate holds.** The
+`arrays` arm reaches ~600 ms/type. Nothing here was previously known, and the debug budget does
+not describe release builds even approximately — that is the point of writing it down.
+
+Two things about the shape, not just the size.
+
+**The ratio against `Codable` grows with type count in release and stays flat in debug** (1.64×
+at one type, 9.51× at a hundred; debug goes 1.14× to ~3.9×). That is the cost model in §4
+behaving exactly as stated (§2, ~9 ms fixed + 7.3 ms per field): cost tracks **generated body size**, and the optimizer is a second
+pass over that same body. Debug pays for the body once; release pays for it twice, with the
+second pass superlinear in places.
+
+**`validated` is CHEAPER than `schema` in release** — 21.35 against 25.57 at a hundred types —
+having been *more* expensive in debug. The rule arrays are `static let` constants the optimizer
+folds, and the `_assayCheck` body they feed is straight-line; meanwhile the extra work makes no
+new inlining decisions. It is a small inversion, but it is the sort of thing that makes "add a
+rule, pay a compile-time cost" the wrong intuition to carry around.
+
+**Why the gate stays on debug.** Debug is what an incremental edit-build-run cycle uses (§5.1),
+which is the thing a developer feels, and it is what CI can run in a minute rather than ten.
+Release is now measured and reported; it is not gated, because a wall-clock gate on a hosted
+runner is what `CLAUDE.md`'s honesty rules forbid, and the release numbers are four times more
+exposed to runner contention than the debug ones.
+
+The number to carry: **a release build of a large model layer is where `@Schema` is most
+expensive relative to `Codable`**, and a project with a hundred schema types should expect to
+pay roughly twenty seconds of optimizer time for them.
+
+### 5.3 Type-checker pathologies — MEASURED, nothing found
+
+`-Xfrontend -warn-long-expression-type-checking` at 100 ms, 50 ms, 20 ms and **10 ms**, at
+`-O`, over the rule-heavy arm (a `@Validate` on nearly every field, the worst generated
+`_assayCheck` body): **zero expressions at every threshold.**
+
+That is a consequence of rules 4 and 6 rather than luck. Per-field generated code is one line
+calling a concrete, monomorphic runtime primitive with the field's type already fixed — there
+is no overload set to explore and no generic parameter to solve, so there is nothing for
+inference to go exponential on. The property is worth keeping: an emitter that started
+producing multi-term expressions with inferred literals would be where this changes.
+
+### 5.4 Still unmeasured
+
+- **Xcode / SwiftUI previews.** Anecdotally the most sensitive environment to macro cost; no
+  data, and no way to get any from a command-line harness.
+- **Cross-compilation.** Macro cross-compilation to Android was fixed in SwiftPM #8670, but its
+  cost is unmeasured. Android is not a target (`CLAUDE.md`), so this is unlikely to move.
+- **Linux.** The compile-time harness has still only run on one arm64 macOS machine. The
+  *test* suite gates on Linux and Windows; the compile-time budget does not.
 
 ---
 

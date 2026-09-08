@@ -458,6 +458,8 @@ if AllocFailures.shared.messages.isEmpty {
 runFormatBenchmarks(corpusDir: corpusDir, sizes: sizes)
 runEncodeBenchmarks()
 runKeyPathBenchmarks()
+runColdStartBenchmarks()
+runLargeDocumentBenchmarks()
 
 // ---- Dates ----
 runDateBenchmarks(corpusDir: corpusDir, sizes: sizes)

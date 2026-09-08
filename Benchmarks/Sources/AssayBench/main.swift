@@ -457,6 +457,7 @@ if AllocFailures.shared.messages.isEmpty {
 // ---- YAML and XML ----
 runFormatBenchmarks(corpusDir: corpusDir, sizes: sizes)
 runEncodeBenchmarks()
+runKeyPathBenchmarks()
 
 // ---- Dates ----
 runDateBenchmarks(corpusDir: corpusDir, sizes: sizes)

@@ -26,9 +26,15 @@ extension SchemaMacro {
     /// Q6: the declared wire keys, so an @Extras key that collides with one can be
     /// reported rather than silently producing a duplicate key or dropping data. Emitted
     /// once, whichever encode bodies exist.
-    static func declaredKeys(_ fields: [SchemaField], _ extras: SchemaField?) -> String {
+    /// The keys `@Extras` must not collide with, which are the keys this type writes at the
+    /// TOP level — so a path group contributes its first segment, not its leaf.
+    static func declaredKeys(
+        _ fields: [SchemaField], _ extras: SchemaField?, groups: [PathGroup] = []
+    ) -> String {
         guard extras != nil else { return "" }
-        let names = fields.map { "\"\($0.wireKey)\"" }.joined(separator: ", ")
+        let names = (fields.filter { $0.pathSegments == nil }.map(\.wireKey)
+                     + groups.map(\.segment))
+            .map { "\"\($0)\"" }.joined(separator: ", ")
         return """
         nonisolated static let __assayDeclaredKeys: Set<String> = [\(names)]
 
@@ -39,13 +45,21 @@ extension SchemaMacro {
     static func encodeBody(
         typeName: String,
         fields: [SchemaField],
-        extras: SchemaField?
+        extras: SchemaField?,
+        groups: [PathGroup] = []
     ) -> String {
         var body = ""
 
         var lines = ""
-        for (i, f) in fields.enumerated() {
+        for (i, f) in fields.enumerated() where f.pathSegments == nil {
             lines += encodeStatement(field: f, index: i)
+        }
+        // `@Key(path:)`. Two fields under one prefix write ONE object, which is the whole
+        // reason the encoder cannot just emit a dotted key: `{"profile.name": ...}` is a
+        // different document from `{"profile": {"name": ...}}`, and only the second one this
+        // schema can read back. `docs/ENCODING.md`'s round-trip law is what forces the merge.
+        for g in groups {
+            lines += encodePathNode(g.node, fields: fields, segment: g.segment, indent: 8)
         }
 
         if let e = extras {
@@ -83,6 +97,44 @@ extension SchemaMacro {
     }
 
     /// One line per field, mirroring the decode bodies' discipline.
+    /// One nested object per path node, recursively.
+    static func encodePathNode(
+        _ n: PathNode, fields: [SchemaField], segment: String, indent: Int
+    ) -> String {
+        let pad = String(repeating: " ", count: indent)
+        var inner = ""
+        for (seg, i) in n.leaves {
+            // The field's key inside this object is its LAST segment, which `wireKey`
+            // already is — the parser set it there so every message naming a key names the
+            // one actually looked for.
+            _ = seg
+            inner += reindent(encodeStatement(field: fields[i], index: i), by: indent - 4)
+        }
+        for (seg, child) in n.children {
+            inner += encodePathNode(child, fields: fields, segment: seg, indent: indent + 4)
+        }
+        return """
+        \(pad)w.key("\(segment)")
+        \(pad)w.beginObject()
+        \(inner)\(pad)w.endObject()
+
+        """
+    }
+
+    /// Shift generated lines right, so a nested object's contents sit under it. Cheaper
+    /// than an `indent:` parameter on every emitter, which would have to thread through
+    /// `writeCall` and its four type shapes to say something purely cosmetic.
+    static func reindent(_ text: String, by n: Int) -> String {
+        guard n > 0 else { return text }
+        let pad = String(repeating: " ", count: n)
+        var out = ""
+        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            out += line.isEmpty ? "\n" : pad + line + "\n"
+        }
+        if out.hasSuffix("\n") && !text.hasSuffix("\n") { out.removeLast() }
+        return out
+    }
+
     static func encodeStatement(field f: SchemaField, index i: Int) -> String {
         let key = f.wireKey
         let base = f.decodedType

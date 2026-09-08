@@ -26,10 +26,11 @@ extension SchemaMacro {
     static func rawEncodeBody(
         typeName: String,
         fields: [SchemaField],
-        extras: SchemaField?
+        extras: SchemaField?,
+        groups: [PathGroup] = []
     ) -> String {
         var lines = ""
-        for (i, f) in fields.enumerated() {
+        for (i, f) in fields.enumerated() where f.pathSegments == nil {
             let value = f.transform != nil
                 ? "Self.__assayInverse_\(i)(self.\(f.identifier))"
                 : "self.\(f.identifier)"
@@ -42,6 +43,13 @@ extension SchemaMacro {
                 expr = rawExpr(f.decodedType, value, key: f.wireKey, index: i)
             }
             lines += "        __m.append(.init(key: \"\(f.wireKey)\", value: \(expr)))\n"
+        }
+
+        // `@Key(path:)` — one nested mapping per prefix, so the document this writes is
+        // the document this schema reads. See `EncodeGen.encodePathNode`.
+        for g in groups {
+            lines += "        __m.append(.init(key: \"\(g.segment)\", value: "
+                + rawPathValue(g.node, fields: fields) + "))\n"
         }
 
         if let e = extras {
@@ -101,5 +109,29 @@ extension SchemaMacro {
         default:
             return "\(expr)._assayEncodeRaw(into: &sink, at: path + [.key(\"\(key)\")])"
         }
+    }
+}
+
+extension SchemaMacro {
+
+    /// A path node as a `.mapping` expression, built inline. The RawValue seam is a value
+    /// tree, so a nested object is just a nested value — no writer state to balance, which is
+    /// why this is an expression where the JSON side needed a begin/end pair.
+    static func rawPathValue(_ n: PathNode, fields: [SchemaField]) -> String {
+        var members: [String] = []
+        for (seg, i) in n.leaves {
+            let f = fields[i]
+            let value = f.transform != nil
+                ? "Self.__assayInverse_\(i)(self.\(f.identifier))"
+                : "self.\(f.identifier)"
+            let expr = f.isOptional
+                ? "(\(value).map { __o in \(rawExpr(f.decodedType, "__o", key: seg, index: i)) } ?? .null)"
+                : rawExpr(f.decodedType, value, key: seg, index: i)
+            members.append(".init(key: \"\(seg)\", value: \(expr))")
+        }
+        for (seg, child) in n.children {
+            members.append(".init(key: \"\(seg)\", value: \(rawPathValue(child, fields: fields)))")
+        }
+        return "Assay.RawValue.mapping([\(members.joined(separator: ", "))])"
     }
 }

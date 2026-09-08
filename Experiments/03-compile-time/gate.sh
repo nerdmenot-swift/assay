@@ -102,6 +102,7 @@ echo "$out"
 schema=$(echo "$out" | awk -v t="$TYPES" '$1==t{print $4}')
 validated=$(echo "$out" | awk -v t="$TYPES" '$1==t{print $5}')
 arrays=$(echo "$out" | awk -v t="$TYPES" '$1==t{print $6}')
+paths=$(echo "$out" | awk -v t="$TYPES" '$1==t{print $7}')
 
 # MEDIANS for the ratio. Dividing two independently-noisy minima biases the quotient upward
 # -- minimising the denominator maximises the result -- and that bias failed this gate in CI
@@ -118,6 +119,7 @@ per_type_ms=$(awk -v s="$schema" -v t="$TYPES" 'BEGIN{ printf "%.1f", s/t*1000 }
 
 validated_ms=$(awk -v s="$validated" -v t="$TYPES" 'BEGIN{ printf "%.1f", s/t*1000 }')
 arrays_ms=$(awk -v s="$arrays" -v t="$TYPES" 'BEGIN{ printf "%.1f", s/t*1000 }')
+paths_ms=$(awk -v s="$paths" -v t="$TYPES" 'BEGIN{ printf "%.1f", s/t*1000 }')
 ratio=$(awk -v s="$schema_med" -v c="$codable_med" 'BEGIN{ printf "%.2f", (c > 0) ? s/c : 0 }')
 
 echo ""
@@ -130,6 +132,7 @@ echo "vs Codable:    ${ratio}x          budget: ${RATIO_BUDGET}x"
 # per field rather than the one-line primitive call COMPILE-TIME.md §3 rule 2 asks for --
 # so this is the arm most likely to grow, and until 2026-09-08 nothing measured it.
 echo "  arrays:      ${arrays_ms} ms   (reported, not gated — see docs/COMPILE-TIME.md)"
+echo "  paths:       ${paths_ms} ms   (reported, not gated — @Key(path:), 2 fields per group)"
 
 if awk -v r="$ratio" -v b="$RATIO_BUDGET" 'BEGIN{ exit !(r > b) }'; then
   cat >&2 <<EOF

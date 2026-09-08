@@ -75,6 +75,10 @@ struct SchemaField {
     /// expressions are validated by the DateFormat peer macro; here they are re-emitted
     /// verbatim into a `[Assay.DateFormat]` literal.
     var dateFormats: [String]?
+    /// `@Key(path: "profile.display_name")` — the dot-separated segments, or nil for the
+    /// overwhelming majority of fields. `wireKey` stays the LAST segment, so every existing
+    /// consumer that names a key in a message keeps naming the right one.
+    var pathSegments: [String]?
     /// Whether generated code captures this field's value span (set during expansion:
     /// validated fields, and fields targeted by a field-form @Check).
     var needsSpan: Bool = false
@@ -262,8 +266,14 @@ public struct SchemaMacro: ExtensionMacro {
         // Every alias is flattened into the candidate set before the window search, so an
         // alias costs one more table entry and nothing at runtime.
         var candidates: [Candidate] = []
+        // `@Key(path:)`. A path field does NOT appear in the top-level dispatch — its key
+        // lives one or more levels down — so its group's FIRST segment takes an arm instead,
+        // and two fields under the same prefix share that one arm. PathKeys.swift.
+        let pathGroups = PathTree.build(active)
+
         var seenKeys = Set<String>()
-        for (i, f) in active.enumerated() {
+        var entryIndex = 0
+        for f in active where f.pathSegments == nil {
             for key in [f.wireKey] + f.aliases {
                 if !seenKeys.insert(key).inserted {
                     context.diagnose(Diagnostic(
@@ -271,12 +281,26 @@ public struct SchemaMacro: ExtensionMacro {
                         message: SimpleDiagnostic(SchemaError.duplicateKey(key).description)))
                     return []
                 }
-                candidates.append(Candidate(wireKey: key, fieldIndex: i))
+                candidates.append(Candidate(wireKey: key, fieldIndex: entryIndex))
             }
+            entryIndex += 1
+        }
+        for g in pathGroups {
+            // A group's segment collides with a declared key for a real reason, not a
+            // bookkeeping one: one arm cannot both descend into an object and decode a
+            // value. Caught by the same check, so the diagnostic is the one people know.
+            if !seenKeys.insert(g.segment).inserted {
+                context.diagnose(Diagnostic(
+                    node: Syntax(node),
+                    message: SimpleDiagnostic(SchemaError.duplicateKey(g.segment).description)))
+                return []
+            }
+            candidates.append(Candidate(wireKey: g.segment, fieldIndex: entryIndex))
+            entryIndex += 1
         }
 
         let plan = formats.json
-            ? WindowSearch.search(candidates, fieldCount: active.count)
+            ? WindowSearch.search(candidates, fieldCount: entryIndex)
             : nil
         // Declaration order, including @Extras, so the memberwise initializer's arguments
         // are emitted in the order Swift synthesised them.
@@ -320,7 +344,7 @@ public struct SchemaMacro: ExtensionMacro {
                                     validation: Self.postDecodeSection(activeS, spans: true),
                                     checks: Self.checkCalls(typeName, checkDecls, activeS,
                                                             spans: true, ctx: ctxType),
-                                    ctx: ctxType)
+                                    groups: pathGroups, ctx: ctxType)
         }
         if formats.raw {
             if !body.isEmpty { body += "\n\n" }
@@ -334,7 +358,7 @@ public struct SchemaMacro: ExtensionMacro {
                                        validation: Self.postDecodeSection(activeS, spans: true),
                                        checks: Self.checkCalls(typeName, checkDecls, activeS,
                                                                spans: true, ctx: ctxType),
-                                       ctx: ctxType)
+                                       groups: pathGroups, ctx: ctxType)
         }
         if wantsEncoding {
             for message in Self.encodeDiagnostics(activeS) {
@@ -343,14 +367,15 @@ public struct SchemaMacro: ExtensionMacro {
             }
             guard Self.encodeDiagnostics(activeS).isEmpty else { return [] }
             body += "\n\n" + Self.inverseClosures(activeS)
-            body += Self.declaredKeys(activeS, extras)
+            body += Self.declaredKeys(activeS, extras, groups: pathGroups)
             if formats.json {
-                body += Self.encodeBody(typeName: typeName, fields: activeS, extras: extras)
+                body += Self.encodeBody(typeName: typeName, fields: activeS, extras: extras,
+                                        groups: pathGroups)
             }
             if formats.raw {
                 if formats.json { body += "\n\n" }
                 body += Self.rawEncodeBody(typeName: typeName, fields: activeS,
-                                           extras: extras)
+                                           extras: extras, groups: pathGroups)
             }
             if formats.xml {
                 for message in Self.xmlDiagnostics(activeS) {
@@ -695,12 +720,21 @@ public struct SchemaMacro: ExtensionMacro {
 
         var wireKey = keyStyle.apply(name)
         var aliases: [String] = []
+        var pathSegments: [String]?
         for attr in attrs where attr.attributeName.trimmedDescription == "Key" {
             guard let args = attr.arguments?.as(LabeledExprListSyntax.self) else { continue }
             for (i, arg) in args.enumerated() {
                 guard let lit = arg.expression.as(StringLiteralExprSyntax.self) else { continue }
                 let value = lit.segments.description
-                if i == 0 && arg.label == nil {
+                if arg.label?.text == "path" {
+                    guard let segs = Self.pathSegments(value, node: Syntax(attr),
+                                                       context: context) else { return nil }
+                    pathSegments = segs
+                    // The LAST segment is the wire key. Every message that names a key —
+                    // did-you-mean, `.missing`, the renderers' carets — then names the key
+                    // that was actually looked for, with the path components carrying where.
+                    wireKey = segs[segs.count - 1]
+                } else if i == 0 && arg.label == nil {
                     wireKey = value
                 } else if arg.label?.text == "or" || arg.label == nil {
                     aliases.append(value)
@@ -725,6 +759,46 @@ public struct SchemaMacro: ExtensionMacro {
             xmlPlacement: xmlPlacement,
             oneOrMany: oneOrMany,
             inverse: inverse,
-            dateFormats: dateFormats)
+            dateFormats: dateFormats,
+            pathSegments: pathSegments)
+    }
+
+    /// Split and check a `@Key(path:)` string. Returns nil having diagnosed.
+    ///
+    /// Everything refused here is refused because the generated walk could not honour it,
+    /// not because it is unusual — and each diagnostic names what to write instead, since a
+    /// macro that says only "invalid" leaves the author to guess at the model.
+    static func pathSegments(
+        _ raw: String, node: Syntax, context: some MacroExpansionContext
+    ) -> [String]? {
+        func fail(_ m: String) -> [String]? {
+            context.diagnose(Diagnostic(node: node, message: SimpleDiagnostic(m)))
+            return nil
+        }
+        // No Foundation in the macro target, so this splits by hand.
+        var segments: [String] = []
+        var current = ""
+        for ch in raw {
+            if ch == "." { segments.append(current); current = "" } else { current.append(ch) }
+        }
+        segments.append(current)
+
+        guard segments.count >= 2 else {
+            return fail("@Key(path: \"\(raw)\") has no `.` in it, so it names a top-level key "
+                + "— write @Key(\"\(raw)\") instead. A path exists to reach THROUGH an "
+                + "intermediate object.")
+        }
+        guard !segments.contains(where: \.isEmpty) else {
+            return fail("@Key(path: \"\(raw)\") has an empty segment. Every segment must name "
+                + "a key.")
+        }
+        if let bad = segments.first(where: { $0.contains("[") || $0.contains("]") }) {
+            return fail("@Key(path: \"\(raw)\") uses an index segment (`\(bad)`), which is not "
+                + "built. Walking a key and indexing an array are different operations: an "
+                + "index needs the element counted during the array's own decode, and needs a "
+                + "fourth answer for \"the array was shorter than that\". Declare the array and "
+                + "take the element in Swift, or use a nested @Schema type.")
+        }
+        return segments
     }
 }

@@ -1249,3 +1249,37 @@ crosses the language boundary.
 That bug was written, built clean, and ran green on macOS **and** on aarch64 Linux before
 being pushed. A second *architecture* found it in one run. "Every published ratio is one
 arm64 Mac" was a caveat about numbers; it was also hiding a crash.
+
+
+## `@Key(path:)` against the nested-`@Schema` alternative — 2026-09-08
+
+`Benchmarks/Sources/AssayBench/KeyPathBench.swift`, macOS/arm64, release.
+
+The ship-or-refuse rule was written **before** the number, which is the only way such a rule
+means anything: within 1.15x of the nested-`@Schema` alternative, or `@Key(path:)` does not
+ship and `ROADMAP.md` §3's stated fallback ("the honest answer is a nested @Schema type")
+remains the right answer.
+
+```
+shape              bytes   nested ns    paths ns     ratio
+4 leaves             170         419         411     0.98x
++3 plain keys        208           -         469     1.14x
+```
+
+**0.97-1.01x over four runs.** GATE PASSED.
+
+**Read this as "the walk costs no more than the nesting", not "paths are faster."** The two
+arms decode byte-identical documents, but they do not produce the same thing: `nested`
+materialises two extra structs the caller then has to reach through, and `paths` produces the
+four leaf values directly. That asymmetry favours `paths` and is why the ratio sits at 1.00
+rather than above it. The claim the gate was written to test is that a path does not cost a
+second pass, and that is what 0.98x shows.
+
+The second row is a different question — whether a group costs one dispatch arm or one per
+field. Adding three ordinary keys to a schema with four path fields costs 1.14x of the
+four-field version, which is the cost of three more keys and not of the paths.
+
+Compile time is **reported, not gated**, exactly like the `arrays` arm beside it: **101.4
+ms/type** where every field is behind a path (five groups of two), against 71.8 ms for the
+flat scalar arm the 100 ms budget was calibrated on. `Experiments/03-compile-time/gate.sh`
+prints both.

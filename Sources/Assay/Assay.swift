@@ -480,6 +480,20 @@ public enum KeyNamingStyle: Sendable {
 public macro Key(_ name: String, or aliases: String...) =
     #externalMacro(module: "AssayMacros", type: "KeyMacro")
 
+/// Reach a field through intermediate objects. `EXPERIENCE.md` §4, `ROADMAP.md` §3.
+///
+///     @Key(path: "profile.display_name") var displayName: String
+///
+/// A separate overload rather than a defaulted `path:` on the declaration above, so that
+/// `@Key("id")` resolves to exactly the declaration it always did and `@Key(path:)` cannot be
+/// combined with a positional name — one field has one wire location.
+///
+/// Dot-separated keys only. An index segment (`meta.tags[0]`) is refused at expansion with a
+/// diagnostic naming the alternative: indexing an array is a different operation from walking
+/// a key, and half-building it would leave the caret rules with a case they cannot answer.
+@attached(peer)
+public macro Key(path: String) = #externalMacro(module: "AssayMacros", type: "KeyMacro")
+
 /// Exclude a stored property the macro would otherwise decode.
 @attached(peer)
 public macro Ignore() = #externalMacro(module: "AssayMacros", type: "IgnoreMacro")

@@ -1,10 +1,10 @@
 # Assay — the developer experience
 
 > **This is the API specification, written before the implementation, and it describes a
-> larger surface than exists today.** Most of it is built. **Three** pieces named here are
-> not: `@Key(path:)` (§4), `parse(plist:)` (§1), and
-> `jsonSchema(for:)`/`StandardSchema` (§§14–15). `@Inline` (§4), `@Wraps` (§8),
-> `Assayer<T>` (§17), `@OneOrMany` (§9), `@XML(root:)`, `@Schema(context:)` (§10) and
+> larger surface than exists today.** Most of it is built. **Two** pieces named here are
+> not: `parse(plist:)` (§1) and `jsonSchema(for:)`/`StandardSchema` (§§14–15).
+> `@Inline` and `@Key(path:)` (§4), `@Wraps` (§8), `Assayer<T>` (§17), `@OneOrMany` (§9),
+> `@XML(root:)`, `@Schema(context:)` (§10) and
 > `parse(body:contentType:accepting:)` (§12) all shipped on 2026-09-08; `@PickFirst` (§9)
 > was **cut** — see `ROADMAP.md` §5 for why the construct it named cannot be built as
 > spelled. Each remaining item is a deliberate
@@ -273,10 +273,16 @@ This is the piece Pydantic gets right with `AliasChoices` and serde gets right w
 
 ```swift
 @Key(path: "profile.display_name")  var displayName: String
-@Key(path: "meta.tags[0]")          var primaryTag: String?
+@Key(path: "profile.avatar")        var avatar: String?
 ```
 
 Pydantic's `AliasPath`. It saves you from declaring three throwaway structs to reach one field.
+
+**Built 2026-09-08.** Dot-separated keys, any depth, on JSON, YAML and XML, and encoding merges two paths sharing a prefix back into one nested object.
+
+When a path misses, *the path names the segment that failed and the caret points at the innermost thing that existed*. Three different failures get three different reports: `{"id":"x"}` says `profile` is missing — once, not once per field under it; `{"profile":42}` is a type mismatch at `profile`; `{"profile":{}}` says `profile.display_name` is missing. A missing intermediate is **absence**, so an optional stays nil and a default applies; a wrong-typed one is an **error** even when everything under it is optional.
+
+The first edition also showed `@Key(path: "meta.tags[0]")`. **That is refused**, with a diagnostic saying so: indexing an array is a different operation from walking a key — it needs the element counted during the array's own decode, and it needs a fourth answer for "the array was shorter than that", which is neither absence nor a mismatch. `ROADMAP.md` §13.
 
 ### Flattening
 
@@ -1308,4 +1314,4 @@ Everything in the first edition's open questions about the macro shape, the `@Wr
 
 *Second edition, written before anything here had been compiled — there was no Swift toolchain in that environment, so every API was designed against the compiler's source and its test suite rather than against a build. The macro-shaped claims were checked against swift-syntax 600.0.1 and the Swift 6.3 compiler tests; the platform claims against the Foundation and package sources listed in `_crossplatform_audit.md`. The first thing to do on a machine with a toolchain, it said, was to prove the `@Validate` attribute in section 5 actually compiles.*
 
-*It does. As of 2026-07-27 this document is implemented rather than proposed: sections 1–13 and 16–19 describe working, tested code, and the `@Validate` spelling in §5 compiles exactly as written, including the message-as-a-rule trick that motivated the `ExpressibleByStringLiteral` conformance. `Date` and `@DateFormat` (§11) followed on 2026-08-06 — including candidate chains (`@DateFormat(.iso8601, .unixMillis)`, fallback matches warn like `@Key(or:)`), compile-time-checked patterns, and the `.before`/`.after`/`.between` rules; `.past`/`.future` wait on a clock seam. Encoding (§14) followed on 2026-08-09 for JSON, YAML and XML, and `@Unknown` (§8) with it — both were on this list and both now ship. What is **not** built is listed with its reasons in [`ROADMAP.md`](../ROADMAP.md): `@Inline` and `@Key(path:)` (§4), `@Wraps` (§8), `@OneOrMany`/`@PickFirst` (§9), `jsonSchema(for:)` and `StandardSchema` (§§14–15), and plists. Where this document and the code disagree, that is a bug in one of them; `ROADMAP.md` says which.*
+*It does. As of 2026-07-27 this document is implemented rather than proposed: sections 1–13 and 16–19 describe working, tested code, and the `@Validate` spelling in §5 compiles exactly as written, including the message-as-a-rule trick that motivated the `ExpressibleByStringLiteral` conformance. `Date` and `@DateFormat` (§11) followed on 2026-08-06 — including candidate chains (`@DateFormat(.iso8601, .unixMillis)`, fallback matches warn like `@Key(or:)`), compile-time-checked patterns, and the `.before`/`.after`/`.between` rules; `.past`/`.future` wait on a clock seam. Encoding (§14) followed on 2026-08-09 for JSON, YAML and XML, and `@Unknown` (§8) with it — both were on this list and both now ship. What is **not** built is listed with its reasons in [`ROADMAP.md`](../ROADMAP.md): `jsonSchema(for:)` and `StandardSchema` (§§14–15), plists, and index segments in `@Key(path:)`. Where this document and the code disagree, that is a bug in one of them; `ROADMAP.md` says which.*

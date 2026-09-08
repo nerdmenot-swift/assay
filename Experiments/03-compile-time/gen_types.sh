@@ -8,12 +8,19 @@
 # The arms must be *semantically equivalent* or the comparison is meaningless: same field
 # names, same field types, same count. Only the conformance mechanism varies.
 #
-#   gen_types.sh <count> <fields> <plain|codable|schema|validated|arrays>
+#   gen_types.sh <count> <fields> <plain|codable|schema|validated|arrays|paths>
 #
 # `validated` puts a @Validate on EVERY field, which is the worst case for the generated
 # `_assayCheck` body and not a realistic schema. It exists so the cost of validation is
 # measured rather than inferred from the rule-free arm — the default `schema` arm is what
 # the gate holds, because a type with no rules gets no validator body at all.
+#
+# `paths` puts every field behind a @Key(path:), two per group, which is the shape the
+# feature exists for. Added 2026-09-08 with @Key(path:) itself: a group emits a nested
+# dispatch loop rather than one line, so it is the first construct since `arrays` whose
+# per-field cost is not one line, and shipping it unmeasured against a scalar-only gate is
+# exactly what the `arrays` note below warns about. Reported, not gated, for the same reason
+# `arrays` is: the 100 ms budget was calibrated on a flat scalar type.
 #
 # `arrays` makes every field an ARRAY of the same scalar. Added 2026-09-08, and the reason
 # is that it was missing: every arm above declares scalars only, so `arrayDecode` — which
@@ -46,6 +53,12 @@ emit_fields() {
       echo "    var ${name}: [${type}]"
       continue
     fi
+    if [ "$MODE" = paths ]; then
+      # Two fields per group, so the "one arm per prefix, not per field" property is what
+      # is being measured rather than a degenerate one-field-one-group case.
+      echo "    @Key(path: \"group$((i / 2)).${name}\") var ${name}: ${type}"
+      continue
+    fi
     if [ "$MODE" = validated ]; then
       rule=${RULES[$((i % ${#RULES[@]}))]}
       if [ -n "$rule" ]; then
@@ -58,14 +71,14 @@ emit_fields() {
 }
 
 case "$MODE" in
-  schema|validated|arrays)  echo "import Assay" ;;
+  schema|validated|arrays|paths)  echo "import Assay" ;;
   *)       echo "import Foundation" ;;
 esac
 echo
 
 for ((k = 0; k < N; k++)); do
   case "$MODE" in
-    schema|validated|arrays)
+    schema|validated|arrays|paths)
       echo "@Schema(keys: .snakeCase)"
       echo "public struct T${k} {"
       ;;

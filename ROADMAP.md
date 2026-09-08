@@ -94,35 +94,82 @@ parsed once at rule construction, violations rendered as dates.
 
 ---
 
-## 3. `@Inline` and `@Key(path:)`
+## 3. `@Inline` and `@Key(path:)` — both BUILT 2026-09-08
 
-**`@Inline` shipped 2026-09-08; `@Key(path:)` is not implemented.** `EXPERIENCE.md` §4.
+`EXPERIENCE.md` §4.
 
-### `@Key(path:)`
+### `@Key(path:)` — BUILT 2026-09-08
 
 ```swift
-@Key(path: "profile.display_name")  var displayName: String
-@Key(path: "meta.tags[0]")          var primaryTag: String?
+@Schema
+struct Card {
+    @Key(path: "profile.display_name") var displayName: String
+    @Key(path: "profile.avatar")       var avatar: String?
+    @Key(path: "meta.stats.views")     var views: Int
+    var id: String
+}
 ```
 
-Pydantic's `AliasPath`. It saves declaring three throwaway structs to reach one field. The
-`@Key` macro today takes `(_ name: String, or aliases: String...)` and has no `path:`
-parameter at all, so reaching for this is a compile error.
+Both open questions are answered, and the answers are in
+`Sources/AssayMacros/PathKeys.swift` beside the code rather than here.
 
-Two things have to be decided before it is worth building, and neither is hard so much as
-easy to get wrong:
+**Where the caret goes.** *The path names the segment that failed; the caret points at the
+innermost thing that existed.* Three cases, because there are three failures:
 
-- **Where the caret goes when a path misses.** `profile.display_name` can fail because
-  `profile` is absent, because it is not an object, or because `display_name` is missing
-  from it. Those are three different messages and three different offsets, and reporting
-  all of them as "displayName is missing" would be the kind of vague error this library
-  exists to avoid.
-- **What it costs on the JSON path.** A declared key is resolved by the window-dispatch
-  table built at expansion; a path is a walk. Whether it can share the dispatch machinery
-  or needs a second pass over the object is unmeasured.
+| document | reports |
+|---|---|
+| `{"id":"x"}` | `.missing` at `profile` — **once for the group**, not once per field under it |
+| `{"profile":42}` | `.typeMismatch` at `profile`, caret on the `42` |
+| `{"profile":{}}` | `.missing` at `profile.display_name` — the full path |
 
-Until then, the honest answer is a nested `@Schema` type, which costs one declaration and
-produces better errors.
+And the half the question did not name, which the five presence states force: **a missing
+intermediate is absence** (an optional stays nil, a default applies, `@Fallback` fires), while
+**a wrong-typed intermediate is an error even when every field under it is optional**, because
+`missing != wrong` is law everywhere else here.
+
+**What it costs.** It shares the dispatch machinery completely; there is no second pass.
+`profile` is an ordinary top-level key with one arm in the same window-dispatch table every
+other key uses, and that arm descends. Two fields under one prefix are **one arm**, not two.
+
+Measured against the fallback this section used to recommend, with the ship-or-refuse rule
+written before the number — *within 1.15× of the nested-`@Schema` alternative or it does not
+ship*:
+
+```
+shape              bytes   nested ns    paths ns     ratio
+4 leaves             170         419         411     0.98x
++3 plain keys        208           -         469     1.14x
+```
+
+**0.97–1.01× over four runs** (`Benchmarks/Sources/AssayBench/KeyPathBench.swift`). Read that
+as "the walk costs no more than the nesting" rather than "paths are faster": the nested arm
+also materialises two structs the caller then reaches through, and that asymmetry favours
+paths. Compile time is reported, not gated, like the `arrays` arm beside it: **101 ms/type**
+for a type where *every* field is behind a path, against 72 ms for the flat scalar arm.
+
+**The inner dispatch is a linear chain, not a second window table**, which is a deliberate
+departure from the shape sketched above. A window table is 256 bytes of array literal and
+`COMPILE-TIME.md` rule 1 is that never emitting one bought 16% of expansion time; a group
+holds one to three fields, and `Experiments/01-jump-table` measured that LLVM gives a balanced
+binary search tree below ten arms anyway. The table would buy nothing at runtime and cost real
+time at compile.
+
+**Encoding merges prefixes.** Two paths sharing `profile` write one nested object, because
+`{"profile.name": ...}` is a document this schema cannot read back and that would break
+`ENCODING.md`'s round-trip law for every path field at once.
+
+**One thing found by reading the expansion rather than by a test.** The sparse key-table
+emitter writes every entry differing from a sentinel, and the sentinel was the field count —
+which stops equalling the arm count the moment two fields share a prefix. The result still
+decoded correctly (the `default:` arm catches it) and every test passed, while the expansion
+carried a **253-assignment table literal**, the exact cost rule 1 exists to prevent. A
+compile-time regression with no runtime symptom is invisible to a test suite.
+
+**Index segments are refused**, with a diagnostic naming the alternative. `EXPERIENCE.md` §4
+advertises `meta.tags[0]`; it is not built. Walking a key and indexing an array are different
+operations — an index needs the element counted during the array's own decode, and every rule
+in the table above would need a fourth answer for "the array was shorter than that". That is a
+feature, not a segment type; it is listed in §14 rather than half-built here.
 
 ### `@Inline` — BUILT 2026-09-08
 
@@ -498,7 +545,24 @@ per mapping member, which is the granularity a schema field needs — "the value
 An `@Validate` rule on an array *element* reports with a path and no caret, exactly as it did
 before.
 
-## 13. Streaming
+## 13. Index segments in `@Key(path:)`
+
+**Status: not implemented, and deliberately not folded into §3.** `EXPERIENCE.md` §4
+advertises `@Key(path: "meta.tags[0]")`; the macro refuses it with a diagnostic naming the
+alternative.
+
+It is not a missing segment type, it is a different operation. Walking a key asks a mapping
+for a name; indexing asks an array for its *n*-th element, which means counting during the
+array's own decode loop rather than dispatching on a key. And every rule in §3's caret table
+needs a fourth answer — "the array was shorter than that" — which is neither absence (the
+array was there) nor a type mismatch (the elements are the right type). Half-building it
+would mean shipping a path spelling whose failure mode had no defined report.
+
+Until then: declare the array and take the element in Swift, or use a nested `@Schema` type.
+
+---
+
+## 14. Streaming
 
 **Status: out of scope, documented in `docs/STREAMING.md`.**
 

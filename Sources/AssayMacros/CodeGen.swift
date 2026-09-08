@@ -30,6 +30,9 @@ extension SchemaMacro {
         ordered: [SchemaField]? = nil,
         validation: String = "",
         checks: String = "",
+        /// `@Key(path:)` groups. Empty for the overwhelming majority of schemas, and when
+        /// it is empty nothing below emits a byte that was not emitted before.
+        groups: [PathGroup] = [],
         /// The `@Schema(context:)` type name, or `""` when none was declared. Empty is the
         /// overwhelming case and must emit BYTE-IDENTICAL code to before, or every existing
         /// type pays for a feature it does not use.
@@ -66,14 +69,23 @@ extension SchemaMacro {
             //
             // Runtime behaviour is identical: a contiguous 256-byte table, one indexed
             // load. The `static let` is swift_once-protected and free after first access.
+            //
+            // The sentinel is the number of DISPATCH ARMS, not the number of fields, and
+            // those differ the moment `@Key(path:)` is used — two fields under one prefix
+            // share one arm. Getting it wrong is not a correctness bug (the `default:` arm
+            // still catches it) but a compile-time one: the sparse emitter writes every
+            // entry that differs from the sentinel, so a mismatched sentinel writes 253 of
+            // them. Caught by expanding a path schema and reading the output, which is the
+            // only way it shows up.
+            let sentinel = fields.filter { $0.pathSegments == nil }.count + groups.count
             var assigns = ""
             for (value, index) in plan.table.enumerated()
-            where index != UInt8(fields.count) {
+            where index != UInt8(sentinel) {
                 assigns += "        t[\(value)] = \(index)\n"
             }
             out += """
             nonisolated static let __assayKeyTable: [UInt8] = {
-                var t = [UInt8](repeating: \(fields.count), count: 256)
+                var t = [UInt8](repeating: \(sentinel), count: 256)
             \(assigns)    return t
             }()
 
@@ -108,12 +120,16 @@ extension SchemaMacro {
 
         // Dispatch.
         let unknown = unknownArm(policy: policy, extras: extras)
-        let dispatch = plan.map { windowDispatch(fields: fields, plan: $0, unknown: unknown, ctx: ctx) }
-            ?? lengthBucketDispatch(fields: fields, unknown: unknown, ctx: ctx)
+        let entries = dispatchEntries(fields: fields, groups: groups, ctx: ctx)
+        let dispatch = plan.map { windowDispatch(entries: entries, plan: $0, unknown: unknown) }
+            ?? lengthBucketDispatch(entries: entries, unknown: unknown)
 
         // Missing-required reporting, walked only when the mask says something is absent.
-        var missing = ""
-        for (i, f) in fields.enumerated() where (requiredMask & (1 << UInt64(i))) != 0 {
+        // A `@Key(path:)` field is NOT reported here: its absence has three meanings, and
+        // `PathTree.presenceChecks` emits the nested tests that tell them apart.
+        var missing = PathTree.presenceChecks(groups, fields: fields, indent: 8)
+        for (i, f) in fields.enumerated()
+        where f.pathSegments == nil && (requiredMask & (1 << UInt64(i))) != 0 {
             missing += """
                     if __presence & \(1 << UInt64(i)) == 0 {
                         reader.missingRequired(&sink, path, "\(f.wireKey)")
@@ -167,7 +183,7 @@ extension SchemaMacro {
             // one bad row silently discarding every good row after it.
             let __ck0 = sink.checkpoint()
 
-        \(locals)    var __presence: UInt64 = 0
+        \(locals)    var __presence: UInt64 = 0\(groups.isEmpty ? "" : "\n    var __gpresence: UInt64 = 0")
 
             if !reader.tryConsume(0x7D) {
                 while true {
@@ -253,19 +269,129 @@ extension SchemaMacro {
 
     // MARK: Dispatch shapes
 
-    static func windowDispatch(fields: [SchemaField], plan: WindowPlan,
-                               unknown: String = "_ = reader.skipValue(&sink)",
-                             ctx: String = "") -> String {
+    /// Build the top-level arms: one per ordinary field, one per `@Key(path:)` group.
+    ///
+    /// A field that belongs to a group does NOT get an arm of its own — its key never
+    /// appears at the top level. It is reached through the group's descent, which is what
+    /// keeps this single-pass.
+    static func dispatchEntries(
+        fields: [SchemaField], groups: [PathGroup], ctx: String
+    ) -> [DispatchEntry] {
+        let pad = String(repeating: " ", count: 24)
+        var out: [DispatchEntry] = []
+        for (i, f) in fields.enumerated() where f.pathSegments == nil {
+            out.append(DispatchEntry(
+                keys: [f.wireKey] + f.aliases,
+                body: pad + "__presence |= \(1 << UInt64(i))\n"
+                    + decodeStatement(field: f, index: i, indent: 24, ctx: ctx)))
+        }
+        for (g, group) in groups.enumerated() {
+            out.append(DispatchEntry(
+                keys: [group.segment],
+                body: pad + "__gpresence |= \(1 << UInt64(g))\n"
+                    + pathDescent(group.node, fields: fields, prefix: [group.segment],
+                                  depth: 0, indent: 24, ctx: ctx)))
+        }
+        return out
+    }
+
+    /// The descent for one path group: consume an object and dispatch on the next segment.
+    ///
+    /// `path` is SHADOWED rather than threaded — `let path = path + [.key("profile")]` at the
+    /// top of the block, so every nested emitter reports at the deeper path with no change to
+    /// any of them. Threading a path expression through `decodeStatement`, `arrayDecode`,
+    /// `dictDecode` and `scalarCall` would have touched every emitted call in the file to say
+    /// something the language already says.
+    ///
+    /// The three failure shapes are the three branches, and their reasoning is in
+    /// `PathKeys.swift`'s header: an object descends, a null or absence leaves the slots
+    /// unset (absence, handled by the presence rules), anything else is a type mismatch
+    /// reported at the segment and skipped so the outer loop stays synchronised.
+    static func pathDescent(
+        _ node: PathNode, fields: [SchemaField], prefix: [String],
+        depth: Int, indent: Int, ctx: String
+    ) -> String {
+        let pad = String(repeating: " ", count: indent)
+        let key = "__pk\(depth)"
+        let segment = prefix[prefix.count - 1]
+
         var arms = ""
-        for (i, f) in fields.enumerated() {
-            let keys = [f.wireKey] + f.aliases
-            let cond = keys.map { "reader.keyMatches(__key, \"\($0)\")" }
+        for (seg, i) in node.leaves {
+            arms += """
+            \(pad)                if reader.keyMatches(\(key), "\(seg)") {
+            \(pad)                    __presence |= \(1 << UInt64(i))
+            \(decodeStatement(field: fields[i], index: i, indent: indent + 20, ctx: ctx))
+            \(pad)                } else
+
+            """
+        }
+        for (seg, child) in node.children {
+            arms += """
+            \(pad)                if reader.keyMatches(\(key), "\(seg)") {
+            \(pad)                    __gpresence |= \(1 << UInt64(child.bit))
+            \(pathDescent(child, fields: fields, prefix: prefix + [seg],
+                          depth: depth + 1, indent: indent + 20, ctx: ctx))
+            \(pad)                } else
+
+            """
+        }
+
+        return """
+        \(pad)if reader.tryConsume(0x7B) {
+        \(pad)    let path = path + [.key("\(segment)")]
+        \(pad)    if !reader.tryConsume(0x7D) {
+        \(pad)        while true {
+        \(pad)            guard let \(key) = reader.scanKey(), reader.expect(0x3A) else {
+        \(pad)                reader.reportMalformed(&sink, path)
+        \(pad)                return nil
+        \(pad)            }
+        \(arms)\(pad)                {
+        \(pad)                    _ = reader.skipValue(&sink)
+        \(pad)                }
+        \(pad)            if reader.tryConsume(0x2C) { continue }
+        \(pad)            break
+        \(pad)        }
+        \(pad)        guard reader.tryConsume(0x7D) else {
+        \(pad)            reader.reportMalformed(&sink, path)
+        \(pad)            return nil
+        \(pad)        }
+        \(pad)    }
+        \(pad)} else if reader.consumeNullIfPresent() {
+        \(pad)    // An explicit null intermediate is absence, same as a missing one: the
+        \(pad)    // slots below stay unset and the presence rules decide what that means.
+        \(pad)} else {
+        \(pad)    reader.reportTypeMismatch(&sink, path + [.key("\(segment)")], expected: "object")
+        \(pad)    _ = reader.skipValue(&sink)
+        \(pad)}
+        """
+    }
+
+    /// One arm of the top-level key dispatch.
+    ///
+    /// Introduced for `@Key(path:)`, and the reason it exists is that an arm is no longer
+    /// one-to-one with a field. A path group — every field whose path starts `profile.` —
+    /// is a single arm that descends and may fill several slots, so the dispatcher can no
+    /// longer index `fields` by the case number. Making the arm carry its own body is what
+    /// lets a path be a *tree of the existing dispatch table* rather than a second pass.
+    ///
+    /// `body` arrives pre-indented to 24 columns, which is where the dispatchers splice it.
+    struct DispatchEntry {
+        /// The wire keys that select this arm — a field's key and its aliases, or a path
+        /// group's first segment.
+        var keys: [String]
+        var body: String
+    }
+
+    static func windowDispatch(entries: [DispatchEntry], plan: WindowPlan,
+                               unknown: String = "_ = reader.skipValue(&sink)") -> String {
+        var arms = ""
+        for (i, e) in entries.enumerated() {
+            let cond = e.keys.map { "reader.keyMatches(__key, \"\($0)\")" }
                 .joined(separator: " || ")
             arms += """
                             case \(i):
                                 if \(cond) {
-                                    __presence |= \(1 << UInt64(i))
-            \(decodeStatement(field: f, index: i, indent: 24, ctx: ctx))
+            \(e.body)
                                 } else {
                                     \(unknown)
                                 }
@@ -287,23 +413,21 @@ extension SchemaMacro {
     /// The fallback when no single 8-bit window separates the key set: bucket by length,
     /// then compare within the bucket. Length bucketing separates `created_at` from
     /// `created_at_ms` for free.
-    static func lengthBucketDispatch(fields: [SchemaField],
-                                     unknown: String = "_ = reader.skipValue(&sink)",
-                             ctx: String = "") -> String {
-        var byLength: [Int: [(Int, SchemaField, String)]] = [:]
-        for (i, f) in fields.enumerated() {
-            for key in [f.wireKey] + f.aliases {
-                byLength[key.utf8.count, default: []].append((i, f, key))
+    static func lengthBucketDispatch(entries: [DispatchEntry],
+                                     unknown: String = "_ = reader.skipValue(&sink)") -> String {
+        var byLength: [Int: [(DispatchEntry, String)]] = [:]
+        for e in entries {
+            for key in e.keys {
+                byLength[key.utf8.count, default: []].append((e, key))
             }
         }
         var arms = ""
         for len in byLength.keys.sorted() {
             var checks = ""
-            for (i, f, key) in byLength[len]! {
+            for (e, key) in byLength[len]! {
                 checks += """
                                     if reader.keyMatches(__key, "\(key)") {
-                                        __presence |= \(1 << UInt64(i))
-                \(decodeStatement(field: f, index: i, indent: 24, ctx: ctx))
+                \(e.body)
                                     } else
                 """
             }

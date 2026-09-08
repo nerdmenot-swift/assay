@@ -33,6 +33,8 @@ extension SchemaMacro {
         emitKnownKeys: Bool = false,
         validation: String = "",
         checks: String = "",
+        /// `@Key(path:)` groups. See `PathKeys.swift`.
+        groups: [PathGroup] = [],
         /// The `@Schema(context:)` type name, or `""`. See `CodeGen.decodeBody`.
         ctx: String = ""
     ) -> String {
@@ -40,7 +42,9 @@ extension SchemaMacro {
 
         var prefix = ""
         if emitKnownKeys, policy == "warn" || policy == "reject" {
-            let names = fields.flatMap { [$0.wireKey] + $0.aliases }
+            let names = (fields.filter { $0.pathSegments == nil }
+                               .flatMap { [$0.wireKey] + $0.aliases }
+                         + groups.map(\.segment))
                 .map { "\"\($0)\"" }.joined(separator: ", ")
             prefix = """
             nonisolated static let __assayKnownKeys: [String] = [\(names)]
@@ -69,7 +73,7 @@ extension SchemaMacro {
 
         // Bucket by key length, then compare within the bucket.
         var byLength: [Int: [(Int, SchemaField, String)]] = [:]
-        for (i, f) in fields.enumerated() {
+        for (i, f) in fields.enumerated() where f.pathSegments == nil {
             // An `@XML(.text)` field reads the element's own character data, which the
             // XML projection stores under a reserved EMPTY key — it has no name of its
             // own in the document. It is matched as an extra alias rather than a
@@ -104,7 +108,8 @@ extension SchemaMacro {
         }
 
         var missing = ""
-        for (i, f) in fields.enumerated() where (requiredMask & (1 << UInt64(i))) != 0 {
+        for (i, f) in fields.enumerated()
+        where f.pathSegments == nil && (requiredMask & (1 << UInt64(i))) != 0 {
             missing += """
                     if __presence & \(1 << UInt64(i)) == 0 {
                         Assay.RawValue.missing(&sink, path, "\(f.wireKey)")
@@ -112,6 +117,7 @@ extension SchemaMacro {
 
             """
         }
+        missing = rawPathPresence(groups, fields: fields, indent: 8) + missing
 
         var indexOf: [String: Int] = [:]
         for (i, f) in fields.enumerated() { indexOf[f.identifier] = i }
@@ -134,9 +140,9 @@ extension SchemaMacro {
             // See the note in the JSON body: local validity, not global.
             let __ck0 = sink.checkpoint()
 
-        \(locals)    var __presence: UInt64 = 0
+        \(locals)    var __presence: UInt64 = 0\(groups.isEmpty ? "" : "\n    var __gpresence: UInt64 = 0")
 
-            for __m in __members {
+        \(rawPathDescent(groups, fields: fields, ctx: ctx))    for __m in __members {
                 let __k = __m.key
                 let __v = __m.value
                 switch __k.utf8.count {
@@ -376,4 +382,123 @@ extension SchemaMacro {
         default:        return nil
         }
     }
+}
+
+// MARK: - `@Key(path:)` on the RawValue path
+
+extension SchemaMacro {
+
+    /// The path walk for YAML and XML.
+    ///
+    /// A SECOND PASS over the members, deliberately, and the reason it is not the single-pass
+    /// discipline the JSON body holds to is that there is nothing to be single-pass *about*:
+    /// the tree is already built and in memory. `PERFORMANCE.md`'s one-pass rule is about not
+    /// re-reading BYTES. `first(where:)` over an already-materialised member array is a walk
+    /// of a few pointers, and writing a fused version would mean threading path state through
+    /// the length-bucketed switch to save nothing measurable.
+    ///
+    /// The three failure shapes are the JSON body's three, and they have to be: a schema that
+    /// reported a missing intermediate differently depending on the wire format would make
+    /// `@Key(path:)` a different feature per format.
+    static func rawPathDescent(
+        _ groups: [PathGroup], fields: [SchemaField], ctx: String
+    ) -> String {
+        guard !groups.isEmpty else { return "" }
+        var out = ""
+        for g in groups {
+            out += rawNode(g.node, fields: fields, source: "__members",
+                           segment: g.segment, pathExpr: "path", depth: 0, indent: 4, ctx: ctx)
+        }
+        return out
+    }
+
+    private static func rawNode(
+        _ n: PathNode, fields: [SchemaField], source: String,
+        segment: String, pathExpr: String, depth: Int, indent: Int, ctx: String
+    ) -> String {
+        let pad = String(repeating: " ", count: indent)
+        let v = "__pv\(n.bit)"
+        let mm = "__pm\(n.bit)"
+        let here = "\(pathExpr) + [.key(\"\(segment)\")]"
+
+        var body = ""
+        for (seg, i) in n.leaves {
+            let f = fields[i]
+            let span = f.needsSpan ? "\(pad)            __sp\(i) = __m.span\n" : ""
+            body += """
+            \(pad)        if __m.key == "\(seg)" {
+            \(pad)            __presence |= \(1 << UInt64(i))
+            \(span)\(pad)            \(rawDecodeStatement(field: f, index: i, ctx: ctx))
+            \(pad)        }
+
+            """
+        }
+        // Nested groups resolve from this object's members, after the loop, so a child and a
+        // leaf under the same parent cannot see different views of it.
+        var deeper = ""
+        for (seg, child) in n.children {
+            deeper += rawNode(child, fields: fields, source: mm,
+                              segment: seg, pathExpr: here, depth: depth + 1,
+                              indent: indent + 4, ctx: ctx)
+        }
+
+        return """
+        \(pad)if let \(v) = \(source).first(where: { $0.key == "\(segment)" })?.value {
+        \(pad)    if case .mapping(let \(mm)) = \(v) {
+        \(pad)        __gpresence |= \(1 << UInt64(n.bit))
+        \(pad)        for __m in \(mm) {
+        \(pad)            let __v = __m.value
+        \(pad)            _ = __v
+        \(body)\(pad)        }
+        \(deeper)\(pad)    } else if \(v).isNull {
+        \(pad)        // An explicit null intermediate is absence, as on the JSON path.
+        \(pad)    } else {
+        \(pad)        Assay.RawValue.mismatchPublic(&sink, \(pathExpr), "\(segment)", "object", \(v))
+        \(pad)    }
+        \(pad)}
+
+        """
+    }
+
+    /// The missing-required rules, nested exactly as `PathTree.presenceChecks` nests them —
+    /// same shape, different reporting primitive, because the two decode paths report through
+    /// different functions and always have.
+    static func rawPathPresence(
+        _ groups: [PathGroup], fields: [SchemaField], indent: Int
+    ) -> String {
+        var out = ""
+        for g in groups {
+            out += rawChecks(g.node, fields: fields, segment: g.segment,
+                             parentPath: "path", indent: indent)
+        }
+        return out
+    }
+
+    private static func rawChecks(
+        _ n: PathNode, fields: [SchemaField], segment: String,
+        parentPath: String, indent: Int
+    ) -> String {
+        let pad = String(repeating: " ", count: indent)
+        let here = "\(parentPath) + [.key(\"\(segment)\")]"
+
+        var inner = ""
+        for (seg, i) in n.leaves where PathTree.isRequired(fields[i]) {
+            inner += "\(pad)    if __presence & \(1 << UInt64(i)) == 0 {\n"
+                + "\(pad)        Assay.RawValue.missing(&sink, \(here), \"\(seg)\")\n"
+                + "\(pad)    }\n"
+        }
+        for (seg, child) in n.children {
+            inner += rawChecks(child, fields: fields, segment: seg,
+                               parentPath: here, indent: indent + 4)
+        }
+        guard !inner.isEmpty else { return "" }
+
+        if PathTree.requiresAnything(n, fields) {
+            return "\(pad)if __gpresence & \(1 << UInt64(n.bit)) == 0 {\n"
+                + "\(pad)    Assay.RawValue.missing(&sink, \(parentPath), \"\(segment)\")\n"
+                + "\(pad)} else {\n" + inner + "\(pad)}\n"
+        }
+        return "\(pad)if __gpresence & \(1 << UInt64(n.bit)) != 0 {\n" + inner + "\(pad)}\n"
+    }
+
 }

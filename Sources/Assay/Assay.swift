@@ -175,6 +175,30 @@ public enum XMLPlacement: Sendable {
     case wrapped
 }
 
+/// Accept a single value where an array is declared. `EXPERIENCE.md` §9.
+///
+/// ```swift
+/// @OneOrMany var tags: [String]     // "swift" and ["swift"] both decode
+/// ```
+///
+/// **Only affects the JSON byte path, and that is a statement about the other paths rather
+/// than a limitation of this one.** The `RawValue` path — YAML and XML — already accepts a
+/// single value for an array unconditionally, because it has to: XML spells a sequence as
+/// repeated sibling elements, each arriving as its own decode call with the same key, and at
+/// that layer a lone `<tag>a</tag>` is indistinguishable from YAML's `tags: swift`. Making
+/// the tree path strict would break every XML array.
+///
+/// So `@OneOrMany` is where the tolerance is a genuine choice rather than a consequence, and
+/// `docs/CONFORMANCE.md` states the asymmetry as a contract. Removing it would mean grouping
+/// repeated members into a `.sequence` in the XML projection — see `ROADMAP.md` §5.
+///
+/// Encoding always writes an array. The tolerant shape is input-only, which keeps
+/// `docs/ENCODING.md`'s round-trip law intact: an array is a valid input, so the encoder
+/// never has to guess which form the document used.
+@attached(peer)
+public macro OneOrMany() =
+    #externalMacro(module: "AssayMacros", type: "OneOrManyMacro")
+
 /// Sugar for the validated-scalar wrapper. `EXPERIENCE.md` §8.
 ///
 /// ```swift

@@ -60,6 +60,8 @@ struct SchemaField {
     /// `@XML(...)` placement: "attribute", "text", or "wrapped". Nil is the default —
     /// an element, and for arrays repeated sibling elements. docs/ENCODING.md.
     var xmlPlacement: String?
+    /// `@OneOrMany` — accept a single value where an array is declared.
+    var oneOrMany: Bool = false
     /// `@Inverse({ ... })` — the encode-direction closure paired with `@Transform`.
     /// docs/ENCODING.md question 3: a transform with no inverse is lossy by arithmetic,
     /// so the type simply cannot be encoded and the macro says so at expansion.
@@ -538,6 +540,7 @@ public struct SchemaMacro: ExtensionMacro {
         if attrNames.contains("Ignore") { return nil }
         let isExtras = attrNames.contains("Extras")
         let coerce = attrNames.contains("Coerce")
+        let oneOrMany = attrNames.contains("OneOrMany")
         let validations = Self.validations(from: attrs)
         let preprocess = Self.preprocessOps(from: attrs)
         let transform = Self.transform(from: attrs, context: context)
@@ -637,6 +640,7 @@ public struct SchemaMacro: ExtensionMacro {
             transform: transform,
             fallback: fallback,
             xmlPlacement: xmlPlacement,
+            oneOrMany: oneOrMany,
             inverse: inverse,
             dateFormats: dateFormats)
     }

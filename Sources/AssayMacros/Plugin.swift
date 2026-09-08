@@ -23,5 +23,6 @@ struct AssayPlugin: CompilerPlugin {
         XMLMacro.self,
         UnknownMacro.self,
         WrapsMacro.self,
+        OneOrManyMacro.self,
     ]
 }

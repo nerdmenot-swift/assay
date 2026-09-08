@@ -141,3 +141,12 @@ public struct UnknownMacro: PeerMacro {
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] { [] }
 }
+
+/// `@OneOrMany` — a marker. `SchemaMacro` reads it off the field.
+public struct OneOrManyMacro: PeerMacro {
+    public static func expansion(
+        of node: AttributeSyntax,
+        providingPeersOf declaration: some DeclSyntaxProtocol,
+        in context: some MacroExpansionContext
+    ) throws -> [DeclSyntax] { [] }
+}

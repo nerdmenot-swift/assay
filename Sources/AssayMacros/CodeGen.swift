@@ -343,6 +343,7 @@ extension SchemaMacro {
         if let element = arrayElement(base) {
             return arrayDecode(element: element, index: i, key: key,
                                optional: f.isOptional, pad: pad,
+                               oneOrMany: f.oneOrMany,
                                dateFormatsRef: dateFormatsRef(f, i))
         }
 
@@ -443,13 +444,33 @@ extension SchemaMacro {
     ///
     /// `slot` is the lvalue the result is assigned to and `depth` disambiguates the loop
     /// variables, so nesting does not collide on `__arr`/`__e`.
+    /// - Parameter oneOrMany: `@OneOrMany` — accept a single value in place of an array.
+    ///   Emitted only at depth 0 on the JSON byte path: the `RawValue` path is already
+    ///   tolerant unconditionally, because XML spells a sequence as repeated siblings and a
+    ///   lone one is indistinguishable from a YAML scalar at that layer.
     static func arrayDecode(element: String, index i: Int, key: String,
                             optional: Bool, pad: String,
                             slot: String? = nil, depth: Int = 0,
+                            oneOrMany: Bool = false,
                             dateFormatsRef: String = "Assay.DateFormat.defaultFormats") -> String {
         let target = slot ?? "__f\(i)"
         let arr = "__arr\(i)_\(depth)"
         let elt = "__e\(i)_\(depth)"
+
+        // `@OneOrMany`: one value where an array was declared. Emitted before the mismatch
+        // arm so a scalar is taken rather than refused, and ONLY when the field asked --
+        // silent tolerance is how a payload drifts shape without anyone noticing.
+        var single = ""
+        var singleClose = ""
+        if oneOrMany, let call = scalarCall(element, key: key) {
+            single = """
+            if let \(elt) = reader.\(call) {
+            \(pad)        \(target) = [\(elt)]
+            \(pad)    } else {
+            \(pad)    
+            """
+            singleClose = "    }\n        \(pad)"
+        }
 
         let inner: String
         if isDateType(element) {
@@ -508,12 +529,12 @@ extension SchemaMacro {
         \(pad)} else if reader.consumeNullIfPresent() {
         \(pad)    \(optional ? "\(target) = nil" : "reader.nullNotAllowed(&sink, path, \"\(key)\", \"array\")")
         \(pad)} else {
-        \(pad)    // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
-        \(pad)    // whole-value mismatch on a collection reported an issue whose path
-        \(pad)    // was EMPTY at the top level -- worse than the missing element index
-        \(pad)    // this change set out to fix, and found by a test written for that.
-        \(pad)    reader.reportTypeMismatch(&sink, path + [.key("\(key)")], expected: "array")
-        \(pad)}
+        \(pad)\(single)    // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+        \(pad)\(single.isEmpty ? "" : "    ")// whole-value mismatch on a collection reported an issue whose path
+        \(pad)\(single.isEmpty ? "" : "    ")// was EMPTY at the top level -- worse than the missing element index
+        \(pad)\(single.isEmpty ? "" : "    ")// this change set out to fix, and found by a test written for that.
+        \(pad)\(single.isEmpty ? "" : "    ")reader.reportTypeMismatch(&sink, path + [.key("\(key)")], expected: "array")
+        \(pad)\(singleClose)}
 
         """
     }

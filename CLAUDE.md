@@ -51,7 +51,13 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 | Rule engine, allocation-free | **built and gated** — `.email` 179 → 25 ns, `.uuid` 50 → 28, `.min`/`.max` on String 22 → 14. Differential against the previous implementation as an oracle, 40,062 strings × 6 checks |
 | `@Unknown` open enums | **built** — `@Schema enum` + `@Unknown case other(String)`; encoding refuses an unrecognised variant unless `roundTrips: true`. Closed enums still need no macro |
 | Narrow integer widths + `[UInt8]` | **built 2026-08-31** — `Int8`/`Int16`/`UInt8`/`UInt16`/`UInt32`/`UInt64` on every path (JSON, RawValue, rules, all three encoders, columnar manifest), so `[UInt8]` is a field type and reaches `bytesColumn`. `UInt64` keeps `UInt`'s inherited ceiling at `Int64.max` — `scanInt64` is the carrier — and a test pins it. Surfaced and fixed two pre-existing bugs: `decodeInt64`/`decodeInt32` skipped `beginValue()` so their validation carets pointed at the wrong bytes, and `write(_ v: UInt)` reinterpreted the bit pattern so `UInt.max` encoded as `-1` |
-| `@Inline`, `@Wraps`, `Assayer<T>` | **not built** — `ROADMAP.md` |
+| `Assayer<T>` + `AssayerBacked` | **built 2026-09-08** — the runtime value API, for the two things `@Schema` cannot express: a schema with no declaration, and a type that IS a constrained scalar. **The macro needed no change** — `CodeGen` already emits `Base._assay(...)` for any unrecognised token, so a conforming type is already a nested schema type. Non-generic plan, generic only at `build`; the `RawValue` interpreter charges depth ITSELF because a runtime plan can hold a `.lazy` cycle no macro-emitted schema can. `docs/ASSAYER.md` |
+| `@Wraps` | **built 2026-09-08** — sugar over `AssayerBacked`, which is why it waited: before that a wrapper needed two hand-written decode bodies. Wrapped type restricted to `String`/`Int64`/`Double`/`Bool` (a macro sees a token). A `@Wraps` field and `@Validate(.email)` on a `String` produce **identical issues** — that equivalence is the feature |
+| `@OneOrMany` | **built 2026-09-08** — and it exposed that the `RawValue` path was ALREADY tolerant, so `tags: swift` decoded from YAML and was a mismatch as JSON. It cannot be made strict: XML spells a sequence as repeated siblings, indistinguishable from a YAML scalar at that layer. The attribute lands on the JSON path where the choice is genuine; the asymmetry is now a stated contract. `@PickFirst` is CUT — its blocker was misidentified, the real one is unions, which were absent from `ROADMAP` entirely |
+| `@XML(root:)` | **built 2026-09-08** — unannotated does not check the root (it is often an unmodelled wrapper); annotated, a mismatch is an issue. Found a trap worth carrying to `@Schema(context:)`: a no-op on a wide protocol shadowed by a constrained overload resolves from the STATIC type, so it compiled and checked nothing. A metatype cast works |
+| `parse(body:contentType:accepting:)` | **built 2026-09-08** — formats are VALUES (`WireFormat`), because `Assay` cannot depend on `AssayYAML`. RFC 9110 + 6839 suffixes, charset checked never transcoded, no sniffing ever, `unsupported_media_type` its own code so a server maps 415. The load-bearing test: a billion-laughs XML body offered to `accepting: [.json]` produces one negotiation issue and never enters the parser |
+| Encoding throughput | **measured 2026-09-08** — **2.85×** over `Encodable` + `JSONEncoder` at 50 and 200 items, against the *swift-foundation rewrite* (verified behaviourally: `Float(0.1)` encodes as `0.1`, not the legacy `NSNumber`-widened `0.10000000149011612`). A measurement, not a thesis — the decode multiple has an argument behind it and this one does not |
+| `@Inline` | **not built**, no longer blocked — `ROADMAP.md` §3 |
 
 Everything below that is not marked above is still design, not measurement.
 
@@ -65,11 +71,8 @@ spelling" and "you can call it" are different claims, and this table is which is
 | named | where | status |
 |---|---|---|
 | `@Key(path: "a.b")` | EXPERIENCE §4 | not built — `ROADMAP` §3 |
-| `@Inline` | EXPERIENCE §4 | not built — `ROADMAP` §3 |
-| `@Wraps` | EXPERIENCE §8 | not built — `ROADMAP` §6 |
-| `Assayer<T>` | naming section below | not built — `ROADMAP` §7 |
+| `@Inline` | EXPERIENCE §4 | not built — `ROADMAP` §3. **No longer blocked**: the recorded blocker was cross-module cost, but a macro cannot see another type's members in ANY module. Requiring the type to be nested makes detection total |
 | `@Schema(context:)` | EXPERIENCE §10 | not built — `ROADMAP` §8 |
-| `parse(body:contentType:accepting:)` | EXPERIENCE §12 | not built — `ROADMAP` §9 |
 | `parse(plist:)` | EXPERIENCE §1 | not built — `ROADMAP` §10 |
 | `jsonSchema(for:)`, `StandardSchema` | encoding section below | not built — `ROADMAP` §11 |
 

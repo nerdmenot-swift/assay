@@ -134,13 +134,36 @@ serde's `flatten`, except that the macro knows `Pagination`'s keys at compile ti
 unknown-key handling still works correctly through it — precisely the thing serde's runtime
 `flatten` cannot do.
 
-`EXPERIENCE.md` §20 flags the open question honestly: two structs sharing one key namespace can
-collide, a compile-time error is the right answer, and detecting it **across module boundaries**
-where the macro cannot see the other type's members may be expensive or impossible. Shipping
-`@Inline` with collision detection that works within a module and silently does not across one
-would be worse than not shipping it.
+`EXPERIENCE.md` §20 flagged the open question as cross-module cost. **That framing is wrong,
+and correcting it is what makes the feature resolvable.** An attached macro receives the
+syntax of the declaration it is attached to and nothing else — it cannot see another type's
+members **in any module**, including one declared three lines above in the same file. There
+is no lexical peer access and no compile-time string evaluation with which to fake a static
+assertion over two key sets. So the question was never what detection costs; it is whether a
+spelling exists in which detection is possible at all.
 
-**Blocked on:** whether cross-module collision detection is achievable at all.
+**One is: require the inlined type to be declared in the body of the `@Schema` type.**
+
+```swift
+@Schema
+struct Response {
+    struct Pagination { var page: Int; @Key("per_page") var perPage: Int }
+    @Inline var page: Pagination
+    var items: [String]
+}
+```
+
+Verified 2026-09-08 rather than assumed: `DeclGroupSyntax.memberBlock.members` contains the
+nested `StructDeclSyntax`, and walking it yields each member **with its attributes** — the
+probe read `perPage` and its `@Key("per_page")` back out. So collision detection becomes
+total and at expansion with no module asymmetry to be silent about, unknown-key handling
+works through the inline (the claim serde's runtime `flatten` cannot make), and the runtime
+cost is zero: one dispatch table, one presence mask, one pass.
+
+A `@Inline` naming a type that is not nested gets a purpose-written diagnostic saying so and
+why. That is the blocker converted into a fix-it.
+
+**No longer blocked.** Not built.
 
 ---
 

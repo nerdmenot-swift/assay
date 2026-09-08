@@ -222,20 +222,60 @@ nothing. A metatype cast (`Self.self as? any XMLRooted.Type`), once per document
 
 ---
 
-## 5. Shape-tolerance attributes
+## 5. Shape-tolerance attributes — `@OneOrMany` BUILT, `@PickFirst` CUT
 
-**Status: not implemented.** `EXPERIENCE.md` §9.
+### `@OneOrMany` — built 2026-09-08
 
 ```swift
-@OneOrMany var tags: [String]     // "swift" and ["swift","ios"] both decode
-@PickFirst var id: StringOrInt    // tries each representation in order
+@OneOrMany var tags: [String]     // "swift" and ["swift"] both decode
 ```
 
-These exist for APIs that are inconsistent about whether a single value is wrapped in an array —
-which is most APIs that grew over time. `@OneOrMany` is genuinely small. `@PickFirst` needs a
-sum-type story first, which is item 6.
+**Building it surfaced an undeclared asymmetry.** The `RawValue` path already accepted a
+single value where an array was declared, so `tags: swift` decoded from YAML and was a type
+mismatch as JSON — the same declaration meaning different things per format, which
+`EXPERIENCE.md` §12 explicitly refuses for `coerceScalars`.
 
----
+It **cannot** simply be made strict, and that is the finding. XML spells a sequence as
+repeated sibling elements, each arriving as its own decode call with the same key, so the raw
+path appends rather than assigns. At that layer a lone `<tag>a</tag>` is indistinguishable
+from `tags: swift` — there is nothing to branch on. Strictness there would break every XML
+array.
+
+So the attribute lands where the tolerance is a genuine choice (the JSON byte path), and the
+asymmetry is stated as a contract with a test pinning it rather than left to be discovered.
+**Closing it properly means grouping repeated members into a `.sequence` in the XML
+projection**, which §4 records as deliberately not done — the members are preserved ungrouped,
+so the information is there. That is the change this waits on, and it is its own.
+
+Encoding always writes an array: the tolerant shape is input-only, which keeps
+`docs/ENCODING.md`'s round-trip law intact.
+
+### `@PickFirst` — cut, and this section's stated blocker was wrong
+
+It said `@PickFirst` "needs a sum-type story first, which is item 6". Item 6 is
+`@Wraps`/`@Unknown`, and **`@Unknown` is a catch-all case on a string enum, not a union** — it
+was never the prerequisite.
+
+The real one is `@Schema(discriminator:)`, which `EXPERIENCE.md` §9 specifies and which is
+absent from this roadmap and from the code entirely. And `@PickFirst var id: StringOrInt`
+cannot be built as spelled regardless: the macro would need `StringOrInt`'s branches and sees
+a token. The sound spelling is an untagged union — `@Schema(discriminator: .none)` — which
+*is* pick-first by definition. `CLAUDE.md`'s governing principle exactly: a different
+construct, not a transliteration.
+
+### Discriminated and untagged unions — NOT BUILT, and not previously on this roadmap
+
+`EXPERIENCE.md` §9 specifies `@Schema(discriminator: "type")` and `discriminator: .none`.
+Neither exists, and neither was listed here — this is a gap in the roadmap itself, found
+while cutting `@PickFirst`.
+
+They force the one thing the decode body was designed never to do: **rewind**. A
+discriminated union must find the tag before choosing a branch (the `"type"` key may appear
+last); an untagged one must try branches and back out, which is exponential under nesting
+without a budget. Both primitives already exist — `AssayReader.seek(to:)` and
+`IssueSink.rollback(to:)` — so this is a real design pass rather than a blocked one, and it
+needs `docs/UNIONS.md` answering how a composed failure is reported, what bounds the
+backtracking, and what encoding a union means.
 
 ## 6. `@Wraps` and `@Unknown` — BOTH BUILT
 

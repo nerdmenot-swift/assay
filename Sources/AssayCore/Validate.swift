@@ -118,22 +118,30 @@ extension Rule {
     /// check is inert. (cross-platform-audit.md §3; EXPERIENCE.md §20 question 3.)
     @usableFromInline
     func applyRegex(
-        _ pattern: String, to v: String, _ override: String?, _ field: StaticString,
+        _ p: CompiledPattern, to v: String, _ override: String?, _ field: StaticString,
         _ span: SourceSpan?, _ path: [PathComponent], _ sink: inout IssueSink
     ) {
+        // Every branch reports exactly what it reported before this was compiled once
+        // instead of per value — same three codes, same params, same messages. Only the
+        // compilation moved.
+        if p.invalid {
+            emit(&sink, "invalid_regex_pattern", field, span, path, override,
+                 ["pattern": .string(p.pattern)], v)
+            return
+        }
         if #available(macOS 13, iOS 16, tvOS 16, watchOS 9, *) {
-            guard let regex = try? Regex(pattern) else {
-                emit(&sink, "invalid_regex_pattern", field, span, path, override,
-                     ["pattern": .string(pattern)], v)
+            guard let regex = p.compiled as? Regex<AnyRegexOutput> else {
+                emit(&sink, "regex_unavailable", field, span, path, override,
+                     ["pattern": .string(p.pattern)], v)
                 return
             }
             if (try? regex.firstMatch(in: v)) == nil {
                 emit(&sink, "pattern_mismatch", field, span, path, override,
-                     ["pattern": .string(pattern)], v)
+                     ["pattern": .string(p.pattern)], v)
             }
         } else {
             emit(&sink, "regex_unavailable", field, span, path, override,
-                 ["pattern": .string(pattern)], v)
+                 ["pattern": .string(p.pattern)], v)
         }
     }
 

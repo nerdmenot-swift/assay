@@ -60,4 +60,38 @@ struct ConcurrencyStress {
             for await ok in group { #expect(ok) }
         }
     }
+
+    /// The proof that `CompiledPattern`'s `@unchecked Sendable` is earned.
+    ///
+    /// `Regex` carries no `Sendable` conformance — checked against the shipped
+    /// `.swiftinterface`, not assumed — and a compiled one is now shared across every
+    /// validation of a `static let` rule array. Two things make that safe and this test
+    /// checks the second: the initialiser warms the matching program with a throwaway match
+    /// while the instance is still local, so nothing is lowered lazily on a shared value
+    /// afterwards.
+    ///
+    /// Run under `swift test --sanitize=thread` for this to mean what it says. Passing
+    /// without TSan proves only that it does not crash.
+    @Test("a compiled regex is shared safely across tasks")
+    func parallelRegexValidate() async {
+        await withTaskGroup(of: Int.self) { group in
+            for i in 0..<300 {
+                group.addTask {
+                    var sink = IssueSink(limits: .default)
+                    // Half match, half do not, so both branches of the matcher run
+                    // concurrently against the same shared program.
+                    let v = i % 2 == 0 ? "abc123" : "!!!"
+                    _assayValidate(v, Self.sharedRules, override: nil,
+                                   field: "s", at: nil, path: [], &sink)
+                    return sink.issues.count
+                }
+            }
+            var mismatches = 0
+            for await n in group { mismatches += n }
+            #expect(mismatches == 150, "half the values should fail the pattern")
+        }
+    }
+
+    /// A `static let` rule array, which is exactly how the macro emits one.
+    nonisolated static let sharedRules: [Rule] = [.regex("^[a-z0-9]+$")]
 }

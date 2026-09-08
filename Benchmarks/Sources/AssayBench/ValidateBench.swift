@@ -153,6 +153,11 @@ func runValidateBenchmarks() {
 @Schema struct RRange { @Validate(.range(13...120)) var n: Int }
 @Schema struct RRange2 { @Validate(.range(13...120), .range(0...200)) var n: Int }
 @Schema struct RCount { @Validate(.min(1)) var a: [String] }
+// There was no `.regex` row here until 2026-09-08, which is part of why the pattern was
+// recompiled per value for as long as it was: the cost never appeared in the table anyone
+// read. `.each(.regex)` is the shape that made it worst — one compilation per element.
+@Schema struct RRegex { @Validate(.regex("^[a-z0-9]+$")) var s: String }
+@Schema struct RRegexEach { @Validate(.each(.regex("^[a-z0-9]+$"))) var a: [String] }
 
 func runRuleCostBenchmarks() {
     let iters = 200_000
@@ -188,4 +193,16 @@ func runRuleCostBenchmarks() {
     line(".uuid",
          measure(iterations: iters) {
              _ = RUUID.diagnose(RUUID(s: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6")) })
+    line(".regex",
+         measure(iterations: iters) { _ = RRegex.diagnose(RRegex(s: "abc123")) })
+
+    // The `.each` arm is reported per ELEMENT, not per call, because that is the shape the
+    // per-value compilation punished: 20 elements meant 20 compilations.
+    let n = 20
+    let each = measure(iterations: iters / 10) {
+        _ = RRegexEach.diagnose(RRegexEach(a: Array(repeating: "abc123", count: n)))
+    }
+    print(pad(".each(.regex) x\(n)", 26, right: true)
+          + pad(String(format: "%.1f", each), 12)
+          + pad(String(format: "%.1f/elem", (each - fixed) / Double(n)), 12))
 }

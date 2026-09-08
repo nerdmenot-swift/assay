@@ -32,6 +32,61 @@
 /// A validation rule. Polymorphic in the way Zod users expect — `.min(1)` is length on a
 /// `String`, count on an `Array`, magnitude on a number — with the resolution done by the
 /// macro at expansion time, not by the type system.
+
+/// A pattern compiled ONCE, at `Rule` construction, rather than once per validated value.
+///
+/// `@Validate(.regex(...))` used to call `try? Regex(pattern)` for every value, so a rule
+/// reached through `.each` on an array paid a full regex compilation per element. The rule
+/// arrays are `nonisolated static let`, so construction happens once per process under
+/// `swift_once` — which makes construction the obvious place to compile, and is exactly
+/// where `.before(_:)` already parses its ISO bound.
+///
+/// WHY A CLASS, AND WHY `@unchecked`. `Regex` carries no `Sendable` conformance — checked
+/// against the shipped `.swiftinterface`, not assumed — and `Rule` must be `Sendable` to be
+/// the element type of a `static let` under Swift 6. That mismatch is the whole of what
+/// `ROADMAP.md` meant by "a cache needs synchronisation the validation path currently has
+/// none of". The `@unchecked` is EARNED rather than asserted, in two steps: the initialiser
+/// warms the matching program with one throwaway match before the value can be shared, so
+/// nothing is lowered lazily on a shared instance afterwards; and
+/// `Tests/AssayTests/ConcurrencyTests.swift` hammers a regex-carrying schema from a task
+/// group, which the suite runs under `--sanitize=thread`.
+///
+/// A global pattern-to-`Regex` cache was the other option and was rejected: it hashes the
+/// pattern per value — the SipHash-per-value cost `docs/PERFORMANCE.md` §1.2 criticises
+/// Foundation for — needs a lock on a path `docs/VALIDATE.md` §4 documents as
+/// allocation-free and synchronous, and grows without bound.
+@usableFromInline
+final class CompiledPattern: @unchecked Sendable {
+    @usableFromInline let pattern: String
+    /// `Regex<AnyRegexOutput>` where the platform has one, erased so no stored property
+    /// needs an availability annotation. `nil` means unavailable or did not compile.
+    @usableFromInline let compiled: Any?
+    /// The pattern was reached on a platform that has an engine and did not compile.
+    @usableFromInline let invalid: Bool
+
+    @usableFromInline
+    init(_ pattern: String) {
+        self.pattern = pattern
+        if #available(macOS 13, iOS 16, tvOS 16, watchOS 9, *) {
+            if let r = try? Regex(pattern) {
+                // Warm the matching program here, while this instance is still local. The
+                // stdlib lowers it lazily on first match; doing it now means a shared
+                // instance never mutates, whatever the stdlib's internal synchronisation
+                // does or does not promise.
+                _ = try? r.firstMatch(in: "")
+                self.compiled = r
+                self.invalid = false
+            } else {
+                self.compiled = nil
+                self.invalid = true
+            }
+        } else {
+            self.compiled = nil
+            self.invalid = false
+        }
+    }
+}
+
 public struct Rule: Sendable, ExpressibleByStringLiteral {
 
     @usableFromInline
@@ -45,7 +100,7 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
         // Strings.
         case length(Int)
         case notEmpty
-        case regex(String)
+        case regex(CompiledPattern)
         case email, url, uuid, hostname, ascii
         case trimmed, lowercased
         case prefix(String), suffix(String), contains(String)
@@ -136,7 +191,7 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
     /// (cross-platform-audit.md §3). The pattern is validated on first use; an invalid
     /// pattern reports `invalid_regex_pattern` rather than silently passing.
     public static func regex(_ pattern: String, or message: String? = nil) -> Rule {
-        Rule(.regex(pattern), message: message)
+        Rule(.regex(CompiledPattern(pattern)), message: message)
     }
 
     public static let email = Rule(.email)

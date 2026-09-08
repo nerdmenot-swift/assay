@@ -381,7 +381,13 @@ the musl or wasm legs at all. The trade is stated where it is made — live coun
 transient allocations freed inside a decode, undercounts ~10-15% on Darwin's nano zone, and
 cannot compare two decoders that retain the same data. A self-check measures closures whose block
 count is arithmetic and disables the gate rather than reporting a number it cannot stand behind.
-Total malloc traffic remains genuinely unmeasured and is listed as such in `ROADMAP.md`.
+Total malloc traffic **is now measured too**, on Darwin, by a different instrument: `malloc_logger`
+counts every allocate and deallocate exactly, with none of the nano zone's batching. It is
+**reported and never gated** — total traffic has no a-priori right answer and would fail CI on a
+change to `String`'s growth policy — but it is the one measurement that can compare the two
+decoders honestly, because the retained output is identical on both sides and cancels, leaving
+only transient work. 25 vs 6 allocations at one item, 378 vs 257 at fifty. Linux has no exact
+counter and the arm says "unavailable" rather than guessing.
 
 Every number in the docs belongs to someone else's C, C++, Rust or Go, cited as evidence about
 *architecture*, not as a prediction about Assay's Swift. No credible published measurement exists

@@ -460,6 +460,7 @@ runEncodeBenchmarks()
 runKeyPathBenchmarks()
 runColdStartBenchmarks()
 runLargeDocumentBenchmarks()
+runTotalAllocationBenchmarks()
 
 // ---- Dates ----
 runDateBenchmarks(corpusDir: corpusDir, sizes: sizes)

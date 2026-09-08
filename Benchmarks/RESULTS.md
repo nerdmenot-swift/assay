@@ -1344,3 +1344,52 @@ per-document.** Foundation's cost scales with the number of decoded values exact
 does, because the container boundary is crossed per value — so identical output allocation on
 both sides cancels rather than converging. Nothing falls off a cache cliff at 8 MB either,
 which is what a cache-shaped advantage would have done.
+
+
+## Total malloc traffic — first measured 2026-09-09
+
+`Benchmarks/Sources/AssayBench/TotalAllocations.swift`, macOS/arm64, release. **Darwin only.
+Reported, never gated.**
+
+The last unqualified "unmeasured" in `ROADMAP.md`'s verification table. The live-block gate
+beside it structurally cannot see an allocation that is made and freed inside a decode, and
+`.mallocCountTotal` needs jemalloc installed beside the toolchain and cannot run on the musl or
+wasm legs. The row said closing it would be "either a bounded Darwin/Linux-only addition or a
+permanent gap, and it should be recorded as whichever it turns out to be."
+
+**It was a bounded Darwin-only addition, and it needed no jemalloc.** `malloc_logger` is the
+global hook `MallocStackLogging` itself installs; setting it in-process makes the allocator
+call back on every allocate and deallocate, *exactly* — none of the nano zone's batching that
+makes the live-block harness undercount 10–15%.
+
+```
+self-check: 100 exactly-sized [Int] allocations counted as 108 allocs / 108 frees
+
+shape             Foundation     Assay    ratio  transient
+1 items                   25         6    4.17x         19
+10 items                  94        55    1.71x         39
+50 items                 378       257    1.47x        121
+```
+
+**This is the arm where the Foundation comparison is worth something.** The live-block harness
+carries an explicit limitation that it cannot compare two decoders retaining the same data —
+Assay and Foundation hold identical `String`s and `Array`s, so they hold identical blocks and
+the comparison is vacuous there. Here the retained output cancels on both sides, so the whole
+difference is **transient**: intermediate containers, boxed values, per-key machinery. That is
+precisely what the decode thesis is about, and it was the one thing the existing gate could not
+see.
+
+**Why it is not gated.** "Is the live footprint of one decoded value the size the design says?"
+has a right answer — an `[Int]` of 800 must be one exactly-sized allocation. "How much work did
+the allocator do?" does not: it moves with every stdlib version, and gating on it would fail CI
+for a change to `String`'s growth policy.
+
+**Symbol interposition was rejected with a reason rather than left untried.** Defining `malloc`
+in the executable interposes on Linux; on Darwin it does not, because two-level namespace
+binding means `swift_slowAlloc` in libswiftCore.dylib is already bound to libsystem_malloc's
+`malloc` and never consults anything the main executable defines. Making that work needs
+`DYLD_INTERPOSE` in a separate dylib plus `DYLD_INSERT_LIBRARIES`, which `swift run` cannot
+arrange.
+
+**Linux remains open.** `mallinfo2` reports bytes, not counts, and no equivalent hook exists.
+The arm prints "unavailable" there rather than a guessed number.

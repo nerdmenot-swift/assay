@@ -20,6 +20,11 @@
 //
 //   1. It is not total malloc traffic. Transient allocations made and freed inside the
 //      decode never appear. `.mallocCountTotal` would catch those; this does not.
+//      **`TotalAllocations.swift` now does, on Darwin** (2026-09-09), via `malloc_logger`
+//      rather than jemalloc — and it is the arm where the Foundation comparison is worth
+//      something, because the retained output cancels and only transient work is left. This
+//      one stays the GATE: "is the footprint what the design says" has a right answer,
+//      "how much did the allocator do" does not.
 //
 //   2. It undercounts by roughly 10-15% on Darwin. The self-check in main.swift measures
 //      closures whose block count is arithmetic — and reads 1.73 where the answer is 2.

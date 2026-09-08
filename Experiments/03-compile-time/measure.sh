@@ -76,7 +76,19 @@ time_build() {
   for i in $(seq 1 "$REPEATS"); do
     ./gen_types.sh "$n" "$FIELDS" "$mode" > "$WORK/Sources/M/Types.swift"
     echo "// repeat $i" >> "$WORK/Sources/M/Types.swift"
-    t=$( { time ( cd "$WORK" && swift build -c "$CONFIG" >/dev/null 2>&1 ) ; } 2>&1 )
+    # THE SECOND TRAP, and it fired in CI before it was caught here. `swift build` was run
+    # with its output discarded AND its exit status ignored, so a build that FAILED measured
+    # as very fast and was reported as a timing. On a hosted runner the codable arm at 50
+    # types came out at 0.52 s -- less than 50 empty structs -- which pushed the gated
+    # schema/codable ratio to 9.44x and failed the only check CI enforces. A harness that
+    # reports a failure as a good number is worse than one that reports nothing.
+    t=$( { time ( cd "$WORK" && swift build -c "$CONFIG" > "$WORK/build.log" 2>&1 ) ; } 2>&1 )
+    if [ $? -ne 0 ]; then
+      echo "measure.sh: BUILD FAILED — mode=$mode types=$n repeat=$i" >&2
+      echo "--- last 20 lines of $WORK/build.log ---" >&2
+      tail -20 "$WORK/build.log" >&2
+      exit 2
+    fi
     if [ -z "$best" ] || awk -v a="$t" -v b="$best" 'BEGIN{ exit !(a < b) }'; then
       best="$t"
     fi

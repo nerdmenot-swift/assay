@@ -146,3 +146,41 @@ extension RawEncodableSchema {
         String(decoding: try encodedYAML(), as: UTF8.self)
     }
 }
+
+// MARK: - Content negotiation
+
+extension WireFormat {
+
+    /// YAML, for `parse(body:contentType:accepting:)`.
+    ///
+    /// Declared here rather than in `Assay` because this is the module that owns the parser
+    /// — which is the whole point of formats being values. A caller writing
+    /// `accepting: [.json, .yaml]` has already imported `AssayYAML`, so `.yaml` is in scope
+    /// and `Assay` never learns that YAML exists.
+    ///
+    /// Matches `application/yaml` (RFC 9512, the registered type), the older
+    /// `text/yaml` / `application/x-yaml` / `text/x-yaml` spellings still widely emitted,
+    /// and any `+yaml` structured suffix.
+    public static let yaml = WireFormat(
+        name: "yaml",
+        matches: { $0.names("yaml") || $0.names("x-yaml") },
+        decode: { bytes, sink, limits in
+            let docs = YAML.decodeAll(bytes, into: &sink, limits: limits)
+            guard let doc = docs.first else {
+                sink.add(Issue(code: .custom("yaml_empty_stream")))
+                return nil
+            }
+            if docs.count > 1 {
+                sink.add(Issue(code: .custom("yaml_multiple_documents"),
+                               params: ["count": .int(docs.count)]))
+            }
+            guard let raw = RawValue(doc) else {
+                sink.add(Issue(code: .custom("yaml_unrepresentable_key"),
+                               params: ["reason": .string(
+                                   "a mapping key is not a plain scalar; "
+                                   + "parse to YAML.Node instead")]))
+                return nil
+            }
+            return raw
+        })
+}

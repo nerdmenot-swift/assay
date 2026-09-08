@@ -133,3 +133,26 @@ extension XMLEncodableSchema {
         String(decoding: try encodedXML(root: root, pretty: pretty), as: UTF8.self)
     }
 }
+
+// MARK: - Content negotiation
+
+extension WireFormat {
+
+    /// XML, for `parse(body:contentType:accepting:)`.
+    ///
+    /// **This is the format `accepting:` exists to keep out of reach.** Listing it means
+    /// accepting that an untrusted body can reach an XML parser, which is where entity
+    /// expansion and external-entity attacks live. Assay's parser refuses external entities
+    /// by construction and bounds expansion, so the risk is managed rather than absent —
+    /// but the decision to run it on a request body should be one someone wrote down.
+    ///
+    /// Matches `application/xml`, `text/xml`, and any `+xml` structured suffix, so
+    /// `image/svg+xml` and `application/atom+xml` are XML.
+    public static let xml = WireFormat(
+        name: "xml",
+        matches: { $0.names("xml") },
+        decode: { bytes, sink, limits in
+            guard let doc = XML.decode(bytes, into: &sink, limits: limits) else { return nil }
+            return RawValue(doc)
+        })
+}

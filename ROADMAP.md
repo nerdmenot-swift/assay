@@ -282,18 +282,41 @@ wrong.
 
 ---
 
-## 9. Content negotiation
-
-**Status: not implemented.**
+## 9. Content negotiation — BUILT 2026-09-08
 
 ```swift
-try Config.parse(body, contentType: header, accepting: [.json, .yaml])
+let user = try User.parse(body: bytes,
+                          contentType: request.headers["Content-Type"],
+                          accepting: [.json])
 ```
 
-`accepting:` is **required, with no default** — an unbounded format guess on untrusted input is
-how you get XXE and billion-laughs. That decision is settled; only the code is missing.
+`accepting:` is **required, with no default**, as specified. What was actually missing was
+not the code but a place to put it: `Assay` cannot depend on `AssayYAML` (the dependency runs
+the other way), and `AssayYAML` cannot host a json+yaml+xml entry point without depending on
+`AssayXML` too. One overload per combination is 2^n entry points.
 
----
+**Formats are values.** `WireFormat` carries a media-type predicate and a decoder into
+`RawValue`; `AssayCore` vends `.json`, `AssayYAML` vends `.yaml`, `AssayXML` vends `.xml`,
+each in the module that owns its parser. The dependency moves to the call site, where it
+already exists — a caller writing `accepting: [.json, .yaml]` has imported `AssayYAML`.
+
+Decided while building:
+
+- **RFC 6839 structured suffixes are honoured.** `application/vnd.github.v3+json` is JSON.
+  Not a nicety: most versioned APIs spell their content type that way, and a negotiator that
+  misses it rejects all of them.
+- **`charset` is checked, never transcoded.** The core has no converter; `iso-8859-1` is
+  refused rather than quietly read as UTF-8.
+- **No sniffing, ever** — not even when the bytes are obviously JSON and JSON is accepted. A
+  missing or unparseable `Content-Type` is an issue.
+- **`unsupported_media_type` is its own code**, so a server maps it to 415 rather than 400.
+- **A `.json` match routes to the byte path**, via an overload constrained on `JSONAssayable`.
+  Without it, adding negotiation to a service would quietly move every JSON request onto the
+  tree path — the boundary this library exists to delete.
+
+The load-bearing test is that a rejected media type never reaches a parser: a billion-laughs
+XML payload offered to `accepting: [.json]` produces exactly one issue, from negotiation, and
+the XML parser is never entered.
 
 ## 10. Property lists
 

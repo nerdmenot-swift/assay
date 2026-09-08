@@ -278,19 +278,25 @@ cannot have a case with an associated value. `@Schema` supplies the mapping inst
 
 ---
 
-## 7. `Assayer<T>` — the runtime value API
+## 7. `Assayer<T>` — BUILT 2026-09-08
 
-**Status: not implemented, and genuinely under review.** `EXPERIENCE.md` §20, open question 6.
+**The open question is answered: it is one front door with two receivers.** The static verbs
+are spelled on a type, these on a value; same `Diagnosis`, same codes, same renderers. It
+exists for two things `@Schema` cannot express — a schema with no declaration, and a type
+that *is* a constrained scalar rather than an object.
 
-A value-level combinator API for schemas built at runtime, where there is no declaration for a
-macro to read. The name is settled (`Assayer<T>`, not `Schema<T>` — SwiftData exports `Schema`).
+The narrower protocol this section suspected might cover the domain-type case does cover it,
+and does not compete: `AssayerBacked` is the requirement, `Assayer` is the value that fills
+it. Both shipped.
 
-The open question is whether it belongs in a 1.0 at all. Shipping it means committing to
-maintaining two front doors forever, and the domain-type use case that motivates half of it
-might be covered by a narrower protocol. That question should be answered before the code is
-written, not after.
+**No macro change.** `CodeGen.swift` already emits `Base._assay(...)` for any unrecognised
+token, so a conforming type is already a nested schema type; the checkpoint test passes with
+`Sources/AssayMacros/` untouched, and the compile-time gate is unmoved at 67.4 ms.
 
----
+Deliberately not in the first increment, with reasons in `docs/ASSAYER.md`:
+`Assayer.schema(_:)` as a leaf, a bytes-driven interpreter, and scratch reuse — whose
+premise in `CLAUDE.md`'s build order is **stale**, since a `Sendable` schema value cannot own
+mutable scratch.
 
 ## 8. `@Schema(context:)`
 

@@ -20,7 +20,12 @@
 //===----------------------------------------------------------------------===//
 
 /// Everything that happened during a decode.
-public struct Diagnosis<T: Assayable>: Sendable {
+///
+/// `T: Sendable` rather than `T: Assayable`, widened 2026-09-08 for `Assayer<T>`. Strictly
+/// wider — `Assayable` refines `Sendable`, so every existing use still compiles — and
+/// required because a runtime-built schema produces a `RawValue`, which is not `Assayable`
+/// and has no business being.
+public struct Diagnosis<T: Sendable>: Sendable {
     /// Present if decoding produced a usable value.
     public var value: T?
     /// Hard failures.

@@ -1,12 +1,13 @@
 # Assay — the developer experience
 
 > **This is the API specification, written before the implementation, and it describes a
-> larger surface than exists today.** Most of it is built. **Five** pieces named here are
-> not: `@Key(path:)` and `@Inline` (§4), `@Schema(context:)` (§10), `parse(plist:)` (§1),
-> and `jsonSchema(for:)`/`StandardSchema` (§§14–15). `@Wraps` (§8), `Assayer<T>` (§17),
-> `@OneOrMany` (§9), `@XML(root:)` and `parse(body:contentType:accepting:)` (§12) all
-> shipped on 2026-09-08; `@PickFirst` (§9) was **cut** — see `ROADMAP.md` §5 for why the
-> construct it named cannot be built as spelled. Each remaining item is a deliberate
+> larger surface than exists today.** Most of it is built. **Four** pieces named here are
+> not: `@Key(path:)` (§4), `@Schema(context:)` (§10), `parse(plist:)` (§1), and
+> `jsonSchema(for:)`/`StandardSchema` (§§14–15). `@Inline` (§4), `@Wraps` (§8),
+> `Assayer<T>` (§17), `@OneOrMany` (§9), `@XML(root:)` and
+> `parse(body:contentType:accepting:)` (§12) all shipped on 2026-09-08; `@PickFirst` (§9)
+> was **cut** — see `ROADMAP.md` §5 for why the construct it named cannot be built as
+> spelled. Each remaining item is a deliberate
 > deferral with its reasoning in `ROADMAP.md`.
 > `CLAUDE.md` carries the one-table inventory of which is which; that table is the thing to
 > trust when this document and the compiler disagree.

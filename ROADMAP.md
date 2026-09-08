@@ -96,7 +96,7 @@ parsed once at rule construction, violations rendered as dates.
 
 ## 3. `@Inline` and `@Key(path:)`
 
-**Status: neither implemented.** `EXPERIENCE.md` §4.
+**`@Inline` shipped 2026-09-08; `@Key(path:)` is not implemented.** `EXPERIENCE.md` §4.
 
 ### `@Key(path:)`
 
@@ -124,46 +124,50 @@ easy to get wrong:
 Until then, the honest answer is a nested `@Schema` type, which costs one declaration and
 produces better errors.
 
-### `@Inline`
-
-```swift
-@Inline var page: Pagination     // page's keys are read from THIS level
-```
-
-serde's `flatten`, except that the macro knows `Pagination`'s keys at compile time, so
-unknown-key handling still works correctly through it — precisely the thing serde's runtime
-`flatten` cannot do.
-
-`EXPERIENCE.md` §20 flagged the open question as cross-module cost. **That framing is wrong,
-and correcting it is what makes the feature resolvable.** An attached macro receives the
-syntax of the declaration it is attached to and nothing else — it cannot see another type's
-members **in any module**, including one declared three lines above in the same file. There
-is no lexical peer access and no compile-time string evaluation with which to fake a static
-assertion over two key sets. So the question was never what detection costs; it is whether a
-spelling exists in which detection is possible at all.
-
-**One is: require the inlined type to be declared in the body of the `@Schema` type.**
+### `@Inline` — BUILT 2026-09-08
 
 ```swift
 @Schema
 struct Response {
     struct Pagination { var page: Int; @Key("per_page") var perPage: Int }
-    @Inline var page: Pagination
-    var items: [String]
+    @Inline var pagination: Pagination
+    var items: [Item]
 }
 ```
 
-Verified 2026-09-08 rather than assumed: `DeclGroupSyntax.memberBlock.members` contains the
-nested `StructDeclSyntax`, and walking it yields each member **with its attributes** — the
-probe read `perPage` and its `@Key("per_page")` back out. So collision detection becomes
-total and at expansion with no module asymmetry to be silent about, unknown-key handling
-works through the inline (the claim serde's runtime `flatten` cannot make), and the runtime
-cost is zero: one dispatch table, one presence mask, one pass.
+**The recorded blocker was the wrong blocker, and correcting it is what built the feature.**
+It said detection "across module boundaries where the macro cannot see the other type's
+members may be expensive or impossible". An attached macro receives the syntax of the
+declaration it is attached to and nothing else — it cannot see another type's members in
+**any** module, including one declared three lines above in the same file. There is no
+lexical peer access and no compile-time string evaluation with which to compare two key sets.
+The question was never what detection costs; it was whether a spelling exists in which it is
+possible at all.
 
-A `@Inline` naming a type that is not nested gets a purpose-written diagnostic saying so and
-why. That is the blocker converted into a fix-it.
+**Requiring the inlined type to be nested is that spelling.** Verified rather than assumed:
+`DeclGroupSyntax.memberBlock.members` contains the nested `StructDeclSyntax`, and walking it
+yields each member *with its attributes* — the probe read `perPage` and its
+`@Key("per_page")` back out.
 
-**No longer blocked.** Not built.
+- **Collision detection is total and at expansion**, falling out of the duplicate-key check
+  that already ran. No module asymmetry to be silent about.
+- **Unknown-key handling works through the inline** — the claim serde's runtime `flatten`
+  cannot make — because the flattened keys are in the outer type's known-key set.
+- **Runtime cost is zero.** One dispatch table, one presence mask, one pass; only the
+  memberwise initialiser reassembles the nested value, and a test asserts an inlined type
+  decodes identically to the flat equivalent, including on a missing key.
+- Compile time unmoved at 65.8 ms, and it should be *negative* for a type that would
+  otherwise be two — flattening deletes a second type's fixed cost, which is
+  `docs/COMPILE-TIME.md` §4's own advice made literal.
+
+An optional inline is refused: with the keys at this level, "all absent" and "some absent"
+are indistinguishable and there is no honest answer for which means nil. A non-nested type
+gets a diagnostic that says why, not just what.
+
+Building it merged the two near-identical construction blocks in `CodeGen` and `RawCodeGen`
+into one helper. They were copies, and adding group reconstruction to one and not the other
+is exactly the drift that makes a feature work on JSON and silently not on YAML — which the
+multi-format test caught on its first run.
 
 ---
 

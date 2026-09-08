@@ -49,6 +49,22 @@ EOF
 ./gen_types.sh 1 "$FIELDS" schema > "$WORK/Sources/M/Types.swift"
 ( cd "$WORK" && swift build -c "$CONFIG" >/dev/null 2>&1 )
 
+# TWO STATISTICS, and picking the wrong one for the wrong job failed the gate in CI.
+#
+# The MINIMUM is right for an absolute cost: build time is a floor plus contention, noise
+# only ever adds, so the minimum is the least-contaminated estimate of what the work costs.
+# That is what the per-type budgets are compared against.
+#
+# The minimum is WRONG for a RATIO. `schema / codable` divides two independently-noisy
+# minima, and taking the minimum of the DENOMINATOR maximises the quotient -- so a single
+# spuriously-fast `codable` sample inflates the ratio in one direction only. On a hosted
+# runner that produced codable timings that were non-monotonic in the number of types
+# (1.05 s at 25, 0.93 s at 50 -- fifty cannot compile faster than twenty-five) and pushed
+# the gated ratio to 6.11x against a 6.0 budget, on code that measures 3.36x locally.
+#
+# So the ratio uses the MEDIAN of both arms, which has no such bias, and the absolute
+# budgets keep the minimum. Both are emitted; `gate.sh` picks.
+#
 # MINIMUM of REPEATS builds, not a single one.
 #
 # The minimum is the right statistic and not merely a nicer one: build time is a floor plus
@@ -70,7 +86,7 @@ EOF
 # genuinely different, so every one is a real compile of module M. Run with SHOW_SAMPLES=1
 # to see the individual timings and confirm that is still true.
 time_build() {
-  local mode="$1" n="$2" i best="" t
+  local mode="$1" n="$2" i t samples=""
   # bash's `time` with TIMEFORMAT gives real seconds to 3dp with no external tooling.
   local TIMEFORMAT='%R'
   for i in $(seq 1 "$REPEATS"); do
@@ -89,12 +105,12 @@ time_build() {
       tail -20 "$WORK/build.log" >&2
       exit 2
     fi
-    if [ -z "$best" ] || awk -v a="$t" -v b="$best" 'BEGIN{ exit !(a < b) }'; then
-      best="$t"
-    fi
+    samples="$samples $t"
     [ -n "${SHOW_SAMPLES:-}" ] && echo "    $mode n=$n repeat $i: $t" >&2
   done
-  awk -v b="$best" 'BEGIN{ printf "%.2f", b }'
+  # Emits "min median". Callers pick, and which one they pick matters -- see below.
+  echo "$samples" | tr ' ' '\n' | grep -v '^$' | sort -n | awk '{ v[NR]=$1 }
+    END { printf "%.2f %.2f", v[1], v[int((NR+1)/2)] }'
 }
 
 echo "Compile-time cost of @Schema"
@@ -109,12 +125,23 @@ printf -- '-%.0s' $(seq 1 80); echo
 # generated `_assayCheck` body. It is reported beside the gated arm rather than instead of
 # it: a type with no rules gets no validator at all, so `schema` is what a JSON user pays
 # and `validated` is what a rule-carrying type costs on top.
+medians=""
 for n in 1 10 25 50 100; do
-  p=$(time_build plain "$n")
-  c=$(time_build codable "$n")
-  s=$(time_build schema "$n")
-  v=$(time_build validated "$n")
-  vp=$(awk -v a="$s" -v b="$p" 'BEGIN{ printf "%.2fx", a/b }')
-  vc=$(awk -v a="$s" -v b="$c" 'BEGIN{ printf "%.2fx", a/b }')
-  printf "%-8s %10s %10s %10s %11s %12s %12s\n" "$n" "$p" "$c" "$s" "$v" "$vp" "$vc"
+  read -r p_min p_med <<< "$(time_build plain "$n")"
+  read -r c_min c_med <<< "$(time_build codable "$n")"
+  read -r s_min s_med <<< "$(time_build schema "$n")"
+  read -r v_min v_med <<< "$(time_build validated "$n")"
+  # The printed table is minima -- the absolute costs, which is what it has always shown.
+  # The ratios beside it are MEDIANS, because a quotient of two minima is biased; see the
+  # header. They will differ slightly from dividing the printed columns, and that is the
+  # point rather than an inconsistency.
+  vp=$(awk -v a="$s_med" -v b="$p_med" 'BEGIN{ printf "%.2fx", a/b }')
+  vc=$(awk -v a="$s_med" -v b="$c_med" 'BEGIN{ printf "%.2fx", a/b }')
+  printf "%-8s %10s %10s %10s %11s %12s %12s\n" "$n" "$p_min" "$c_min" "$s_min" "$v_min" "$vp" "$vc"
+  medians="$medians
+MEDIANS $n $p_med $c_med $s_med $v_med"
 done
+
+# Machine-readable, for gate.sh, and after the table so it stays a table. The minima above
+# are the absolute costs; these are what the ratio is computed from.
+echo "$medians"

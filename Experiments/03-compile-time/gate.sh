@@ -98,8 +98,16 @@ CI="${CI:-}"
 out=$(FIELDS="$FIELDS" ./measure.sh)
 echo "$out"
 
+# Minima for the absolute budgets: the least-contaminated estimate of what the work costs.
 schema=$(echo "$out" | awk -v t="$TYPES" '$1==t{print $4}')
 validated=$(echo "$out" | awk -v t="$TYPES" '$1==t{print $5}')
+
+# MEDIANS for the ratio. Dividing two independently-noisy minima biases the quotient upward
+# -- minimising the denominator maximises the result -- and that bias failed this gate in CI
+# at 6.11x on code measuring 3.36x locally, off a codable timing that was non-monotonic in
+# the number of types. The absolute arms keep the minimum; only the ratio changes.
+schema_med=$(echo "$out" | awk -v t="$TYPES" '$1=="MEDIANS" && $2==t{print $5}')
+codable_med=$(echo "$out" | awk -v t="$TYPES" '$1=="MEDIANS" && $2==t{print $4}')
 if [ -z "$schema" ]; then
   echo "GATE ERROR: could not read the schema timing for $TYPES types" >&2
   exit 2
@@ -108,8 +116,7 @@ fi
 per_type_ms=$(awk -v s="$schema" -v t="$TYPES" 'BEGIN{ printf "%.1f", s/t*1000 }')
 
 validated_ms=$(awk -v s="$validated" -v t="$TYPES" 'BEGIN{ printf "%.1f", s/t*1000 }')
-codable=$(echo "$out" | awk -v t="$TYPES" '$1==t{print $3}')
-ratio=$(awk -v s="$schema" -v c="$codable" 'BEGIN{ printf "%.2f", (c > 0) ? s/c : 0 }')
+ratio=$(awk -v s="$schema_med" -v c="$codable_med" 'BEGIN{ printf "%.2f", (c > 0) ? s/c : 0 }')
 
 echo ""
 echo "per-type cost: ${per_type_ms} ms   budget: ${BUDGET_MS} ms"

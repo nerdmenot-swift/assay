@@ -285,5 +285,15 @@ These six answers shape an encoder; they do not make one fall out of the decoder
    defaulting to the type name and adding `@XML(root:)` later; nothing else depends on it.
 4. **`Encodable` conformance synthesis**, which `EXPERIENCE.md` §14 already moved out of the
    refusals and which is strictly easier than any of the above.
-5. **Encoding is unbenchmarked.** No number should be quoted for it until the harness has an
-   arm, and the honesty rules apply to the encode direction exactly as to the decode one.
+5. ~~**Encoding is unbenchmarked.**~~ **Measured 2026-09-08**, so the prohibition this item
+   states is lifted. The arm is `Benchmarks/Sources/AssayBench/EncodeBench.swift`:
+   **2.85×** over `Encodable` + `JSONEncoder` at 50 and 200 items, 4.54× on a single-item
+   document where Foundation's fixed cost dominates. YAML and XML are reported as absolute
+   ns/document rather than ratios — there is no comparable Foundation encoder to divide by,
+   and a ratio against nothing is how a benchmark starts lying.
+
+   **A measurement, not a thesis.** The decode direction's 9× has an argument behind it:
+   deleting the `KeyedDecodingContainer` boundary. Encoding makes no equivalent claim —
+   `JSONEncoder` is one amount of machinery and Assay's writer is another, and whichever
+   wins, the number is a number. It exists so the cost is known and so a regression is
+   visible.

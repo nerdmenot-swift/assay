@@ -294,6 +294,16 @@ extension YAML {
 
             // Alias. Charged its expanded size — see `anchorCost`.
             if r.currentByte == UInt8(ascii: "*") {
+                // `&q *p` is not YAML. An alias is a REFERENCE to an already-anchored node,
+                // not a node of its own, so it cannot carry properties — libyaml rejects it
+                // and the differential oracle caught this the first time flow anchors were
+                // added. Block style had accepted it since anchors existed, silently
+                // DISCARDING the `&q` (the early return below skips the recording), so a
+                // later `*q` failed with "undefined alias" and named the wrong problem.
+                guard anchor == nil else {
+                    r.report(&sink, .custom("yaml_anchor_on_alias"))
+                    return nil
+                }
                 r.advanceBy(1)
                 guard let name = scanToken(&r), let target = anchors[name] else {
                     r.report(&sink, .custom("yaml_undefined_alias"))
@@ -680,29 +690,96 @@ extension YAML {
             _ r: inout AssayReader, _ sink: inout IssueSink, depth: Int
         ) -> Node? {
             skipBlanksAndComments(&r)
+            // Captured BEFORE the charge, exactly as `parseNode` does, so an anchored flow
+            // node's recorded cost is everything its subtree consumed. Getting this wrong is
+            // not a style matter: `anchorCost` is what an alias is charged, so a
+            // flow-defined anchor recorded at cost 1 would let `[&a [x,x,x,x], *a, *a, *a]`
+            // expand for free. That is FINDING 1 in AuditRegressionTests, in a new location.
+            let budgetAtEntry = nodeBudget
             // Flow nodes are charged too: this path does not go through parseNode, so
             // without it a flow-heavy document is unbounded and — worse — the alias arm
             // below was free.
             guard chargeNode(1, r: &r, sink: &sink) else { return nil }
-            if r.currentByte == UInt8(ascii: "*") {
+
+            // Anchor properties. Absent until 2026-09-08, which is why `[&a x, *a]` did not
+            // resolve: `&` is not a flow terminator, so the anchor fell through to the plain
+            // scalar arm and became part of the content, and the alias then found nothing.
+            // Block style was unaffected because it goes through `parseNode`, which has had
+            // this loop all along — the gap was flow-INTERNAL only.
+            //
+            // Tags (`[!!str 1]`) are the same shape and are still not handled here. Left
+            // deliberately: consuming them changes how documents that currently parse
+            // `!!str x` as a plain scalar behave, which is its own change. ROADMAP carries it.
+            // `if`, not `while`: YAML permits at most one anchor per node, so a loop here
+            // would only ever accept `&a &b x`, which is not a document anyone can write.
+            var anchor: String?
+            if r.currentByte == UInt8(ascii: "&") {
                 r.advanceBy(1)
-                guard let name = scanToken(&r), let target = anchors[name] else {
-                    r.report(&sink, .custom("yaml_undefined_alias"))
-                    return nil
+                anchor = scanToken(&r)
+                // Not `skipInlineSpace`: a flow context may put the value on the next line.
+                skipBlanksAndComments(&r)
+            }
+
+            // THE UNANCHORED PATH IS LEFT EXACTLY AS IT WAS, tail calls and all, and the
+            // duplication below is deliberate. Folding both cases into one `var node: Node?`
+            // and a shared exit is the obvious spelling and it cost 3.3% on the YAML
+            // node-parse arm (6.58x -> 6.37x against Yams, two samples each way): the
+            // rewrite turns four tail calls into an Optional round-trip through a shared
+            // epilogue. An anchor in flow is rare; the unanchored node is every other node
+            // in the document, and it should not pay for a feature it never uses.
+            if anchor == nil {
+                if r.currentByte == UInt8(ascii: "*") {
+                    r.advanceBy(1)
+                    guard let name = scanToken(&r), let target = anchors[name] else {
+                        r.report(&sink, .custom("yaml_undefined_alias"))
+                        return nil
+                    }
+                    guard chargeNode(anchorCost[name] ?? 1, r: &r, sink: &sink) else {
+                        return nil
+                    }
+                    return target
                 }
-                guard chargeNode(anchorCost[name] ?? 1, r: &r, sink: &sink) else { return nil }
-                return target
+                if r.currentByte == UInt8(ascii: "[") {
+                    return parseFlowSequence(&r, &sink, depth: depth)
+                }
+                if r.currentByte == UInt8(ascii: "{") {
+                    return parseFlowMapping(&r, &sink, depth: depth)
+                }
+                if let q = r.currentByte, q == UInt8(ascii: "\"") || q == UInt8(ascii: "'") {
+                    return parseQuoted(&r, &sink)
+                }
+                return .scalar(Scalar(content: scanFlowPlain(&r)))
             }
+
+            // Anchored. `&q *p` is not YAML — an alias is a REFERENCE to an already-anchored
+            // node, not a node of its own, so it carries no properties. libyaml rejects it,
+            // and the Yams differential rejected the first version of this change, which had
+            // recorded `q` as an alias of `p`. Block style had accepted it since anchors
+            // existed, silently discarding the `&q` so a later `*q` failed with "undefined
+            // alias" and named the wrong problem; `parseNode` now refuses it too.
+            if r.currentByte == UInt8(ascii: "*") {
+                r.report(&sink, .custom("yaml_anchor_on_alias"))
+                return nil
+            }
+
+            var node: Node?
             if r.currentByte == UInt8(ascii: "[") {
-                return parseFlowSequence(&r, &sink, depth: depth)
+                node = parseFlowSequence(&r, &sink, depth: depth)
+            } else if r.currentByte == UInt8(ascii: "{") {
+                node = parseFlowMapping(&r, &sink, depth: depth)
+            } else if let q = r.currentByte, q == UInt8(ascii: "\"") || q == UInt8(ascii: "'") {
+                node = parseQuoted(&r, &sink)
+            } else {
+                node = .scalar(Scalar(content: scanFlowPlain(&r)))
             }
-            if r.currentByte == UInt8(ascii: "{") {
-                return parseFlowMapping(&r, &sink, depth: depth)
-            }
-            if let q = r.currentByte, q == UInt8(ascii: "\"") || q == UInt8(ascii: "'") {
-                return parseQuoted(&r, &sink)
-            }
-            // Plain scalar in flow context ends at , ] } : or newline.
+            guard let result = node else { return nil }
+            return recordFlowAnchor(anchor, result, budgetAtEntry)
+        }
+
+        /// A plain scalar in flow context, which ends at `,` `]` `}` `: ` or a newline.
+        /// Extracted so the anchored and unanchored arms above cannot drift apart.
+        @inline(__always)
+        private mutating func scanFlowPlain(_ r: inout AssayReader) -> String {
             let start = r.byteOffset
             var end = start
             while let c = r.currentByte {
@@ -714,7 +791,26 @@ extension YAML {
                 r.advanceBy(1)
                 if c != 0x20 && c != 0x09 { end = r.byteOffset }
             }
-            return .scalar(Scalar(content: r.string(from: start, to: end)))
+            return r.string(from: start, to: end)
+        }
+
+        /// Record a flow-defined anchor, and attach it to a scalar for round-trip fidelity
+        /// the way `parseNode` does. Split out because `parseFlowNode` has two exits that
+        /// both have to do it, and an anchor recorded on one path but not the other is the
+        /// shape of bug this whole change is fixing.
+        @inline(never)
+        private mutating func recordFlowAnchor(
+            _ anchor: String?, _ node: Node, _ budgetAtEntry: Int
+        ) -> Node {
+            guard let a = anchor else { return node }
+            var result = node
+            if case .scalar(var s) = result {
+                s.anchor = a
+                result = .scalar(s)
+            }
+            anchors[a] = result
+            anchorCost[a] = max(1, budgetAtEntry - nodeBudget)
+            return result
         }
 
         // MARK: Scalars

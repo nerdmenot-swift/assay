@@ -281,6 +281,64 @@ struct YAMLParserTests {
         #expect(n["copy"]?["y"]?.resolvedInt == 2)
     }
 
+    /// Anchors DEFINED inside flow, which did not resolve until 2026-09-08.
+    ///
+    /// `parseFlowNode` had the alias arm and no property loop, so `&` — which is not a flow
+    /// terminator — fell through into the plain-scalar content and the alias then found
+    /// nothing. Block style was never affected: it goes through `parseNode`, which has had
+    /// the loop all along, so `a: &x [1,2]` worked while `[&x [1,2], *x]` did not.
+    @Test("anchors defined in flow style resolve")
+    func flowAnchors() throws {
+        let seq = try YAML.parse("[&a x, *a]")
+        #expect(seq[0]?.scalar?.content == "x")
+        #expect(seq[1]?.scalar?.content == "x", "the alias must see the flow-defined anchor")
+
+        let map = try YAML.parse("{&k key: &v val, other: *v}")
+        #expect(map["key"]?.scalar?.content == "val")
+        #expect(map["other"]?.scalar?.content == "val")
+
+        // An anchored flow COLLECTION, which is the shape the amplification bound cares
+        // about — its recorded cost must be the whole subtree, not 1.
+        let nested = try YAML.parse("[&a [1, 2], *a]")
+        #expect(nested[1]?[0]?.resolvedInt == 1)
+        #expect(nested[1]?[1]?.resolvedInt == 2)
+    }
+
+    /// Defined in flow, referenced from block on a later line. The anchor table is shared,
+    /// so this is the test that proves the two paths write to the same place.
+    @Test("a flow-defined anchor is visible to a later block alias")
+    func flowAnchorSeenFromBlock() throws {
+        let n = try YAML.parse("""
+        first: [&shared 42]
+        second: *shared
+        """)
+        #expect(n["second"]?.resolvedInt == 42)
+    }
+
+    /// `&q *p` is not YAML, in either style, and is now refused in both.
+    ///
+    /// An alias is a REFERENCE to an already-anchored node, not a node of its own, so it
+    /// carries no properties. libyaml rejects it. Block style had accepted it since anchors
+    /// existed, silently discarding the `&q` so that a later `*q` failed with "undefined
+    /// alias" — naming the wrong problem. The first version of the flow fix went further and
+    /// recorded the anchor, which the Yams differential rejected on its first run.
+    @Test("an anchor on an alias is refused, in flow and in block")
+    func anchorOnAliasRefused() {
+        for text in ["[&p 1, &q *p]", "p: &p 1\nq: &q *p\n"] {
+            var sink = IssueSink()
+            _ = YAML.decodeAll(Array(text.utf8), into: &sink, limits: .default)
+            #expect(sink.issues.contains { $0.code == .custom("yaml_anchor_on_alias") },
+                    "for: \(text) — got \(sink.issues.map(\.code))")
+        }
+    }
+
+    /// A bare `&a` with nothing after it is an empty scalar, which is what YAML says it is.
+    @Test("a bare anchor in flow yields an empty scalar")
+    func bareFlowAnchor() throws {
+        let n = try YAML.parse("[&a]")
+        #expect(n[0]?.scalar?.content == "")
+    }
+
     @Test("merge keys are applied, and explicit keys win")
     func mergeKeys() throws {
         let n = try YAML.parse("""

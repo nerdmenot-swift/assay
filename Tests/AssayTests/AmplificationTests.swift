@@ -106,6 +106,41 @@ struct AmplificationTests {
                 "\(levels)x\(fanout): \(bytes.count) bytes produced \(produced) nodes (budget \(budget)); issues=\(sink.issues.count)")
     }
 
+    /// The same exponential shape, but with every anchor DEFINED INSIDE FLOW.
+    ///
+    /// Mandatory rather than thorough. Flow-style anchors were unrecognised until
+    /// 2026-09-08 — `[&a x, *a]` did not resolve — so no document could reach the alias
+    /// machinery this way, and every bound above applied to block style only. Recognising
+    /// them makes this shape expressible for the first time, and it is exactly the shape
+    /// `AuditRegressionTests` FINDING 1 records: an anchor whose cost is recorded as 1
+    /// while its subtree is arbitrarily large lets each level multiply for free.
+    ///
+    /// If `parseFlowNode` ever stops capturing `budgetAtEntry` before its charge, this is
+    /// the test that fails.
+    static func flowAliasBomb(levels: Int, fanout: Int) -> String {
+        var y = "l0: [&f0 [" + (0..<fanout).map { _ in "\"x\"" }.joined(separator: ",") + "]]\n"
+        for i in 1...levels {
+            let refs = (0..<fanout).map { _ in "*f\(i - 1)" }.joined(separator: ",")
+            y += "l\(i): [&f\(i) [\(refs)]]\n"
+        }
+        return y + "top: [*f\(levels)]\n"
+    }
+
+    @Test("YAML alias bombs stay bounded when the anchors are defined in flow", arguments: [
+        (6, 9), (8, 9), (12, 4), (20, 3), (40, 2),
+    ])
+    func yamlFlowAliasBombs(_ levels: Int, _ fanout: Int) {
+        let text = Self.flowAliasBomb(levels: levels, fanout: fanout)
+        let bytes = Array(text.utf8)
+        var sink = IssueSink()
+        let docs = YAML.decodeAll(bytes, into: &sink, limits: .default)
+
+        let produced = docs.reduce(0) { $0 + (RawValue($1).map(nodeCount) ?? 1) }
+        let budget = bytes.count * maxNodesPerInputByte
+        #expect(produced <= budget,
+                "flow \(levels)x\(fanout): \(bytes.count) bytes produced \(produced) nodes (budget \(budget)); issues=\(sink.issues.count)")
+    }
+
     /// Linear alias repetition — the same anchor referenced many times at one level.
     /// Not exponential, but the classic "&a repeated ten thousand times" shape, and the
     /// reason the budget must bound TOTAL expansion rather than nesting depth.

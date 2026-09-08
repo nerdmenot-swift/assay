@@ -70,6 +70,14 @@ let handWrittenYAML: [(name: String, text: String)] = [
     ("anchor-alias", "base: &b\n  x: 1\nuse: *b\n"),
     ("anchor-scalar", "a: &v hello\nb: *v\n"),
     ("merge-key", "base: &b\n  x: 1\n  y: 2\nderived:\n  <<: *b\n  y: 3\n"),
+    // Anchors defined INSIDE flow, unrecognised until 2026-09-08. Adjudicated by
+    // Yams/libyaml rather than by our reading of the spec, which is the whole point of
+    // having an oracle for a format this subtle.
+    ("anchor-flow-seq", "a: [&x 1, *x]\n"),
+    ("anchor-flow-map", "a: {&k key: &v val, other: *v}\n"),
+    ("anchor-flow-collection", "a: [&c [1, 2], *c]\n"),
+    ("anchor-flow-on-alias", "a: [&p 1, &q *p, *q]\n"),
+    ("anchor-flow-then-block", "first: [&s 42]\nsecond: *s\n"),
 
     // Documents and comments.
     ("multi-document", "---\na: 1\n---\nb: 2\n"),

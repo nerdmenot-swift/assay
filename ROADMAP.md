@@ -504,27 +504,32 @@ functions being extended:
   reachable by decoding, since the scanner caps input at `Int64.max`; reachable by any
   program that constructs the value and encodes it.
 
-## Array element issues do not carry the element index
+## Array element issues — FIXED 2026-09-08, and one worse thing found next to it
 
-Found 2026-08-31, not fixed, and general rather than specific to any element type: an
-out-of-range element in `[Int32]`, `[UInt8]` or any other array reports its issue at
-`[.key("xs")]` with no `.index(1)` component. The value and the field are named; which
-element failed is not.
+`[Int32]`, `[UInt8]` or any array with a bad element reported `[.key("xs")]` and named no
+element. It now reports `[.key("xs"), .index(1)]`.
 
-The fix belongs in array codegen, where it would land for every element type at once, and
-it is a behaviour change to every array diagnostic — so it is its own commit rather than a
-rider on something else. `Tests/AssayTests/IntegerWidthTests.swift` asserts the current
-behaviour deliberately, so this does not start failing when somebody fixes it.
+The index is passed to the decode primitive as a **scalar argument** and consumed inside the
+cold `@inline(never)` failure path, so the emitted loop still contains no `path + [...]` and
+allocates nothing per element — that is structural, not a hope that the optimiser sinks
+something, and the emitted source was read to confirm it. Measured anyway: struct decode
+8.94× before, 9.01× after; prefix+skip 6.19× before, 6.18× after.
 
-## `Date` and `UUID` as `ColumnDecodable` — BUILT 2026-08-30
+**Not** the empty-`StaticString` sentinel the rule engine uses for the same purpose. The XML
+projection stores an `@XML(.text)` field under a reserved EMPTY key, so a sentinel spelled
+that way has a real collision in it. An explicit defaulted `Int` has none.
 
-Shipped in `AssayFoundation`. `Date` carries `ColumnBuffer<Int64>` with the unit from
-`ColumnMetadata`; `UUID` carries `BytesColumn` and accepts the 16-byte binary form or the
-36-byte canonical text form. `UUID` also gained the tree path it never had, so `var id: UUID`
-is now a legal field. 8,079 differential checks against Foundation. `docs/COLUMN-DECODABLE.md`.
+**The worse defect, found by a test written for this one.** A collection field whose whole
+value is wrong — `{"xs": 5}` against `var xs: [String]` — reported an issue whose path was
+**empty**. Not a missing index: no field name at all. Both the array and dictionary arms now
+name the field. That is fixed here because it is the same three lines and the same reader,
+and leaving it would have meant shipping a better element diagnostic next to a worse field
+one.
 
-What stays deferred is `Date` as a *native* columnar type, and deliberately: it would fix a
-unit at compile time, which is the failure `ColumnMetadata` exists to prevent.
+**Still open:** an element inside a *nested* array (`[[Double]]`) gets the outer index only.
+The inner index needs a prebuilt path prefix per outer element rather than a scalar, which is
+a different trade — it is the one place this change would have added an allocation, so it was
+not taken blind.
 
 ## The eagerly-built diagnostic path — RESOLVED 2026-09-07, no change needed
 

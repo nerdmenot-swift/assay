@@ -454,7 +454,9 @@ extension SchemaMacro {
         let inner: String
         if isDateType(element) {
             inner = "\(pad)        guard let \(elt) = reader.decodeDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map({ \(element)(timeIntervalSince1970: $0) }) else { break }\n"
-        } else if let call = scalarCall(element, key: key) {
+        } else if let call = scalarCall(element, key: key, elementIndex: "\(arr).count") {
+            // `arr.count` is the index this element is about to occupy, which is exactly
+            // the position a reader needs to be told about.
             inner = "\(pad)        guard let \(elt) = reader.\(call) else { break }\n"
         } else if let sub = arrayElement(element) {
             // Nested array. Decode into a local, then append it.
@@ -506,7 +508,11 @@ extension SchemaMacro {
         \(pad)} else if reader.consumeNullIfPresent() {
         \(pad)    \(optional ? "\(target) = nil" : "reader.nullNotAllowed(&sink, path, \"\(key)\", \"array\")")
         \(pad)} else {
-        \(pad)    reader.reportTypeMismatch(&sink, path, expected: "array")
+        \(pad)    // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+        \(pad)    // whole-value mismatch on a collection reported an issue whose path
+        \(pad)    // was EMPTY at the top level -- worse than the missing element index
+        \(pad)    // this change set out to fix, and found by a test written for that.
+        \(pad)    reader.reportTypeMismatch(&sink, path + [.key("\(key)")], expected: "array")
         \(pad)}
 
         """
@@ -591,7 +597,11 @@ extension SchemaMacro {
         \(pad)} else if reader.consumeNullIfPresent() {
         \(pad)    \(optional ? "\(target) = nil" : "reader.nullNotAllowed(&sink, path, \"\(key)\", \"dictionary\")")
         \(pad)} else {
-        \(pad)    reader.reportTypeMismatch(&sink, path, expected: "object")
+        \(pad)    // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+        \(pad)    // whole-value mismatch on a collection reported an issue whose path
+        \(pad)    // was EMPTY at the top level -- worse than the missing element index
+        \(pad)    // this change set out to fix, and found by a test written for that.
+        \(pad)    reader.reportTypeMismatch(&sink, path + [.key("\(key)")], expected: "object")
         \(pad)}
 
         """
@@ -599,8 +609,13 @@ extension SchemaMacro {
 
     /// Monomorphic per type — there is no generic `FixedWidthInteger` dispatch anywhere
     /// on the decode path, which is the whole reason a macro decoder can be fast here.
+    /// - Parameter elementIndex: a generated expression naming the element's position when
+    ///   this scalar is an ARRAY ELEMENT, or nil for a plain field. It becomes one extra
+    ///   argument on the call, consumed inside the cold failure path -- no concat is emitted
+    ///   at the call site and nothing is allocated on the hot path. Before this, an
+    ///   out-of-range `[Int32]` element reported `[.key("xs")]` and named no element.
     static func scalarCall(_ type: String, key: String, orNull: Bool = false,
-                           coerce: Bool = false) -> String? {
+                           coerce: Bool = false, elementIndex: String? = nil) -> String? {
         // Coercion and the null-aware variant are separate axes; an optional coercing
         // field takes the coercing call and handles null at the call site.
         let suffix = coerce ? "Coercing" : (orNull ? "OrNull" : "")
@@ -622,7 +637,8 @@ extension SchemaMacro {
         case "Bool":    base = "decodeBool"
         default:        return nil
         }
-        return "\(base)\(suffix)(&sink, path, \"\(key)\")"
+        let idx = elementIndex.map { ", \($0)" } ?? ""
+        return "\(base)\(suffix)(&sink, path, \"\(key)\"\(idx))"
     }
 
     /// Both spellings a user can reasonably write. The generated wrap uses the SAME

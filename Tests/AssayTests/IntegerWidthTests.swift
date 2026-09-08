@@ -28,6 +28,10 @@ struct Widths: Equatable {
     var u64: UInt64
 }
 
+@Schema struct ElemI32: Equatable { var xs: [Int32] }
+@Schema struct ElemStr: Equatable { var xs: [String] }
+@Schema struct ElemDbl: Equatable { var xs: [Double] }
+
 @Schema
 struct Blob: Equatable {
     var payload: [UInt8]
@@ -149,18 +153,42 @@ struct BlobFieldTests {
         #expect(v.payload == [0, 1, 255])
     }
 
-    /// The element is refused; the path names the FIELD but not the index.
+    /// The element is refused, and the path names WHICH element.
     ///
-    /// That is pre-existing and general rather than anything about bytes — `[Int32]` with an
-    /// out-of-range element reports `[.key("xs")]` in exactly the same way, and has since
-    /// arrays were added. Asserted as it actually behaves rather than as it ought to, so
-    /// this test does not quietly start failing when somebody fixes it; the fix belongs with
-    /// array codegen, where it would land for every element type at once.
-    @Test("an element that does not fit a byte is refused")
+    /// This test asserted the opposite until 2026-09-08 — deliberately, so that whoever
+    /// fixed it would find a red assertion rather than discover the gap. The index is
+    /// passed to the decode primitive as a scalar and consumed inside the cold failure
+    /// path, so the emitted loop still contains no `path + [...]` and allocates nothing per
+    /// element.
+    @Test("an element that does not fit a byte is refused, and the path names the index")
     func elementOverflow() {
         let d = Blob.diagnose(json: Array(#"{"payload": [0, 256], "label": "x"}"#.utf8))
         #expect(!d.isValid)
-        #expect(d.issues.first?.path == [.key("payload")], "got \(d.issues.map(\.path))")
+        #expect(d.issues.first?.path == [.key("payload"), .index(1)],
+                "got \(d.issues.map(\.path))")
+    }
+
+    /// Every scalar element type reaches the same primitive, so a few shapes prove the
+    /// wiring rather than the arithmetic. Index 0 is included on purpose: an off-by-one in
+    /// the "did an index get passed at all" check would show up only there.
+    @Test("array element indices are reported for the scalar element types")
+    func elementIndicesAcrossTypes() {
+        let a = ElemI32.diagnose(json: Array(#"{"xs": [1, 99999999999]}"#.utf8))
+        #expect(a.issues.first?.path == [.key("xs"), .index(1)], "\(a.issues.map(\.path))")
+
+        let b = ElemStr.diagnose(json: Array(#"{"xs": ["a", "b", 7]}"#.utf8))
+        #expect(b.issues.first?.path == [.key("xs"), .index(2)], "\(b.issues.map(\.path))")
+
+        let c = ElemDbl.diagnose(json: Array(#"{"xs": [true]}"#.utf8))
+        #expect(c.issues.first?.path == [.key("xs"), .index(0)], "\(c.issues.map(\.path))")
+    }
+
+    /// A plain scalar field must be unchanged — no stray `.index` on something that is not
+    /// an element. This is the regression the defaulted parameter could most easily cause.
+    @Test("a non-element field still reports just its key")
+    func plainFieldUnchanged() {
+        let d = ElemStr.diagnose(json: Array(#"{"xs": 5}"#.utf8))
+        #expect(d.issues.first?.path == [.key("xs")], "\(d.issues.map(\.path))")
     }
 
     @Test("an empty blob is a blob")

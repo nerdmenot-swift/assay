@@ -27,80 +27,88 @@ extension AssayReader {
     @inlinable
     public mutating func decodeString(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        , _ element: Int = -1
     ) -> String? {
         beginValue()
         if let s = scanString() { return s }
-        failed(&sink, path, key, "string")
+        failed(&sink, path, key, "string", element)
         return nil
     }
 
     @inlinable
     public mutating func decodeInt(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        , _ element: Int = -1
     ) -> Int? {
         beginValue()
         if let v = scanInt64(), let n = Int(exactly: v) { return n }
-        failed(&sink, path, key, "integer")
+        failed(&sink, path, key, "integer", element)
         return nil
     }
 
     @inlinable
     public mutating func decodeInt64(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        , _ element: Int = -1
     ) -> Int64? {
         beginValue()
         if let v = scanInt64() { return v }
-        failed(&sink, path, key, "integer")
+        failed(&sink, path, key, "integer", element)
         return nil
     }
 
     @inlinable
     public mutating func decodeInt32(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        , _ element: Int = -1
     ) -> Int32? {
         beginValue()
         if let v = scanInt64(), let n = Int32(exactly: v) { return n }
-        failed(&sink, path, key, "integer")
+        failed(&sink, path, key, "integer", element)
         return nil
     }
 
     @inlinable
     public mutating func decodeUInt(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        , _ element: Int = -1
     ) -> UInt? {
         beginValue()
         if let v = scanInt64(), let n = UInt(exactly: v) { return n }
-        failed(&sink, path, key, "unsigned integer")
+        failed(&sink, path, key, "unsigned integer", element)
         return nil
     }
 
     @inlinable
     public mutating func decodeDouble(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        , _ element: Int = -1
     ) -> Double? {
         beginValue()
         if let v = scanDouble() { return v }
-        failed(&sink, path, key, "number")
+        failed(&sink, path, key, "number", element)
         return nil
     }
 
     @inlinable
     public mutating func decodeFloat(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        , _ element: Int = -1
     ) -> Float? {
         beginValue()
         if let v = scanDouble() { return Float(v) }
-        failed(&sink, path, key, "number")
+        failed(&sink, path, key, "number", element)
         return nil
     }
 
     @inlinable
     public mutating func decodeBool(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        , _ element: Int = -1
     ) -> Bool? {
         beginValue()
         if let v = scanBool() { return v }
-        failed(&sink, path, key, "boolean")
+        failed(&sink, path, key, "boolean", element)
         return nil
     }
 
@@ -115,15 +123,28 @@ extension AssayReader {
     /// Cold. Never inlined into the field loop.
     @inline(never)
     @usableFromInline
+    /// - Parameter element: the index of the failing element when this value is inside an
+    ///   array, or `-1` when it is a plain field. Passed as a scalar and consumed HERE,
+    ///   inside a cold `@inline(never)` function, so the hot path carries one extra
+    ///   register-passed `Int` and allocates nothing. An `[Int32]` element that does not fit
+    ///   used to report `[.key("xs")]` and name no element at all.
+    ///
+    ///   Deliberately NOT the empty-`StaticString` sentinel the rule engine uses for the
+    ///   same purpose: the XML projection stores an `@XML(.text)` field under a reserved
+    ///   EMPTY key, so a sentinel spelled that way has a real collision waiting in it.
     mutating func failed(
         _ sink: inout IssueSink,
         _ path: [PathComponent],
         _ key: StaticString,
-        _ expected: String
+        _ expected: String,
+        _ element: Int = -1
     ) {
+        var p = path
+        p.append(.key(String(describing: key)))
+        if element >= 0 { p.append(.index(element)) }
         sink.add(Issue(
             code: .typeMismatch,
-            path: path + [.key(String(describing: key))],
+            path: p,
             params: ["expected": .string(expected)],
             received: describeCurrentValue(),
             location: SourceSpan(lo: cursor, len: 1)))
@@ -417,10 +438,11 @@ extension AssayReader {
     @inlinable
     public mutating func decodeInt8(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        , _ element: Int = -1
     ) -> Int8? {
         beginValue()
         if let v = scanInt64(), let n = Int8(exactly: v) { return n }
-        failed(&sink, path, key, "integer")
+        failed(&sink, path, key, "integer", element)
         return nil
     }
 
@@ -450,10 +472,11 @@ extension AssayReader {
     @inlinable
     public mutating func decodeInt16(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        , _ element: Int = -1
     ) -> Int16? {
         beginValue()
         if let v = scanInt64(), let n = Int16(exactly: v) { return n }
-        failed(&sink, path, key, "integer")
+        failed(&sink, path, key, "integer", element)
         return nil
     }
 
@@ -483,10 +506,11 @@ extension AssayReader {
     @inlinable
     public mutating func decodeUInt8(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        , _ element: Int = -1
     ) -> UInt8? {
         beginValue()
         if let v = scanInt64(), let n = UInt8(exactly: v) { return n }
-        failed(&sink, path, key, "unsigned integer")
+        failed(&sink, path, key, "unsigned integer", element)
         return nil
     }
 
@@ -516,10 +540,11 @@ extension AssayReader {
     @inlinable
     public mutating func decodeUInt16(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        , _ element: Int = -1
     ) -> UInt16? {
         beginValue()
         if let v = scanInt64(), let n = UInt16(exactly: v) { return n }
-        failed(&sink, path, key, "unsigned integer")
+        failed(&sink, path, key, "unsigned integer", element)
         return nil
     }
 
@@ -549,10 +574,11 @@ extension AssayReader {
     @inlinable
     public mutating func decodeUInt32(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        , _ element: Int = -1
     ) -> UInt32? {
         beginValue()
         if let v = scanInt64(), let n = UInt32(exactly: v) { return n }
-        failed(&sink, path, key, "unsigned integer")
+        failed(&sink, path, key, "unsigned integer", element)
         return nil
     }
 
@@ -582,10 +608,11 @@ extension AssayReader {
     @inlinable
     public mutating func decodeUInt64(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        , _ element: Int = -1
     ) -> UInt64? {
         beginValue()
         if let v = scanInt64(), let n = UInt64(exactly: v) { return n }
-        failed(&sink, path, key, "unsigned integer")
+        failed(&sink, path, key, "unsigned integer", element)
         return nil
     }
 

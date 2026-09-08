@@ -123,23 +123,7 @@ extension SchemaMacro {
         var indexOf: [String: Int] = [:]
         for (i, f) in fields.enumerated() { indexOf[f.identifier] = i }
 
-        var args: [String] = []
-        for f in (ordered ?? fields) {
-            if f.isExtras {
-                args.append("\(f.identifier): __extras")
-            } else if let i = indexOf[f.identifier] {
-                let raw = f.isOptional ? "__f\(i)" : "__v\(i)"
-                if f.transform != nil {
-                    // Transform runs last, after validation — EXPERIENCE §11's ordering.
-                    let applied = f.isOptional
-                        ? "\(raw).map(Self.__assayTransform_\(i))"
-                        : "Self.__assayTransform_\(i)(\(raw))"
-                    args.append("\(f.identifier): \(applied)")
-                } else {
-                    args.append("\(f.identifier): \(raw)")
-                }
-            }
-        }
+        let args = Self.constructionArgs(fields: fields, ordered: ordered, indexOf: indexOf)
 
         var unwraps = ""
         for (i, f) in fields.enumerated() where !f.isOptional {
@@ -688,6 +672,51 @@ extension SchemaMacro {
             """
         }
         return out
+    }
+
+    /// The memberwise-init argument list, shared by the JSON and `RawValue` bodies.
+    ///
+    /// Extracted when `@Inline` landed. The two construction blocks were near-identical
+    /// copies, and adding group reconstruction to one and not the other is precisely the
+    /// drift that produces a feature working on JSON and silently not on YAML -- which is
+    /// what happened on the first run of the multi-format test.
+    ///
+    /// `@Inline` groups reconstruct HERE and nowhere else. The fields decoded from the OUTER
+    /// key namespace, so the dispatch table, the presence mask and the known-key set all saw
+    /// flat fields -- which is exactly why unknown-key handling works through an inline and
+    /// serde's runtime `flatten` cannot manage it. Only the initialiser needs the nested
+    /// value put back together.
+    static func constructionArgs(
+        fields: [SchemaField], ordered: [SchemaField]?, indexOf: [String: Int]
+    ) -> [String] {
+        var emittedInlineGroups: Set<String> = []
+        var args: [String] = []
+        for f in (ordered ?? fields) {
+            if let owner = f.inlineOwner {
+                guard emittedInlineGroups.insert(owner.identifier).inserted else { continue }
+                let members = fields.filter { $0.inlineOwner?.identifier == owner.identifier }
+                let inner = members.compactMap { m -> String? in
+                    guard let j = indexOf[m.identifier] else { return nil }
+                    return "\(m.identifier): \(m.isOptional ? "__f\(j)" : "__v\(j)")"
+                }
+                args.append("\(owner.identifier): \(owner.typeName)"
+                            + "(\(inner.joined(separator: ", ")))")
+            } else if f.isExtras {
+                args.append("\(f.identifier): __extras")
+            } else if let i = indexOf[f.identifier] {
+                let raw = f.isOptional ? "__f\(i)" : "__v\(i)"
+                if f.transform != nil {
+                    // Transform runs last, after validation — EXPERIENCE §11's ordering.
+                    let applied = f.isOptional
+                        ? "\(raw).map(Self.__assayTransform_\(i))"
+                        : "Self.__assayTransform_\(i)(\(raw))"
+                    args.append("\(f.identifier): \(applied)")
+                } else {
+                    args.append("\(f.identifier): \(raw)")
+                }
+            }
+        }
+        return args
     }
 
     static func stripOptional(_ t: String) -> String {

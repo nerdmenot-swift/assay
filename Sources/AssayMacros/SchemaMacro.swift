@@ -62,6 +62,10 @@ struct SchemaField {
     var xmlPlacement: String?
     /// `@OneOrMany` — accept a single value where an array is declared.
     var oneOrMany: Bool = false
+    /// Set on every field spliced in by `@Inline`: the property to reconstruct and the type
+    /// to reconstruct it as. The fields decode from the OUTER key namespace; construction
+    /// gathers them back into one nested value.
+    var inlineOwner: (identifier: String, typeName: String)?
     /// `@Inverse({ ... })` — the encode-direction closure paired with `@Transform`.
     /// docs/ENCODING.md question 3: a transform with no inverse is lossy by arithmetic,
     /// so the type simply cannot be encoded and the macro says so at expansion.
@@ -156,11 +160,51 @@ public struct SchemaMacro: ExtensionMacro {
         let keyStyle = Self.keyStyle(from: node)
         let typeName = type.trimmedDescription
 
+        // Nested type declarations, by name. `@Inline` reads members out of these -- which
+        // is the whole reason it requires the type to be nested. See the macro's doc comment.
+        var nestedTypes: [String: StructDeclSyntax] = [:]
+        for member in structDecl.memberBlock.members {
+            if let nested = member.decl.as(StructDeclSyntax.self) {
+                nestedTypes[nested.name.text] = nested
+            }
+        }
+
         var fields: [SchemaField] = []
         for member in structDecl.memberBlock.members {
             guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
+            let isInline = varDecl.attributes.compactMap { $0.as(AttributeSyntax.self) }
+                .contains { $0.attributeName.trimmedDescription == "Inline" }
             for f in try Self.fields(from: varDecl, keyStyle: keyStyle, context: context) {
-                fields.append(f)
+                guard isInline else { fields.append(f); continue }
+
+                let base = Self.stripOptional(f.typeName)
+                guard let nested = nestedTypes[base] else {
+                    context.diagnose(Diagnostic(node: Syntax(varDecl), message: SimpleDiagnostic(
+                        "@Inline requires '\(base)' to be declared inside '\(typeName)'. A "
+                        + "macro receives only the syntax of the declaration it is attached "
+                        + "to, so it cannot see another type's members -- in any module, "
+                        + "including this one -- and a key collision between the two could "
+                        + "not be detected. Nest the type, or declare its fields directly.")))
+                    return []
+                }
+                guard !f.isOptional else {
+                    context.diagnose(Diagnostic(node: Syntax(varDecl), message: SimpleDiagnostic(
+                        "@Inline cannot be optional. Its keys are read from this level, so "
+                        + "'all absent' and 'some absent' are indistinguishable and there is "
+                        + "no honest answer for which one means nil.")))
+                    return []
+                }
+                // Flatten. The nested fields keep their own `@Key` renames and rules; only
+                // their namespace changes, which is what makes collision detection fall out
+                // of the duplicate-key check that already runs below.
+                for nestedMember in nested.memberBlock.members {
+                    guard let nv = nestedMember.decl.as(VariableDeclSyntax.self) else { continue }
+                    for var inner in try Self.fields(from: nv, keyStyle: keyStyle,
+                                                     context: context) {
+                        inner.inlineOwner = (f.identifier, base)
+                        fields.append(inner)
+                    }
+                }
             }
         }
 

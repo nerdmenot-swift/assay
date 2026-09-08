@@ -112,22 +112,7 @@ extension SchemaMacro {
 
         var indexOf: [String: Int] = [:]
         for (i, f) in fields.enumerated() { indexOf[f.identifier] = i }
-        var args: [String] = []
-        for f in (ordered ?? fields) {
-            if f.isExtras {
-                args.append("\(f.identifier): __extras")
-            } else if let i = indexOf[f.identifier] {
-                let raw = f.isOptional ? "__f\(i)" : "__v\(i)"
-                if f.transform != nil {
-                    let applied = f.isOptional
-                        ? "\(raw).map(Self.__assayTransform_\(i))"
-                        : "Self.__assayTransform_\(i)(\(raw))"
-                    args.append("\(f.identifier): \(applied)")
-                } else {
-                    args.append("\(f.identifier): \(raw)")
-                }
-            }
-        }
+        let args = Self.constructionArgs(fields: fields, ordered: ordered, indexOf: indexOf)
         var unwraps = ""
         for (i, f) in fields.enumerated() where !f.isOptional {
             unwraps += "        guard let __v\(i) = __f\(i) else { return nil }\n"

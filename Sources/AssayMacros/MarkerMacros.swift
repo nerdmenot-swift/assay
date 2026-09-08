@@ -150,3 +150,13 @@ public struct OneOrManyMacro: PeerMacro {
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] { [] }
 }
+
+/// `@Inline` — a marker. `SchemaMacro` reads it off the field and splices the nested type's
+/// members into the outer key namespace.
+public struct InlineMacro: PeerMacro {
+    public static func expansion(
+        of node: AttributeSyntax,
+        providingPeersOf declaration: some DeclSyntaxProtocol,
+        in context: some MacroExpansionContext
+    ) throws -> [DeclSyntax] { [] }
+}

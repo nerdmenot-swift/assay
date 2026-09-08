@@ -175,6 +175,39 @@ public enum XMLPlacement: Sendable {
     case wrapped
 }
 
+/// Read a nested type's keys from THIS level. `EXPERIENCE.md` §4.
+///
+/// ```swift
+/// @Schema
+/// struct Response {
+///     struct Pagination { var page: Int; @Key("per_page") var perPage: Int }
+///     @Inline var page: Pagination
+///     var items: [Item]
+/// }
+/// ```
+///
+/// serde's `flatten`, except that the keys are known at compile time — so unknown-key
+/// handling works correctly through the inline, which serde's runtime version cannot do,
+/// and the runtime cost is zero: one dispatch table, one presence mask, one pass.
+///
+/// **The inlined type must be declared in the body of the `@Schema` type**, and that
+/// restriction is what makes the feature possible rather than a limitation bolted onto it.
+/// Two structs sharing one key namespace can collide, and a compile-time error is the right
+/// answer — but an attached macro receives the syntax of the declaration it is attached to
+/// and *nothing else*. It cannot see another type's members in **any** module, including one
+/// declared three lines above: there is no lexical peer access and no compile-time string
+/// evaluation with which to compare two key sets.
+///
+/// `ROADMAP.md` §3 recorded the blocker as cross-module detection cost. That was the wrong
+/// diagnosis — there is no module in which it works — and correcting it is what produced
+/// this spelling. A nested type's members *are* visible, so collision detection here is
+/// total and at expansion, with no asymmetry to be silent about.
+///
+/// A `@Inline` naming a type that is not nested gets a diagnostic saying so.
+@attached(peer)
+public macro Inline() =
+    #externalMacro(module: "AssayMacros", type: "InlineMacro")
+
 /// Accept a single value where an array is declared. `EXPERIENCE.md` §9.
 ///
 /// ```swift

@@ -29,9 +29,16 @@ extension SchemaMacro {
         policy: String = "ignore",
         ordered: [SchemaField]? = nil,
         validation: String = "",
-        checks: String = ""
+        checks: String = "",
+        /// The `@Schema(context:)` type name, or `""` when none was declared. Empty is the
+        /// overwhelming case and must emit BYTE-IDENTICAL code to before, or every existing
+        /// type pays for a feature it does not use.
+        ctx: String = ""
     ) -> String {
         var out = ""
+        // `, context: <T>` on the signature when a context was declared. `ctx` is the
+        // matching ARGUMENT text for nested calls; they are always both set or both empty.
+        let ctxParam = ctx.isEmpty ? "" : ",\n            context: \(ctx)"
 
         // The known-key list, for did-you-mean. Emitted ONLY for the policies that need
         // it — docs/COMPILE-TIME.md §3 rule 1: never emit code a schema will not use, and
@@ -101,8 +108,8 @@ extension SchemaMacro {
 
         // Dispatch.
         let unknown = unknownArm(policy: policy, extras: extras)
-        let dispatch = plan.map { windowDispatch(fields: fields, plan: $0, unknown: unknown) }
-            ?? lengthBucketDispatch(fields: fields, unknown: unknown)
+        let dispatch = plan.map { windowDispatch(fields: fields, plan: $0, unknown: unknown, ctx: ctx) }
+            ?? lengthBucketDispatch(fields: fields, unknown: unknown, ctx: ctx)
 
         // Missing-required reporting, walked only when the mask says something is absent.
         var missing = ""
@@ -147,7 +154,7 @@ extension SchemaMacro {
         nonisolated public static func _assay(
             from reader: inout Assay.AssayReader,
             into sink: inout Assay.IssueSink,
-            at path: [Assay.PathComponent]
+            at path: [Assay.PathComponent]\(ctxParam)
         ) -> \(typeName)? {
             guard reader.tryConsume(0x7B) else {
                 reader.reportTypeMismatch(&sink, path, expected: "object")
@@ -247,7 +254,8 @@ extension SchemaMacro {
     // MARK: Dispatch shapes
 
     static func windowDispatch(fields: [SchemaField], plan: WindowPlan,
-                               unknown: String = "_ = reader.skipValue(&sink)") -> String {
+                               unknown: String = "_ = reader.skipValue(&sink)",
+                             ctx: String = "") -> String {
         var arms = ""
         for (i, f) in fields.enumerated() {
             let keys = [f.wireKey] + f.aliases
@@ -257,7 +265,7 @@ extension SchemaMacro {
                             case \(i):
                                 if \(cond) {
                                     __presence |= \(1 << UInt64(i))
-            \(decodeStatement(field: f, index: i, indent: 24))
+            \(decodeStatement(field: f, index: i, indent: 24, ctx: ctx))
                                 } else {
                                     \(unknown)
                                 }
@@ -280,7 +288,8 @@ extension SchemaMacro {
     /// then compare within the bucket. Length bucketing separates `created_at` from
     /// `created_at_ms` for free.
     static func lengthBucketDispatch(fields: [SchemaField],
-                                     unknown: String = "_ = reader.skipValue(&sink)") -> String {
+                                     unknown: String = "_ = reader.skipValue(&sink)",
+                             ctx: String = "") -> String {
         var byLength: [Int: [(Int, SchemaField, String)]] = [:]
         for (i, f) in fields.enumerated() {
             for key in [f.wireKey] + f.aliases {
@@ -294,7 +303,7 @@ extension SchemaMacro {
                 checks += """
                                     if reader.keyMatches(__key, "\(key)") {
                                         __presence |= \(1 << UInt64(i))
-                \(decodeStatement(field: f, index: i, indent: 24))
+                \(decodeStatement(field: f, index: i, indent: 24, ctx: ctx))
                                     } else
                 """
             }
@@ -319,7 +328,9 @@ extension SchemaMacro {
     /// One line per scalar field. Body size is what dominates @Schema's compile cost
     /// (~9ms per field measured, against ~9ms fixed per type), so null handling lives in
     /// the runtime rather than in an `if/else` wrapper emitted per field.
-    static func decodeStatement(field f: SchemaField, index i: Int, indent: Int) -> String {
+    static func decodeStatement(field f: SchemaField, index i: Int, indent: Int,
+                             ctx: String = "") -> String {
+        let ctxArg = ctx.isEmpty ? "" : ", context: context"
         let pad = String(repeating: " ", count: indent)
         let base = f.decodedType
         let key = f.wireKey
@@ -328,13 +339,13 @@ extension SchemaMacro {
             return arrayDecode(element: element, index: i, key: key,
                                optional: f.isOptional, pad: pad,
                                oneOrMany: f.oneOrMany,
-                               dateFormatsRef: dateFormatsRef(f, i))
+                               dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)
         }
 
         if let value = dictionaryValue(base) {
             return dictDecode(value: value, index: i, key: key,
                               optional: f.isOptional, pad: pad,
-                              dateFormatsRef: dateFormatsRef(f, i))
+                              dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)
         }
 
         // Fields carrying @Validate capture their value's span right after the decode,
@@ -419,7 +430,7 @@ extension SchemaMacro {
                     : "reader.nullNotAllowed(&sink, path, \"\(key)\", \"\(base)\")")
         \(pad)} else {
         \(pad)    __f\(i) = \(base)._assay(
-        \(pad)        from: &reader, into: &sink, at: path + [.key("\(key)")])
+        \(pad)        from: &reader, into: &sink, at: path + [.key("\(key)")]\(ctxArg))
         \(pad)}
         """
     }
@@ -436,7 +447,9 @@ extension SchemaMacro {
                             optional: Bool, pad: String,
                             slot: String? = nil, depth: Int = 0,
                             oneOrMany: Bool = false,
-                            dateFormatsRef: String = "Assay.DateFormat.defaultFormats") -> String {
+                            dateFormatsRef: String = "Assay.DateFormat.defaultFormats",
+                             ctx: String = "") -> String {
+        let ctxArg = ctx.isEmpty ? "" : ", context: context"
         let target = slot ?? "__f\(i)"
         let arr = "__arr\(i)_\(depth)"
         let elt = "__e\(i)_\(depth)"
@@ -469,7 +482,7 @@ extension SchemaMacro {
             \(pad)        var \(elt): [\(sub)]? = nil
             \(arrayDecode(element: sub, index: i, key: key, optional: false,
                           pad: pad + "        ", slot: elt, depth: depth + 1,
-                          dateFormatsRef: dateFormatsRef))
+                          dateFormatsRef: dateFormatsRef, ctx: ctx))
             \(pad)        guard let \(elt) = \(elt) else { break }
 
             """
@@ -479,7 +492,7 @@ extension SchemaMacro {
             \(pad)        var \(elt): [String: \(sub)]? = nil
             \(dictDecode(value: sub, index: i, key: key, optional: false,
                          pad: pad + "        ", slot: elt, depth: depth + 1,
-                         dateFormatsRef: dateFormatsRef))
+                         dateFormatsRef: dateFormatsRef, ctx: ctx))
             \(pad)        guard let \(elt) = \(elt) else { break }
 
             """
@@ -487,7 +500,7 @@ extension SchemaMacro {
             inner = """
             \(pad)        guard let \(elt) = \(element)._assay(
             \(pad)            from: &reader, into: &sink,
-            \(pad)            at: path + [.key("\(key)"), .index(\(arr).count)]) else { break }
+            \(pad)            at: path + [.key("\(key)"), .index(\(arr).count)]\(ctxArg)) else { break }
 
             """
         }
@@ -533,7 +546,9 @@ extension SchemaMacro {
     static func dictDecode(value: String, index i: Int, key: String,
                            optional: Bool, pad: String,
                            slot: String? = nil, depth: Int = 0,
-                           dateFormatsRef: String = "Assay.DateFormat.defaultFormats") -> String {
+                           dateFormatsRef: String = "Assay.DateFormat.defaultFormats",
+                             ctx: String = "") -> String {
+        let ctxArg = ctx.isEmpty ? "" : ", context: context"
         let target = slot ?? "__f\(i)"
         let dict = "__dd\(i)_\(depth)"
         let kTok = "__dk\(i)_\(depth)"
@@ -549,7 +564,7 @@ extension SchemaMacro {
             \(pad)            var \(elt): [\(sub)]? = nil
             \(arrayDecode(element: sub, index: i, key: key, optional: false,
                           pad: pad + "            ", slot: elt, depth: depth + 1,
-                          dateFormatsRef: dateFormatsRef))
+                          dateFormatsRef: dateFormatsRef, ctx: ctx))
             \(pad)            guard let \(elt) = \(elt) else { break }
 
             """
@@ -558,7 +573,7 @@ extension SchemaMacro {
             \(pad)            var \(elt): [String: \(sub)]? = nil
             \(dictDecode(value: sub, index: i, key: key, optional: false,
                          pad: pad + "            ", slot: elt, depth: depth + 1,
-                         dateFormatsRef: dateFormatsRef))
+                         dateFormatsRef: dateFormatsRef, ctx: ctx))
             \(pad)            guard let \(elt) = \(elt) else { break }
 
             """
@@ -575,7 +590,7 @@ extension SchemaMacro {
             inner = """
             \(pad)            guard let \(elt) = \(value)._assay(
             \(pad)                from: &reader, into: &sink,
-            \(pad)                at: path + [.key("\(key)")]) else { break }
+            \(pad)                at: path + [.key("\(key)")]\(ctxArg)) else { break }
 
             """
         }

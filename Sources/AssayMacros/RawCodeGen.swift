@@ -32,8 +32,11 @@ extension SchemaMacro {
         ordered: [SchemaField]?,
         emitKnownKeys: Bool = false,
         validation: String = "",
-        checks: String = ""
+        checks: String = "",
+        /// The `@Schema(context:)` type name, or `""`. See `CodeGen.decodeBody`.
+        ctx: String = ""
     ) -> String {
+        let ctxParam = ctx.isEmpty ? "" : ",\n            context: \(ctx)"
 
         var prefix = ""
         if emitKnownKeys, policy == "warn" || policy == "reject" {
@@ -88,7 +91,7 @@ extension SchemaMacro {
                 if f.needsSpan {
                     checks += "                    __sp\(i) = __m.span\n"
                 }
-                checks += "                    \(rawDecodeStatement(field: f, index: i))\n"
+                checks += "                    \(rawDecodeStatement(field: f, index: i, ctx: ctx))\n"
                 checks += "                }"
                 first = false
             }
@@ -122,7 +125,7 @@ extension SchemaMacro {
         nonisolated public static func _assay(
             from raw: Assay.RawValue,
             into sink: inout Assay.IssueSink,
-            at path: [Assay.PathComponent]
+            at path: [Assay.PathComponent]\(ctxParam)
         ) -> \(typeName)? {
             guard case .mapping(let __members) = raw else {
                 Assay.RawValue.notAnObject(&sink, path, raw)
@@ -172,7 +175,9 @@ extension SchemaMacro {
     }
 
     /// One line per field, mirroring the JSON body's discipline.
-    static func rawDecodeStatement(field f: SchemaField, index i: Int) -> String {
+    static func rawDecodeStatement(field f: SchemaField, index i: Int,
+                                   ctx: String = "") -> String {
+        let ctxArg = ctx.isEmpty ? "" : ", context: context"
         let base = f.decodedType
         let key = f.wireKey
 
@@ -220,9 +225,9 @@ extension SchemaMacro {
         if let element = arrayElement(base) {
             let elementExpr = rawElementExpr(element, "__ev\(i)", key: key,
                                              coerce: f.coerce,
-                                             dateFormatsRef: dateFormatsRef(f, i))
+                                             dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)
             let seqExpr = rawElementExpr(base, "__v", key: key, coerce: f.coerce,
-                                         dateFormatsRef: dateFormatsRef(f, i))
+                                         dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)
             if f.xmlPlacement == "wrapped" {
                 return """
                 if let __r = \(seqExpr) {
@@ -264,7 +269,7 @@ extension SchemaMacro {
         if dictionaryValue(base) != nil {
             return """
             if let __r = \(rawElementExpr(base, "__v", key: key, coerce: f.coerce,
-                                          dateFormatsRef: dateFormatsRef(f, i))) {
+                                          dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)) {
                                 __f\(i) = __r
                             } else if __v.isNull {
                                 \(f.isOptional
@@ -295,7 +300,7 @@ extension SchemaMacro {
                                 : "Assay.RawValue.mismatchPublic(&sink, path, \"\(key)\", \"\(base)\", __v)")
                         } else {
                             __f\(i) = \(base)._assay(from: __v, into: &sink,
-                                                     at: path + [.key("\(key)")])
+                                                     at: path + [.key("\(key)")]\(ctxArg))
                         }
         """
     }
@@ -308,12 +313,13 @@ extension SchemaMacro {
     /// enforced exclusivity, not a box — the constraint from PERFORMANCE.md §7 holds.
     static func rawElementExpr(
         _ type: String, _ v: String, key: String, coerce: Bool, depth: Int = 0,
-        dateFormatsRef: String = "Assay.DateFormat.defaultFormats"
+        dateFormatsRef: String = "Assay.DateFormat.defaultFormats", ctx: String = ""
     ) -> String {
+        let ctxArg = ctx.isEmpty ? "" : ", context: context"
         if let element = arrayElement(type) {
             let inner = "__e\(depth)"
             return """
-            \(v).sequence.map { $0.compactMap { \(inner) in \(rawElementExpr(element, inner, key: key, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef)) } }
+            \(v).sequence.map { $0.compactMap { \(inner) in \(rawElementExpr(element, inner, key: key, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef, ctx: ctx)) } }
             """.trimmingWhitespace()
         }
         if let value = dictionaryValue(type) {
@@ -324,7 +330,7 @@ extension SchemaMacro {
             \(v).mapping.map { (__ms\(depth): [Assay.RawValue.Member]) -> [String: \(value)] in
                                     var \(d): [String: \(value)] = [:]
                                     for \(m) in __ms\(depth) {
-                                        if let \(x) = \(rawElementExpr(value, "\(m).value", key: key, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef)) { \(d)[\(m).key] = \(x) }
+                                        if let \(x) = \(rawElementExpr(value, "\(m).value", key: key, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef, ctx: ctx)) { \(d)[\(m).key] = \(x) }
                                     }
                                     return \(d)
                                 }
@@ -340,7 +346,7 @@ extension SchemaMacro {
             // The raw path IS RawValue: an open-map value is the member itself.
             return "Optional(\(v))"
         }
-        return "\(type)._assay(from: \(v), into: &sink, at: path + [.key(\"\(key)\")])"
+        return "\(type)._assay(from: \(v), into: &sink, at: path + [.key(\"\(key)\")]\(ctxArg))"
     }
 
     /// `span` is the expression naming this field's captured span, or nil for a position

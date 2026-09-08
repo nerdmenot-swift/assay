@@ -87,8 +87,16 @@ extension SchemaMacro {
         _ typeName: String,
         _ checks: [CheckDecl],
         _ fields: [SchemaField],
-        spans: Bool
+        spans: Bool,
+        /// `@Schema(context:)`. When declared, EVERY check takes the context as its second
+        /// parameter — `f(_ v: T, _ ctx: C, _ issues: inout Issues<T>)` for the cross-field
+        /// form, `f(_ x: FieldType, _ ctx: C) -> String?` for the field form. Uniform, so
+        /// there is one rule to remember rather than a per-check opt-in the macro could not
+        /// see anyway: it reads a token, not a signature. Getting it wrong is an ordinary
+        /// "cannot convert" at the call site, which names both the expected and the actual.
+        ctx: String = ""
     ) -> String {
+        let ctxArg = ctx.isEmpty ? "" : ", context"
         let sync = checks.filter { !$0.isAsync }
         guard !sync.isEmpty else { return "" }
 
@@ -104,7 +112,7 @@ extension SchemaMacro {
                 let spanExpr = (span && idx != nil && fields[idx!].needsSpan)
                     ? "__sp\(idx!)" : "nil"
                 out += """
-                    if let __m = Self.\(check.functionName)(__result.\(field)) {
+                    if let __m = Self.\(check.functionName)(__result.\(field)\(ctxArg)) {
                         sink.add(Assay.Issue(code: .custom(__m),
                                              path: path + [.key("\(wire)")],
                                              location: \(spanExpr)))
@@ -115,7 +123,7 @@ extension SchemaMacro {
                 // Cross-field form: static func f(_ v: T, _ issues: inout Issues<T>)
                 out += """
                     var __ck_\(check.functionName) = Assay.Issues<\(typeName)>(names: Self.__assayFieldNames)
-                    Self.\(check.functionName)(__result, &__ck_\(check.functionName))
+                    Self.\(check.functionName)(__result\(ctxArg), &__ck_\(check.functionName))
                     __ck_\(check.functionName).merge(into: &sink, at: path)
 
                 """
@@ -127,7 +135,10 @@ extension SchemaMacro {
     /// The async-check runner, emitted only when @AsyncCheck members exist. Sync work
     /// runs first and collects everything; async checks run only if the sync pass was
     /// clean, and then concurrently (EXPERIENCE.md §10's ordering, stated precisely).
-    static func asyncCheckRunner(_ typeName: String, _ checks: [CheckDecl]) -> String {
+    static func asyncCheckRunner(_ typeName: String, _ checks: [CheckDecl],
+                                ctx: String = "") -> String {
+        let ctxParam = ctx.isEmpty ? "" : ",\n            context: \(ctx)"
+        let ctxArg = ctx.isEmpty ? "" : ", context"
         let asyncs = checks.filter(\.isAsync)
         guard !asyncs.isEmpty else { return "" }
 
@@ -135,7 +146,7 @@ extension SchemaMacro {
             """
                     group.addTask {
                         var __i = Assay.Issues<\(typeName)>(names: Self.__assayFieldNames)
-                        await Self.\(check.functionName)(__value, &__i)
+                        await Self.\(check.functionName)(__value\(ctxArg), &__i)
                         return __i
                     }
             """
@@ -146,7 +157,7 @@ extension SchemaMacro {
 
         nonisolated public static func _assayAsyncChecks(
             _ __value: \(typeName),
-            at path: [Assay.PathComponent]
+            at path: [Assay.PathComponent]\(ctxParam)
         ) async -> [Assay.Issue] {
             await withTaskGroup(of: Assay.Issues<\(typeName)>.self) { group in
         \(tasks)

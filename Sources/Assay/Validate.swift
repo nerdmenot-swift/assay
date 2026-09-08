@@ -64,6 +64,13 @@ public protocol Validatable: Sendable {
         _ value: Self, into sink: inout IssueSink, at path: [PathComponent])
 }
 
+/// The contextual counterpart, for `@Schema(context:)`. See `ContextualJSONAssayable`.
+public protocol ContextualValidatable: ContextualAssayable {
+    nonisolated static func _assayCheck(
+        _ value: Self, into sink: inout IssueSink, at path: [PathComponent],
+        context: AssayContext)
+}
+
 /// Everything a validation pass found.
 ///
 /// Deliberately not `Diagnosis`: there is no `value` (you already have it) and no source

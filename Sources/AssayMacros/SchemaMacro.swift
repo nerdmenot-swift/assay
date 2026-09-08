@@ -214,6 +214,7 @@ public struct SchemaMacro: ExtensionMacro {
         let xmlRootName = Self.xmlRoot(from: declaration)
         let coerceAll = Self.coerceScalars(from: node)
         let formats = Self.formats(from: node)
+        let ctxType = Self.contextType(from: node)
 
         // @Extras is a sink, not a field: it never enters the dispatch table, the
         // candidate key set, or the presence mask — but it is still passed to the
@@ -298,7 +299,15 @@ public struct SchemaMacro: ExtensionMacro {
             return []
         }
 
-        var body = Self.ruleArrays(activeS)
+        // Spelled out rather than left to associated-type inference. Inference across a
+        // protocol refinement stops working the moment a type conforms to two of the
+        // contextual protocols, and its failure mode is a wall of "does not conform".
+        var body = ctxType.isEmpty ? "" : """
+        public typealias AssayContext = \(ctxType)
+
+
+        """
+        body += Self.ruleArrays(activeS)
         body += Self.dateFormatArrays(activeS)
         body += Self.preprocessArrays(activeS)
         body += Self.transformClosures(activeS)
@@ -310,7 +319,8 @@ public struct SchemaMacro: ExtensionMacro {
                                     extras: extras, policy: policy, ordered: ordered,
                                     validation: Self.postDecodeSection(activeS, spans: true),
                                     checks: Self.checkCalls(typeName, checkDecls, activeS,
-                                                            spans: true))
+                                                            spans: true, ctx: ctxType),
+                                    ctx: ctxType)
         }
         if formats.raw {
             if !body.isEmpty { body += "\n\n" }
@@ -323,7 +333,8 @@ public struct SchemaMacro: ExtensionMacro {
                                        emitKnownKeys: !formats.json,
                                        validation: Self.postDecodeSection(activeS, spans: true),
                                        checks: Self.checkCalls(typeName, checkDecls, activeS,
-                                                               spans: true))
+                                                               spans: true, ctx: ctxType),
+                                       ctx: ctxType)
         }
         if wantsEncoding {
             for message in Self.encodeDiagnostics(activeS) {
@@ -376,9 +387,9 @@ public struct SchemaMacro: ExtensionMacro {
         if Self.hasValidation(activeS, checkDecls) {
             if !body.isEmpty { body += "\n\n" }
             body += Self.validateBody(typeName: typeName, fields: activeS,
-                                      checks: checkDecls)
+                                      checks: checkDecls, ctx: ctxType)
         }
-        body += Self.asyncCheckRunner(typeName, checkDecls)
+        body += Self.asyncCheckRunner(typeName, checkDecls, ctx: ctxType)
 
         // A type that would expand to NOTHING AT ALL is always a mistake, and it is the
         // only reason `formats: []` needs guarding — said here, where the diagnostic can
@@ -413,13 +424,21 @@ public struct SchemaMacro: ExtensionMacro {
         }
 
         var conformances: [String] = []
-        if formats.json { conformances.append("Assay.JSONAssayable") }
-        if formats.raw { conformances.append("Assay.RawDecodable") }
+        if formats.json {
+            conformances.append(ctxType.isEmpty
+                ? "Assay.JSONAssayable" : "Assay.ContextualJSONAssayable")
+        }
+        if formats.raw {
+            conformances.append(ctxType.isEmpty
+                ? "Assay.RawDecodable" : "Assay.ContextualRawDecodable")
+        }
         if Self.hasValidation(activeS, checkDecls) {
-            conformances.append("Assay.Validatable")
+            conformances.append(ctxType.isEmpty
+                ? "Assay.Validatable" : "Assay.ContextualValidatable")
         }
         if checkDecls.contains(where: \.isAsync) {
-            conformances.append("Assay.AsyncCheckAssayable")
+            conformances.append(ctxType.isEmpty
+                ? "Assay.AsyncCheckAssayable" : "Assay.ContextualAsyncCheckAssayable")
         }
         if wantsEncoding && formats.json { conformances.append("Assay.JSONEncodableSchema") }
         if wantsEncoding && formats.raw { conformances.append("Assay.RawEncodableSchema") }
@@ -509,6 +528,26 @@ public struct SchemaMacro: ExtensionMacro {
             return lit.segments.trimmedDescription
         }
         return nil
+    }
+
+    /// `@Schema(context: AppContext.self)` — EXPERIENCE.md §10.
+    ///
+    /// Returns the context type's NAME, or `""` for the overwhelming majority of types that
+    /// declare none. `""` rather than `nil` because every consumer interpolates it into
+    /// generated text, and `""` is the identity there: a context-free type must expand to
+    /// BYTE-IDENTICAL code to what it expanded to before this feature existed.
+    ///
+    /// The macro reads a token. It cannot check that `AppContext` is a type, is `Sendable`,
+    /// or has the members the checks call — the type checker does all three at the use site,
+    /// which is also where the error is legible.
+    static func contextType(from node: AttributeSyntax) -> String {
+        guard let args = node.arguments?.as(LabeledExprListSyntax.self) else { return "" }
+        for arg in args where arg.label?.text == "context" {
+            var t = arg.expression.trimmedDescription
+            if t.hasSuffix(".self") { t.removeLast(5) }
+            return t
+        }
+        return ""
     }
 
     /// `@Schema(sources: true)` — the KeyedSource decode body. Opt-in like every other

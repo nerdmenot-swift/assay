@@ -18,6 +18,38 @@
 public import Assay
 public import AssayCore
 
+/// Bytes to a single `RawValue` document, with every issue the YAML layer can report:
+/// empty stream, multiple documents, an unrepresentable key. Factored out when
+/// `@Schema(context:)` needed a second caller — `docs/EXPERIENCE.md` §10 — because the
+/// alternative was a copy of forty lines that would drift the first time one of these
+/// diagnostics changed.
+///
+/// Returns nil having already reported; the caller adds nothing.
+@usableFromInline
+func __assayYAMLDocument(
+    _ bytes: [UInt8], into sink: inout IssueSink, limits: Limits
+) -> RawValue? {
+    let docs = YAML.decodeAll(bytes, into: &sink, limits: limits)
+    guard sink.isValid else { return nil }
+    guard let doc = docs.first else {
+        sink.add(Issue(code: .custom("yaml_empty_stream")))
+        return nil
+    }
+    if docs.count > 1 {
+        // Silently taking the first document would be the wrong kind of convenient;
+        // `parseAll(yaml:)` exists for the multi-document case.
+        sink.add(Issue(code: .custom("yaml_multiple_documents"),
+                       params: ["count": .int(docs.count)]))
+    }
+    guard let raw = RawValue(doc) else {
+        sink.add(Issue(code: .custom("yaml_unrepresentable_key"),
+                       params: ["reason": .string(
+                           "a mapping key is not a plain scalar; parse to YAML.Node instead")]))
+        return nil
+    }
+    return raw
+}
+
 extension RawDecodable {
 
     /// Decode from YAML, or throw with every issue found.
@@ -44,35 +76,11 @@ extension RawDecodable {
         sourceName: String = "<input>"
     ) -> Diagnosis<Self> {
         var sink = IssueSink(limits: limits)
-        let docs = YAML.decodeAll(bytes, into: &sink, limits: limits)
-
-        guard sink.isValid else {
+        guard let raw = __assayYAMLDocument(bytes, into: &sink, limits: limits) else {
             return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
                              truncatedIssues: sink.truncatedIssues,
                              source: SourceBytes(bytes), sourceName: sourceName)
         }
-        guard let doc = docs.first else {
-            sink.add(Issue(code: .custom("yaml_empty_stream")))
-            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: sink.truncatedIssues,
-                             source: SourceBytes(bytes), sourceName: sourceName)
-        }
-        if docs.count > 1 {
-            // Silently taking the first document would be the wrong kind of convenient;
-            // `parseAll(yaml:)` exists for the multi-document case.
-            sink.add(Issue(code: .custom("yaml_multiple_documents"),
-                           params: ["count": .int(docs.count)]))
-        }
-
-        guard let raw = RawValue(doc) else {
-            sink.add(Issue(code: .custom("yaml_unrepresentable_key"),
-                           params: ["reason": .string(
-                               "a mapping key is not a plain scalar; parse to YAML.Node instead")]))
-            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: sink.truncatedIssues,
-                             source: SourceBytes(bytes), sourceName: sourceName)
-        }
-
         let value = Self._assay(from: raw, into: &sink, at: [])
         return Diagnosis(value: sink.isValid ? value : nil,
                          issues: sink.issues, warnings: sink.warnings,
@@ -183,4 +191,66 @@ extension WireFormat {
             }
             return raw
         })
+}
+
+// MARK: - `@Schema(context:)`
+
+/// The contextual door, for types declared `@Schema(context: AppContext.self)`. It is a
+/// separate extension for the same reason it is a separate protocol: a contextual type does
+/// not conform to `RawDecodable`, so `parse(yaml:)` does not exist for it and cannot be
+/// reached by forgetting an argument. `docs/EXPERIENCE.md` §10.
+///
+/// No YAML-specific work happens here — `__assayYAMLDocument` is the same function the
+/// context-free door calls, so the two cannot diverge on what a multi-document stream or an
+/// unrepresentable key reports.
+extension ContextualRawDecodable {
+
+    public static func parse(
+        yaml bytes: [UInt8],
+        context: AssayContext,
+        limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) throws -> Self {
+        try diagnose(yaml: bytes, context: context,
+                     limits: limits, sourceName: sourceName).get()
+    }
+
+    public static func parse(
+        yaml text: String,
+        context: AssayContext,
+        limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) throws -> Self {
+        try parse(yaml: Array(text.utf8), context: context,
+                  limits: limits, sourceName: sourceName)
+    }
+
+    public static func diagnose(
+        yaml bytes: [UInt8],
+        context: AssayContext,
+        limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) -> Diagnosis<Self> {
+        var sink = IssueSink(limits: limits)
+        guard let raw = __assayYAMLDocument(bytes, into: &sink, limits: limits) else {
+            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
+                             truncatedIssues: sink.truncatedIssues,
+                             source: SourceBytes(bytes), sourceName: sourceName)
+        }
+        let value = Self._assay(from: raw, into: &sink, at: [], context: context)
+        return Diagnosis(value: sink.isValid ? value : nil,
+                         issues: sink.issues, warnings: sink.warnings,
+                         truncatedIssues: sink.truncatedIssues,
+                         source: SourceBytes(bytes), sourceName: sourceName)
+    }
+
+    public static func diagnose(
+        yaml text: String,
+        context: AssayContext,
+        limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) -> Diagnosis<Self> {
+        diagnose(yaml: Array(text.utf8), context: context,
+                 limits: limits, sourceName: sourceName)
+    }
 }

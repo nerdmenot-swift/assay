@@ -87,6 +87,97 @@ public protocol XMLEncodableSchema: Assayable {
     nonisolated static var _assayXMLRoot: String { get }
 }
 
+/// The root of the contextual protocols, declaring `AssayContext` exactly once.
+///
+/// Four protocols each declaring their own `associatedtype AssayContext` compiles, and is
+/// wrong: a type conforming to two of them has two, and a constrained extension spanning
+/// both cannot say they are the same one without a same-type requirement that then has no
+/// unambiguous spelling. Declaring it here removes the question. The generated body also
+/// emits `typealias AssayContext = ...` explicitly rather than relying on inference across
+/// the refinement, which stops working as soon as a second conformance is in play.
+public protocol ContextualAssayable: Assayable {
+    /// What `parse(json:context:)` takes. Unconstrained — see the `@Schema(context:)`
+    /// overload's documentation for why not even `Sendable`.
+    associatedtype AssayContext
+}
+
+/// A type whose decode and checks need something from outside — a database handle, a
+/// feature flag, the current tenant. `EXPERIENCE.md` §10, `@Schema(context: AppContext.self)`.
+///
+/// A **separate protocol** rather than an extra parameter on `JSONAssayable`, and that is
+/// what makes the guarantee hold: declaring a context makes `parse(json:context:)` the
+/// *only* signature, because the context-free entry points are constrained on
+/// `JSONAssayable` and this type does not conform to it. You cannot forget to pass it.
+///
+/// `AppContext` is a real type in the check — no casting, no optionals, no `userInfo`
+/// dictionary.
+///
+/// **Why this is no longer deferred.** `ROADMAP.md` §8 held it back for having no users, and
+/// an API shaped for imagined users is shaped wrong. That argument aged: `@Check` shipped, so
+/// a cross-field rule needing a tenant ID has exactly one option today — a global or a
+/// `static var`, in a library whose types are `Sendable` and whose whole posture is against
+/// ambient state. And `@AsyncCheck`'s own motivating example in §10 (`ctx.users.exists(email:)`)
+/// cannot be written at all without this. That is a hole a shipped feature created, not an
+/// imagined user.
+///
+/// The type-erased *runtime* context `EXPERIENCE.md` §10 mentions for `Assayer<T>` is still
+/// not built, and deliberately: it would be designing for an imaginary user twice over.
+public protocol ContextualJSONAssayable: ContextualAssayable {
+    nonisolated static func _assay(
+        from reader: inout AssayReader,
+        into sink: inout IssueSink,
+        at path: [PathComponent],
+        context: AssayContext
+    ) -> Self?
+}
+
+/// The `RawValue` counterpart, so a contextual type decodes from YAML and XML too.
+public protocol ContextualRawDecodable: ContextualAssayable {
+    nonisolated static func _assay(
+        from raw: RawValue,
+        into sink: inout IssueSink,
+        at path: [PathComponent],
+        context: AssayContext
+    ) -> Self?
+}
+
+// A CONTEXTUAL TYPE CONTAINING A PLAIN NESTED ONE.
+//
+// The macro emits `Nested._assay(..., context: ctx)` unconditionally, because it is
+// syntactic and cannot know whether `Nested` declared a context. A plain type has no such
+// member, so these defaulted overloads absorb the argument and forward to the context-free
+// requirement.
+//
+// This works only because the emitted call names the nested type CONCRETELY, so overload
+// resolution sees the type's own `_assay(from:into:at:context:)` when it has one and falls
+// back here when it does not. Probed before any of this was written, because the same shape
+// silently failed for `@XML(root:)`: overloads resolve from the STATIC type, and inside a
+// generic context the fallback would win for every type including the ones that opted in.
+//
+// The converse — a *contextual* type nested inside a plain one — is a compile error with a
+// poor message ("does not conform to JSONAssayable"). The macro cannot detect it: it sees a
+// token. Documented in `EXPERIENCE.md` §10 beside the `@Check`-in-an-extension trap, which
+// is the same class of limitation.
+extension JSONAssayable {
+    @inlinable
+    public nonisolated static func _assay<C>(
+        from reader: inout AssayReader, into sink: inout IssueSink,
+        at path: [PathComponent], context: C
+    ) -> Self? {
+        _assay(from: &reader, into: &sink, at: path)
+    }
+}
+
+extension RawDecodable {
+    @inlinable
+    public nonisolated static func _assay<C>(
+        from raw: RawValue, into sink: inout IssueSink,
+        at path: [PathComponent], context: C
+    ) -> Self? {
+        _assay(from: raw, into: &sink, at: path)
+    }
+}
+
 /// A type with a JSON decode body — emitted when `@Schema(formats:)` includes `.json`,
 /// which is the default.
 ///
@@ -116,8 +207,36 @@ public protocol JSONAssayable: Assayable {
 // `Assayable` is deliberately absent from this list: both `JSONAssayable` and
 // `RawDecodable` refine it, so declaring it here would promise a conformance the expansion
 // does not itself emit.
-@attached(extension, conformances: JSONAssayable, RawDecodable, Validatable, AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema, XMLEncodableSchema, SourceDecodable, XMLRooted, names: arbitrary)
+@attached(extension, conformances: JSONAssayable, RawDecodable, Validatable, AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema, XMLEncodableSchema, SourceDecodable, XMLRooted, ContextualJSONAssayable, ContextualRawDecodable, ContextualValidatable, ContextualAsyncCheckAssayable, names: arbitrary)
 public macro Schema(
+    keys: KeyNamingStyle = .camelCase,
+    unknownKeys: UnknownKeys = .ignore,
+    coerceScalars: Bool = false,
+    formats: SchemaFormats = .json,
+    encodes: Bool = false,
+    sources: Bool = false
+) = #externalMacro(module: "AssayMacros", type: "SchemaMacro")
+
+/// `@Schema(context: AppContext.self)` — the contextual form. `EXPERIENCE.md` §10.
+///
+/// An OVERLOAD rather than a defaulted parameter on the declaration above, and the reason is
+/// blast radius: `context:` needs a generic parameter to accept an arbitrary metatype, and
+/// adding one to the existing declaration changes how every `@Schema` in every project
+/// type-checks its arguments. This way a type that declares no context resolves to the exact
+/// declaration it always did.
+///
+/// `C` is unconstrained. Not even `Sendable`: `parse` is synchronous and the context is
+/// passed by value to statics on the same thread, so requiring it would refuse a perfectly
+/// good `NSManagedObjectContext`-shaped handle for a concurrency property nothing here
+/// needs. The `async` door is the one place it crosses an isolation boundary, and Swift's
+/// own `Sendable` checking reports that at the call site, where it is legible.
+@attached(extension, conformances: JSONAssayable, RawDecodable, Validatable,
+          AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema,
+          XMLEncodableSchema, SourceDecodable, XMLRooted, ContextualJSONAssayable,
+          ContextualRawDecodable, ContextualValidatable, ContextualAsyncCheckAssayable,
+          names: arbitrary)
+public macro Schema<C>(
+    context: C.Type,
     keys: KeyNamingStyle = .camelCase,
     unknownKeys: UnknownKeys = .ignore,
     coerceScalars: Bool = false,
@@ -524,6 +643,13 @@ public macro Fallback<T>(_ value: T) =
 /// Conformance generated when a schema declares any `@AsyncCheck`.
 public protocol AsyncCheckAssayable: Assayable {
     static func _assayAsyncChecks(_ value: Self, at path: [PathComponent]) async -> [Issue]
+}
+
+/// The contextual counterpart. `@AsyncCheck`'s own motivating example in `EXPERIENCE.md`
+/// §10 — `await ctx.users.exists(email:)` — cannot be written without this.
+public protocol ContextualAsyncCheckAssayable: ContextualAssayable {
+    static func _assayAsyncChecks(
+        _ value: Self, at path: [PathComponent], context: AssayContext) async -> [Issue]
 }
 
 extension JSONAssayable where Self: AsyncCheckAssayable {

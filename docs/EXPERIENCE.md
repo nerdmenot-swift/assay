@@ -1,10 +1,10 @@
 # Assay — the developer experience
 
 > **This is the API specification, written before the implementation, and it describes a
-> larger surface than exists today.** Most of it is built. **Four** pieces named here are
-> not: `@Key(path:)` (§4), `@Schema(context:)` (§10), `parse(plist:)` (§1), and
+> larger surface than exists today.** Most of it is built. **Three** pieces named here are
+> not: `@Key(path:)` (§4), `parse(plist:)` (§1), and
 > `jsonSchema(for:)`/`StandardSchema` (§§14–15). `@Inline` (§4), `@Wraps` (§8),
-> `Assayer<T>` (§17), `@OneOrMany` (§9), `@XML(root:)` and
+> `Assayer<T>` (§17), `@OneOrMany` (§9), `@XML(root:)`, `@Schema(context:)` (§10) and
 > `parse(body:contentType:accepting:)` (§12) all shipped on 2026-09-08; `@PickFirst` (§9)
 > was **cut** — see `ROADMAP.md` §5 for why the construct it named cannot be built as
 > spelled. Each remaining item is a deliberate
@@ -683,7 +683,11 @@ let invite = try Invitation.parse(json: data, context: appContext)
 
 Declaring a context makes `parse(json:context:)` the *only* signature. You cannot forget to pass it. `AppContext` is a real type in the check — no casting, no optionals, no `userInfo` dictionary.
 
-This differs from what `DESIGN.md` settled on, which was a type-erased context threaded through `ParseState`, and the difference is deliberate rather than an oversight: they operate at different layers. The macro knows the context type at compile time and should use it. The runtime `Assayer<T>` value API — for schemas built dynamically, where there is no declaration to read — keeps the erased form. Both exist; the macro path is the one with the better types, which is the one almost everybody uses.
+This differs from what `DESIGN.md` settled on, which was a type-erased context threaded through `ParseState`, and the difference is deliberate rather than an oversight: they operate at different layers. The macro knows the context type at compile time and should use it.
+
+**Built 2026-09-08 — the macro half.** The erased form for the runtime `Assayer<T>` value API is *not* built, and "both exist" was a claim this document made before either did. `ROADMAP.md` §8 records the reasoning: an erased context has no users, and building one would be designing for an imagined user twice over, once for the API and once for the erasure.
+
+Two things the implementation settled that this section did not say. **Every check takes the context**, cross-field and field forms alike (`static func f(_ x: String, _ ctx: AppContext) -> String?`) — a macro reads a token, not a signature, so a per-check opt-in is not something it could see. And **a contextual type may contain a context-free one, but not the reverse**: a plain `@Schema` type with a contextual field is a compile error, because there is no context to pass it. The message names the fix. This is the same class of limitation as `@Check` in an extension — the macro cannot see what another type declared, in this module or any other.
 
 ### Async checks
 
@@ -1304,4 +1308,4 @@ Everything in the first edition's open questions about the macro shape, the `@Wr
 
 *Second edition, written before anything here had been compiled — there was no Swift toolchain in that environment, so every API was designed against the compiler's source and its test suite rather than against a build. The macro-shaped claims were checked against swift-syntax 600.0.1 and the Swift 6.3 compiler tests; the platform claims against the Foundation and package sources listed in `_crossplatform_audit.md`. The first thing to do on a machine with a toolchain, it said, was to prove the `@Validate` attribute in section 5 actually compiles.*
 
-*It does. As of 2026-07-27 this document is implemented rather than proposed: sections 1–13 and 16–19 describe working, tested code, and the `@Validate` spelling in §5 compiles exactly as written, including the message-as-a-rule trick that motivated the `ExpressibleByStringLiteral` conformance. `Date` and `@DateFormat` (§11) followed on 2026-08-06 — including candidate chains (`@DateFormat(.iso8601, .unixMillis)`, fallback matches warn like `@Key(or:)`), compile-time-checked patterns, and the `.before`/`.after`/`.between` rules; `.past`/`.future` wait on a clock seam. Encoding (§14) followed on 2026-08-09 for JSON, YAML and XML, and `@Unknown` (§8) with it — both were on this list and both now ship. What is **not** built is listed with its reasons in [`ROADMAP.md`](../ROADMAP.md): `@Inline` and `@Key(path:)` (§4), `@Wraps` (§8), `@OneOrMany`/`@PickFirst` (§9), `Assayer<T>`, `jsonSchema(for:)` and `StandardSchema` (§§14–15), `@Schema(context:)` (§10), plists, and content negotiation (§12). Where this document and the code disagree, that is a bug in one of them; `ROADMAP.md` says which.*
+*It does. As of 2026-07-27 this document is implemented rather than proposed: sections 1–13 and 16–19 describe working, tested code, and the `@Validate` spelling in §5 compiles exactly as written, including the message-as-a-rule trick that motivated the `ExpressibleByStringLiteral` conformance. `Date` and `@DateFormat` (§11) followed on 2026-08-06 — including candidate chains (`@DateFormat(.iso8601, .unixMillis)`, fallback matches warn like `@Key(or:)`), compile-time-checked patterns, and the `.before`/`.after`/`.between` rules; `.past`/`.future` wait on a clock seam. Encoding (§14) followed on 2026-08-09 for JSON, YAML and XML, and `@Unknown` (§8) with it — both were on this list and both now ship. What is **not** built is listed with its reasons in [`ROADMAP.md`](../ROADMAP.md): `@Inline` and `@Key(path:)` (§4), `@Wraps` (§8), `@OneOrMany`/`@PickFirst` (§9), `jsonSchema(for:)` and `StandardSchema` (§§14–15), and plists. Where this document and the code disagree, that is a bug in one of them; `ROADMAP.md` says which.*

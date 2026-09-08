@@ -334,16 +334,73 @@ Deliberately not in the first increment, with reasons in `docs/ASSAYER.md`:
 premise in `CLAUDE.md`'s build order is **stale**, since a `Sendable` schema value cannot own
 mutable scratch.
 
-## 8. `@Schema(context:)`
+## 8. `@Schema(context:)` — BUILT 2026-09-08
 
-**Status: not implemented.** `EXPERIENCE.md` §10.
+```swift
+@Schema(context: TenantContext.self)
+struct Invitation {
+    var email: String
+    var role: String
 
-Threading external state — a tenant ID, a feature flag, a database handle — into checks without
-a global. The macro knows the context type at compile time and should use it directly; the
-runtime `Assayer<T>` path keeps the type-erased form. Both are correct at their own layer.
+    @Check
+    static func roleIsAllowed(_ i: Invitation, _ ctx: TenantContext,
+                              _ issues: inout Issues<Invitation>) {
+        if !ctx.availableRoles.contains(i.role) { issues.add("is not available", at: \.role) }
+    }
+}
 
-Deferred because it has no users yet, and an API shaped for imagined users is an API shaped
-wrong.
+let invite = try Invitation.parse(json: data, context: tenant)
+```
+
+**Why the deferral stopped holding**, since "no users, and an API shaped for imagined users is
+an API shaped wrong" was the right call when it was made. `@Check` shipped in the meantime, so
+a cross-field rule needing a tenant ID has exactly one option today — a global or a `static
+var`, in a library whose types are `Sendable` and whose entire posture is against ambient
+state. And `@AsyncCheck`'s own motivating example in `EXPERIENCE.md` §10,
+`await ctx.users.exists(email:)`, could not be written at all. That is a hole a shipped
+feature created, not an imagined user.
+
+**The macro half only.** The type-erased runtime context §10 describes for `Assayer<T>` is
+still not built and is not on the way: that one would be designing for an imaginary user
+twice over, once for the API and once for the erasure.
+
+**"You cannot forget to pass it" is enforced, not advised.** A contextual type conforms to
+`ContextualJSONAssayable` and *not* to `JSONAssayable`, so `parse(json:)` does not exist for
+it. A defaulted `context: C? = nil` on the existing entry point would have made §10's sentence
+false and handed the checks an optional to unwrap — `userInfo` again with better syntax.
+
+**Every check takes the context, uniformly** — cross-field and field forms both. The macro
+reads a token, not a signature, so a per-check opt-in is not something it could see; getting
+it wrong is an ordinary "cannot convert" at the call site, which names both types.
+
+**Zero cost to types that declare none.** The context type is threaded through code generation
+as a string that is empty in the overwhelming case, so a context-free expansion is
+byte-for-byte what it was before this existed — verified by dumping one and grepping for
+`context`, not assumed. The gate measured 71 ms/type against 100.
+
+**Three things it cost, all overload resolution, all the same lesson.**
+
+1. A plain `@Schema` type containing a contextual one cannot work — there is no context to
+   pass — and the macro cannot detect it, because it sees the token `Membership` and not what
+   `Membership` declared. The bare error was "no exact matches in call to `_assay`", pointing
+   into an expansion nobody wrote. An `@available(*, unavailable)` overload turns it into a
+   sentence naming the fix: what the macro cannot detect, overload resolution can, because it
+   runs after the type checker knows what `Membership` is.
+2. `AssayContext` is declared once on a root `ContextualAssayable` rather than four times.
+   Four copies compile and leave a type conforming to two of them with two same-named
+   associated types a constrained extension cannot equate. The generated body also spells
+   `typealias AssayContext = ...` rather than relying on inference across the refinement,
+   which stops working as soon as a second conformance is in play.
+3. **The async door silently resolved to the synchronous one.** The constrained extension had
+   the `[UInt8]` overload of `diagnose` and not the `String` one, so
+   `await T.diagnose(json: "...", context: c)` had exactly one candidate — the sync overload —
+   and compiled, ran, and skipped every async check. Caught only by a test asserting that a
+   taken email was rejected.
+
+Point 3 is the third time this shape has bitten this library, after `@XML(root:)` and the
+absorbing overload in point 1. The lesson each time: **an overload that is merely not selected
+produces no diagnostic at all.** A feature whose correctness depends on which overload wins
+needs a test that fails when the wrong one does.
 
 ---
 

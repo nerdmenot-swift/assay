@@ -29,8 +29,14 @@ extension SchemaMacro {
     }
 
     static func validateBody(
-        typeName: String, fields: [SchemaField], checks: [CheckDecl]
+        typeName: String, fields: [SchemaField], checks: [CheckDecl],
+        /// `@Schema(context:)`. `T.validate(_:context:)` must exist wherever `parse` needs a
+        /// context, or `docs/VALIDATE.md`'s law — `T.validate(try T.parse(...))` never
+        /// reports an issue — becomes unstatable for exactly the types whose checks are the
+        /// most interesting.
+        ctx: String = ""
     ) -> String {
+        let ctxParam = ctx.isEmpty ? "" : ",\n    context: \(ctx)"
         var out = ""
 
         for (i, f) in fields.enumerated() where !f.validations.isEmpty {
@@ -65,7 +71,7 @@ extension SchemaMacro {
             }
         }
 
-        out += Self.checkCalls(typeName, checks, fields, spans: false)
+        out += Self.checkCalls(typeName, checks, fields, spans: false, ctx: ctx)
 
         return """
         /// Run this schema's rules against an already-constructed value. docs/VALIDATE.md.
@@ -74,7 +80,7 @@ extension SchemaMacro {
         \(skipNote(fields))nonisolated public static func _assayCheck(
             _ __result: \(typeName),
             into sink: inout Assay.IssueSink,
-            at path: [Assay.PathComponent]
+            at path: [Assay.PathComponent]\(ctxParam)
         ) {
         \(out)}
         """

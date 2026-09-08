@@ -21,9 +21,7 @@
 public import Assay
 public import AssayCore
 
-extension RawDecodable {
-
-    /// The `@XML(root:)` check, if this type declared one.
+/// The `@XML(root:)` check, if this type declared one.
     ///
     /// A **metatype cast**, not an overload pair. The obvious spelling — a no-op on
     /// `RawDecodable` shadowed by a real one on `RawDecodable where Self: XMLRooted` — does
@@ -33,11 +31,18 @@ extension RawDecodable {
     /// wins for every type including the ones that declared a root. It compiled, ran, and
     /// checked nothing.
     ///
-    /// The cast happens once per document, not per field, and only for types that decode
-    /// XML at all.
-    @inlinable
-    static func _assayCheckXMLRoot(_ doc: XML.Document, _ sink: inout IssueSink) {
-        guard let rooted = Self.self as? any XMLRooted.Type,
+/// The cast happens once per document, not per field, and only for types that decode
+/// XML at all.
+///
+/// A FREE function taking the metatype, not a protocol member, and that is what let the
+/// contextual door reuse it unchanged: `ContextualRawDecodable` is a different protocol, and
+/// a member on `RawDecodable` would have had to be written twice — which is precisely how
+/// the bug in the paragraph above gets reintroduced.
+@usableFromInline
+func __assayCheckXMLRoot(
+    _ type: Any.Type, _ doc: XML.Document, _ sink: inout IssueSink
+) {
+        guard let rooted = type as? any XMLRooted.Type,
               let expected = rooted._assayXMLExpectedRoot else { return }
         let actual = doc.root.name.local
         guard actual != expected else { return }
@@ -45,7 +50,9 @@ extension RawDecodable {
                        path: [],
                        params: ["expected": .string(expected)],
                        received: actual))
-    }
+}
+
+extension RawDecodable {
 
     /// Decode from XML, or throw with every issue found.
     public static func parse(
@@ -76,7 +83,7 @@ extension RawDecodable {
                              truncatedIssues: sink.truncatedIssues,
                              source: SourceBytes(bytes), sourceName: sourceName)
         }
-        Self._assayCheckXMLRoot(doc, &sink)
+        __assayCheckXMLRoot(Self.self, doc, &sink)
         let raw = RawValue(doc)
         let value = Self._assay(from: raw, into: &sink, at: [])
         return Diagnosis(value: sink.isValid ? value : nil,
@@ -91,6 +98,67 @@ extension RawDecodable {
         sourceName: String = "<input>"
     ) -> Diagnosis<Self> {
         diagnose(xml: Array(text.utf8), limits: limits, sourceName: sourceName)
+    }
+}
+
+// MARK: - `@Schema(context:)`
+
+/// The contextual door. Separate extension, separate protocol, same reason as YAML's:
+/// a contextual type does not conform to `RawDecodable`, so `parse(xml:)` does not exist
+/// for it and cannot be reached by forgetting an argument. `docs/EXPERIENCE.md` §10.
+///
+/// The `@XML(root:)` check is the same free function the context-free door calls, so the
+/// two cannot diverge — see its header for why it is free rather than a protocol member.
+extension ContextualRawDecodable {
+
+    public static func parse(
+        xml bytes: [UInt8],
+        context: AssayContext,
+        limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) throws -> Self {
+        try diagnose(xml: bytes, context: context,
+                     limits: limits, sourceName: sourceName).get()
+    }
+
+    public static func parse(
+        xml text: String,
+        context: AssayContext,
+        limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) throws -> Self {
+        try parse(xml: Array(text.utf8), context: context,
+                  limits: limits, sourceName: sourceName)
+    }
+
+    public static func diagnose(
+        xml bytes: [UInt8],
+        context: AssayContext,
+        limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) -> Diagnosis<Self> {
+        var sink = IssueSink(limits: limits)
+        guard let doc = XML.decode(bytes, into: &sink, limits: limits), sink.isValid else {
+            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
+                             truncatedIssues: sink.truncatedIssues,
+                             source: SourceBytes(bytes), sourceName: sourceName)
+        }
+        __assayCheckXMLRoot(Self.self, doc, &sink)
+        let value = Self._assay(from: RawValue(doc), into: &sink, at: [], context: context)
+        return Diagnosis(value: sink.isValid ? value : nil,
+                         issues: sink.issues, warnings: sink.warnings,
+                         truncatedIssues: sink.truncatedIssues,
+                         source: SourceBytes(bytes), sourceName: sourceName)
+    }
+
+    public static func diagnose(
+        xml text: String,
+        context: AssayContext,
+        limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) -> Diagnosis<Self> {
+        diagnose(xml: Array(text.utf8), context: context,
+                 limits: limits, sourceName: sourceName)
     }
 }
 

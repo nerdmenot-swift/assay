@@ -121,7 +121,8 @@ or three deep at most, and 10,000 attempts is unreachable by anything but an att
 ## 4. What encoding a union means
 
 **Not built for either form** — `@Schema(encodes: true)` on a union is refused at expansion
-rather than silently ignored. This section is the settled answer for when it is.
+rather than silently ignored. This section is the settled answer for when it is, and the
+duplicate-payload check it argues for **is** built, because decoding needs it too.
 
 `ENCODING.md`'s round-trip law is that decoding what was encoded returns an equal value, with a
 closed exception list. Unions add one exception and refuse the case that would add a second.
@@ -169,13 +170,38 @@ diagnostic the macro cannot.
 
 ## 6. Status
 
-**Discriminated: built 2026-09-09. Untagged: designed above, not built.**
+**Both forms built 2026-09-09**, decode only, JSON only. Encoding is refused at expansion for
+either — §4 above is the settled answer for when it is built.
 
-That split is the build order this document argued for, and it held: three of the four hard
-questions above do not apply to a tagged union. There is no composed failure to report, no
-backtracking to bound, and no round-trip exception — so §§2.2, 3 and the untagged half of §4
-describe work that is still ahead. `@Schema(discriminator: .none)` is refused at expansion with
-a diagnostic that says so and points here.
+The build order this document argued for held: tagged first, because three of the four hard
+questions do not apply to it. Untagged then needed all three, and each cost something the
+design did not fully anticipate.
+
+**§2.2's composed report, and what it costs to produce.** One summary
+(`union_no_variant_matched`, naming the type, the guess, and every variant) plus the closest
+branch's detail. Producing that detail means **running the winning branch twice**: the
+measuring pass rolls every branch back, so by the time the closest is known its issues are
+gone. The alternative — snapshotting each branch's issues as it goes — is an allocation per
+branch on *every* decode, including the ones that succeed on branch one. Replaying costs one
+extra decode of a single branch, only when the union has already failed. The replay does not
+charge the budget again: it is the same attempt re-run for its diagnostics.
+
+**§3's budget, and a correction to how it is reached.** `Limits.maxUnionAttempts`, default
+10,000, global, charged per attempt, and **not refunded by a rewind** — a `Mark` restores where
+the reader *is*, not work already done. Worth recording: a failing union inside an array does
+not make very many attempts, because `arrayDecode` breaks on the first element that will not
+decode. A test written with a budget of three never reached it.
+
+**`verboseUnions` suppresses the sink rollback and NOT the reader restore.** The first version
+suppressed both, so branch two started wherever branch one stopped and reported nonsense about
+a position it was never meant to see. Caught by asserting that verbose mode names a field only
+the non-closest branch has.
+
+**§4's duplicate-payload refusal is built**, and it turns out decoding needs it as much as
+encoding does: `case a(Int), b(Int)` makes `b` unreachable whether or not anything is ever
+encoded. What the macro still cannot see — two *distinct* types accepting the same documents —
+is pinned by a test asserting that it is **not** refused, so the limit is recorded rather than
+assumed.
 
 What the tagged form cost, beyond the rewind primitive:
 

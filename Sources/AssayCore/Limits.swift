@@ -19,11 +19,36 @@ public struct Limits: Sendable, Equatable {
     public var maxDepth: Int
     /// Refuse inputs larger than this outright.
     public var maxBytes: Int
+    /// Branch attempts an **untagged** union may make across one decode. `docs/UNIONS.md` §3.
+    ///
+    /// Global rather than per-union, because the blow-up is not one union with many branches —
+    /// it is *nested* unions. `[[U]]` where `U` has three branches costs 3 attempts per
+    /// element and 3ⁿ for n levels, and `maxDepth` cannot see it: the depth is the array
+    /// nesting and the expansion is in the breadth. Structurally the same attack as the
+    /// plist's shared-object amplification (`docs/PLIST.md` §2.2), with the same answer.
+    ///
+    /// A *discriminated* union charges one attempt regardless of variant count, because it
+    /// makes exactly one. Only the untagged form can multiply.
+    ///
+    /// The default is far above any real document — a hand-written schema nests unions two or
+    /// three deep — so reaching it means an attack or a bug, and it is reported
+    /// (`union_budget_exhausted`) rather than silently truncated.
+    public var maxUnionAttempts: Int
+    /// Report **every** failed branch of an untagged union, not just the closest one.
+    ///
+    /// Off by default because on by default is the wall of noise `EXPERIENCE.md` §9 says is
+    /// the most-complained-about thing in every library with union types. It exists for the
+    /// case untagged unions exist for: debugging a wire format you do not control, where the
+    /// summary's one-branch guess is not enough.
+    public var verboseUnions: Bool
 
-    public init(maxIssues: Int = 100, maxDepth: Int = 64, maxBytes: Int = 64 << 20) {
+    public init(maxIssues: Int = 100, maxDepth: Int = 64, maxBytes: Int = 64 << 20,
+                maxUnionAttempts: Int = 10_000, verboseUnions: Bool = false) {
         self.maxIssues = maxIssues
         self.maxDepth = maxDepth
         self.maxBytes = maxBytes
+        self.maxUnionAttempts = maxUnionAttempts
+        self.verboseUnions = verboseUnions
     }
 
     public static let `default` = Limits()

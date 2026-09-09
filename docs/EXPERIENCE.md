@@ -618,23 +618,31 @@ Untagged unions exist for wire formats you don't control:
 enum StringOrNumber { case text(String), number(Double) }
 ```
 
-**Not built** — refused at expansion, with the reason. When *those* fail there is a composed
-report to produce, and "every branch, and why each one didn't match" is the wall of noise a
-discriminator exists to avoid; `docs/UNIONS.md` §2.2 settles it as one summary issue plus the
-detail of the closest branch, saying which. It also needs a backtracking budget (§3) and it
-carries a round-trip exception a tagged union does not (§4). All three are why the tagged form
-shipped first.
+**Built 2026-09-09**, decode only, JSON only. The first branch that decodes wins, in
+declaration order.
+
+When *those* fail, "every branch, and why each one didn't match" is the wall of noise a
+discriminator exists to avoid — so you get **one summary plus the detail of the closest
+branch, and it says which**, where closest is fewest issues and is named as the guess it is.
+`Limits.verboseUnions` gives you every branch when you are debugging a format you do not
+control. `Limits.maxUnionAttempts` bounds the backtracking, because the exponential is *nested*
+unions and `maxDepth` cannot see it.
+
+Two cases carrying the same payload type are refused at expansion: the second could never be
+chosen. Two *distinct* types that happen to accept the same documents cannot be — a macro sees
+tokens, not conformances — and that is the one round-trip exception the untagged form carries.
+`docs/UNIONS.md`.
 
 ### Collections that arrive in more than one shape
 
 ```swift
 @OneOrMany var tags: [String]        // "swift" and ["swift", "ios"] both work
-@PickFirst var id: StringOrInt       // CUT — see below
+@PickFirst var id: StringOrInt       // CUT — use @Schema(discriminator: .none)
 ```
 
 Borrowed from `serde_with`, which exists because these two shapes account for a startling proportion of real-world API weirdness.
 
-**`@OneOrMany` shipped 2026-09-08. `@PickFirst` was CUT, and cannot be built as spelled.** The macro would need to know `StringOrInt`'s branches and it sees a token. The sound spelling is an untagged union — `@Schema(discriminator: .none)`, §9 below — which *is* pick-first by definition; and unions are themselves unbuilt, because they force the one thing the decode body was designed never to do: rewind. `ROADMAP.md` §5.
+**`@OneOrMany` shipped 2026-09-08. `@PickFirst` was CUT, and cannot be built as spelled** — the macro would need to know `StringOrInt`'s branches and it sees a token. The sound spelling is an untagged union, `@Schema(discriminator: .none)` in §9 below, which *is* pick-first by definition and **shipped 2026-09-09**. `ROADMAP.md` §5.
 
 ---
 
@@ -1306,10 +1314,11 @@ enum P: String, Assayable { case low, high; @Unknown case other(String) }
 @Schema(context: Ctx.self)
 @AsyncCheck static func h(_ v: T, _ ctx: Ctx, _ issues: inout Issues<T>) async
 
-// Unions — NOT BUILT, ROADMAP §5. They force the decode body to rewind.
-@Schema(discriminator: "type") enum E { case a(A), b(B) }   // not built
+// Unions — built 2026-09-09, decode only, JSON only. docs/UNIONS.md
+@Schema(discriminator: "type") enum E { case a(A), b(B) }   // tagged
+@Schema(discriminator: .none) enum U { case a(A), b(B) }    // untagged, first match wins
 @OneOrMany var tags: [String]                               // built 2026-09-08
-@PickFirst var id: StringOrInt                              // CUT — needs unions
+@PickFirst var id: StringOrInt                              // CUT — use discriminator: .none
 
 // Formats — opt in on the struct; the default is JSON alone
 @Schema                                  // JSON only

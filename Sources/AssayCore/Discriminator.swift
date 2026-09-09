@@ -100,3 +100,56 @@ extension AssayReader {
             received: received))
     }
 }
+
+// MARK: - Untagged unions
+
+extension AssayReader {
+
+    /// Charge one branch attempt against `Limits.maxUnionAttempts`. `docs/UNIONS.md` §3.
+    ///
+    /// Returns false having reported once the budget is gone. The counter lives on the reader
+    /// rather than in the generated body because the budget is **global across one decode**:
+    /// the exponential is nested unions, and a per-union counter cannot see the nesting it is
+    /// meant to bound.
+    @inlinable
+    public mutating func chargeUnionAttempt(
+        _ sink: inout IssueSink, _ path: [PathComponent]
+    ) -> Bool {
+        unionAttempts &+= 1
+        if unionAttempts > limits.maxUnionAttempts {
+            reportUnionBudget(&sink, path)
+            return false
+        }
+        return true
+    }
+
+    @inline(never)
+    @usableFromInline
+    mutating func reportUnionBudget(_ sink: inout IssueSink, _ path: [PathComponent]) {
+        sink.add(Issue(
+            code: .custom("union_budget_exhausted"),
+            path: path,
+            params: ["maxUnionAttempts": .int(limits.maxUnionAttempts)]))
+    }
+
+    /// No branch of an untagged union matched.
+    ///
+    /// One summary, and the caller then replays the closest branch so its detail follows —
+    /// `docs/UNIONS.md` §2.2. Reporting *every* branch is the wall of noise a discriminator
+    /// exists to avoid; reporting none leaves the author nothing to fix. Naming the guess as a
+    /// guess is what makes the middle answer honest.
+    @inline(never)
+    public mutating func noVariantMatched(
+        _ sink: inout IssueSink, _ path: [PathComponent],
+        _ typeName: StaticString, _ closest: String, _ known: [String]
+    ) {
+        sink.add(Issue(
+            code: .custom("union_no_variant_matched"),
+            path: path,
+            params: [
+                "type": .string(String(describing: typeName)),
+                "closest": .string(closest),
+                "variants": .string(known.joined(separator: ", ")),
+            ]))
+    }
+}

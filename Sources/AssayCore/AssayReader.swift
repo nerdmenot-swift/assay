@@ -42,12 +42,25 @@ public struct AssayReader: ~Copyable {
     @usableFromInline let count: Int
     @usableFromInline var cursor: Int
     @usableFromInline var depth: Int
+    /// Branch attempts made by untagged unions so far. Global across one decode — see
+    /// `Limits.maxUnionAttempts` for why a per-union counter cannot bound what this bounds.
+    ///
+    /// **Not restored by `restore(_:)`, deliberately.** A `Mark` puts back where the reader
+    /// *is*; the budget records work already done, and rewinding must not refund it or the
+    /// bound is not a bound.
+    @usableFromInline var unionAttempts: Int = 0
     /// Start of the most recent value consumed by a decode entry point. Combined with the
     /// cursor after the decode returns, this is the value's span — captured by generated
     /// code only for fields that carry @Validate, so `replicas: 0` renders with a caret
     /// under the 0. Two integer stores; nothing else on the hot path.
     @usableFromInline var valueStart: Int = 0
     @usableFromInline let limits: Limits
+
+    /// The limits this reader was created with. Public because generated code consults
+    /// `verboseUnions` — a union's failure path branches on it — and a generated body cannot
+    /// reach an internal member.
+    @inlinable
+    public var activeLimits: Limits { limits }
 
     @inlinable
     public init(base: UnsafePointer<UInt8>, count: Int, limits: Limits = .default) {

@@ -314,7 +314,7 @@ a token. The sound spelling is an untagged union — `@Schema(discriminator: .no
 *is* pick-first by definition. `CLAUDE.md`'s governing principle exactly: a different
 construct, not a transliteration.
 
-### Unions — DISCRIMINATED BUILT 2026-09-09; untagged designed, not built
+### Unions — BOTH FORMS BUILT 2026-09-09
 
 `EXPERIENCE.md` §9 specifies `@Schema(discriminator: "type")` and `discriminator: .none`.
 Neither exists, and neither was listed here — this is a gap in the roadmap itself, found
@@ -341,11 +341,22 @@ questions do not apply to a discriminated union: once the tag is read exactly on
 possible, so there is no composed failure to report, no backtracking to bound, and no
 round-trip exception. That is also `EXPERIENCE.md` §9's own argument for preferring a tag.
 
-Untagged remains unbuilt and is refused at expansion with a diagnostic naming the design
-document. It needs the composed-failure rule (`UNIONS.md` §2.2 — one summary issue plus the
-closest branch's detail, and say which), the attempt budget (§3 — global, not per-union,
-because the exponential is *nested* unions and `maxDepth` cannot see it), and it carries a
-round-trip exception a tagged union does not.
+**Untagged followed the same day**, and needed all three of the questions tagged skipped.
+`UNIONS.md` §6 has the full account; the two findings worth surfacing here:
+
+- **Producing the composed report means running the winning branch twice.** The measuring pass
+  rolls every branch back, so by the time "closest" is known its issues are gone. Snapshotting
+  each branch's issues instead is an allocation per branch on *every* decode, including the
+  ones that succeed immediately; replaying costs one extra decode of one branch, only after
+  the union has already failed.
+- **The budget is not refunded by a rewind**, or it bounds nothing — a `Mark` restores where
+  the reader *is*, not work already done. And a failing union inside an array makes fewer
+  attempts than expected, because `arrayDecode` breaks on the first element that will not
+  decode; a test written with a budget of three never reached it.
+
+Encoding is refused at expansion for both forms. `UNIONS.md` §4 settles what it should mean,
+and its duplicate-payload check *is* built — decoding needs it too, since `case a(Int), b(Int)`
+makes `b` unreachable whether or not anything is encoded.
 
 ## 6. `@Wraps` and `@Unknown` — BOTH BUILT
 

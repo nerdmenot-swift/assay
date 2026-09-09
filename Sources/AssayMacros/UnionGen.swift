@@ -83,15 +83,7 @@ extension SchemaMacro {
         let keyStyle = Self.keyStyle(from: node)
         let formats = Self.formats(from: node)
 
-        guard let tag, !tag.isEmpty else {
-            context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
-                "@Schema(discriminator: .none) — untagged unions — is not built. It needs a "
-                + "composed failure report, a backtracking budget, and it carries a round-trip "
-                + "exception a tagged union does not; the design is in docs/UNIONS.md and the "
-                + "rewind primitive it rests on already ships. Use "
-                + "@Schema(discriminator: \"type\") if the wire format has a tag.")))
-            return []
-        }
+        let untagged = (tag == nil || tag!.isEmpty)
 
         var cases: [UnionCase] = []
         var bad = false
@@ -137,13 +129,29 @@ extension SchemaMacro {
             return []
         }
 
-        // Two variants under one tag spelling would make the second unreachable, and silently.
-        var seen = Set<String>()
-        for c in cases where !seen.insert(c.wireName).inserted {
-            context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
-                "two cases both spell their tag '\(c.wireName)', so the second can never be "
-                + "chosen. Use @Key on one of them to give it a different tag.")))
-            return []
+        if untagged {
+            // `docs/UNIONS.md` §4: two cases carrying the SAME payload type make the second
+            // unreachable and break round-trip — `.b(1)` encodes as `1` and decodes as
+            // `.a(1)`. It is the one union check a macro can do without a conformance lookup,
+            // because the tokens are all it needs.
+            var seenPayloads = Set<String>()
+            for c in cases where !seenPayloads.insert(c.payloadType ?? "").inserted {
+                context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
+                    "two cases both carry a '\(c.payloadType ?? "")', so the second can never "
+                    + "be chosen — an untagged union picks the first branch that decodes, and "
+                    + "both accept the same documents. Give them a discriminator, or distinct "
+                    + "payload types.")))
+                return []
+            }
+        } else {
+            // Two variants under one tag spelling would make the second unreachable, silently.
+            var seen = Set<String>()
+            for c in cases where !seen.insert(c.wireName).inserted {
+                context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
+                    "two cases both spell their tag '\(c.wireName)', so the second can never "
+                    + "be chosen. Use @Key on one of them to give it a different tag.")))
+                return []
+            }
         }
 
         // `encodes: true` on a union would be silently ignored — the body below emits no
@@ -164,6 +172,18 @@ extension SchemaMacro {
             return []
         }
 
+        let body = untagged
+            ? untaggedBody(typeName: typeName, cases: cases)
+            : taggedBody(typeName: typeName, cases: cases, tag: tag!)
+
+        let ext = try? ExtensionDeclSyntax(
+            "extension \(raw: typeName): Assay.JSONAssayable") {
+            DeclSyntax(stringLiteral: body)
+        }
+        return ext.map { [$0] } ?? []
+    }
+
+    static func taggedBody(typeName: String, cases: [UnionCase], tag: String) -> String {
         let known = cases.map { "\"\($0.wireName)\"" }.joined(separator: ", ")
         var arms = ""
         for c in cases {
@@ -177,7 +197,7 @@ extension SchemaMacro {
             """
         }
 
-        let body = """
+        return """
         nonisolated static let __assayVariants: [String] = [\(known)]
 
         nonisolated public static func _assay(
@@ -208,11 +228,104 @@ extension SchemaMacro {
             return nil
         }
         """
+    }
+}
 
-        let ext = try? ExtensionDeclSyntax(
-            "extension \(raw: typeName): Assay.JSONAssayable") {
-            DeclSyntax(stringLiteral: body)
+extension SchemaMacro {
+
+    /// The untagged body. `docs/UNIONS.md` §§2.2 and 3.
+    ///
+    /// FIRST SUCCESS WINS, in declaration order — that is what "tries each representation in
+    /// order" means, and it is why two cases with the same payload type are refused above.
+    ///
+    /// THE FAILURE PATH RUNS THE WINNER TWICE, and that is the cheaper of two designs. To
+    /// report the closest branch's issues, those issues have to exist; the first pass rolls
+    /// every branch back, so nothing survives it. The alternative is snapshotting each
+    /// branch's issues into an array of arrays as it goes — an allocation per branch on every
+    /// decode, including the ones that succeed on branch one. Replaying costs one extra decode
+    /// of a single branch, and only when the whole union has already failed, which is not a
+    /// path anything hot goes down.
+    ///
+    /// The replay deliberately does **not** charge the budget again: it is the same attempt
+    /// being re-run for its diagnostics, not a new one.
+    ///
+    /// **`verboseUnions` suppresses the sink rollback and NOT the reader restore**, which is a
+    /// distinction the first version of this got wrong. Verbose mode keeps every branch's
+    /// *issues*; it must still rewind the *reader*, or branch two starts wherever branch one
+    /// stopped and reports nonsense about a position it was never meant to see. Caught by a
+    /// test asserting that verbose mode names a field only the non-closest branch has.
+    static func untaggedBody(typeName: String, cases: [UnionCase]) -> String {
+        let known = cases.map { "\"\($0.identifier)\"" }.joined(separator: ", ")
+
+        /// One attempt. `keep` is false in the measuring pass and true in the replay.
+        func attempt(_ c: UnionCase, indent: String, keep: Bool) -> String {
+            let decode: String
+            if let call = scalarCall(c.payloadType ?? "", key: c.identifier) {
+                // A scalar branch — `case text(String)`, which is EXPERIENCE §9's own example.
+                // The case name stands in for the key in any issue, since a union member has
+                // no key of its own.
+                decode = "reader.\(call)"
+            } else {
+                decode = "\(c.payloadType!)._assay(from: &reader, into: &sink, at: path)"
+            }
+            if keep {
+                return """
+                \(indent)if __closest == "\(c.identifier)" {
+                \(indent)    _ = \(decode)
+                \(indent)}
+                """
+            }
+            return """
+            \(indent)guard reader.chargeUnionAttempt(&sink, path) else { return nil }
+            \(indent)if let __v = \(decode) {
+            \(indent)    return .\(c.identifier)(__v)
+            \(indent)}
+            \(indent)__n = sink.checkpoint() - __ck
+            \(indent)if __n < __best {
+            \(indent)    __best = __n
+            \(indent)    __closest = "\(c.identifier)"
+            \(indent)}
+            \(indent)reader.restore(__mark)
+            \(indent)if !__verbose { sink.rollback(to: __ck) }
+            """
         }
-        return ext.map { [$0] } ?? []
+
+        let measuring = cases.map { attempt($0, indent: "        ", keep: false) }
+            .joined(separator: "\n\n")
+        let replay = cases.map { attempt($0, indent: "            ", keep: true) }
+            .joined(separator: "\n")
+
+        return """
+        nonisolated static let __assayVariants: [String] = [\(known)]
+
+        nonisolated public static func _assay(
+            from reader: inout Assay.AssayReader,
+            into sink: inout Assay.IssueSink,
+            at path: [Assay.PathComponent]
+        ) -> \(typeName)? {
+            let __mark = reader.mark
+            let __ck = sink.checkpoint()
+            let __verbose = reader.activeLimits.verboseUnions
+            var __best = Int.max
+            var __n = 0
+            var __closest = ""
+
+        \(measuring)
+
+            // Every branch failed. One summary naming the guess as a guess, then the closest
+            // branch replayed so its detail follows it. docs/UNIONS.md §2.2.
+            reader.restore(__mark)
+            if !__verbose { sink.rollback(to: __ck) }
+            reader.noVariantMatched(&sink, path, "\(typeName)", __closest,
+                                    Self.__assayVariants)
+            if !__verbose {
+                reader.restore(__mark)
+        \(replay)
+            }
+            reader.restore(__mark)
+            _ = reader.skipValue(&sink)
+            return nil
+        }
+        """
     }
 }

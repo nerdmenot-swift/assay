@@ -412,6 +412,50 @@ extension AssayReader {
     @inlinable
     public mutating func seek(to offset: Int) { cursor = offset }
 
+    /// Everything a rewind has to put back. `ROADMAP.md` §5 says unions need `seek(to:)` and
+    /// `IssueSink.rollback(to:)`; **that list is one short**, and the reason is narrower than
+    /// it first looks — `Tests/AssayTests/RewindTests.swift` establishes both halves.
+    ///
+    /// An *ordinary* decode failure is balanced. A body that finds a type mismatch keeps
+    /// scanning to the closing brace, calls `leaveContainer`, and only then returns nil at the
+    /// unwrap — so twenty failed branches against a depth budget of four leave the reader
+    /// perfectly usable, and `seek(to:)` alone is enough. That was worth measuring rather than
+    /// assuming: it is why this type is not needed for most of what a union does.
+    ///
+    /// A **malformed container** is not balanced. The generated arm for an unterminated array
+    /// reports and returns from *inside* the enclosing object, without unwinding it, so each
+    /// attempt costs a level. Twenty attempts against a budget of four then fail the
+    /// twenty-first decode — measured, with `seek(to:)` and again with this. An untagged union
+    /// is exactly a run of failed decodes and its branches are attacker-chosen, so this is
+    /// reachable on purpose, not only by accident.
+    ///
+    /// **Not fixed by balancing the generated paths instead**, which was the other option.
+    /// Nothing else can observe the leak — every other decode aborts outright when a body
+    /// returns nil — so adding `leaveContainer` calls to error paths in every expansion would
+    /// cost generated code, against the budget in `docs/COMPILE-TIME.md`, to fix something
+    /// only unions can see. Two integers at the union boundary is cheaper and more local.
+    public struct Mark: Sendable, Equatable {
+        @usableFromInline let cursor: Int
+        @usableFromInline let depth: Int
+        @inlinable init(cursor: Int, depth: Int) {
+            self.cursor = cursor
+            self.depth = depth
+        }
+    }
+
+    /// Where the reader is now, for a later `restore(_:)`.
+    @inlinable
+    public var mark: Mark { Mark(cursor: cursor, depth: depth) }
+
+    /// Put the reader back exactly as `mark` found it. Pairs with `IssueSink.rollback(to:)`:
+    /// one restores the input position, the other the reported issues, and a branch attempt
+    /// needs both.
+    @inlinable
+    public mutating func restore(_ m: Mark) {
+        cursor = m.cursor
+        depth = m.depth
+    }
+
     /// Does the input match `literal` at the cursor?
     @inlinable
     public func matches(_ literal: StaticString) -> Bool {

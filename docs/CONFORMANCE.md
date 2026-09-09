@@ -50,7 +50,7 @@ substitutes for the other.**
 
 ## 2. The harness
 
-Four differentials, all in `Benchmarks/Sources/DiffFuzz/`, all run in CI.
+Five differentials, all in `Benchmarks/Sources/DiffFuzz/`, all run in CI.
 
 | file | question |
 |---|---|
@@ -58,6 +58,7 @@ Four differentials, all in `Benchmarks/Sources/DiffFuzz/`, all run in CI.
 | `RejectOracle.swift` | do they agree on what to REJECT, and are numbers bit-exact? |
 | `FormatOracle.swift` | does the fast rule engine agree with the naive one it replaced? |
 | `YAMLOracle` / `XMLOracle` / `DateOracle` | the same two questions per format |
+| `PlistOracle.swift` | do documents **Foundation wrote** decode to the same tree — and does the reader survive a corrupted trailer? |
 
 ### Choosing an oracle, and not obeying it
 
@@ -212,8 +213,8 @@ the attack; the absolute figure is beside the point.**
 - `Tests/AssayTests/ConformanceTests.swift` — the JSON grammar and the overflow-rewind
   property, in `swift test`.
 - `Tests/AssayTests/SpanTests.swift` — that carets point at the right bytes.
-- `Benchmarks/Sources/DiffFuzz` — the four differentials plus 9,680 mutated and truncated
-  inputs per run, in CI.
+- `Benchmarks/Sources/DiffFuzz` — the five differentials, plus 9,680 mutated and truncated
+  JSON/YAML/XML inputs and 12,234 plist ones per run, in CI.
 - `Experiments/03-compile-time/gate.sh` — two compile-time budgets.
 
 Every ratio quoted anywhere in this repository is one arm64 Mac, warm, minimum of five

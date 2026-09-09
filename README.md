@@ -418,7 +418,7 @@ errors, source spans, validation, and every format but JSON.
 
 | | |
 |---|---|
-| Unit tests | **250** in 36 suites |
+| Unit tests | **578** in 95 suites |
 | JSON differential | `JSON.Value` agrees with `JSONSerialization` value-for-value on all **75** positive corpus files |
 | YAML differential | agrees with **Yams/libyaml** on 37 adversarial hand-written cases + 75 generated documents, and with `JSONSerialization` on the whole corpus read as YAML (JSON ⊂ YAML 1.2) |
 | XML differential | agrees with **Foundation's `XMLParser`** on 29 hand-written + 75 generated documents, namespaces and attributes included |

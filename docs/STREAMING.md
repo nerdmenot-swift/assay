@@ -126,8 +126,12 @@ Assay's measured band, repeated.
   offsets would be prettier and would require retaining bytes already discarded.
 - **UTF-8 validation runs per record**, which is per *buffer*, not per *string* — so
   §5.4's 1.65× finding still does not apply.
-- **`Assayer<T>`'s scratch reuse gets more valuable, not less.** A stream decodes the same
-  type millions of times; steady-state zero scratch allocations is the entire point.
+- **Scratch reuse gets more valuable, not less.** A stream decodes the same type millions of
+  times, so steady-state zero scratch allocations would be the entire point. Written here as
+  *`Assayer<T>`'s* scratch reuse, and that attribution is **stale**: `Assayer<T>` shipped
+  2026-09-08 as an immutable `Sendable` schema value, which cannot own mutable scratch. The
+  argument survives and its owner does not — scratch needs a separate `~Copyable`,
+  non-`Sendable` type, which is unbuilt. `PERFORMANCE.md` §11, `docs/ASSAYER.md`.
 
 ---
 
@@ -332,8 +336,9 @@ Not phase 1, and not before allocation counts exist. Streaming multiplies whatev
 per-record allocation figure is by the record count, so shipping it before that number is
 known would be shipping a multiplier on an unmeasured quantity.
 
-Natural slot: **after phase 2** (`PERFORMANCE.md` §14), alongside steady-state scratch
-reuse in `Assayer<T>`, which is the optimization streaming most depends on.
+Natural slot: **after phase 2** (`PERFORMANCE.md` §14), alongside steady-state scratch reuse —
+the optimization streaming most depends on, and one that no longer has an owner now that
+`Assayer<T>` has shipped as a `Sendable` value. See §3's corrected bullet.
 
 ---
 

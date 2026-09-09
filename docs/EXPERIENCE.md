@@ -590,6 +590,14 @@ org.json:41:18: error: employees[3].address.country must be exactly 2 characters
 
 ### Discriminated unions
 
+**Not built** — and this was missing from `ROADMAP.md` entirely until 2026-09-08, when cutting
+`@PickFirst` turned it up. Unions force the one thing the decode body was designed never to do:
+**rewind**. A discriminated union must find the tag before choosing a branch, and the `"type"`
+key may arrive last; an untagged one must try branches and back out, which is exponential under
+nesting without a budget. Both primitives already exist (`AssayReader.seek(to:)`,
+`IssueSink.rollback(to:)`), so this is a real design pass rather than a blocked one.
+`ROADMAP.md` §5.
+
 ```swift
 @Schema(discriminator: "type")
 enum Event {
@@ -614,10 +622,12 @@ and when *those* fail you get the composed report — every branch, and why each
 
 ```swift
 @OneOrMany var tags: [String]        // "swift" and ["swift", "ios"] both work
-@PickFirst var id: StringOrInt       // tries each representation in order
+@PickFirst var id: StringOrInt       // CUT — see below
 ```
 
 Borrowed from `serde_with`, which exists because these two shapes account for a startling proportion of real-world API weirdness.
+
+**`@OneOrMany` shipped 2026-09-08. `@PickFirst` was CUT, and cannot be built as spelled.** The macro would need to know `StringOrInt`'s branches and it sees a token. The sound spelling is an untagged union — `@Schema(discriminator: .none)`, §9 below — which *is* pick-first by definition; and unions are themselves unbuilt, because they force the one thing the decode body was designed never to do: rewind. `ROADMAP.md` §5.
 
 ---
 
@@ -920,13 +930,14 @@ struct Book {
 
 Everything else follows the general rules. `@XML` annotations describe the wire shape; they are not present on the JSON path and cost nothing there.
 
-### The three parsers are three products
+### The four parsers are four products
 
 ```swift
 .product(name: "Assay",           package: "assay")   // core + JSON
 .product(name: "AssayFoundation", package: "assay")   // Data, URL, FileManager conveniences
 .product(name: "AssayYAML",       package: "assay")
 .product(name: "AssayXML",        package: "assay")
+.product(name: "AssayPlist",      package: "assay")   // binary + XML property lists
 ```
 
 The first edition claimed "JSON users never pay for XML." That sentence is only literally true if XML is a separate product — importing Foundation's XML support pulls in libxml2, which on Android drags in liblzma and libiconv behind it. So it is a separate product. Adding a format is adding a dependency line, and you can see it in your manifest.
@@ -1288,10 +1299,10 @@ enum P: String, Assayable { case low, high; @Unknown case other(String) }
 @Schema(context: Ctx.self)
 @AsyncCheck static func h(_ v: T, _ ctx: Ctx, _ issues: inout Issues<T>) async
 
-// Unions
-@Schema(discriminator: "type") enum E { case a(A), b(B) }
-@OneOrMany var tags: [String]
-@PickFirst var id: StringOrInt
+// Unions — NOT BUILT, ROADMAP §5. They force the decode body to rewind.
+@Schema(discriminator: "type") enum E { case a(A), b(B) }   // not built
+@OneOrMany var tags: [String]                               // built 2026-09-08
+@PickFirst var id: StringOrInt                              // CUT — needs unions
 
 // Formats — opt in on the struct; the default is JSON alone
 @Schema                                  // JSON only
@@ -1301,9 +1312,10 @@ enum P: String, Assayable { case low, high; @Unknown case other(String) }
 try T.parse(json: data) / parse(yaml: text) / parse(xml: data)
 try T.parseAll(yaml: text)
 try T.parse(mmapped: url)                // AssayFoundation; files larger than memory
+try T.parse(plist: data)                 // AssayPlist; binary and XML flavours
+try T.parse(body: bytes, contentType: header, accepting: [.json])
 // specified, not built:
-//   parse(plist:) / parse(bytes, as:) / parse(body, contentType:accepting:)
-//   @XML(.attribute) @XML(.text) @XML(.wrapped(_:item:)) @XML(.namespace(_:))
+//   parse(bytes, as:) / parse(contentsOf:)
 
 // Output
 d.render(.terminal) / .plain / .json / .problemDetails
@@ -1332,4 +1344,4 @@ Everything in the first edition's open questions about the macro shape, the `@Wr
 
 *Second edition, written before anything here had been compiled — there was no Swift toolchain in that environment, so every API was designed against the compiler's source and its test suite rather than against a build. The macro-shaped claims were checked against swift-syntax 600.0.1 and the Swift 6.3 compiler tests; the platform claims against the Foundation and package sources listed in `_crossplatform_audit.md`. The first thing to do on a machine with a toolchain, it said, was to prove the `@Validate` attribute in section 5 actually compiles.*
 
-*It does. As of 2026-07-27 this document is implemented rather than proposed: sections 1–13 and 16–19 describe working, tested code, and the `@Validate` spelling in §5 compiles exactly as written, including the message-as-a-rule trick that motivated the `ExpressibleByStringLiteral` conformance. `Date` and `@DateFormat` (§11) followed on 2026-08-06 — including candidate chains (`@DateFormat(.iso8601, .unixMillis)`, fallback matches warn like `@Key(or:)`), compile-time-checked patterns, and the `.before`/`.after`/`.between` rules; `.past`/`.future` wait on a clock seam. Encoding (§14) followed on 2026-08-09 for JSON, YAML and XML, and `@Unknown` (§8) with it — both were on this list and both now ship. What is **not** built is listed with its reasons in [`ROADMAP.md`](../ROADMAP.md): `jsonSchema(for:)` and `StandardSchema` (§§14–15), and index segments in `@Key(path:)`. Where this document and the code disagree, that is a bug in one of them; `ROADMAP.md` says which.*
+*It does. As of 2026-07-27 this document is implemented rather than proposed: sections 1–13 and 16–19 describe working, tested code, and the `@Validate` spelling in §5 compiles exactly as written, including the message-as-a-rule trick that motivated the `ExpressibleByStringLiteral` conformance. `Date` and `@DateFormat` (§11) followed on 2026-08-06 — including candidate chains (`@DateFormat(.iso8601, .unixMillis)`, fallback matches warn like `@Key(or:)`), compile-time-checked patterns, and the `.before`/`.after`/`.between` rules; `.past`/`.future` wait on a clock seam. Encoding (§14) followed on 2026-08-09 for JSON, YAML and XML, and `@Unknown` (§8) with it — both were on this list and both now ship. What is **not** built is listed with its reasons in [`ROADMAP.md`](../ROADMAP.md): `StandardSchema` (§15, which needs a third package), index segments in `@Key(path:)` (§4), and `parse(bytes, as:)`/`parse(contentsOf:)` (§12). `jsonSchema(for:)` (§14) and `parse(plist:)` (§1) shipped 2026-09-09. Where this document and the code disagree, that is a bug in one of them; `ROADMAP.md` says which.*

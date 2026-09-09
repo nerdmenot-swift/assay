@@ -615,11 +615,21 @@ live override. SE-0527 considered allocator generics and Swift Evolution decline
 decoding" and "zero-allocation decoding" are dead marketing lines and must not appear anywhere in
 Assay's documentation.
 
-What survives is worth having anyway: **`Assayer<T>` owns a reusable scratch buffer**, so in
+What was expected to survive was this: **`Assayer<T>` owns a reusable scratch buffer**, so in
 steady state — a server decoding the same type thousands of times — the *scratch* allocation count
-per decode is zero. Unescaping buffers, nested-container stacks, the issue buffer's backing store:
-all reused. That is a real claim, it is precisely bounded, and it is measurable with
-`mallocCountTotal`.
+per decode is zero.
+
+**That premise is stale, and `Assayer<T>` shipping on 2026-09-08 is what falsified it.** It
+assumed `Assayer` would be the *decoder object*. It shipped as an immutable schema **value**,
+which it has to be: `static let assaySchema` requires `Sendable`, and a `Sendable` value cannot
+own mutable scratch. Scratch belongs in a separate `~Copyable`, non-`Sendable`, `inout`-passed
+type usable by *both* doors, and that type is not built. `docs/ASSAYER.md` carries the honest
+inventory of what is left to reuse — the unescape buffer (`Strings.swift`) and the `RawValue`
+walker; everything else is already refused or allocates nothing.
+
+Total malloc traffic, which is what would measure this, **is** now instrumented (Darwin,
+`malloc_logger`, 2026-09-09) — see `Benchmarks/RESULTS.md`. The measurement exists; the thing it
+was going to measure does not.
 
 `withUnsafeTemporaryAllocation` handles the one-shot case, with one correction to the folklore:
 its stack cliff is **1024 bytes, not 4 KB**, and SE-0322's "runtime heuristic" is a stub that
@@ -867,8 +877,11 @@ per-decode overhead in ns and allocations — because that is the actual product
 hot path and almost nobody publishes it.
 
 Benchmark both cold and warm, labelled. Real servers decode the same type thousands of times, so
-if `Assayer<T>` amortizes anything, a cold-only benchmark understates it — and a warm-only
-benchmark overstates it for CLI users.
+a cold-only benchmark understates the steady state and a warm-only one overstates it for CLI
+users. **Both are now measured** (`ColdStartBench.swift`, 2026-09-09): first decode of a type is
+7.7–7.9× over Foundation against 6.6–6.8× warm, so the gap is *widest* cold. Note that this is
+not `Assayer<T>` amortizing anything — see §11's correction; it is the `CodingKeys` metadata and
+container machinery a macro never creates.
 
 ### 12.4 CI
 
@@ -943,8 +956,9 @@ not comfortably clear ZippyJSON's 1.38×, the thesis is wrong and everything bel
 is the falsification condition and it should be written into the repository.
 
 **Phase 2 — the unclaimed wins.** ISO-8601 date parsing by hand. Unknown-key structural skip.
-Exact-sized arrays. Steady-state scratch reuse in `Assayer<T>`. These are all allocation and
-special-case wins, all measurable with `mallocCountTotal`, all independent of each other.
+Exact-sized arrays. ~~Steady-state scratch reuse in `Assayer<T>`~~ — struck because the premise
+was false, not because it was deprioritised: see §11. These are allocation and special-case wins,
+independent of each other.
 
 **Phase 3 — codegen discipline.** SIL dumps to count ARC traffic. `@inlinable` on the hot leaves.
 Split generated bodies until the escape-analysis budget is comfortably met. Verify the field

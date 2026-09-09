@@ -522,3 +522,56 @@ struct PlistDifferential {
     }
 }
 #endif
+
+// MARK: - Integer overflow on attacker-controlled counts
+//
+// Found by reading the code rather than by the fuzzer, which is worth saying: the counts below
+// need the 0xF "size follows in an integer object" escape carrying a value near `Int.max`, and
+// random mutation reaches that combination essentially never. Every other bound in this reader
+// was checked; these three multiplications were not, and in Swift an overflowing `*` traps.
+
+@Suite("plists — count overflow")
+struct PlistCountOverflow {
+
+    /// Build an object whose 0xF-escaped element count is `count`, then a valid trailer.
+    static func hugeCount(marker: UInt8, count: Int) -> [UInt8] {
+        var obj: [UInt8] = [marker | 0x0F, 0x13]        // 0xF escape, then an 8-byte integer
+        obj += BPlistBuilder.beBytes(count, 8)
+        var b = BPlistBuilder()
+        _ = b.add(obj)
+        return b.finish(top: 0)
+    }
+
+    @Test("a UTF-16 string claiming Int.max code units does not trap")
+    func utf16Count() {
+        var sink = IssueSink(limits: .default)
+        #expect(Plist.decode(Self.hugeCount(marker: 0x60, count: Int.max), into: &sink) == nil)
+    }
+
+    @Test("an array claiming Int.max elements does not trap")
+    func arrayCount() {
+        var sink = IssueSink(limits: .default)
+        #expect(Plist.decode(Self.hugeCount(marker: 0xA0, count: Int.max), into: &sink) == nil)
+    }
+
+    @Test("a dictionary claiming Int.max pairs does not trap")
+    func dictCount() {
+        var sink = IssueSink(limits: .default)
+        #expect(Plist.decode(Self.hugeCount(marker: 0xD0, count: Int.max), into: &sink) == nil)
+    }
+
+    /// Half of `Int.max` overflows only after the `* 2` for a dictionary's key+value refs,
+    /// which is the arithmetic the array case does not have.
+    @Test("a dictionary at half Int.max does not trap on the key/value doubling")
+    func dictHalfCount() {
+        var sink = IssueSink(limits: .default)
+        #expect(Plist.decode(Self.hugeCount(marker: 0xD0, count: Int.max / 2),
+                             into: &sink) == nil)
+    }
+
+    @Test("data claiming Int.max bytes does not trap")
+    func dataCount() {
+        var sink = IssueSink(limits: .default)
+        #expect(Plist.decode(Self.hugeCount(marker: 0x40, count: Int.max), into: &sink) == nil)
+    }
+}

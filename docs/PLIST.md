@@ -97,7 +97,7 @@ that keeps passing when the limit is deleted.
 ## 3. What the fuzz arm found, and why it exists
 
 `Benchmarks/Sources/DiffFuzz/PlistOracle.swift` mutates and truncates documents Foundation
-wrote — 12,090 inputs per run, weighted towards the trailer.
+wrote — 12,234 inputs per run, weighted towards the trailer.
 
 **The trailer is why this arm is not optional.** In every other format Assay reads, a flipped
 byte produces a parse error a few bytes later. In a binary plist the trailer at the *end* of
@@ -115,6 +115,31 @@ minutes earlier by the truncation test:
 
 Fixed by range-checking against the file size before narrowing, in three places plus every
 object reference. The fuzz arm is what keeps it fixed.
+
+**And it missed a second one of exactly the same kind, which is worth recording.** A day later,
+reading the code rather than running it turned up three unchecked multiplications:
+
+```swift
+guard start + n * 2 <= limit               // UTF-16 string
+guard start + n * objectRefSize <= limit   // array
+guard start + n * objectRefSize * 2 <= limit  // dictionary, keys then values
+```
+
+`n` came from the "0xF in the size nibble, then an integer object holding the real count"
+escape, bounded only by `Int.max`. In Swift an overflowing `*` **traps**; the process died
+rather than returning an error. Every other bound in the reader was checked and these three
+were not.
+
+The fuzzer had run 12,000 inputs over it and found nothing, for a reason that generalises:
+reaching the bug needs a specific nibble AND a well-formed integer marker AND an extreme value
+**in the same object**, and single-byte mutation of a valid document produces that combination
+essentially never. Random mutation is good at malformed bytes and bad at malformed *structure*.
+
+Fixed at the source — `count()` now bounds the count by the file's own size, which is both true
+(no object can have more elements than there are bytes to describe them with) and sufficient
+for all three multiplications, so a fourth call site added later cannot forget. The fuzz arm
+gained a generator that constructs the 0xF escape deliberately across every container marker
+and several extreme counts, which is what would have found it.
 
 ---
 

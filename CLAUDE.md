@@ -42,7 +42,7 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 | Allocation counts | **measured and gated** — live blocks, not total malloc traffic. Read `Benchmarks/Sources/AssayBench/Allocations.swift`'s three stated limitations before quoting a number |
 | `Date` + `@DateFormat` (ISO-8601, unix, RFC 9110, patterns, candidate chains) + `.before/.after/.between` rules | **built and measured** — 6.06× vs Foundation `.iso8601`, 2,279-instant exact differential. Core stays Foundation-free: parsers return epoch seconds, the macro emits `Date(timeIntervalSince1970:)` into the user's module. `.past`/`.future` deferred (no clock seam) |
 | `[String: T]` dictionary fields | **built and measured 2026-08-07** — both decode paths, recursive nesting, non-String keys diagnosed at expansion. The §2.5 "worst case" measured **6.95×** over Foundation; narrowing with size confirmed, loss did not materialise |
-| `@XML` placement (`.attribute`/`.text`/`.wrapped`) | **built** — expansion-checked; `@XML(root:)` deferred |
+| `@XML` placement (`.attribute`/`.text`/`.wrapped`) | **built** — expansion-checked. `@XML(root:)` followed 2026-09-08, two rows down |
 | `KeyedSource` row path | **built, measured, REMOVED** — lost to the `RawValue` path (311 vs 95 ns), could not accept the `~Escapable` rows it existed for, cost 1.6–4.7× per row in a driver. `docs/KEYED-SOURCE.md` records why; do not rebuild it |
 | `ColumnarSource` + `_assayBatch` | **built** — the surviving half. Field manifest, `BoundPlan` two-phase binding, Arrow-style validity masks. 1.27× the tree path at a flat ~53 ns/row; 1.03× called generically from another module |
 | `ColumnDecodable` + `BytesColumn` | **built and measured 2026-08-30** — the columnar extension point, so a consumer's own scalar (`Timestamp`, `Decimal128`) crosses a column store without Assay learning its name. Carrier is an `associatedtype`, not a field attribute, because a macro is syntactic and cannot see conformances. **Free: 42.29 vs 42.65 ns/row against a built-in `Int64` column, 0.99×**, because the generic call is once per COLUMN and the per-row call is concrete — which is exactly the shape `KeyedSource` got wrong. `ColumnMetadata` carries the unit as data. Bytes are flat-plus-offsets: materialising costs 1.53×. `docs/COLUMN-DECODABLE.md` |
@@ -117,8 +117,8 @@ idiomatic Swift spelling, the answer is a different construct, not a translitera
 
 ### Naming
 - Module `Assay`, protocol `Assayable`, macro `@Schema`. The runtime value type is *named*
-  `Assayer<T>`; it is not built (see the table above), and the naming argument below is why
-  the name is settled in advance.
+  `Assayer<T>`, and it shipped 2026-09-08 (see the table above). The naming argument below is
+  why the name was settled before it existed.
 - The module **cannot** be named `Assayable`: macros are not hygienic and must emit
   `Assay.Assayer`; if the module were `Assayable` that parses as a nested-type lookup inside the
   protocol and fails, and it corrupts the generated `.swiftinterface` under library evolution.
@@ -178,15 +178,14 @@ preprocess → coerce → decode → field rules → cross-field checks → tran
 first, async runs only if sync was clean, then concurrently.
 
 ### Packaging
-Products `Assay` (core + JSON), `AssayFoundation`, `AssayYAML`, `AssayXML`. Core takes bytes, not
+Products `Assay` (core + JSON), `AssayFoundation`, `AssayYAML`, `AssayXML`, `AssayPlist`. Core takes bytes, not
 `Data`. `platforms:` names **every** Apple platform (macOS 11 / iOS 14 / tvOS 14 / watchOS 7 /
 visionOS 1) — listing macOS alone leaves the others on SwiftPM's ancient default rather than
 unconstrained, which broke the iOS build until 2026-08-22. `Limits` (maxIssues 100, maxDepth 64, maxBytes) with
 `d.truncatedIssues`. Embedded Swift is explicitly not a target.
 
-**Decided but NOT built** — `parse(body, contentType:, accepting:)`, where `accepting:` is
-required with no default (XXE / billion-laughs). The design point stands; the function does
-not exist. `ROADMAP.md` §9.
+`parse(body, contentType:, accepting:)` **shipped 2026-09-08**, with `accepting:` required and
+no default (XXE / billion-laughs). `ROADMAP.md` §9.
 
 ### Encoding
 A **deferral, not a refusal**. Placement data (`@Key`, `@XML`, `@DateFormat`) is preserved so the
@@ -304,7 +303,10 @@ extension User {
    front, lazy source locations, `inout [Issue]`. No SIMD, no C. Benchmark vs Foundation, count
    allocations. → the falsification condition above.
 2. **The unclaimed wins.** Hand-written ISO-8601 dates, unknown-key structural skip, exact-sized
-   arrays, steady-state scratch reuse in `Assayer<T>`.
+   arrays. ~~steady-state scratch reuse in `Assayer<T>`~~ — **that premise is stale and is
+   listed under Corrected premises below.** It assumed `Assayer` was the decoder object; it
+   shipped as an immutable `Sendable` schema *value*, and a `Sendable` value cannot own mutable
+   scratch. `docs/ASSAYER.md`.
 3. **Codegen discipline.** SIL dumps to count ARC traffic, `@inlinable` on hot leaves, split
    generated bodies, verify the dispatch lowering.
 4. ~~**SIMD behind the seam**~~ — **RETIRED 2026-08-08, unbuilt.** Measured: UTF-8 validation is
@@ -428,6 +430,12 @@ Swift — do not put numbers for those anywhere.
   `swift-corelibs-foundation`'s `FoundationXML` over **libxml2**, and it is fast: Assay's XML
   parser measures 0.54× against it on Linux while measuring 1.30× on Darwin. "Assay's XML is
   faster than Foundation's" is a Darwin-only claim.
+- **`Assayer<T>` does not own reusable scratch**, and phase 2's build order said it would. The
+  premise assumed `Assayer` was the *decoder object*; it shipped 2026-09-08 as an immutable
+  schema **value** that must be `Sendable` for `static let assaySchema` to be legal — and a
+  `Sendable` value cannot own mutable scratch. Scratch belongs in a separate `~Copyable`,
+  non-`Sendable`, `inout`-passed type usable by both doors. `docs/ASSAYER.md` records the
+  honest inventory of what is left to reuse: the unescape buffer and the `RawValue` walker.
 - `import Builtin` needs `.enableExperimentalFeature("BuiltinModule")`, **not** `-parse-stdlib`.
 - "Structs + generics + non-escaping closures = ARC-free" is folklore; only *transitively trivial*
   structs qualify.

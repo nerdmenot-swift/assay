@@ -155,6 +155,40 @@ func runPlistFuzz() throws -> Int {
         }
     }
 
+    // THE 0xF ESCAPE, generated deliberately rather than left to chance. A binary plist
+    // spells a large element count as "0xF in the size nibble, then an integer object holding
+    // the real count" — and random single-byte mutation reaches that combination essentially
+    // never, because it needs a specific nibble AND a well-formed integer marker AND an
+    // extreme value in the same object.
+    //
+    // That gap was not theoretical: an unbounded count near `Int.max` made `start + n * 2`
+    // overflow, which in Swift traps rather than returning a wrong answer, and the bug was
+    // found by reading the code instead of by the 12,000 inputs above. This arm is what would
+    // have found it, and is what keeps it found.
+    for marker in [UInt8(0x40), 0x50, 0x60, 0xA0, 0xC0, 0xD0] {
+        for count in [Int.max, Int.max / 2, Int.max / 4, 1 << 40, 1 << 20, 0] {
+            for width in [UInt8(0x13), 0x12, 0x11, 0x10] {
+                var obj: [UInt8] = [marker | 0x0F, width]
+                let byteCount = 1 << Int(width & 0x0F)
+                for i in (0..<byteCount).reversed() {
+                    obj.append(UInt8(truncatingIfNeeded: count >> (8 * i)))
+                }
+                var bytes = Array("bplist00".utf8) + obj
+                let table = bytes.count
+                bytes.append(8)                                  // one object, at offset 8
+                bytes += [0, 0, 0, 0, 0, 0, 1, 1]                // unused, sortVersion, widths
+                for v in [1, 0, table] {
+                    for i in (0..<8).reversed() {
+                        bytes.append(UInt8(truncatingIfNeeded: v >> (8 * i)))
+                    }
+                }
+                var sink = IssueSink(limits: .default)
+                _ = Plist.decode(bytes, into: &sink, limits: .default)
+                runs += 1
+            }
+        }
+    }
+
     // Pure noise behind a valid magic, so the reader meets trailers no writer would produce.
     for _ in 0..<3_000 {
         var bytes = Array("bplist00".utf8)

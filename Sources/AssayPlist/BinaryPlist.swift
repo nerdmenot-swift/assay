@@ -185,6 +185,19 @@ enum BinaryPlist {
 
         /// The size nibble, and the "0xF means an integer object follows" escape.
         /// Returns the count and the offset just past it.
+        ///
+        /// **The count is bounded by the file's own size**, and that bound is what makes every
+        /// `start + n * width` check downstream safe. Without it `n` can be `Int.max` straight
+        /// out of the file, and `n * 2` for a UTF-16 string — or `n * refSize * 2` for a
+        /// dictionary — overflows, which in Swift is a trap and not a wrong answer.
+        ///
+        /// The bound is also simply true: no object can have more elements than the file has
+        /// bytes to describe them with, since every element costs at least one byte of
+        /// reference. Checking it here rather than at each of the four call sites means a
+        /// fifth call site added later cannot forget.
+        ///
+        /// Found by reading the code, not by the fuzzer — reaching it needs the 0xF escape
+        /// carrying a value near `Int.max`, which random mutation produces essentially never.
         mutating func count(at p: Int, low: Int, _ sink: inout IssueSink) -> (Int, Int)? {
             guard low != 0xF else {
                 guard p + 1 <= bytes.count - 32 else { return nil }
@@ -193,7 +206,7 @@ enum BinaryPlist {
                 let width = 1 << Int(marker & 0x0F)
                 guard width <= 8, p + 2 + width <= bytes.count - 32 else { return nil }
                 let n = readBE(p + 2, width)
-                guard n <= UInt64(Int.max) else { return nil }
+                guard n <= UInt64(bytes.count) else { return nil }
                 return (Int(n), p + 2 + width)
             }
             return (low, p + 1)

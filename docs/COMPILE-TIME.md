@@ -149,9 +149,9 @@ Worth documenting for adopters rather than leaving them to discover it:
 
 - **Put schema types in a module that changes rarely.** Expansion results cache; a module
   that does not change is not re-expanded.
-- **Prefer one `@Schema` type with `@Inline` members over many small ones**, once
-  `@Inline` exists. Fixed per-type cost is ~9 ms and per-field cost is ~7 ms, so
-  consolidation genuinely helps.
+- **Prefer one `@Schema` type with `@Inline` members over many small ones.** `@Inline`
+  shipped 2026-09-08. Fixed per-type cost is ~9 ms and per-field cost is ~7 ms, so
+  consolidation genuinely helps — flattening deletes the inlined type's fixed term outright.
 - **Wide types are the expensive case, not numerous types.** A 40-field type costs about
   as much as four 10-field types.
 - **Keep the swift-syntax pin matched to your toolchain.** `Package.swift` pins the 603

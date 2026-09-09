@@ -215,7 +215,8 @@ public macro Schema(
     formats: SchemaFormats = .json,
     encodes: Bool = false,
     sources: Bool = false,
-    describes: Bool = false
+    describes: Bool = false,
+    discriminator: Discriminator? = nil
 ) = #externalMacro(module: "AssayMacros", type: "SchemaMacro")
 
 /// `@Schema(context: AppContext.self)` — the contextual form. `EXPERIENCE.md` §10.
@@ -244,7 +245,8 @@ public macro Schema<C>(
     formats: SchemaFormats = .json,
     encodes: Bool = false,
     sources: Bool = false,
-    describes: Bool = false
+    describes: Bool = false,
+    discriminator: Discriminator? = nil
 ) = #externalMacro(module: "AssayMacros", type: "SchemaMacro")
 
 /// The forward-compatibility catch-all case of an open enum. `docs/ENCODING.md` q2.
@@ -466,6 +468,30 @@ public enum UnknownKeys: Sendable {
     case reject
     /// Route the key and value to the `@Extras` property.
     case collect
+}
+
+/// `@Schema(discriminator:)` — how a union chooses its branch. `docs/UNIONS.md`.
+///
+/// Two spellings, one parameter, and the `ExpressibleByStringLiteral` conformance is what
+/// makes that work — the same device `Rule` uses so `@Validate(.min(1), "message")` compiles:
+///
+///     @Schema(discriminator: "type")   // tagged: the branch is named in the document
+///     @Schema(discriminator: .none)    // untagged: try each branch in order
+public struct Discriminator: Sendable, Equatable, ExpressibleByStringLiteral {
+    @usableFromInline enum Storage: Sendable, Equatable {
+        case key(String)
+        case none
+    }
+    @usableFromInline let storage: Storage
+
+    /// An untagged union. `docs/UNIONS.md` §2.2 and §3: this is the form that needs a
+    /// composed failure report and a backtracking budget, and the form that carries a
+    /// round-trip exception. Prefer a tag whenever the wire format has one.
+    public static let none = Discriminator(storage: .none)
+
+    @usableFromInline init(storage: Storage) { self.storage = storage }
+
+    public init(stringLiteral value: String) { self.storage = .key(value) }
 }
 
 /// How declared identifiers become wire keys.

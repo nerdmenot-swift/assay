@@ -590,13 +590,15 @@ org.json:41:18: error: employees[3].address.country must be exactly 2 characters
 
 ### Discriminated unions
 
-**Not built** — and this was missing from `ROADMAP.md` entirely until 2026-09-08, when cutting
-`@PickFirst` turned it up. Unions force the one thing the decode body was designed never to do:
-**rewind**. A discriminated union must find the tag before choosing a branch, and the `"type"`
-key may arrive last; an untagged one must try branches and back out, which is exponential under
-nesting without a budget. Both primitives already exist (`AssayReader.seek(to:)`,
-`IssueSink.rollback(to:)`), so this is a real design pass rather than a blocked one.
-`ROADMAP.md` §5.
+**Built 2026-09-09**, decode only, JSON only. `docs/UNIONS.md` is the design; the untagged form
+below is designed there and not built.
+
+Unions force the one thing the decode body was designed never to do: **rewind**. The tag may
+arrive last, so the branch cannot be chosen by reading forward — the decoder scans keys for the
+tag, skipping values structurally, then rewinds and decodes the chosen branch over the whole
+object. That needed one primitive the roadmap did not list: `seek(to:)` restores the cursor,
+`IssueSink.rollback(to:)` the issues, and neither restores container **depth**, which a
+malformed document can leave unbalanced.
 
 ```swift
 @Schema(discriminator: "type")
@@ -616,7 +618,12 @@ Untagged unions exist for wire formats you don't control:
 enum StringOrNumber { case text(String), number(Double) }
 ```
 
-and when *those* fail you get the composed report — every branch, and why each one didn't match — because there is nothing better available.
+**Not built** — refused at expansion, with the reason. When *those* fail there is a composed
+report to produce, and "every branch, and why each one didn't match" is the wall of noise a
+discriminator exists to avoid; `docs/UNIONS.md` §2.2 settles it as one summary issue plus the
+detail of the closest branch, saying which. It also needs a backtracking budget (§3) and it
+carries a round-trip exception a tagged union does not (§4). All three are why the tagged form
+shipped first.
 
 ### Collections that arrive in more than one shape
 

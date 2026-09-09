@@ -151,6 +151,14 @@ public struct SchemaMacro: ExtensionMacro {
         // An enum takes a different path entirely: it decodes as a scalar, not a
         // mapping, and the only reason it needs a macro at all is @Unknown.
         if let enumDecl = declaration.as(EnumDeclSyntax.self) {
+            // A union and a closed string enum are both `@Schema enum`, and `discriminator:`
+            // is what tells them apart — a union's cases carry payloads, which the closed-enum
+            // path refuses outright.
+            if let tag = Self.discriminator(from: node) {
+                return Self.unionExpansion(of: node, enumDecl: enumDecl,
+                                           typeName: type.trimmedDescription, tag: tag,
+                                           in: context)
+            }
             return Self.enumExpansion(of: node, enumDecl: enumDecl,
                                       typeName: type.trimmedDescription, in: context)
         }

@@ -314,7 +314,7 @@ a token. The sound spelling is an untagged union — `@Schema(discriminator: .no
 *is* pick-first by definition. `CLAUDE.md`'s governing principle exactly: a different
 construct, not a transliteration.
 
-### Discriminated and untagged unions — NOT BUILT, and not previously on this roadmap
+### Unions — DISCRIMINATED BUILT 2026-09-09; untagged designed, not built
 
 `EXPERIENCE.md` §9 specifies `@Schema(discriminator: "type")` and `discriminator: .none`.
 Neither exists, and neither was listed here — this is a gap in the roadmap itself, found
@@ -323,10 +323,29 @@ while cutting `@PickFirst`.
 They force the one thing the decode body was designed never to do: **rewind**. A
 discriminated union must find the tag before choosing a branch (the `"type"` key may appear
 last); an untagged one must try branches and back out, which is exponential under nesting
-without a budget. Both primitives already exist — `AssayReader.seek(to:)` and
-`IssueSink.rollback(to:)` — so this is a real design pass rather than a blocked one, and it
-needs `docs/UNIONS.md` answering how a composed failure is reported, what bounds the
-backtracking, and what encoding a union means.
+without a budget.
+
+**`docs/UNIONS.md` is the design pass this asked for, and the tagged form is built.**
+
+**"Both primitives already exist" was one short.** `seek(to:)` and `IssueSink.rollback(to:)`
+do exist; `depth` is a third piece of state and `seek` does not restore it. Measured rather
+than reasoned (`Tests/AssayTests/RewindTests.swift`): an *ordinary* failure is balanced — a
+body that hits a type mismatch scans to the closing brace, calls `leaveContainer`, and only
+then returns nil — so twenty failed branches leave the reader usable. A **malformed container**
+is not: the arm for an unterminated array returns from inside the enclosing object without
+unwinding it, so each attempt costs a depth level and twenty attempts against a budget of four
+fail the twenty-first decode. `AssayReader.Mark`/`restore(_:)` shipped 2026-09-09 for this.
+
+**Why tagged first, and why the split is not arbitrary.** Three of `UNIONS.md`'s four hard
+questions do not apply to a discriminated union: once the tag is read exactly one branch is
+possible, so there is no composed failure to report, no backtracking to bound, and no
+round-trip exception. That is also `EXPERIENCE.md` §9's own argument for preferring a tag.
+
+Untagged remains unbuilt and is refused at expansion with a diagnostic naming the design
+document. It needs the composed-failure rule (`UNIONS.md` §2.2 — one summary issue plus the
+closest branch's detail, and say which), the attempt budget (§3 — global, not per-union,
+because the exponential is *nested* unions and `maxDepth` cannot see it), and it carries a
+round-trip exception a tagged union does not.
 
 ## 6. `@Wraps` and `@Unknown` — BOTH BUILT
 

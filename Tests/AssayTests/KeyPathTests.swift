@@ -372,3 +372,43 @@ struct KeyPathEncodeTests {
         #expect(try EncCard.parse(yaml: c.encodedYAML()) == c)
     }
 }
+
+@Suite("@Key(path:) — the expansion itself")
+struct KeyPathExpansion {
+
+    /// **A compile-time regression with no runtime symptom, so only this can catch it.**
+    ///
+    /// The sparse key-table emitter writes every entry that differs from a sentinel, and the
+    /// sentinel is the number of dispatch ARMS. That stops equalling the number of FIELDS the
+    /// moment two fields share a path prefix — and when it was wrong, the expansion carried a
+    /// **253-assignment array literal**, which is the exact cost `COMPILE-TIME.md` rule 1
+    /// exists to prevent. Every decode still produced the right answer and every test passed.
+    ///
+    /// Found by reading a dumped expansion. Nothing else would have found it, which is why
+    /// this asserts on the expansion rather than on behaviour.
+    @Test("a path schema emits a SPARSE key table, not 253 assignments")
+    func keyTableStaysSparse() {
+        let (expansion, diags) = expandSchemaForTesting("""
+            @Schema struct S {
+                @Key(path: "profile.display_name") var displayName: String
+                @Key(path: "profile.avatar") var avatar: String?
+                @Key(path: "meta.stats.views") var views: Int
+                var id: String
+            }
+            """)
+        #expect(diags.isEmpty, "\(diags)")
+
+        // Four fields, but only THREE top-level arms — `profile` and `meta` are one each,
+        // shared by the fields beneath them.
+        let assignments = expansion.components(separatedBy: "t[").count - 1
+        #expect(assignments <= 8, """
+                the key table has \(assignments) assignments. It should have one per distinct \
+                window value — a handful. A number near 253 means the sentinel does not match \
+                the arm count and every entry is being written out.
+                """)
+        #expect(expansion.contains("repeating: 3"), """
+                the sentinel should be the ARM count (3: one plain field plus two path \
+                groups), not the field count (4).
+                """)
+    }
+}

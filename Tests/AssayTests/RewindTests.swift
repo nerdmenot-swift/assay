@@ -143,6 +143,40 @@ struct RewindTests {
                 """)
     }
 
+    /// **The invariant at source, asserted with `seek` on purpose.** The test above uses
+    /// `restore`, so it would pass whether or not the generated code balanced its own error
+    /// paths. This one uses `seek(to:)` alone, so it fails the moment a generated failure path
+    /// returns without unwinding a container it entered.
+    ///
+    /// That path existed: the arm for an unterminated array reported and returned from inside
+    /// the enclosing object. It was fixed at source on 2026-09-09 — one `leaveContainer()` per
+    /// array, dictionary and path-group error arm — rather than left for `restore` to paper
+    /// over, because "nothing observes it today" is the reasoning that produced several of the
+    /// other bugs found this week.
+    @Test("generated failure paths balance their own containers")
+    func generatedPathsAreBalanced() {
+        var limits = Limits.default
+        limits.maxDepth = 4
+
+        let bad = #"{"xs":[1,2"#
+        let good = #"{"xs":[1,2]}"#
+        let ok = Self.withReader(bad + good, limits: limits) { reader, sink in
+            let start = reader.byteOffset
+            let issueMark = sink.checkpoint()
+            for _ in 0..<20 {
+                _ = RewindArray._assay(from: &reader, into: &sink, at: [])
+                reader.seek(to: start)          // cursor only — no depth restore
+                sink.rollback(to: issueMark)
+            }
+            reader.seek(to: bad.utf8.count)
+            return RewindArray._assay(from: &reader, into: &sink, at: [])
+        }
+        #expect(ok == RewindArray(xs: [1, 2]), """
+                a generated failure path entered a container and did not leave it. `restore` \
+                hides this from unions; nothing hides it from anything else.
+                """)
+    }
+
     /// Rewinding must not resurrect issues from a branch that was abandoned. A union that
     /// reported every branch's failures alongside the winning branch's success would be the
     /// "did not match any of 3 variants" wall of noise a discriminator exists to prevent.

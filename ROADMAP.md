@@ -332,9 +332,17 @@ do exist; `depth` is a third piece of state and `seek` does not restore it. Meas
 than reasoned (`Tests/AssayTests/RewindTests.swift`): an *ordinary* failure is balanced — a
 body that hits a type mismatch scans to the closing brace, calls `leaveContainer`, and only
 then returns nil — so twenty failed branches leave the reader usable. A **malformed container**
-is not: the arm for an unterminated array returns from inside the enclosing object without
-unwinding it, so each attempt costs a depth level and twenty attempts against a budget of four
-fail the twenty-first decode. `AssayReader.Mark`/`restore(_:)` shipped 2026-09-09 for this.
+was not: the arm for an unterminated array returned from inside the enclosing object without
+unwinding it, so each attempt cost a depth level and twenty attempts against a budget of four
+failed the twenty-first decode.
+
+**Fixed at source**, one `leaveContainer()` per collection and path-group error arm. The first
+instinct was to leave it and let the union boundary paper over it, on the grounds that nothing
+else could observe the leak and that the extra lines would cost compile time; the measured cost
+is nil (`arrays` 99.2 ms against 101.6 before, which is noise), and "nothing observes it today"
+is how several of this week's other bugs were made. `AssayReader.Mark`/`restore(_:)` stays as
+the complete rewind — a union driver should not depend on every *future* emitter staying
+balanced — and the source invariant has its own test, asserted with `seek(to:)` alone.
 
 **Why tagged first, and why the split is not arbitrary.** Three of `UNIONS.md`'s four hard
 questions do not apply to a discriminated union: once the tag is read exactly one branch is

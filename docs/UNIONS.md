@@ -40,13 +40,25 @@ reading — see `Tests/AssayTests/RewindTests.swift` and `AssayReader.Mark`:
 | reported issues | `IssueSink.rollback(to:)` |
 | **container depth** | **`restore(_:)`, added 2026-09-09** |
 
-An *ordinary* failure turns out to be balanced — a body that hits a type mismatch scans to the
-closing brace, calls `leaveContainer`, and only then returns nil — so `seek` alone is enough
-for most of what a union does. A **malformed container** is not: the generated arm for an
-unterminated array returns from inside the enclosing object without unwinding it, so each
-attempt costs a depth level. Twenty attempts against a budget of four fail the twenty-first
-decode. An untagged union is a run of failed decodes over attacker-chosen input, so that is
-reachable on purpose.
+An *ordinary* failure was always balanced — a body that hits a type mismatch scans to the
+closing brace, calls `leaveContainer`, and only then returns nil. A **malformed container** was
+not: the generated arm for an unterminated array returned from inside the enclosing object
+without unwinding it, so each attempt cost a depth level and twenty attempts against a budget
+of four failed the twenty-first decode. An untagged union is a run of failed decodes over
+attacker-chosen input, so that was reachable on purpose.
+
+**That was fixed at source**, one `leaveContainer()` per array, dictionary and path-group error
+arm — and measured, because the first instinct was *not* to: the argument for leaving it was
+that nothing outside a union could observe the leak and that balancing every error path would
+cost generated code against the compile-time budget. Both halves were wrong in the way that
+matters. "Nothing observes it today" is the reasoning that produced several other bugs found
+the same week, and the measured cost of the extra lines is nil — the `arrays` arm reads 99.2 ms
+against 101.6 before, which is noise.
+
+`restore(_:)` stays, now as the complete rewind rather than a workaround: a union driver should
+not depend on every generated error path in every *future* feature staying balanced. The
+invariant is asserted separately, with `seek(to:)` alone, so a regression in the emitter fails
+a test rather than being absorbed.
 
 ---
 

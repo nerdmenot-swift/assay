@@ -343,6 +343,7 @@ extension SchemaMacro {
         \(pad)        while true {
         \(pad)            guard let \(key) = reader.scanKey(), reader.expect(0x3A) else {
         \(pad)                reader.reportMalformed(&sink, path)
+        \(pad)                reader.leaveContainer()
         \(pad)                return nil
         \(pad)            }
         \(arms)\(pad)                {
@@ -353,6 +354,7 @@ extension SchemaMacro {
         \(pad)        }
         \(pad)        guard reader.tryConsume(0x7D) else {
         \(pad)            reader.reportMalformed(&sink, path)
+        \(pad)            reader.leaveContainer()
         \(pad)            return nil
         \(pad)        }
         \(pad)    }
@@ -643,6 +645,7 @@ extension SchemaMacro {
         \(pad)        }
         \(pad)        guard reader.tryConsume(0x5D) else {
         \(pad)            reader.reportMalformed(&sink, path)
+        \(pad)            reader.leaveContainer()
         \(pad)            return nil
         \(pad)        }
         \(pad)    }
@@ -726,6 +729,7 @@ extension SchemaMacro {
         \(pad)        while true {
         \(pad)            guard let \(kTok) = reader.scanKey(), reader.expect(0x3A) else {
         \(pad)                reader.reportMalformed(&sink, path)
+        \(pad)                reader.leaveContainer()
         \(pad)                return nil
         \(pad)            }
         \(inner)\(pad)            \(dict)[reader.keyString(\(kTok))] = \(elt)
@@ -734,6 +738,7 @@ extension SchemaMacro {
         \(pad)        }
         \(pad)        guard reader.tryConsume(0x7D) else {
         \(pad)            reader.reportMalformed(&sink, path)
+        \(pad)            reader.leaveContainer()
         \(pad)            return nil
         \(pad)        }
         \(pad)    }

@@ -429,24 +429,26 @@ extension AssayReader {
     /// `IssueSink.rollback(to:)`; **that list is one short**, and the reason is narrower than
     /// it first looks — `Tests/AssayTests/RewindTests.swift` establishes both halves.
     ///
-    /// An *ordinary* decode failure is balanced. A body that finds a type mismatch keeps
-    /// scanning to the closing brace, calls `leaveContainer`, and only then returns nil at the
-    /// unwrap — so twenty failed branches against a depth budget of four leave the reader
-    /// perfectly usable, and `seek(to:)` alone is enough. That was worth measuring rather than
-    /// assuming: it is why this type is not needed for most of what a union does.
+    /// **The generated code balances its own error paths, and this does not depend on that.**
+    /// Both halves are measured, in `RewindTests.swift`.
     ///
-    /// A **malformed container** is not balanced. The generated arm for an unterminated array
-    /// reports and returns from *inside* the enclosing object, without unwinding it, so each
-    /// attempt costs a level. Twenty attempts against a budget of four then fail the
-    /// twenty-first decode — measured, with `seek(to:)` and again with this. An untagged union
-    /// is exactly a run of failed decodes and its branches are attacker-chosen, so this is
-    /// reachable on purpose, not only by accident.
+    /// An *ordinary* decode failure was always balanced: a body that finds a type mismatch
+    /// scans on to the closing brace, calls `leaveContainer`, and only then returns nil at the
+    /// unwrap. A **malformed container** was not — the arm for an unterminated array reported
+    /// and returned from inside the enclosing object — so twenty attempts against a depth
+    /// budget of four failed the twenty-first decode.
     ///
-    /// **Not fixed by balancing the generated paths instead**, which was the other option.
-    /// Nothing else can observe the leak — every other decode aborts outright when a body
-    /// returns nil — so adding `leaveContainer` calls to error paths in every expansion would
-    /// cost generated code, against the budget in `docs/COMPILE-TIME.md`, to fix something
-    /// only unions can see. Two integers at the union boundary is cheaper and more local.
+    /// That was **fixed at source** on 2026-09-09, one `leaveContainer()` per array,
+    /// dictionary and path-group error arm. The first instinct was to leave it and let this
+    /// type paper over it at the union boundary, on the grounds that nothing else could
+    /// observe the leak; "nothing observes it today" is the reasoning that produced several
+    /// other bugs found the same week, and the fix costs one line per collection field.
+    /// `generatedPathsAreBalanced` asserts it with `seek(to:)` alone, so it fails if a future
+    /// emitter regresses.
+    ///
+    /// **This type stays anyway**, now as the complete rewind rather than a workaround: a
+    /// union driver should not depend on every generated error path in every future feature
+    /// staying balanced, and the cost of not depending on it is two integers.
     public struct Mark: Sendable, Equatable {
         @usableFromInline let cursor: Int
         @usableFromInline let depth: Int

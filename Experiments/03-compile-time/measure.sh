@@ -117,9 +117,10 @@ echo "Compile-time cost of @Schema"
 swift --version 2>&1 | head -1
 echo "fields per type: $FIELDS   config: $CONFIG   deps prebuilt: yes   min of: $REPEATS"
 echo ""
-printf "%-8s %10s %10s %10s %11s %10s %8s %11s %12s\n" \
-  "types" "plain" "codable" "schema" "validated" "arrays" "paths" "vs-plain" "vs-codable"
-printf -- '-%.0s' $(seq 1 101); echo
+printf "%-8s %10s %10s %10s %11s %10s %8s %10s %11s %12s\n" \
+  "types" "plain" "codable" "schema" "validated" "arrays" "paths" "describes" \
+  "vs-plain" "vs-codable"
+printf -- '-%.0s' $(seq 1 112); echo
 
 # `validated` is the same types with a @Validate on every field — the worst case for the
 # generated `_assayCheck` body. It is reported beside the gated arm rather than instead of
@@ -133,16 +134,17 @@ for n in 1 10 25 50 100; do
   read -r v_min v_med <<< "$(time_build validated "$n")"
   read -r a_min a_med <<< "$(time_build arrays "$n")"
   read -r k_min k_med <<< "$(time_build paths "$n")"
+  read -r d_min d_med <<< "$(time_build describes "$n")"
   # The printed table is minima -- the absolute costs, which is what it has always shown.
   # The ratios beside it are MEDIANS, because a quotient of two minima is biased; see the
   # header. They will differ slightly from dividing the printed columns, and that is the
   # point rather than an inconsistency.
   vp=$(awk -v a="$s_med" -v b="$p_med" 'BEGIN{ printf "%.2fx", a/b }')
   vc=$(awk -v a="$s_med" -v b="$c_med" 'BEGIN{ printf "%.2fx", a/b }')
-  printf "%-8s %10s %10s %10s %11s %10s %8s %11s %12s\n" \
-    "$n" "$p_min" "$c_min" "$s_min" "$v_min" "$a_min" "$k_min" "$vp" "$vc"
+  printf "%-8s %10s %10s %10s %11s %10s %8s %10s %11s %12s\n" \
+    "$n" "$p_min" "$c_min" "$s_min" "$v_min" "$a_min" "$k_min" "$d_min" "$vp" "$vc"
   medians="$medians
-MEDIANS $n $p_med $c_med $s_med $v_med $a_med $k_med"
+MEDIANS $n $p_med $c_med $s_med $v_med $a_med $k_med $d_med"
 done
 
 # Machine-readable, for gate.sh, and after the table so it stays a table. The minima above

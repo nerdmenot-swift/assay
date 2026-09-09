@@ -547,20 +547,91 @@ Writing plists is not built — no subtlety there, it has simply not been asked 
 
 ---
 
-## 11. `jsonSchema(for:)` and `StandardSchema`
+## 11. `jsonSchema(for:)` — BUILT 2026-09-09. `StandardSchema` — blocked on a repository
 
-**Status: not implemented.** `EXPERIENCE.md` §§14–15.
+`EXPERIENCE.md` §§14–15.
+
+### `jsonSchema(for:)` — BUILT
 
 ```swift
-let schema = Article.jsonSchema(for: .input)     // JSON Schema 2020-12
+@Schema(keys: .snakeCase, describes: true)
+struct Article {
+    @Validate(.min(1), .max(120)) var title: String
+    @Validate(.url) var link: String
+    var tags: [String] = []
+    var summary: String?
+}
+
+let doc = Article.jsonSchema(for: .input)     // JSON Schema 2020-12
+print(Article.jsonSchemaText())               // ready to paste into an OpenAPI spec
 ```
 
-Emitting a JSON Schema document from a `@Schema` type, for OpenAPI generation and client
-validation. `StandardSchema` conformance ships as a **separate zero-dependency package**, so
-Assay never gains a dependency for the sake of an interop protocol.
+**A DESCRIPTOR, NOT DOCUMENT TEXT, and that choice is the feature.** The obvious
+implementation emits the schema string from the macro, and it is wrong for a measured reason:
+cost tracks generated body size, so emitting text would put the whole rule-to-keyword mapping
+— `.min` becomes `minLength` on a String, `minimum` on a number, `minItems` on an array — into
+every user's expansion, once per type. The macro emits a small value naming what it already
+knows; `AssayCore/JSONSchemaRender.swift` renders it once, at runtime.
 
-Both need item 1's placement data to be complete before they can describe output shapes
-faithfully.
+**The predicted HIGH compile-time risk did not materialise, and the design is why.** This
+section previously flagged the descriptor as "an array literal, the exact shape rule 1 was
+written about". Measured, with a `describes` arm added to `gen_types.sh` for the purpose:
+**94.6 ms/type against the rule-carrying arm's 90.0 — about 5%.** The reason is specific
+rather than lucky: the descriptor *references* the `__assayRules_i_j` statics the validator
+already holds, so a field with three rules contributes one identifier and not three literals.
+
+**The one rule the renderer holds: describe MORE than the type accepts, never less.** The two
+errors are not symmetric — a schema that under-documents costs a reader some guessing, while a
+schema that is too strict makes a correct client unusable with no way for its author to
+discover that the schema is at fault. So a rule with no *exact* 2020-12 equivalent goes into
+`description` prose rather than an approximate keyword:
+
+- `.trimmed` / `.lowercased` are **assertions**, not normalisations — Assay reports
+  `not_trimmed`, it does not trim. An earlier version of the renderer said the opposite in a
+  comment and a test caught it. A `pattern` could express them only approximately (`isTrimmed`
+  is space/tab/CR/LF, ECMA-262's `\s` is wider; `.lowercased` is full Unicode case folding),
+  and an approximate pattern could be *narrower* than the real check.
+- `.before`/`.after`/`.between` hold epoch seconds while the wire form is a date **string**, so
+  `minimum` would compare the wrong things and 2020-12 has no keyword for the real constraint.
+- An **alias** is described under both keys and required under neither — 2020-12 cannot say
+  "exactly one of these", and requiring either would reject a document that used the other.
+- `additionalProperties: false` **only** for `unknownKeys: .reject`. `.warn` and `.collect`
+  still accept the document.
+
+**`.input` vs `.output` differ exactly where `@Transform` is**, which is the distinction Zod
+added in v4 after shipping the single-document version and finding it wrong.
+
+**Nested types use the metatype trick.** `Author.self` as an `any SchemaDescribing.Type` makes
+the *type checker* verify a conformance the macro cannot see — the same device
+`ColumnDecodable` uses — so a nested type that forgot `describes: true` is a compile error
+naming the real problem rather than a schema that silently describes it as `{}`.
+
+**Two combinations are refused at expansion** rather than described wrongly: `@Key(path:)`
+(JSON Schema's `properties` map is flat, and a field living at `profile.name` would have to be
+described either as a top-level key no document has or as a nested shape this type does not
+read) and `@XML` placement (an attribute is not a JSON property).
+
+### `StandardSchema` — NOT BUILT, and the blocker is a repository rather than a design
+
+`EXPERIENCE.md` §15 proposes publishing it "separately, with no dependency on Assay, and with
+Assay merely being one conformer", and calls it "the highest-leverage thing available, and it
+costs almost nothing."
+
+**Those two sentences cannot both be true, and §15 reads as though they are.** A SwiftPM
+dependency is resolved by every consumer of the package that declares it. If `Assay` declares
+a dependency on `StandardSchema`, then `StandardSchema` is no longer something Assay merely
+conforms to — every Assay user resolves and links it, which is exactly the "hard-code a
+dependency" outcome the proposal exists to avoid. If it does not, the conformance has nowhere
+to live.
+
+The resolution is a **third package**: `StandardSchema` (zero dependencies, the protocol),
+`Assay` (unchanged), and `AssaySchemaAdapter` (depends on both, and holds the one-line
+conformance). That is the standard shape for this problem and it is not expensive — but it is
+**two more repositories**, not a weekend, and it cannot be done from inside this one. It is
+recorded here so the cost is visible before someone starts.
+
+The half that was actually load-bearing — a machine-readable description of a schema — is
+`jsonSchema(for:)` above, and it ships.
 
 ---
 

@@ -207,14 +207,15 @@ public protocol JSONAssayable: Assayable {
 // `Assayable` is deliberately absent from this list: both `JSONAssayable` and
 // `RawDecodable` refine it, so declaring it here would promise a conformance the expansion
 // does not itself emit.
-@attached(extension, conformances: JSONAssayable, RawDecodable, Validatable, AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema, XMLEncodableSchema, SourceDecodable, XMLRooted, ContextualJSONAssayable, ContextualRawDecodable, ContextualValidatable, ContextualAsyncCheckAssayable, names: arbitrary)
+@attached(extension, conformances: JSONAssayable, RawDecodable, Validatable, AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema, XMLEncodableSchema, SourceDecodable, XMLRooted, ContextualJSONAssayable, ContextualRawDecodable, ContextualValidatable, ContextualAsyncCheckAssayable, SchemaDescribing, names: arbitrary)
 public macro Schema(
     keys: KeyNamingStyle = .camelCase,
     unknownKeys: UnknownKeys = .ignore,
     coerceScalars: Bool = false,
     formats: SchemaFormats = .json,
     encodes: Bool = false,
-    sources: Bool = false
+    sources: Bool = false,
+    describes: Bool = false
 ) = #externalMacro(module: "AssayMacros", type: "SchemaMacro")
 
 /// `@Schema(context: AppContext.self)` — the contextual form. `EXPERIENCE.md` §10.
@@ -234,7 +235,7 @@ public macro Schema(
           AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema,
           XMLEncodableSchema, SourceDecodable, XMLRooted, ContextualJSONAssayable,
           ContextualRawDecodable, ContextualValidatable, ContextualAsyncCheckAssayable,
-          names: arbitrary)
+          SchemaDescribing, names: arbitrary)
 public macro Schema<C>(
     context: C.Type,
     keys: KeyNamingStyle = .camelCase,
@@ -242,7 +243,8 @@ public macro Schema<C>(
     coerceScalars: Bool = false,
     formats: SchemaFormats = .json,
     encodes: Bool = false,
-    sources: Bool = false
+    sources: Bool = false,
+    describes: Bool = false
 ) = #externalMacro(module: "AssayMacros", type: "SchemaMacro")
 
 /// The forward-compatibility catch-all case of an open enum. `docs/ENCODING.md` q2.

@@ -219,6 +219,7 @@ public struct SchemaMacro: ExtensionMacro {
         let coerceAll = Self.coerceScalars(from: node)
         let formats = Self.formats(from: node)
         let ctxType = Self.contextType(from: node)
+        let wantsDescribe = Self.describes(from: node)
 
         // @Extras is a sink, not a field: it never enters the dispatch table, the
         // candidate key set, or the presence mask — but it is still passed to the
@@ -414,6 +415,16 @@ public struct SchemaMacro: ExtensionMacro {
             body += Self.validateBody(typeName: typeName, fields: activeS,
                                       checks: checkDecls, ctx: ctxType)
         }
+        if wantsDescribe {
+            for message in Self.describeDiagnostics(activeS) {
+                context.diagnose(Diagnostic(node: Syntax(node),
+                                            message: SimpleDiagnostic(message)))
+            }
+            guard Self.describeDiagnostics(activeS).isEmpty else { return [] }
+            if !body.isEmpty { body += "\n\n" }
+            body += Self.describeBody(typeName: typeName, fields: activeS,
+                                      policy: policy, groups: pathGroups)
+        }
         body += Self.asyncCheckRunner(typeName, checkDecls, ctx: ctxType)
 
         // A type that would expand to NOTHING AT ALL is always a mistake, and it is the
@@ -470,6 +481,7 @@ public struct SchemaMacro: ExtensionMacro {
         if wantsEncoding && formats.xml { conformances.append("Assay.XMLEncodableSchema") }
         if wantsSources { conformances.append("Assay.SourceDecodable") }
         if xmlRootName != nil && formats.xml { conformances.append("Assay.XMLRooted") }
+        if wantsDescribe { conformances.append("Assay.SchemaDescribing") }
 
         let ext = try ExtensionDeclSyntax(
             "extension \(raw: typeName): \(raw: conformances.joined(separator: ", "))") {

@@ -58,6 +58,7 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 | `@Schema(context:)` | **built 2026-09-08** — the MACRO half; the type-erased runtime context for `Assayer<T>` is not built and is not planned. A contextual type conforms to `ContextualJSONAssayable` and *not* `JSONAssayable`, so `parse(json:)` does not exist for it — "you cannot forget to pass it" is the type system, not advice. Context-free expansion is byte-identical (verified by dumping one). Cost three overload-resolution bugs, one of which silently ran the SYNC `diagnose` for an `await` call and skipped every async check |
 | `@Key(path:)` | **built 2026-09-08** — a path is a TREE OF THE EXISTING DISPATCH TABLE, not a second pass: two fields under one prefix are one arm. **0.97–1.01× the nested-`@Schema` alternative** against a ship-or-refuse gate of 1.15× written first. Caret rule: the path names the segment that failed, the caret points at the innermost thing that existed; a missing intermediate is absence, a wrong-typed one is an error even when everything under it is optional. Inner dispatch is a linear chain, NOT a second 256-byte window table (rule 1). Index segments (`tags[0]`) refused — `ROADMAP` §13 |
 | `parse(plist:)` | **built 2026-09-09** — `AssayPlist`, both flavours. ROADMAP called it "mechanically the smallest item"; the XML flavour is (it reuses the XXE-refusing XML parser), the BINARY flavour is a random-access object graph with two amplification attacks no existing limit covered — reference cycles (visiting set on the reference PATH, not a global seen set: sharing is legal) and shared-object amplification (10 arrays x 1000 refs, <1 kB, 10^30 nodes, depth 10 so maxDepth never fires — node budget). A fuzz arm found an `Int(UInt64)` trap on trailer fields on its first run. `docs/PLIST.md` |
+| `jsonSchema(for:)` | **built 2026-09-09** — `@Schema(describes: true)`, opt-in. Emits a DESCRIPTOR, not document text: the rule→keyword mapping lives once in `AssayCore`, so the predicted HIGH compile-time risk did not materialise — **94.6 ms/type against the rule-carrying arm's 90.0, about 5%** — because the descriptor references the existing `__assayRules_i_j` statics. Renderer law: **describe MORE than the type accepts, never less**; a rule with no exact 2020-12 keyword becomes `description` prose, not an approximate `pattern`. Found that `.trimmed`/`.lowercased` are ASSERTIONS, not normalisations — a comment said otherwise and a test caught it. `@Key(path:)` and `@XML` placement are refused at expansion rather than described wrongly |
 | `parse(body:contentType:accepting:)` | **built 2026-09-08** — formats are VALUES (`WireFormat`), because `Assay` cannot depend on `AssayYAML`. RFC 9110 + 6839 suffixes, charset checked never transcoded, no sniffing ever, `unsupported_media_type` its own code so a server maps 415. The load-bearing test: a billion-laughs XML body offered to `accepting: [.json]` produces one negotiation issue and never enters the parser |
 | Encoding throughput | **measured 2026-09-08** — **2.85×** over `Encodable` + `JSONEncoder` at 50 and 200 items, against the *swift-foundation rewrite* (verified behaviourally: `Float(0.1)` encodes as `0.1`, not the legacy `NSNumber`-widened `0.10000000149011612`). A measurement, not a thesis — the decode multiple has an argument behind it and this one does not |
 | `@Inline` | **built 2026-09-08** — the recorded blocker (cross-module collision detection) was the wrong blocker: a macro cannot see another type's members in ANY module. Requiring the type to be **nested** makes detection total at expansion, makes unknown-key handling work through the inline (serde's runtime `flatten` cannot), and costs nothing at runtime — one table, one mask, one pass |
@@ -73,7 +74,7 @@ spelling" and "you can call it" are different claims, and this table is which is
 
 | named | where | status |
 |---|---|---|
-| `jsonSchema(for:)`, `StandardSchema` | encoding section below | not built — `ROADMAP` §11 |
+| `StandardSchema` | EXPERIENCE §15 | not built — `ROADMAP` §11. The blocker is a REPOSITORY, not a design: "Assay conforms to it" and "Assay does not depend on it" cannot both hold in one package, so it needs a third adapter package |
 | `@Key(path: "tags[0]")` — the INDEX form | EXPERIENCE §4 | refused at expansion — `ROADMAP` §13. The dot form ships |
 
 ---
@@ -189,8 +190,9 @@ not exist. `ROADMAP.md` §9.
 
 ### Encoding
 A **deferral, not a refusal**. Placement data (`@Key`, `@XML`, `@DateFormat`) is preserved so the
-encoder can be added without a redesign. `T.jsonSchema(for: .input)` is in the feature set.
-`StandardSchema` ships as a separate zero-dependency package.
+encoder can be added without a redesign. `T.jsonSchema(for: .input)` **shipped 2026-09-09** behind `@Schema(describes: true)`.
+`StandardSchema` needs a third adapter package — "Assay conforms to it" and "Assay does not
+depend on it" cannot both hold in one — and is the last unbuilt item in `EXPERIENCE.md`.
 
 ---
 

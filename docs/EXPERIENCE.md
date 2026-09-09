@@ -1,9 +1,9 @@
 # Assay — the developer experience
 
 > **This is the API specification, written before the implementation, and it describes a
-> larger surface than exists today.** Most of it is built. **One** piece named here is
-> not: `jsonSchema(for:)`/`StandardSchema` (§§14–15). `parse(plist:)` (§1) shipped
-> 2026-09-09.
+> larger surface than exists today.** Almost all of it is built. What is **not** is
+> `StandardSchema` (§15), and its blocker is a repository rather than a design — see
+> `ROADMAP.md` §11. `jsonSchema(for:)` (§14) and `parse(plist:)` (§1) shipped 2026-09-09.
 > `@Inline` and `@Key(path:)` (§4), `@Wraps` (§8), `Assayer<T>` (§17), `@OneOrMany` (§9),
 > `@XML(root:)`, `@Schema(context:)` (§10) and
 > `parse(body:contentType:accepting:)` (§12) all shipped on 2026-09-08; `@PickFirst` (§9)
@@ -1053,6 +1053,12 @@ let schema = Article.jsonSchema(for: .input)     // 2020-12
 
 The macro already has everything needed to emit JSON Schema — the field names, the types, the rules, the optionality. Refusing to expose it was leaving value on the table. `.input` and `.output` differ once transforms are involved, which is the distinction Zod added in v4 after discovering the single-document version was wrong.
 
+**Built 2026-09-09, behind `@Schema(describes: true)`** — opt-in like `encodes:`, for the same compile-time reason. Two things worth knowing before you use it.
+
+It emits a **descriptor**, not text: the rule-to-keyword mapping lives once in `AssayCore` rather than once per type in your build, which is why the measured cost is ~5% on top of a rule-carrying type instead of the large number that design was expected to produce.
+
+And it will sometimes describe **more** than the type accepts, never less. Where a rule has no exact JSON Schema 2020-12 keyword — `.trimmed`, `.lowercased`, the date bounds — it becomes prose in `description` rather than an approximate `pattern`, because a schema that is too strict makes a correct client unusable and its author has no way to tell that the schema is at fault. `ROADMAP.md` §11 lists every such case.
+
 `Encodable` conformance synthesis moves out of the refusals for the same reason: it is a strictly easier problem than a full encoder, it is what people actually ask for, and the key renaming information needed to do it correctly is already there.
 
 ---
@@ -1068,7 +1074,9 @@ The mechanism that turned Zod from a library into a hub was not a feature of Zod
 
 Nothing like it exists in Swift. Every framework that wants validation either invents its own protocol or hard-codes a dependency.
 
-Publishing that package on day one — separately, with no dependency on Assay, and with Assay merely being one conformer — is the highest-leverage thing available, and it costs almost nothing. If it works, other libraries implement it and Assay benefits. If it doesn't, you lost a weekend.
+Publishing that package — separately, with no dependency on Assay, and with Assay merely being one conformer — is high-leverage. If it works, other libraries implement it and Assay benefits.
+
+**It does not cost "almost nothing", and the first edition said it did.** A SwiftPM dependency is resolved by every consumer of the package that declares it, so "Assay conforms to StandardSchema" and "Assay does not depend on StandardSchema" cannot both hold in one package: declaring the dependency makes every Assay user resolve and link it, which is the outcome this idea exists to avoid. The conformance needs a **third** package — `StandardSchema`, `Assay`, and a small adapter depending on both. That is the standard shape and it is not hard, but it is two more repositories rather than a weekend, and it is why this is the one thing in this document still unbuilt. `ROADMAP.md` §11.
 
 ```swift
 extension Article: StandardSchema.Validatable {}   // that's the whole conformance

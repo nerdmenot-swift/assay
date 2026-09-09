@@ -304,6 +304,28 @@ is no overload set to explore and no generic parameter to solve, so there is not
 inference to go exponential on. The property is worth keeping: an emitter that started
 producing multi-term expressions with inferred literals would be where this changes.
 
+### 5.5 `describes: true` — a predicted HIGH risk that did not arrive
+
+`ROADMAP.md` §11 flagged `jsonSchema(for:)` as high compile-time risk before it was built, on
+the explicit grounds that a per-field descriptor is "an array literal, the exact shape rule 1
+was written about". Measured with a `describes` arm added to `gen_types.sh` for the purpose —
+`describes: true` on top of the rule-carrying arm, which is the shape the feature is for:
+
+**94.6 ms/type against `validated`'s 90.0 — about 5%.**
+
+The prediction was reasonable and the design is why it did not come true, so it is worth being
+precise about which choice did the work:
+
+1. The macro emits a **descriptor**, not JSON Schema text. The rule-to-keyword mapping — one
+   `Rule` case becoming `minLength`, `minimum` or `minItems` depending on the field's type —
+   is ~120 lines and lives once in `AssayCore`, not once per type in every user's build.
+2. The descriptor **references** `Self.__assayRules_i_j`, the `static let` the validator body
+   already holds. A field with three rules contributes one identifier to the descriptor, not
+   three rule literals. This is why the arm is measured on top of `validated` rather than
+   `schema`: on a rule-free type the saving would not be visible.
+
+Rule 1 remains right; the descriptor simply is not the shape it warns about.
+
 ### 5.4 Still unmeasured
 
 - **Xcode / SwiftUI previews.** Anecdotally the most sensitive environment to macro cost; no

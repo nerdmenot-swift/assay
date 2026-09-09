@@ -8,12 +8,18 @@
 # The arms must be *semantically equivalent* or the comparison is meaningless: same field
 # names, same field types, same count. Only the conformance mechanism varies.
 #
-#   gen_types.sh <count> <fields> <plain|codable|schema|validated|arrays|paths>
+#   gen_types.sh <count> <fields> <plain|codable|schema|validated|arrays|paths|describes>
 #
 # `validated` puts a @Validate on EVERY field, which is the worst case for the generated
 # `_assayCheck` body and not a realistic schema. It exists so the cost of validation is
 # measured rather than inferred from the rule-free arm — the default `schema` arm is what
 # the gate holds, because a type with no rules gets no validator body at all.
+#
+# `describes` adds @Schema(describes: true) to the VALIDATED arm, which is the shape that
+# feature is for — a descriptor with no rules to describe is the cheap case, and measuring the
+# cheap case would say nothing. ROADMAP §11 flagged this as HIGH compile-time risk before it
+# was built, on the grounds that a per-field array literal is the exact shape rule 1 was
+# written about; this arm is how that prediction gets checked instead of assumed.
 #
 # `paths` puts every field behind a @Key(path:), two per group, which is the shape the
 # feature exists for. Added 2026-09-08 with @Key(path:) itself: a group emits a nested
@@ -59,6 +65,13 @@ emit_fields() {
       echo "    @Key(path: \"group$((i / 2)).${name}\") var ${name}: ${type}"
       continue
     fi
+    if [ "$MODE" = describes ]; then
+      rule=${RULES[$((i % ${#RULES[@]}))]}
+      if [ -n "$rule" ]; then
+        echo "    @Validate(${rule}) var ${name}: ${type}"
+        continue
+      fi
+    fi
     if [ "$MODE" = validated ]; then
       rule=${RULES[$((i % ${#RULES[@]}))]}
       if [ -n "$rule" ]; then
@@ -71,13 +84,17 @@ emit_fields() {
 }
 
 case "$MODE" in
-  schema|validated|arrays|paths)  echo "import Assay" ;;
+  schema|validated|arrays|paths|describes)  echo "import Assay" ;;
   *)       echo "import Foundation" ;;
 esac
 echo
 
 for ((k = 0; k < N; k++)); do
   case "$MODE" in
+    describes)
+      echo "@Schema(keys: .snakeCase, describes: true)"
+      echo "public struct T${k} {"
+      ;;
     schema|validated|arrays|paths)
       echo "@Schema(keys: .snakeCase)"
       echo "public struct T${k} {"

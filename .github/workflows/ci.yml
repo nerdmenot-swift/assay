@@ -191,6 +191,58 @@ jobs:
             exit 1
           fi
 
+  # The DocC catalogue. `docc convert` resolves every ``symbol`` link in the articles
+  # against the real symbol graph, so a renamed macro or a mistyped topic breaks here
+  # rather than on the Swift Package Index's build days later. macOS because `docc`
+  # ships with Xcode; the catalogue itself is platform-neutral.
+  docs:
+    timeout-minutes: 30
+    name: Documentation
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select the newest Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+      # A separate scratch path: the symbol-graph flags change the compile job shape, and
+      # sharing the ordinary build graph with them corrupted an incremental build once.
+      - name: Emit the symbol graph
+        run: |
+          swift build --target Assay --scratch-path .build/symbol-graph \
+            -Xswiftc -emit-symbol-graph -Xswiftc -emit-symbol-graph-dir -Xswiftc .build/sg
+      - name: Convert the catalogue, failing on an unresolved link
+        run: |
+          mkdir -p .build/sg-assay
+          cp .build/sg/Assay.symbols.json .build/sg/Assay@Swift.symbols.json .build/sg-assay/
+          xcrun docc convert Sources/Assay/Assay.docc \
+            --fallback-display-name Assay --fallback-bundle-identifier dev.assay.Assay \
+            --additional-symbol-graph-dir .build/sg-assay \
+            --output-path .build/docs 2>&1 | tee docc.log
+          if grep -E "doesn't exist|error:" docc.log | grep -q .; then
+            echo "::error::unresolved links in the DocC catalogue (see above)"
+            exit 1
+          fi
+
+  # Public API against the pull request's base. `diagnose-api-breaking-changes` builds both
+  # trees and diffs the module interfaces. A PR that breaks API on purpose carries the
+  # `api-break` label and a CHANGELOG line; the label skips the job so the break is never
+  # accidental, which is the whole point of running it before 1.0.
+  api-stability:
+    timeout-minutes: 60
+    name: API stability
+    runs-on: ubuntu-latest
+    container: swift:6.3.3
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'api-break')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Mark the checkout safe for git inside the container
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Diff the public API against the base branch
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          swift package diagnose-api-breaking-changes "origin/${{ github.base_ref }}"
+
   # timeout.
   compile-time:
     timeout-minutes: 60

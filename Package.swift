@@ -48,8 +48,13 @@ let package = Package(
     platforms: [.macOS(.v11), .iOS(.v14), .tvOS(.v14), .watchOS(.v7), .visionOS(.v1)],
     products: [
         .library(name: "Assay",     targets: ["Assay"]),
-        // Separate products so a JSON-only user never links YAML, XML or TOML. Each currently
-        // vends its value model; the parsers land later.
+        // The Foundation-free core on its own — `Rule`, `Issue`, `RawValue`, `Limits`,
+        // `JSON.Value`, the renderers — for a library that consumes Assay's values without
+        // the macro. `Assay` re-exports it, so an app never needs this line. Added
+        // 2026-09-10 so the API-stability check covers it: the diff walks library
+        // products, and a target reachable only through another product was unchecked.
+        .library(name: "AssayCore", targets: ["AssayCore"]),
+        // Separate products so a JSON-only user never links YAML, XML or TOML.
         .library(name: "AssayYAML", targets: ["AssayYAML"]),
         .library(name: "AssayXML",  targets: ["AssayXML"]),
         .library(name: "AssayTOML", targets: ["AssayTOML"]),

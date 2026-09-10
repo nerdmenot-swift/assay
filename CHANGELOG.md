@@ -1,9 +1,15 @@
 # Changelog
 
-Notable changes, most recent first. Assay is pre-1.0: minor versions may change API,
-and every deliberate deferral lives in [`ROADMAP.md`](ROADMAP.md) with its reason.
+Notable changes, most recent first.
 
-## Unreleased (targeting 0.1.0)
+**Versioning.** Semantic versioning, with the pre-1.0 reading: a `0.x` minor version may
+change public API, a patch version never does. Every public-API break is caught by
+`swift package diagnose-api-breaking-changes` in CI and must be listed here under
+**Breaking** with its reason; a deliberate deferral lives in [`ROADMAP.md`](ROADMAP.md)
+with its reason. `1.0.0` will be tagged when the API in `docs/EXPERIENCE.md` has been
+stable for two minor versions with no entry under **Breaking**.
+
+## 0.1.0 — 2026-09-10
 
 The first public release. Everything below is "added" by definition; the highlights
 that distinguish it:

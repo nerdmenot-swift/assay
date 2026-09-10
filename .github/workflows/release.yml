@@ -1,0 +1,63 @@
+name: Release
+
+# A tag is a release. Pushing `v0.1.0` runs the test suite on the two platforms a release
+# must pass on before it is published, then creates the GitHub release with the matching
+# CHANGELOG section as its notes — so the notes are written once, in the file people read,
+# and a tag whose CHANGELOG section is missing fails rather than publishing an empty page.
+#
+# The full matrix (Windows, iOS, musl, wasm, the gates) runs on every push to main; a tag
+# is cut from a green main, and this workflow re-checks the two legs that build the
+# artefacts most people consume rather than repeating the whole thing.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    name: Test (Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.3.3
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift test --explicit-target-dependency-import-check error
+
+  macos:
+    name: Test (macOS)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select the newest Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+      - run: swift test
+
+  publish:
+    name: Publish
+    needs: [linux, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract this version's CHANGELOG section
+        id: notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # The section starts at "## <version>" and ends before the next "## ".
+          awk -v v="$VERSION" '
+            /^## / { if (found) exit; if (index($0, "## " v) == 1) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if ! grep -q . notes.md; then
+            echo "::error::CHANGELOG.md has no '## $VERSION' section"; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRERELEASE=""
+          case "${{ steps.notes.outputs.version }}" in 0.*) PRERELEASE="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" --title "Assay ${{ steps.notes.outputs.version }}" \
+            --notes-file notes.md $PRERELEASE

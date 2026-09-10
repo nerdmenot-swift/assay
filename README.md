@@ -18,9 +18,10 @@ No `CodingKeys`. No `Codable`. No rules, unless you want them — zero-rule `@Sc
 first-class mode, and Assay is a complete serde with no validation at all rather than an
 on-ramp to one.
 
-> **Status: built, tested and measured. Not released and not API-stable.**
-> The API in `docs/EXPERIENCE.md` is implemented; [`ROADMAP.md`](ROADMAP.md) lists the few
-> things deliberately deferred, and why.
+> **Status: 0.1.0 — built, tested, measured, and released for early adopters.**
+> The API in `docs/EXPERIENCE.md` is implemented and checked for breaking changes on every
+> pull request; a `0.x` minor may still change it, and [`CHANGELOG.md`](CHANGELOG.md) says
+> when. [`ROADMAP.md`](ROADMAP.md) lists the few things deliberately deferred, and why.
 
 ---
 
@@ -58,6 +59,7 @@ Foundation** on the corpus below, from scalar Swift with no SIMD and no C.
 ```swift
 .target(name: "App", dependencies: [
     .product(name: "Assay", package: "assay"),            // core + JSON
+    .product(name: "AssayCore", package: "assay"),        // optional: values and rules, no macro
     .product(name: "AssayYAML", package: "assay"),        // optional
     .product(name: "AssayXML", package: "assay"),         // optional
     .product(name: "AssayTOML", package: "assay"),        // optional
@@ -66,7 +68,8 @@ Foundation** on the corpus below, from scalar Swift with no SIMD and no C.
 ])
 ```
 
-Six products, so a JSON-only user never links a YAML parser. The core takes bytes, not `Data`,
+Seven products, so a JSON-only user never links a YAML parser and a library that only
+consumes `Issue`s and `RawValue`s need not link the macro. The core takes bytes, not `Data`,
 and imports no Foundation. Swift 6.2+.
 
 ---
@@ -427,7 +430,7 @@ errors, source spans, validation, and every format but JSON.
 
 | | |
 |---|---|
-| Unit tests | **578** in 95 suites |
+| Unit tests | **712** in 120 suites |
 | JSON differential | `JSON.Value` agrees with `JSONSerialization` value-for-value on all **75** positive corpus files |
 | YAML differential | agrees with **Yams/libyaml** on 37 adversarial hand-written cases + 75 generated documents, and with `JSONSerialization` on the whole corpus read as YAML (JSON ⊂ YAML 1.2) |
 | XML differential | agrees with **Foundation's `XMLParser`** on 29 hand-written + 75 generated documents, namespaces and attributes included |

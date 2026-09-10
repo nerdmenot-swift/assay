@@ -44,10 +44,11 @@ first step for any non-trivial change is reading the documents the change touche
 ## Running everything
 
 ```sh
-swift test                                        # ~650 tests, includes macro tests
+swift test                                        # ~700 tests, includes macro tests
 cd Benchmarks
 swift run -c release CorpusGen                    # regenerate the corpus (deterministic)
 swift run -c release DiffFuzz                     # differentials + fuzz — CI-gated
+TOML_TEST_DIR=~/src/toml-test swift run -c release DiffFuzz toml-test   # needs a checkout
 swift run -c release AssayBench --list            # the benchmark arms
 swift run -c release AssayBench allocations       # the one arm CI gates on
 swift run -c release AssayBench encode zippy      # any arms you touched, in under a minute
@@ -60,6 +61,34 @@ you commit a number. Two arms running at once measure each other's contention, s
 run `AssayBench` and `gate.sh` concurrently; a run contaminated that way was discarded on
 2026-09-10 and the arm selector exists so that nobody has to wait eight minutes to find
 out.
+
+### Documentation
+
+`Sources/Assay/Assay.docc` is the DocC catalogue — the landing page and four articles —
+and the Swift Package Index builds it for every product named in `.spi.yml`. The package
+deliberately does not depend on `swift-docc-plugin` (every consumer would fetch it), so to
+build locally use the toolchain's `docc` on a symbol graph:
+
+```sh
+swift build --target Assay --scratch-path .build/symbol-graph \
+    -Xswiftc -emit-symbol-graph -Xswiftc -emit-symbol-graph-dir -Xswiftc /tmp/sg
+mkdir -p /tmp/sg-assay && cp /tmp/sg/Assay.symbols.json /tmp/sg/Assay@Swift.symbols.json /tmp/sg-assay/
+xcrun docc preview Sources/Assay/Assay.docc --additional-symbol-graph-dir /tmp/sg-assay \
+    --fallback-display-name Assay --fallback-bundle-identifier dev.assay.Assay
+```
+
+Use the separate `--scratch-path`: the symbol-graph flags change the compile job shape,
+and sharing the ordinary `.build` graph with them corrupted an incremental build once.
+
+CI runs `docc convert` on the catalogue and fails on a broken symbol link.
+
+### API stability
+
+`swift package diagnose-api-breaking-changes <ref>` compares the public API against a
+git ref. CI runs it on every pull request against the base branch; a PR that breaks API on
+purpose carries the `api-break` label, which skips the job, and a line in `CHANGELOG.md`
+saying what broke and why. Before 1.0 that is allowed in a minor version — the label is
+so it is never accidental.
 
 A note on tests: the library's test target deliberately does not import Foundation
 (swift-testing's overlay would raise the deployment floor), which is why

@@ -126,12 +126,18 @@ nonisolated public static func _assayBatch<__C: Assay.ColumnarSource & ~Copyable
     var __out: [GoldenSources] = []
     __out.reserveCapacity(source.rowCount)
 
+    // The row index reaches every issue through the sink, not through a path built
+    // per row: `sink.add` inserts it, cold, only when something is reported.
     for __r in 0..<source.rowCount {
-        let path = path + [.index(__r)]
+        sink._enterRow(__r, depth: path.count)
             var __f0: Int? = nil
             if let __col0 = __c0, __r < __col0.count,
                !Assay._assayIsNullAt(__n0, __r) {
-                __f0 = Int(exactly: __col0[__r])
+                guard let __x0 = Int(exactly: __col0[__r]) else {
+                    Assay._assayRowOverflow(&sink, path, "a", __col0[__r])
+                    continue
+                }
+                __f0 = __x0
             }
             var __f1: String? = nil
             if let __col1 = __c1, __r < __col1.count,
@@ -154,5 +160,6 @@ nonisolated public static func _assayBatch<__C: Assay.ColumnarSource & ~Copyable
             }
         __out.append(GoldenSources(a: __v0, b: __v1, c: __f2))
     }
+    sink._leaveRows()
     return __out
 }}

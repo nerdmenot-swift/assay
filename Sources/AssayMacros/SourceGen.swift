@@ -149,14 +149,30 @@ extension SchemaMacro {
                 ? ("__n\(i)", columnConvert(base, "__col\(i)[__r]"))
                 : ("__col\(i).nulls",
                    "\(base)(assayColumn: __col\(i), row: __r, metadata: __col\(i).metadata)")
-            perRow += """
-                        var __f\(i): \(base)? = \(absent)
-                        if let __col\(i) = __c\(i), __r < __col\(i).count,
-                           !Assay._assayIsNullAt(\(mask), __r) {
-                            __f\(i) = \(convert)
-                        }
+            if narrowsInt64(base) {
+                // A value the declared width cannot hold is an overflow, not an absence.
+                perRow += """
+                            var __f\(i): \(base)? = \(absent)
+                            if let __col\(i) = __c\(i), __r < __col\(i).count,
+                               !Assay._assayIsNullAt(\(mask), __r) {
+                                guard let __x\(i) = \(convert) else {
+                                    Assay._assayRowOverflow(&sink, path, "\(f.wireKey)", __col\(i)[__r])
+                                    continue
+                                }
+                                __f\(i) = __x\(i)
+                            }
 
-            """
+                """
+            } else {
+                perRow += """
+                            var __f\(i): \(base)? = \(absent)
+                            if let __col\(i) = __c\(i), __r < __col\(i).count,
+                               !Assay._assayIsNullAt(\(mask), __r) {
+                                __f\(i) = \(convert)
+                            }
+
+                """
+            }
         }
 
         var unwraps = ""
@@ -191,11 +207,14 @@ extension SchemaMacro {
         \(pulls)    var __out: [\(typeName)] = []
             __out.reserveCapacity(source.rowCount)
 
+            // The row index reaches every issue through the sink, not through a path built
+            // per row: `sink.add` inserts it, cold, only when something is reported.
             for __r in 0..<source.rowCount {
-                let path = path + [.index(__r)]
+                sink._enterRow(__r, depth: path.count)
         \(perRow)\(validation)
         \(unwraps)        __out.append(\(typeName)(\(args.joined(separator: ", "))))
             }
+            sink._leaveRows()
             return __out
         }
         """
@@ -221,6 +240,15 @@ extension SchemaMacro {
              "Int8", "Int16", "UInt8", "UInt16", "UInt32", "UInt64":
             return "int64Column"
         default: return nil
+        }
+    }
+
+    /// Declared narrower than the `Int64` column that carries it, so `exactly:` can fail.
+    static func narrowsInt64(_ type: String) -> Bool {
+        switch type {
+        // `Int` too: it is 32 bits on wasm32, and the conversion is `exactly:` there as well.
+        case "Int", "Int32", "UInt", "Int8", "Int16", "UInt8", "UInt16", "UInt32", "UInt64": return true
+        default: return false
         }
     }
 

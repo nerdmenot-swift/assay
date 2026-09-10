@@ -190,9 +190,10 @@ rule engine, called from a second place.
 | **validate a constructed value** | **79** |
 
 Over a batch it is **87 ns/row**, flat from 64 rows to 100,000 — 79 for the rules plus the
-array element copy. That is 1.6× this machine's columnar batch decode (53 ns/row), which is
-the honest way to read the seam: validating a row costs somewhat more than the fastest
-decode Assay has, and is not in the same universe as decoding it twice.
+array element copy. That is about 8× this machine's columnar batch decode (~10 ns/row since
+2026-09-10; it was 53 and the ratio 1.6× when this was written), which is the honest way
+to read the seam: a row's rules cost more than its decode, because the rules are the work,
+and it is not in the same universe as decoding it twice.
 
 Two things had to be right for that number, and neither was obvious:
 

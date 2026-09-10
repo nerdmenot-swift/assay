@@ -134,14 +134,16 @@ path, which is what a caller does today:
 
 | rows | row-wise ns | batch ns | per row | batch wins |
 |---|---|---|---|---|
-| 64 | 4,117 | 3,245 | 51 | 1.27× |
-| 1,000 | 68,325 | 53,123 | 53 | 1.29× |
-| 20,000 | 1,363,879 | 1,056,638 | 53 | 1.29× |
-| 100,000 | 6,918,521 | 5,441,729 | 54 | 1.27× |
+| 64 | 5,313 | 663 | 10 | 8.02× |
+| 1,000 | 81,140 | 9,353 | 9 | 8.68× |
+| 20,000 | 1,718,208 | 193,562 | 10 | 8.88× |
+| 100,000 | 8,496,875 | 1,009,146 | 10 | 8.42× |
 
-Flat at ~53 ns/row across a 1,500× size range: the win is the access pattern, not cache
-residency. And the arrangement that killed the row path is a non-issue here — the same batch
-called from another module, generic over the schema, costs **1.03×**, because the per-row
+Flat at ~10 ns/row across a 1,500× size range: the win is the access pattern, not cache
+residency. (Re-measured 2026-09-10; until then the row read ~53 ns and 1.27×, because the
+generated loop allocated a diagnostic path per row that a clean batch never read —
+`ROADMAP.md`, "The eagerly-built diagnostic path".) And the arrangement that killed the row path is a non-issue here — the same batch
+called from another module, generic over the schema, costs **1.13×**, because the per-row
 loop lives inside a function concrete in the schema's own module. **A driver API should be
 batch-shaped.**
 

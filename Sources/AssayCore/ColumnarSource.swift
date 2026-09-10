@@ -31,7 +31,8 @@
 // COLUMNAR SURVIVES BECAUSE NONE OF THAT APPLIES. A column store hands over whole arrays,
 // so there is no per-row borrow to escape, no per-row dispatch to pay, and no per-row
 // presence ambiguity to translate — the three things that sank the other half. It measures
-// a flat ~52 ns/row and 2.07x over decoding the same store row by row.
+// a flat ~10 ns/row and 8.4x over decoding the same store row by row (2026-09-10; it was
+// ~52 ns and 2.07x until the per-row diagnostic-path allocation went — `IssueSink._enterRow`).
 //
 // What a row-shaped reader should do instead is decode into its own type at full speed and
 // then call `T.validate(_:)`, which is a seam that costs neither side anything.
@@ -227,6 +228,18 @@ public func _assayRowMissing(
     _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
 ) {
     sink.add(Issue(code: .missing, path: path + [.key(String(describing: key))]))
+}
+
+/// A narrower declared type than the column carries — `Int32` from an `Int64` column —
+/// and this row's value does not fit. Reported as an overflow, not as a missing value,
+/// which is what it was misreported as until 2026-09-10.
+@inline(never)
+public func _assayRowOverflow(
+    _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString, _ value: Int64
+) {
+    sink.add(Issue(code: .numberOverflow, path: path + [.key(String(describing: key))],
+                   params: ["value": .int(Int(clamping: value))],
+                   received: String(value)))
 }
 
 /// Whether row `r` of a column is null, given its optional validity mask.

@@ -39,6 +39,12 @@ that distinguish it:
   Yams/libyaml, and Foundation's XMLParser; deterministic fuzzing; live-allocation
   gate; compile-time budget gate (~87 ms per type against a 100 ms ceiling).
 
+- **Columnar batch decode at 10 ns/row** (2026-09-10): the generated `_assayBatch` loop
+  allocated a diagnostic path per row that a clean batch never read — 52.6 ns/row against
+  a 9.6 ns floor. The row index now reaches issues through `IssueSink._enterRow`, two
+  integers; batch decode is 8.4× the row-wise path (was 1.27×) and a `ColumnDecodable`
+  scalar costs 4 ns/row (was 42). A narrowing overflow on that path is now reported as
+  `number_overflow`, not `missing`.
 - **TOML** (`AssayTOML`, 2026-09-10): a hand-written TOML 1.0.0 parser passing all
   710 documents of the official toml-test suite in CI, differential against toml++,
   `parse(toml:)`/`diagnose(toml:)`, `SchemaFormats.toml`, `WireFormat.toml`, and

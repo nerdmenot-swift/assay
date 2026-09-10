@@ -87,7 +87,7 @@ private let columnNames = ["id", "name", "email", "age", "score", "active",
 /// The baseline: what a caller reaches the same data through TODAY, one row at a time.
 /// A `RawValue.mapping` per record, then the ordinary tree path. This is not a straw man —
 /// it is the measured winner over the retired row protocol, at 95 ns against 311 ns.
-private func decodeRowwise(_ s: borrowing BenchColumnStore) -> [BenchRow] {
+func decodeRowwise(_ s: borrowing BenchColumnStore) -> [BenchRow] {
     var out: [BenchRow] = []
     out.reserveCapacity(s.rowCount)
     var sink = IssueSink()

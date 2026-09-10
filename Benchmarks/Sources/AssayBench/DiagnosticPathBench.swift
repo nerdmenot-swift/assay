@@ -3,59 +3,35 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// The eagerly-built diagnostic path: RESOLVED 2026-09-07. The optimiser already removes it,
-// the "instability" was this benchmark, and the change made in response has been reverted.
+// The eagerly-built diagnostic path. FIXED 2026-09-10 — and this header used to say
+// "RESOLVED 2026-09-07, no change needed", which was wrong. Both versions are worth
+// having, so the old claim is kept below the new record.
 //
-// A careful report measured `path + [.index(__r)]` per row and proposed building it inside
-// the failure branches instead. The numbers in it reproduce exactly. The conclusion does
-// not, and it took three wrong answers to get to that -- this header is the record.
+// WHAT IS TRUE NOW. The generated row loop no longer builds a path per row at all: it
+// writes two integers into the sink (`IssueSink._enterRow`) and `sink.add`, cold, inserts
+// the row index into whatever is reported. The arms below are unchanged and the real body
+// sits with the lazy hand-rolled one, where the earlier record claimed it already was:
 //
-// WHAT IS TRUE. Hand-rolling the emitted loop and varying ONLY where the path is built,
-// 200k rows over 3 columns, with the decoded values forced live:
+//     concrete, eager (the old shape)                ~57 ns/row
+//     concrete, in the failure branch                ~16
+//     real _assayBatch, called concretely            ~13     (was ~54 before the fix)
+//     real, via batch(from:)                         ~15     (was ~57)
 //
-//     concrete, eager                                ~56 ns/row
-//     concrete, built in the failure branch          ~13 ns/row
-//     generic over the source, eager                 ~54 ns/row
-//     generic over the source, in the failure branch ~14 ns/row
+// WHAT THE OLD RECORD SAID, AND WHY IT WAS WRONG. It measured the same arms, found the
+// eager/lazy gap (56 vs 13), then reported the real generated body at ~14 ns/row "with the
+// eager spelling" and the lazy macro change as byte-identical machine code, and reverted
+// it. On the tree of 2026-09-10 the real body measured 52–54 ns/row in this very arm and in
+// the new `colfloor` arm, with values consumed — the eager number. Whatever build that
+// ~14 was read from, it was not the shipped body's steady state, and a disassembly
+// comparison of two hand-rolled functions says nothing about the generated one. The
+// claim was also wrong for the case the reverted change had excluded: a schema with rules
+// kept the per-row binding on purpose, so it could never have been "already optimised".
 //
-// Genericity is not the variable. In a body the optimiser cannot see through, the
-// allocation costs ~42 ns/row.
-//
-// WHAT IS ALSO TRUE, AND SETTLES IT. The real generated `_assayBatch` runs at ~14 ns/row --
-// with the eager spelling. Emitting the path in the failure branches instead produces
-// **byte-identical machine code**: same 548 instructions, same five `PathComponent` buffer
-// calls, `diff` of the two disassemblies is empty. At -O the compiler normalises both
-// spellings to the same thing and sinks the allocation into the cold branches by itself.
-// The macro change was a no-op and was reverted.
-//
-// WHY THE CONTROL LOOKED BISTABLE. It measured 4.18/4.20/4.66 ns/row in some builds and
-// 44.6/45.3/48.0/49.0 in others, differing only by an unrelated function in this module,
-// and that was blamed on specialisation being reached or not. It was this benchmark: every
-// arm observed only `.count`, which leaves the optimiser free to discard the decode it does
-// not need, non-deterministically. `consumeRows` reads all three fields through an
-// `@inline(never)` boundary; with it, every arm is stable across runs and the control sits
-// firmly with the cheap one -- 13.9/14.3/14.1 with the change, 14.6/14.3/13.6 without.
-//
-// `@inlinable` on `SourceDecodable.batch(from:)` was also tried, on the theory that a
-// consumer could not specialise it. No reliable effect: 12-16 ns/row either way, overlapping.
-// Reverted too.
-//
-// THE TRAP, which is the reason this file is kept. A hand-rolled reproduction needs
-// `@inline(never)` or the benchmark folds it away -- and `@inline(never)` is precisely what
-// stops the optimiser sinking the allocation. So the reproduction shows the full 42 ns and
-// the product does not. Measuring `path + [.key(k), .index(i)]` standalone has the same
-// flaw: ~49 ns/element in isolation, while deleting it outright from the JSON macro
-// (emitting `at: path`, accepting wrong diagnostics, purely to measure) moved a nested array
-// element from 61.89 to 60.66. On that evidence the proposed JSON redesign -- a parent
-// pointer instead of a materialised `[PathComponent]`, touching `Issue`, `IssueSink` and
-// every `_assay` signature -- is not justified. The 56 ns between `[Int64]` and `[JOne]` is
-// object framing, key matching, a non-inlined per-element `_assay` call and struct
-// construction.
-//
-// The general lesson, which cost the most here: a benchmark that observes only a cheap
-// property of an expensive result is not measuring the result. Both the 4 ns and the 45 ns
-// readings were artefacts of that, and reasoning about WHY they differed produced a
-// plausible mechanism, a shipped change, and a commit message defending it -- all wrong.
+// The methodological point the old header made still holds and is why this file stays: a
+// benchmark that observes only `.count` of the decoded array measures nothing (every arm
+// here consumes the rows through `consumeRows`), and a hand-rolled reproduction needs
+// `@inline(never)` to be measured at all. What it got wrong was trusting a disassembly diff
+// of the reproduction over a measurement of the product.
 //===----------------------------------------------------------------------===//
 
 import Assay
@@ -173,11 +149,11 @@ func runPathAB() {
                        strs: (0..<n).map { "s-\($0)" })
     print("")
     print("Diagnostic path: is building it eagerly costing anything? (200k rows, 3 columns)")
-    print("The two hand-rolled arms differ ONLY in where the row path is built. The control")
-    print("is the real generated body, and it sits with the cheap arm -- see the header.")
+    print("The two hand-rolled arms differ ONLY in where the row path is built. The real")
+    print("body builds none and should sit with the cheap arm -- see the header.")
     print(pad("variant", 44) + pad("ns/row", 10))
     print(String(repeating: "-", count: 54))
-    for (label, f) in [("concrete, eager (today's shape)", pathEager),
+    for (label, f) in [("concrete, eager (the old shape)", pathEager),
                        ("concrete, in the failure branch", pathLazy)] {
         let ns = measure(iterations: 1) {
             var sink = IssueSink(limits: .default)

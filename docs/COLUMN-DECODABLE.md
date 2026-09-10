@@ -137,8 +137,11 @@ same two-field schema, 100k rows, the only difference being how the field is dec
 
 | field type | ns/row |
 |---|---|
-| `Int64`, built in | 42.65 |
-| `Micros`, `ColumnDecodable` | 42.29 (0.99×) |
+| `Int64`, built in | 4.16 |
+| `Micros`, `ColumnDecodable` | 4.06 (0.97×) |
+
+(Re-measured 2026-09-10. Both rows read ~42 ns until a per-row diagnostic-path allocation
+was removed from the generated loop; the ratio — the claim this table makes — did not move.)
 
 Three runs: 0.99×, 0.99×, 1.02×. The hook is free; the spread is the measurement.
 

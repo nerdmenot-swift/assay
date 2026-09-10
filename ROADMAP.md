@@ -859,8 +859,9 @@ in a header, because the idea is attractive enough to be proposed again:
 
 **What survives.** `ColumnarSource` and `_assayBatch`, behind `@Schema(sources: true)`: a
 column store hands over whole arrays, so it has no per-row borrow, no per-row dispatch and no
-per-row presence ambiguity — the three things that sank the other half. 1.27× over the tree
-path at a flat ~53 ns/row, and 1.03× when called generically from another module.
+per-row presence ambiguity — the three things that sank the other half. 8.4× over the tree
+path at a flat ~10 ns/row (2026-09-10; it was 1.27× at 53 ns until a per-row diagnostic
+allocation was removed), and 1.13× when called generically from another module.
 
 **What replaces it.** `T.validate(_:)` — `docs/VALIDATE.md`. A specialised reader decodes at
 its own speed in its own module, and Assay runs the rules afterwards. That is the seam the
@@ -968,31 +969,42 @@ The inner index needs a prebuilt path prefix per outer element rather than a sca
 a different trade — it is the one place this change would have added an allocation, so it was
 not taken blind.
 
-## The eagerly-built diagnostic path — RESOLVED 2026-09-07, no change needed
+## The eagerly-built diagnostic path — FIXED 2026-09-10, after being wrongly closed
 
-A report measured `path + [.index(__r)]` per row on the columnar path and
-`path + [.key(k), .index(i)]` per element on the JSON path, and proposed removing both. Its
-measurements reproduce exactly; its conclusion does not survive checking against the real
-generated code.
+A report (haul's, 2026-09-01) measured `path + [.index(__r)]` per row on the columnar path
+and proposed building it inside the failure branches. The change was made on 2026-09-06,
+then **reverted on 2026-09-07** with a record claiming the optimiser sank the allocation on
+its own — "byte-identical machine code" — and that the real body ran at ~14 ns/row. That
+record was wrong. A slow re-read of the columnar path on 2026-09-10 measured the shipped
+`_assayBatch` at **52.6 ns/row against 9.6 for the same semantics hand-written**, with the
+values consumed; the `pathab` arm showed the real body sitting with the *eager* hand-rolled
+arm (54 ns), not the lazy one (15). The `ColumnDecodable` arm, at 42.65 ns/row, was the same
+allocation wearing a different name.
 
-**Columnar: the optimiser already does it.** Emitting the row path inside the failure
-branches produces *byte-identical machine code* to emitting it once per row — same 548
-instructions, same five `PathComponent` buffer calls, empty `diff` of the disassemblies. The
-macro change was made, measured, found to be a no-op and reverted.
+**What was done instead of moving the line.** There is no per-row path at all now. The
+generated loop writes two integers into the sink (`IssueSink._enterRow(row, depth:)`), and
+`sink.add` — cold, never inlined — inserts `.index(row)` into whatever is reported during
+that row: a missing value, a rule failure, a `@Fallback` warning. The rule engine needed no
+change, so a rule-carrying schema gets the same win as a rule-free one, which the reverted
+change never gave it (that version kept the per-row binding whenever rules were present).
 
-**JSON: not justified.** Deleting the concat outright from the macro, purely to measure,
-moved a nested array element from 61.89 to 60.66 ns. The invasive redesign it was proposed
-for — a parent pointer instead of a materialised `[PathComponent]`, touching `Issue`,
-`IssueSink` and every `_assay` signature — buys nothing.
+| | before | after |
+|---|---|---|
+| `_assayBatch`, 8 columns, 200k rows | 52.6 ns/row | **11.2** (floor with no checks: 9.7) |
+| batch vs row-wise `RawValue` path | 1.27× | **8.4×** |
+| `ColumnDecodable` custom scalar | 42.29 ns/row | **4.06** |
+| cross-module, generic over the schema | 1.03× | 1.13× |
 
-**The instability was the benchmark.** Every arm observed only `.count` of the decoded
-array, which lets the optimiser discard the decode non-deterministically; that produced
-~4 ns/row in some builds and ~45 in others and sent the investigation after a
-specialisation theory that was wrong. Forcing the values live through an `@inline(never)`
-consumer makes every arm stable. `@inlinable` on `SourceDecodable.batch(from:)` was tried
-on the same wrong theory and had no reliable effect; also reverted.
+Same diagnostics, pinned by the same tests plus three more (overflow, fallback warning,
+context cleared). A second bug fell out of the read: a narrowing conversion that overflowed
+(`Int32` from an `Int64` column) was reported as `missing`; it is `number_overflow` now.
 
-`Benchmarks/Sources/AssayBench/DiagnosticPathBench.swift` keeps the measurements and the
-methodological trap: a hand-rolled reproduction needs `@inline(never)`, which is exactly
-what prevents the optimisation being measured, so reproductions look worse than the product.
+**The JSON half stands.** Deleting the concat outright from the macro moved a nested array
+element from 61.89 to 60.66 ns; the parent-pointer redesign it was proposed for is still not
+justified by that number.
+
+**The lesson is about the 2026-09-07 record, not the code.** The `colfloor` arm exists so
+the next regression here is caught by a benchmark that consumes its result and compares
+against a hand-written floor; the allocation gate cannot see a per-row block that is freed
+within the row, and a benchmark that reads only `.count` sees nothing at all.
 

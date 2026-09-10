@@ -27,7 +27,7 @@ are machine-specific by design, so this is pasted, not automated.
 | encoding, 50 / 200 items | **2.91× / 2.93×** | `JSONEncoder` | `docs/ENCODING.md` |
 | cold start, 60 types | **8.6×** first decode (median); 7.0× steady | `JSONDecoder` | `ColdStartBench.swift` |
 | multi-megabyte documents | **6.78–6.92×**, ~710 MB/s, flat | `JSONDecoder` | `LargeDocBench.swift` |
-| columnar batch fill | **1.26–1.36×** the tree path, ~53 ns/row | Assay's own tree path | [Columnar](#columnar-batch-fill) |
+| columnar batch fill | **8.0–8.9×** the tree path, ~10 ns/row | Assay's own tree path | [Columnar, fixed](#columnar-the-per-row-allocation-that-was-wrongly-closed) |
 | `T.validate(_:)` | **76 ns** per value, 1 block | — | [Validating a value](#validating-a-value-you-already-have) |
 | live allocations, `apimodel-8k` struct | gated, **PASS** | absolute thresholds | [Allocations](#allocations) |
 | compile time, 10 fields | **79.0 ms/type** (gate 100) | `Codable`: 4.1× | `docs/COMPILE-TIME.md` |
@@ -1521,3 +1521,58 @@ than hidden. The struct-decode row is the one a migrating project makes, and its
 mostly TOMLKit's `Codable` decoder walking the tree a second time. Nothing here has been
 profiled yet; the per-line `[KeySegment]` array and the `TableBuilder` class per `[[items]]`
 section are the obvious first targets if the number ever matters.
+
+---
+
+## Columnar: the per-row allocation that was wrongly closed
+
+**2026-09-10.** A slow re-read of the columnar path, prompted by the question "is it
+written efficiently?", measured the generated `_assayBatch` against a hand-written floor
+with the decoded values consumed:
+
+```
+$ swift run -c release AssayBench colfloor        (before)
+           floor: direct indexing, no checks       9.2
+  hoisted: same semantics, checks per column       9.6
+    generated _assayBatch, called concretely      52.6
+  generated, via batch(from:) [protocol ext]      57.2
+```
+
+Five times off the floor, and the `pathab` arm placed the real body with the *eager*
+hand-rolled arm (54 ns), not the lazy one (15) that the 2026-09-07 record said it was
+byte-identical to. The cause was the one haul's report had named: `let path = path +
+[.index(__r)]` at the top of the row loop, an allocation per row for a diagnostic path a
+clean batch never reads.
+
+The fix is not the one proposed. The generated loop now writes two integers into the sink
+(`IssueSink._enterRow(row, depth:)`) and `sink.add` — cold — inserts the row index into
+anything reported during that row, so a rule failure and a `@Fallback` warning get it too
+without the rule engine changing. There is no per-row path anywhere in the body.
+
+```
+$ swift run -c release AssayBench colfloor        (after)
+           floor: direct indexing, no checks       9.7
+       hoisted: same semantics, hand-written      10.6
+    generated _assayBatch, called concretely      11.2
+  generated, via batch(from:) [protocol ext]      13.3
+
+$ swift run -c release AssayBench columnar
+rows         row-wise ns    batch ns   per row  batch wins
+64                  5313         663        10       8.02x
+1000               81140        9353         9       8.68x
+20000            1718208      193562        10       8.88x
+100000           8496875     1009146        10       8.42x
+batch generic-over-schema costs 1.13x
+
+$ swift run -c release AssayBench columndecodable
+                   Int64, built in      416083      4.16
+           Micros, ColumnDecodable      405542      4.06
+```
+
+Every columnar number in this file above this section was measured with that allocation in
+place; the ratios that were the point of each table (hook vs built-in 0.97×, generic vs
+concrete 1.13×) survive, the absolutes do not. The allocation gate could never have seen it
+— a block freed within the row is not a live block — so the `colfloor` arm is the guard
+now, and the gate gained a columnar row for the retained side. `ROADMAP.md` carries the
+record of how a correct report was closed as wrong; the `DiagnosticPathBench.swift` header
+is the corrected version of the claim it used to make.

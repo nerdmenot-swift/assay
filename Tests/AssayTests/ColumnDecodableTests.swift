@@ -84,6 +84,11 @@ struct Sample: Equatable {
 /// The row path is emitted differently depending on whether the loop needs it eagerly:
 /// inlined into the failure branches when the schema has no rules, bound once per row when
 /// it does. Both spellings have to produce the same diagnostics, so both are pinned here.
+///
+/// Since 2026-09-10 there is one spelling again: no per-row path at all. The generated loop
+/// sets `sink._enterRow(__r, depth:)` — two integers — and `IssueSink.add` inserts the
+/// index into whatever is reported, cold. The tests stay exactly as they were because the
+/// diagnostics must not have moved; only the 40 ns/row allocation did.
 @Schema(sources: true)
 struct RowPathPlain: Equatable { var a: Int64; var b: Int64 }
 
@@ -153,6 +158,59 @@ struct RowPathTests {
         _ = RowPathPlain._assayBatch(from: Short(), into: &sink, at: [.key("data")])
         #expect(sink.issues.first?.path == [.key("data"), .index(2), .key("b")])
     }
+
+    /// The row index reaches issues through the sink's row context since 2026-09-10; it
+    /// must be gone once the batch returns, or the next thing added to the same sink
+    /// would be filed under a row that no longer exists.
+    @Test("the row context is cleared when the batch returns")
+    func rowContextCleared() {
+        var sink = IssueSink(limits: .default)
+        _ = RowPathPlain._assayBatch(from: Short(), into: &sink, at: [])
+        sink.add(Issue(code: .missing, path: [.key("after")]))
+        #expect(sink.issues.last?.path == [.key("after")])
+    }
+
+    /// A value the declared width cannot hold is an overflow, not an absence. Until
+    /// 2026-09-10 `Int32(exactly:)` returning nil fell into the missing-value branch and
+    /// the report said "is required" about a row that had a value.
+    @Test("a narrowing conversion that overflows says so, on the row")
+    func narrowingOverflow() {
+        struct Wide: ColumnarSource {
+            var rowCount = 3
+            borrowing func int64Column(_ k: StaticString, _ f: Int) -> [Int64]? {
+                [1, Int64(Int32.max) + 1, 3]
+            }
+            borrowing func doubleColumn(_ k: StaticString, _ f: Int) -> [Double]? { nil }
+            borrowing func boolColumn(_ k: StaticString, _ f: Int) -> [Bool]? { nil }
+            borrowing func stringColumn(_ k: StaticString, _ f: Int) -> [String]? { nil }
+        }
+        var sink = IssueSink(limits: .default)
+        let rows = RowPathNarrow._assayBatch(from: Wide(), into: &sink, at: [])
+        #expect(rows.map(\.n) == [1, 3])
+        #expect(sink.issues.count == 1)
+        #expect(sink.issues.first?.code == .numberOverflow)
+        #expect(sink.issues.first?.path == [.index(1), .key("n")])
+        #expect(sink.issues.first?.received == "2147483648")
+    }
+
+    /// The other reader of the row: a `@Fallback` warning.
+    @Test("a fallback warning carries the row index")
+    func fallbackWarningCarriesRow() {
+        var sink = IssueSink(limits: .default)
+        let rows = RowPathFallback._assayBatch(from: Short(), into: &sink, at: [.key("d")])
+        #expect(rows.map(\.b) == [1, 2, 9, 9])
+        #expect(sink.isValid)
+        #expect(sink.warnings.map(\.path) == [[.key("d"), .index(2), .key("b")], [.key("d"), .index(3), .key("b")]])
+    }
+}
+
+@Schema(sources: true)
+struct RowPathNarrow: Equatable { var n: Int32 }
+
+@Schema(sources: true)
+struct RowPathFallback: Equatable {
+    var a: Int64
+    @Fallback(9) var b: Int64
 }
 
 @Suite("The columnar extension point")

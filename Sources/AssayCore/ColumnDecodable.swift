@@ -36,8 +36,9 @@
 // same two-field schema, 100k rows; the only difference is whether the field is declared
 // `Int64` or a `ColumnDecodable` type carried by `Int64` (`runColumnDecodableBenchmarks`):
 //
-//     Int64, built in                                  42.65 ns/row
-//     Micros, ColumnDecodable                          42.29 ns/row     0.99x
+//     Int64, built in                                   4.16 ns/row
+//     Micros, ColumnDecodable                           4.06 ns/row     0.97x
+//     (42.65 / 42.29 until 2026-09-10 — a per-row diagnostic allocation, now gone)
 //
 // Three runs put it at 0.99x, 0.99x and 1.02x -- which is to say the hook is free, and the
 // spread is the measurement, not the feature.

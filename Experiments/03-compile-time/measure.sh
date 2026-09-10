@@ -117,10 +117,10 @@ echo "Compile-time cost of @Schema"
 swift --version 2>&1 | head -1
 echo "fields per type: $FIELDS   config: $CONFIG   deps prebuilt: yes   min of: $REPEATS"
 echo ""
-printf "%-8s %10s %10s %10s %11s %10s %8s %10s %9s %11s %12s\n" \
-  "types" "plain" "codable" "schema" "validated" "arrays" "paths" "describes" "encodes" \
+printf "%-8s %10s %10s %10s %11s %10s %8s %10s %9s %9s %11s %12s\n" \
+  "types" "plain" "codable" "schema" "validated" "arrays" "paths" "describes" "encodes" "sources" \
   "vs-plain" "vs-codable"
-printf -- '-%.0s' $(seq 1 122); echo
+printf -- '-%.0s' $(seq 1 132); echo
 
 # `validated` is the same types with a @Validate on every field — the worst case for the
 # generated `_assayCheck` body. It is reported beside the gated arm rather than instead of
@@ -136,16 +136,17 @@ for n in 1 10 25 50 100; do
   read -r k_min k_med <<< "$(time_build paths "$n")"
   read -r d_min d_med <<< "$(time_build describes "$n")"
   read -r e_min e_med <<< "$(time_build encodes "$n")"
+  read -r r_min r_med <<< "$(time_build sources "$n")"
   # The printed table is minima -- the absolute costs, which is what it has always shown.
   # The ratios beside it are MEDIANS, because a quotient of two minima is biased; see the
   # header. They will differ slightly from dividing the printed columns, and that is the
   # point rather than an inconsistency.
   vp=$(awk -v a="$s_med" -v b="$p_med" 'BEGIN{ printf "%.2fx", a/b }')
   vc=$(awk -v a="$s_med" -v b="$c_med" 'BEGIN{ printf "%.2fx", a/b }')
-  printf "%-8s %10s %10s %10s %11s %10s %8s %10s %9s %11s %12s\n" \
-    "$n" "$p_min" "$c_min" "$s_min" "$v_min" "$a_min" "$k_min" "$d_min" "$e_min" "$vp" "$vc"
+  printf "%-8s %10s %10s %10s %11s %10s %8s %10s %9s %9s %11s %12s\n" \
+    "$n" "$p_min" "$c_min" "$s_min" "$v_min" "$a_min" "$k_min" "$d_min" "$e_min" "$r_min" "$vp" "$vc"
   medians="$medians
-MEDIANS $n $p_med $c_med $s_med $v_med $a_med $k_med $d_med $e_med"
+MEDIANS $n $p_med $c_med $s_med $v_med $a_med $k_med $d_med $e_med $r_med"
 done
 
 # Machine-readable, for gate.sh, and after the table so it stays a table. The minima above

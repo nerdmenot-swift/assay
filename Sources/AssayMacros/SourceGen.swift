@@ -97,7 +97,7 @@ extension SchemaMacro {
     /// states run per row exactly as they do everywhere else, and issues carry the row
     /// index so a failure in a million-row batch is findable.
     static func batchBody(typeName: String, fields: [SchemaField],
-                          validation: String) -> String {
+                          validation: String, checks: String = "") -> String {
         var pulls = ""
         for (i, f) in fields.enumerated() {
             guard isColumnar(f.decodedType) else { continue }
@@ -142,16 +142,35 @@ extension SchemaMacro {
             }
             let binding = f.aliases.isEmpty ? "let" : "var"
             let keyVar = f.aliases.isEmpty ? "" : "\n        var __k\(i): StaticString = \"\(f.wireKey)\""
-            if columnAccessor(f.decodedType) != nil {
-                let nullsKey = f.aliases.isEmpty ? "\"\(f.wireKey)\"" : "__k\(i)"
+            let nullsKey = f.aliases.isEmpty ? "\"\(f.wireKey)\"" : "__k\(i)"
+            // TEXT CELLS. A CSV, an Excel sheet, a text-format wire value: the column is
+            // strings whatever the field declares. Under `coerceScalars` / `@Coerce` a
+            // numeric or boolean field takes the string column when its own kind is
+            // absent, parsed per row by the same rules the tree path uses; a `Date` field
+            // always does, because text is what a date IS on every other path. The
+            // missing-column check then covers both shapes.
+            let textFallback = textFallsBack(f)
+            let textPull = textFallback
+                ? "\n        let __t\(i): [String]? = __c\(i) == nil ? source.stringColumn(\(nullsKey), \(i)) : nil"
+                : ""
+            let missing = textFallback && !onMissing.isEmpty
+                ? """
+
+                        if __c\(i) == nil, __t\(i) == nil {
+                            Assay._assayColumnMissing(&sink, path, "\(f.wireKey)", "\(expected)")
+                            __columnMissing = true
+                        }
+                """
+                : onMissing
+            if columnAccessor(f.decodedType) != nil || textFallback {
                 pulls += """
-                        \(binding) __c\(i) = \(fetch(f.wireKey))\(keyVar)\(aliasArms)
-                        let __n\(i) = source.nulls(\(nullsKey), \(i))\(onMissing)
+                        \(binding) __c\(i) = \(fetch(f.wireKey))\(keyVar)\(aliasArms)\(textPull)
+                        let __n\(i) = source.nulls(\(nullsKey), \(i))\(missing)
 
                 """
             } else {
                 pulls += """
-                        \(binding) __c\(i) = \(fetch(f.wireKey))\(keyVar)\(aliasArms)\(onMissing)
+                        \(binding) __c\(i) = \(fetch(f.wireKey))\(keyVar)\(aliasArms)\(missing)
 
                 """
             }
@@ -169,9 +188,10 @@ extension SchemaMacro {
                 ? ("__n\(i)", columnConvert(base, "__col\(i)[__r]"))
                 : ("__col\(i).nulls",
                    "\(base)(assayColumn: __col\(i), row: __r, metadata: __col\(i).metadata)")
+            let typed: String
             if narrowsInt64(base) {
                 // A value the declared width cannot hold is an overflow, not an absence.
-                perRow += """
+                typed = """
                             var __f\(i): \(base)? = \(absent)
                             if let __col\(i) = __c\(i), __r < __col\(i).count,
                                !Assay._assayIsNullAt(\(mask), __r) {
@@ -181,18 +201,17 @@ extension SchemaMacro {
                                 }
                                 __f\(i) = __x\(i)
                             }
-
                 """
             } else {
-                perRow += """
+                typed = """
                             var __f\(i): \(base)? = \(absent)
                             if let __col\(i) = __c\(i), __r < __col\(i).count,
                                !Assay._assayIsNullAt(\(mask), __r) {
                                 __f\(i) = \(convert)
                             }
-
                 """
             }
+            perRow += typed + textBranch(f, i) + "\n\n"
         }
 
         var unwraps = ""
@@ -228,9 +247,20 @@ extension SchemaMacro {
         // `values` holds the rows that decoded clean, `issues` names the rest by index.
         // Until 2026-09-10 a rule violation was reported AND the row was appended. Only
         // emitted when there are rules — the presence checks above `continue` themselves.
-        let rowGuard = validation.isEmpty ? ("", "") : (
+        let rowGuard = validation.isEmpty && checks.isEmpty ? ("", "") : (
             "        let __rck = sink.checkpoint()\n",
             "        if sink.checkpoint() != __rck { continue }\n")
+        // `@Check`s run on the constructed value, as on every other path — they did not
+        // run on this one until 2026-09-10. Only emitted when there are checks; a
+        // check-free type constructs straight into the output array.
+        let construct = checks.isEmpty
+            ? "        __out.append(\(typeName)(\(args.joined(separator: ", "))))\n"
+            : """
+                    let __result = \(typeName)(\(args.joined(separator: ", ")))
+            \(checks)        if sink.checkpoint() != __rck { continue }
+                    __out.append(__result)
+
+            """
 
         return """
         /// Decode a whole batch, one sequential pass per column.
@@ -251,8 +281,7 @@ extension SchemaMacro {
             for __r in 0..<source.rowCount {
                 sink._enterRow(__r, depth: path.count)
         \(perRow)\(rowGuard.0)\(validation)\(rowGuard.1)
-        \(unwraps)        __out.append(\(typeName)(\(args.joined(separator: ", "))))
-            }
+        \(unwraps)\(construct)    }
             sink._leaveRows()
             return __out
         }
@@ -280,6 +309,72 @@ extension SchemaMacro {
             return "int64Column"
         default: return nil
         }
+    }
+
+    /// Whether a field takes a `String` column when its own kind is absent: a coercing
+    /// number or boolean, or a `Date`.
+    static func textFallsBack(_ f: SchemaField) -> Bool {
+        let t = f.decodedType
+        if isDateType(t) { return true }
+        guard f.coerce, let accessor = columnAccessor(t) else { return false }
+        return accessor != "stringColumn"
+    }
+
+    /// The per-row text branch — `else if` after the typed one — parsing the cell by the
+    /// rules the tree path uses (`_assayCoerceInt64` and friends, `RawValue._assayDate`),
+    /// so a cell that is not a number says `type_mismatch` with the row and the text.
+    static func textBranch(_ f: SchemaField, _ i: Int) -> String {
+        guard textFallsBack(f) else { return "" }
+        let t = f.decodedType
+        let key = f.wireKey
+        let head = """
+             else if let __txt\(i) = __t\(i), __r < __txt\(i).count,
+                           !Assay._assayIsNullAt(__n\(i), __r) {
+
+            """
+        let body: String
+        if isDateType(t) {
+            body = """
+                            guard let __s\(i) = Assay.RawValue.string(__txt\(i)[__r])._assayDate(&sink, path, "\(key)", \(dateFormatsRef(f, i))) else { continue }
+                            __f\(i) = \(t)(timeIntervalSince1970: __s\(i))
+
+            """
+        } else if t == "Bool" {
+            body = """
+                            guard let __x\(i) = Assay._assayCoerceBool(__txt\(i)[__r]) else {
+                                Assay._assayRowMismatch(&sink, path, "\(key)", "boolean", __txt\(i)[__r]); continue
+                            }
+                            __f\(i) = __x\(i)
+
+            """
+        } else if t == "Double" || t == "Float" {
+            body = """
+                            guard let __x\(i) = Assay._assayCoerceDouble(__txt\(i)[__r]) else {
+                                Assay._assayRowMismatch(&sink, path, "\(key)", "number", __txt\(i)[__r]); continue
+                            }
+                            __f\(i) = \(t == "Float" ? "Float(__x\(i))" : "__x\(i)")
+
+            """
+        } else {
+            // An integer: parse to Int64, then the declared width exactly as a typed
+            // column would, so overflow is overflow here too.
+            let narrow = narrowsInt64(t)
+                ? """
+                                guard let __y\(i) = \(t)(exactly: __x\(i)) else {
+                                    Assay._assayRowOverflow(&sink, path, "\(key)", __x\(i)); continue
+                                }
+                                __f\(i) = __y\(i)
+                """
+                : "                __f\(i) = __x\(i)"
+            body = """
+                            guard let __x\(i) = Assay._assayCoerceInt64(__txt\(i)[__r]) else {
+                                Assay._assayRowMismatch(&sink, path, "\(key)", "integer", __txt\(i)[__r]); continue
+                            }
+            \(narrow)
+
+            """
+        }
+        return head + body + "            }"
     }
 
     /// Declared narrower than the `Int64` column that carries it, so `exactly:` can fail.

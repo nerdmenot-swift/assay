@@ -1,8 +1,10 @@
 extension GoldenSources: Assay.JSONAssayable, Assay.SourceDecodable {nonisolated static let __assayKeyTable: [UInt8] = {
-    var t = [UInt8](repeating: 3, count: 256)
+    var t = [UInt8](repeating: 5, count: 256)
         t[97] = 0
         t[98] = 1
         t[99] = 2
+        t[110] = 3
+        t[119] = 4
     return t
 }()
 
@@ -25,6 +27,8 @@ nonisolated public static func _assay(
     var __f0: Int? = nil
     var __f1: String? = nil
     var __f2: Double? = nil
+    var __f3: Int? = nil
+    var __f4: Date? = nil
     var __presence: UInt64 = 0
 
     if !reader.tryConsume(0x7D) {
@@ -65,6 +69,20 @@ nonisolated public static func _assay(
                     } else {
                         _ = reader.skipValue(&sink)
                     }
+                case 3:
+                    if reader.keyMatches(__key, "n") {
+                        __presence |= 8
+                        __f3 = reader._decodeIntCoercing(&sink, path, "n")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 4:
+                    if reader.keyMatches(__key, "when") {
+                        __presence |= 16
+                        __f4 = reader._decodeDate(&sink, path, "when", Assay.DateFormat.defaultFormats).map { Date(timeIntervalSince1970: $0) }
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
                 default:
                     _ = reader.skipValue(&sink)
                 }
@@ -85,11 +103,19 @@ nonisolated public static func _assay(
         if __presence & 2 == 0 {
             reader._missingRequired(&sink, path, "b")
         }
+        if __presence & 8 == 0 {
+            reader._missingRequired(&sink, path, "n")
+        }
+        if __presence & 16 == 0 {
+            reader._missingRequired(&sink, path, "when")
+        }
 
 
         guard let __v0 = __f0 else { return nil }
         guard let __v1 = __f1 else { return nil }
-    let __result = GoldenSources(a: __v0, b: __v1, c: __f2)
+        guard let __v3 = __f3 else { return nil }
+        guard let __v4 = __f4 else { return nil }
+    let __result = GoldenSources(a: __v0, b: __v1, c: __f2, n: __v3, when: __v4)
 
     guard sink.checkpoint() == __ck0 else { return nil }
     return __result
@@ -99,6 +125,8 @@ nonisolated public static let _assayManifest = Assay.FieldManifest(fields: [
         .init(key: "a", kind: .int, isOptional: false, hasDefault: false),
         .init(key: "b", kind: .string, isOptional: false, hasDefault: false),
         .init(key: "c", kind: .double, isOptional: true, hasDefault: false),
+        .init(key: "n", kind: .int, isOptional: false, hasDefault: false),
+        .init(key: "when", kind: .custom("Date"), isOptional: false, hasDefault: false),
 ])
 
 /// Decode a whole batch, one sequential pass per column.
@@ -126,6 +154,20 @@ nonisolated public static func _assayBatch<__C: Assay.ColumnarSource & ~Copyable
         }
         let __c2 = source.doubleColumn("c", 2)
         let __n2 = source.nulls("c", 2)
+        let __c3 = source.int64Column("n", 3)
+        let __t3: [String]? = __c3 == nil ? source.stringColumn("n", 3) : nil
+        let __n3 = source.nulls("n", 3)
+        if __c3 == nil, __t3 == nil {
+            Assay._assayColumnMissing(&sink, path, "n", "int")
+            __columnMissing = true
+        }
+        let __c4 = Assay._assayFetchColumn(Date.self, from: source, "when", 4)
+        let __t4: [String]? = __c4 == nil ? source.stringColumn("when", 4) : nil
+        let __n4 = source.nulls("when", 4)
+        if __c4 == nil, __t4 == nil {
+            Assay._assayColumnMissing(&sink, path, "when", "Date")
+            __columnMissing = true
+        }
         if __columnMissing { return [] }
     var __out: [GoldenSources] = []
     __out.reserveCapacity(source.rowCount)
@@ -143,16 +185,48 @@ nonisolated public static func _assayBatch<__C: Assay.ColumnarSource & ~Copyable
                 }
                 __f0 = __x0
             }
+
             var __f1: String? = nil
             if let __col1 = __c1, __r < __col1.count,
                !Assay._assayIsNullAt(__n1, __r) {
                 __f1 = __col1[__r]
             }
+
             var __f2: Double? = nil
             if let __col2 = __c2, __r < __col2.count,
                !Assay._assayIsNullAt(__n2, __r) {
                 __f2 = __col2[__r]
             }
+
+            var __f3: Int? = nil
+            if let __col3 = __c3, __r < __col3.count,
+               !Assay._assayIsNullAt(__n3, __r) {
+                guard let __x3 = Int(exactly: __col3[__r]) else {
+                    Assay._assayRowOverflow(&sink, path, "n", __col3[__r])
+                    continue
+                }
+                __f3 = __x3
+            } else if let __txt3 = __t3, __r < __txt3.count,
+               !Assay._assayIsNullAt(__n3, __r) {
+                guard let __x3 = Assay._assayCoerceInt64(__txt3[__r]) else {
+                    Assay._assayRowMismatch(&sink, path, "n", "integer", __txt3[__r]); continue
+                }
+                guard let __y3 = Int(exactly: __x3) else {
+                    Assay._assayRowOverflow(&sink, path, "n", __x3); continue
+                }
+                __f3 = __y3
+            }
+
+            var __f4: Date? = nil
+            if let __col4 = __c4, __r < __col4.count,
+               !Assay._assayIsNullAt(__col4.nulls, __r) {
+                __f4 = Date(assayColumn: __col4, row: __r, metadata: __col4.metadata)
+            } else if let __txt4 = __t4, __r < __txt4.count,
+               !Assay._assayIsNullAt(__n4, __r) {
+                guard let __s4 = Assay.RawValue.string(__txt4[__r])._assayDate(&sink, path, "when", Assay.DateFormat.defaultFormats) else { continue }
+                __f4 = Date(timeIntervalSince1970: __s4)
+            }
+
 
             guard let __v0 = __f0 else {
                 Assay._assayRowMissing(&sink, path, "a")
@@ -162,7 +236,15 @@ nonisolated public static func _assayBatch<__C: Assay.ColumnarSource & ~Copyable
                 Assay._assayRowMissing(&sink, path, "b")
                 continue
             }
-        __out.append(GoldenSources(a: __v0, b: __v1, c: __f2))
+            guard let __v3 = __f3 else {
+                Assay._assayRowMissing(&sink, path, "n")
+                continue
+            }
+            guard let __v4 = __f4 else {
+                Assay._assayRowMissing(&sink, path, "when")
+                continue
+            }
+        __out.append(GoldenSources(a: __v0, b: __v1, c: __f2, n: __v3, when: __v4))
     }
     sink._leaveRows()
     return __out

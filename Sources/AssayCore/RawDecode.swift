@@ -196,7 +196,7 @@ extension RawValue {
         case .int(let i): return Double(i)                  // widening is not coercion
         default: break
         }
-        if coerce, case .string(let s) = self, let d = Double(s) { return d }
+        if coerce, case .string(let s) = self, let d = _assayCoerceDouble(s) { return d }
         Self.mismatch(&sink, path, key, "number", self, span)
         return nil
     }
@@ -222,13 +222,7 @@ extension RawValue {
         if coerce {
             switch self {
             case .string(let s):
-                switch s {
-                case "true", "True", "TRUE", "yes", "Yes", "YES", "on", "On", "ON", "1":
-                    return true
-                case "false", "False", "FALSE", "no", "No", "NO", "off", "Off", "OFF", "0":
-                    return false
-                default: break
-                }
+                if let b = _assayCoerceBool(s) { return b }
             case .int(let i):
                 if i == 1 { return true }
                 if i == 0 { return false }
@@ -250,7 +244,7 @@ extension RawValue {
     public func _coercedInt() -> Int? {
         switch self {
         case .string(let s):
-            return Int(s)                                    // rejects "8080.5" outright
+            return _assayCoerceInt64(s).flatMap { Int(exactly: $0) }
         case .double(let d):
             guard d == d.rounded(), let n = Int(exactly: d) else { return nil }
             return n
@@ -372,5 +366,56 @@ extension RawValue {
         _ expected: String, _ found: RawValue, _ span: SourceSpan? = nil
     ) {
         mismatch(&sink, path, key, expected, found, span)
+    }
+}
+
+// MARK: - Text to scalar, the one definition
+//
+// `coerceScalars` / `@Coerce` accept a string where a number or boolean was declared. The
+// rules live here and nowhere else, so the RawValue path (YAML, XML, TOML, plists) and the
+// columnar path (a CSV cell, a text-format SQL value) cannot drift: "8080.5" is not an
+// integer on either, and "yes" is a boolean on both.
+
+/// `"8080"` → 8080. Sign allowed; no fraction, no exponent, no whitespace.
+@_documentation(visibility: internal)
+@inlinable
+public func _assayCoerceInt64(_ s: String) -> Int64? { Int64(s) }
+
+/// `"1.5"`, `"1e3"`, `"inf"`. The stdlib's parser, which is correctly rounded.
+@_documentation(visibility: internal)
+@inlinable
+public func _assayCoerceDouble(_ s: String) -> Double? { Double(s) }
+
+/// The spellings a config file or a form uses for a boolean — `true`/`false`, `yes`/`no`,
+/// `on`/`off` in lowercase, Capitalised or UPPERCASE, and `1`/`0` — compared by bytes
+/// rather than a `String` switch, which is a linear scan with a full compare per case
+/// (CLAUDE.md rule 1). Exactly the set the RawValue path accepted before 2026-09-10;
+/// `tRuE` is still not a boolean.
+@_documentation(visibility: internal)
+@inlinable
+public func _assayCoerceBool(_ s: String) -> Bool? {
+    var it = s.utf8.makeIterator()
+    guard let a = it.next() else { return nil }
+    let b = it.next(), c = it.next(), d = it.next(), e = it.next()
+    guard it.next() == nil else { return nil }
+    if b == nil { return a == 0x31 ? true : (a == 0x30 ? false : nil) }              // 1 / 0
+    // The casing must be one of three shapes: all lower, all upper, or first upper only.
+    // No array here: this runs per text cell on the columnar path.
+    let firstUpper = a & 0x20 == 0
+    var restUpper = true, restLower = true
+    func fold(_ x: UInt8?) {
+        guard let x else { return }
+        if x & 0x20 == 0 { restLower = false } else { restUpper = false }
+    }
+    fold(b); fold(c); fold(d); fold(e)
+    guard (firstUpper && restUpper) || restLower else { return nil }
+    switch (a | 0x20, b.map { $0 | 0x20 }, c.map { $0 | 0x20 }, d.map { $0 | 0x20 }, e.map { $0 | 0x20 }) {
+    case (0x74, 0x72, 0x75, 0x65, nil): return true                                     // true
+    case (0x66, 0x61, 0x6C, 0x73, 0x65): return false                                   // false
+    case (0x79, 0x65, 0x73, nil, nil): return true                                      // yes
+    case (0x6E, 0x6F, nil, nil, nil): return false                                      // no
+    case (0x6F, 0x6E, nil, nil, nil): return true                                       // on
+    case (0x6F, 0x66, 0x66, nil, nil): return false                                     // off
+    default: return nil
     }
 }

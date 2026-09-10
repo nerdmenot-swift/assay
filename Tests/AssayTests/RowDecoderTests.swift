@@ -13,8 +13,32 @@ struct RDRow: Equatable {
     @Fallback(0) var score: Int
 }
 
+@Schema(formats: [], sources: true)
+struct RDChecked: Equatable {
+    var lo: Int64
+    var hi: Int64
+    @Check(\RDChecked.hi)
+    static func positive(_ h: Int64) -> String? { h > 0 ? nil : "must be positive" }
+    @Check
+    static func ordered(_ r: RDChecked, _ issues: inout Issues<RDChecked>) {
+        if r.hi < r.lo { issues.add("must not be below lo", at: \.hi) }
+    }
+}
+
 @Suite("RowDecoder")
 struct RowDecoderTests {
+
+    @Test("@Check runs per row on the columnar path, and a failing row is not a value")
+    func checksPerRow() {
+        var dec = RowDecoder<RDChecked>(columns: ["lo", "hi"])
+        for (lo, hi) in [(1, 2), (5, 3), (1, 0), (2, 2)] as [(Int64, Int64)] {
+            dec.beginRow(); dec.append(int64: lo, column: 0); dec.append(int64: hi, column: 1)
+        }
+        let d = dec.finish()
+        #expect(d.values == [RDChecked(lo: 1, hi: 2), RDChecked(lo: 2, hi: 2)])
+        #expect(d.issues.map(\.path) == [[.index(1), .key("hi")], [.index(2), .key("hi")], [.index(2), .key("hi")]])
+        #expect(d.issues.map(\.message) == ["must not be below lo", "must be positive", "must not be below lo"])
+    }
 
     func feed(_ dec: inout RowDecoder<RDRow>, _ id: Int64, _ email: String?, _ score: Int64?) {
         dec.beginRow()

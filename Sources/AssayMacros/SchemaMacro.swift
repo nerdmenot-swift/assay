@@ -473,10 +473,19 @@ public struct SchemaMacro: ExtensionMacro {
             guard Self.refuse(Self.sourceDiagnostics(activeS), node: node, context: context) else {
                 return nil
             }
+            // The batch decode is synchronous (CLAUDE.md rule 7), so an async check could
+            // only be skipped — silently, which is how bugs are made. Refused instead.
+            if let async = a.checks.first(where: \.isAsync) {
+                guard Self.refuse(["'\(async.functionName)' is an @AsyncCheck, and a columnar "
+                    + "batch decode is synchronous — it would never run there. Drop "
+                    + "`sources: true`, or make the check synchronous"],
+                    node: node, context: context) else { return nil }
+            }
             body += "\n\n" + Self.manifestBody(typeName: typeName, fields: activeS)
             body += "\n\n" + Self.batchBody(
                 typeName: typeName, fields: activeS,
-                validation: Self.postDecodeSection(activeS, spans: false))
+                validation: Self.postDecodeSection(activeS, spans: false),
+                checks: Self.checkCalls(typeName, a.checks, activeS, spans: false, ctx: ctxType))
         }
         if Self.hasValidation(activeS, a.checks) {
             if !body.isEmpty { body += "\n\n" }

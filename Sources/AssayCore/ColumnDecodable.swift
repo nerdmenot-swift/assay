@@ -217,6 +217,21 @@ public struct BytesColumn: ColumnStorage {
 
     /// For a source that really does hold separate blobs. A reader that already has the
     /// flat layout should use the memberwise initialiser and copy nothing.
+    /// From a column of text — a CSV cell, a text-format wire value — for a carrier that
+    /// reads bytes: `UUID` takes its 36 canonical characters this way. One copy of the
+    /// text per batch, then the per-row path is the byte one.
+    public init(texts: [String], nulls: [Bool]? = nil, metadata: ColumnMetadata = .none) {
+        var flat: [UInt8] = []
+        flat.reserveCapacity(texts.reduce(0) { $0 + $1.utf8.count })
+        var offs: [Int] = [0]
+        offs.reserveCapacity(texts.count + 1)
+        for t in texts {
+            flat.append(contentsOf: t.utf8)
+            offs.append(flat.count)
+        }
+        self.init(bytes: flat, offsets: offs, nulls: nulls, metadata: metadata)
+    }
+
     public init(rows: [[UInt8]], nulls: [Bool]? = nil, metadata: ColumnMetadata = .none) {
         var flat: [UInt8] = []
         flat.reserveCapacity(rows.reduce(0) { $0 + $1.count })
@@ -339,7 +354,15 @@ public protocol ColumnDecodable {
 public func _assayFetchColumn<T: ColumnDecodable, S: ColumnarSource & ~Copyable>(
     _: T.Type, from source: borrowing S, _ key: StaticString, _ field: Int
 ) -> T.Column? {
-    T.Column._assayFetch(from: source, key, field)
+    if let c = T.Column._assayFetch(from: source, key, field) { return c }
+    // A bytes carrier offered a String column — a UUID as text from a CSV or a
+    // text-format wire — takes it as bytes, once per batch. The metatype compare is
+    // once per column; the per-row path is unchanged.
+    if T.Column.self == BytesColumn.self, let texts = source.stringColumn(key, field) {
+        return BytesColumn(texts: texts, nulls: source.nulls(key, field),
+                           metadata: source.columnMetadata(key, field)) as? T.Column
+    }
+    return nil
 }
 
 // MARK: - Built-in conformances

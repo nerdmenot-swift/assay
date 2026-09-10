@@ -60,7 +60,7 @@ struct GoldenB: Equatable { var y: String }
 @Schema(unknownKeys: .reject, describes: true) struct GoldenDescribes { @Validate(.min(1)) var a: String; var b: Int? }
 
 // GOLDEN: sources
-@Schema(sources: true) struct GoldenSources { var a: Int; var b: String; var c: Double? }
+@Schema(sources: true) struct GoldenSources { var a: Int; var b: String; var c: Double?; @Coerce var n: Int; var when: Date }
 
 // GOLDEN: xml-encodes-root
 @Schema(coerceScalars: true, formats: .all, encodes: true) @XML(root: "r") struct GoldenXML { @XML(.attribute) var id: Int; @XML(.text) var body: String; @XML(.wrapped) var tags: [String] }

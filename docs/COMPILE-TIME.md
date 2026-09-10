@@ -378,6 +378,18 @@ noise. The reading that survives: **under half a millisecond per type, and it do
 with the number of fields**, which is what "constant per type, not per field" has to mean to
 be worth saying.
 
+### 5.7 `sources: true` — measured 2026-09-11: the widest body, and it is opt-in for this reason
+
+A new `sources` arm in `gate.sh`, reported and not gated like `encodes`: `@Schema(keys:
+.snakeCase, coerceScalars: true, sources: true)` on the 10-field type, which is the widest the
+columnar body gets — every numeric and boolean field carries both the typed branch and the
+text-cell branch. **164.4 ms/type against the JSON-only arm's 79.6**, so the batch body costs
+about as much again as the decode body. Three things follow: it is exactly why `sources:` is
+opt-in; a type without `coerceScalars` is narrower (one branch per field); and the number is a
+target if it ever matters — the text branch is four generated lines per coercing field where
+one call into `AssayCore` would do, which is the rule §3 states and this body does not yet
+follow.
+
 ### 5.4 Still unmeasured
 
 - **Xcode / SwiftUI previews.** Anecdotally the most sensitive environment to macro cost; no

@@ -93,7 +93,7 @@ emit_fields() {
 }
 
 case "$MODE" in
-  schema|validated|arrays|paths|describes|encodes)  echo "import Assay" ;;
+  schema|validated|arrays|paths|describes|encodes|sources)  echo "import Assay" ;;
   *)       echo "import Foundation" ;;
 esac
 echo
@@ -106,6 +106,12 @@ for ((k = 0; k < N; k++)); do
       ;;
     encodes)
       echo "@Schema(keys: .snakeCase, encodes: true)"
+      echo "public struct T${k} {"
+      ;;
+    sources)
+      # The columnar batch body on top of the JSON one. `coerceScalars` so every numeric
+      # and boolean field also carries the text-cell branch — the widest this body gets.
+      echo "@Schema(keys: .snakeCase, coerceScalars: true, sources: true)"
       echo "public struct T${k} {"
       ;;
     schema|validated|arrays|paths)

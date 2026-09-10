@@ -242,6 +242,18 @@ public func _assayRowOverflow(
                    received: String(value)))
 }
 
+/// A text cell that does not parse as the declared scalar: `"abc"` for an `Int` under
+/// `coerceScalars`. `type_mismatch` with the row and the text, as the tree path reports.
+@inline(never)
+public func _assayRowMismatch(
+    _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+    _ expected: String, _ text: String
+) {
+    sink.add(Issue(code: .typeMismatch, path: path + [.key(String(describing: key))],
+                   params: ["expected": .string(expected)],
+                   received: "\"" + text + "\""))
+}
+
 /// Whether row `r` of a column is null, given its optional validity mask.
 @inlinable
 public func _assayIsNullAt(_ mask: [Bool]?, _ r: Int) -> Bool {

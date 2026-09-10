@@ -119,6 +119,17 @@ struct ColumnarDiagnosticTests {
 
     /// A genuine nested schema now fails in the type checker rather than at expansion.
     /// Expansion cannot tell it apart from `Date`; what it CAN do is not guess.
+    @Test("an @AsyncCheck on a sources: true type is refused — the batch is synchronous")
+    func asyncCheckRefused() {
+        let (_, diags) = expandSchemaForTesting("""
+        @Schema(sources: true) struct S {
+            var a: Int
+            @AsyncCheck static func f(_ v: S, _ i: inout Issues<S>) async {}
+        }
+        """)
+        #expect(diags.contains { $0.contains("@AsyncCheck") && $0.contains("synchronous") }, "\(diags)")
+    }
+
     @Test("a tree-shaped field is still refused at expansion")
     func collectionsStillRefused() {
         let (_, diags) = expandSchemaForTesting("""

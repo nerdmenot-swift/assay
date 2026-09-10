@@ -169,3 +169,18 @@ struct AssayerValueTests {
         #expect(v == ["a", "bb"])
     }
 }
+
+extension AssayerValueTests {
+    /// A `.map` that returns nil is a conversion failure, and it is reported as one. Until
+    /// 2026-09-10 `diagnose` returned a Diagnosis that was VALID with no value, and `get()`
+    /// threw an error carrying zero issues.
+    @Test("a map that returns nil is one issue, not a valid nil")
+    func mapNil() {
+        let s = Assayer.string.map { (_: String) -> Int? in nil }
+        let d = s.diagnose(json: Array("\"x\"".utf8))
+        #expect(!d.isValid)
+        #expect(d.value == nil)
+        #expect(d.issues.map(\.code) == [.assayerConversionFailed])
+        #expect((try? d.get()) == nil)
+    }
+}

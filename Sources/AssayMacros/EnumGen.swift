@@ -103,7 +103,7 @@ extension SchemaMacro {
                     }
                     cases.append(EnumCaseInfo(
                         identifier: name,
-                        wireName: wireOverride ?? keyStyle.apply(name),
+                        wireName: wireOverride ?? keyStyle.apply(Self.unbackticked(name)),
                         isUnknown: false, roundTrips: false))
                 }
             }

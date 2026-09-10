@@ -42,6 +42,21 @@ enum SchemaRefusals {
         }
         let base = SchemaMacro.stripOptional(typeName)
 
+        // THE TYPES THE MACRO CAN SEE ARE WRONG. A newcomer's most common error, found by a
+        // 54-declaration probe battery on 2026-09-10: each of these compiled to
+        // "type 'X' has no member '_assay'" inside the expansion, naming an underscored
+        // internal at a line the user never wrote. The macro sees the type's SPELLING,
+        // which is enough to refuse every one of these with the alternative in the message.
+        // `@Ignore` fields are exempt (checked first, below): the type is never decoded.
+        // With a `@Transform`, the DECLARED type is the closure's output and can be
+        // anything — a `Set`, a `URL`, a `Decimal` is precisely what the attribute is for;
+        // the shape that has to be decodable is the closure's parameter, the wire type.
+        let wireTypeName = SchemaMacro.transform(from: attrs, context: context)?.wireType ?? typeName
+        if !set.contains("Ignore"), !set.contains("Extras"),
+           let why = SchemaRefusals.undecodableShape(wireTypeName) {
+            return refuse(why)
+        }
+
         // `@Ignore` beside anything else the macro would have acted on. The field is
         // excluded, so the other attribute would never run — and a rule that never runs
         // is the exact shape of bug this table exists to refuse.
@@ -74,10 +89,13 @@ enum SchemaRefusals {
                 + "'\(typeName)' is not an array. Remove it, or declare `[\(base)]`.")
         }
 
-        // `@Preprocess` ops are string operations. Without this the failure was a type
-        // error INSIDE the expansion — "cannot convert value of type 'Int' to expected
-        // argument type 'String'" at a line the author never wrote.
-        if set.contains("Preprocess"), base != "String" {
+        // `@Preprocess` ops are string operations on the WIRE value — which is the
+        // `@Transform` closure's parameter type when there is one, and the declared type
+        // otherwise. The first version of this check read the declared type and refused
+        // `@Preprocess(.trim) @Transform({ (s: String) in s.count }) var n: Int`, which is
+        // exactly the pairing the two attributes exist for. Without the check at all, the
+        // failure was a type error INSIDE the expansion at a line the author never wrote.
+        if set.contains("Preprocess"), SchemaMacro.stripOptional(wireTypeName) != "String" {
             return refuse("@Preprocess(.trim, .lowercase, …) normalises a String before its "
                 + "rules run; '\(typeName)' is not one. Use @Transform for a non-string "
                 + "conversion.")
@@ -86,18 +104,102 @@ enum SchemaRefusals {
         return true
     }
 
+    /// Why a spelled type cannot be a field, or nil when the spelling is not one of the
+    /// shapes the macro can rule out. Nominal types it has never heard of pass through:
+    /// they may be `@Schema` types, `AssayerBacked` wrappers or enums with a conformance,
+    /// and the emitted `_assayRequire` assertion gives THOSE a legible error instead.
+    static func undecodableShape(_ typeName: String) -> String? {
+        let t = typeName.trimmingWhitespace()
+        let base = SchemaMacro.stripOptional(t)
+
+        if t.hasSuffix("!") {
+            return "'\(t)' is implicitly unwrapped, which a decoder cannot honour — an absent "
+                + "key has to be nil or an error. Declare '\(String(t.dropLast()))?'."
+        }
+        if base.hasSuffix("?") || base.hasPrefix("Optional<") {
+            return "'\(t)' is an optional of an optional. A document has one kind of absence; "
+                + "declare '\(SchemaMacro.stripOptional(base))?'."
+        }
+        if base.containsSubstring("->") {
+            return "'\(t)' is a function type and cannot be decoded."
+        }
+        if base.hasPrefix("(") {
+            return "'\(t)' is a tuple, and no wire format has one. Declare a nested @Schema "
+                + "struct for the fields, or an array if the parts are the same type."
+        }
+        if base == "Any" || base == "AnyObject" || base == "any Sendable" {
+            return "'\(t)' cannot be decoded — every field has one wire shape. For a value of "
+                + "unknown shape declare `RawValue` (format-neutral) or `JSON.Value`."
+        }
+        if base.hasPrefix("Set<") {
+            let element = String(base.dropFirst(4).dropLast())
+            return "'\(t)' cannot be decoded directly: a document carries an ordered array. "
+                + "Declare `[\(element)]`, or keep the Set with "
+                + "`@Transform({ (a: [\(element)]) in Set(a) }) var …: Set<\(element)>`."
+        }
+        if let element = SchemaMacro.arrayElement(base), element.hasSuffix("?") || element.hasPrefix("Optional<") {
+            return "'\(t)' is an array of optionals. A JSON array holds values or nulls; "
+                + "declare `[\(SchemaMacro.stripOptional(element))]` (a null element is an "
+                + "error) or decode as `[RawValue]` and inspect the nulls yourself."
+        }
+        switch base {
+        case "Character":
+            return "'Character' is not a field type; declare `String` and take its first "
+                + "character, or use @Transform."
+        case "Data", "Foundation.Data":
+            return "'Data' is not a field type: a document carries bytes as text (base64, hex). "
+                + "Declare `String` and decode with @Transform, or `[UInt8]` for a byte array."
+        case "URL", "Foundation.URL":
+            return "'URL' is not a field type. Declare `@Validate(.url) var …: String` — the "
+                + "rule is what a URL field usually wants — and construct the URL where you "
+                + "use it, or write an `AssayerBacked` wrapper."
+        case "Decimal", "Foundation.Decimal":
+            return "'Decimal' is not a field type: JSON numbers are doubles, and a decimal "
+                + "quantity should travel as a string. Declare `String` and convert with "
+                + "@Transform, or write an `AssayerBacked` wrapper that parses it exactly."
+        case "UUID", "Foundation.UUID":
+            // Legal WITH AssayFoundation, which supplies the conformance; without it the
+            // type is not in scope at all and the compiler says so first. Pass.
+            return nil
+        default:
+            return nil
+        }
+    }
+
     /// Type-level combinations, once the fields are known.
     static func type(
         config: SchemaConfig,
         fields: [SchemaField],
         extras: SchemaField?,
         typeName: String,
+        isGeneric: Bool,
         node: AttributeSyntax,
         context: some MacroExpansionContext
     ) -> Bool {
         func refuse(_ m: String) -> Bool {
             context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(m)))
             return false
+        }
+
+        // A generic struct. The generated body holds `static let` tables — the window
+        // table, the rule arrays — and Swift has no static stored properties in generic
+        // types, so the failure was "static stored properties not supported in generic
+        // types" inside the expansion.
+        if isGeneric {
+            return refuse("@Schema does not support generic types: the generated dispatch "
+                + "tables are static stored properties, which a generic type cannot have. "
+                + "Declare a concrete type, or decode the varying part as `RawValue` and "
+                + "convert it afterwards.")
+        }
+
+        // `@Extras` holds keys the schema did not declare, so its VALUE type has to hold
+        // anything: `RawValue` (format-neutral) or `JSON.Value` (JSON-only, full fidelity).
+        // Anything else was "requires that 'Int' conform to 'JSONCollectible'".
+        if let e = extras, let value = SchemaMacro.dictionaryValue(e.typeName),
+           !SchemaMacro.isCollectible(value) {
+            return refuse("@Extras must be `[String: RawValue]` or `[String: JSON.Value]`; "
+                + "'\(e.identifier)' is declared '\(e.typeName)'. The sink holds keys the "
+                + "schema did not declare, so its values can be any shape.")
         }
 
         // A type that declares nothing to decode. `S.parse` would not exist and the reason

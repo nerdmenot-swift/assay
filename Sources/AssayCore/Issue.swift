@@ -193,6 +193,26 @@ extension IssueSink {
     @inlinable
     public func checkpoint() -> Int { issues.count }
 
+    /// Insert `key` at `position` in the path of every issue added since `checkpoint`.
+    ///
+    /// A dictionary value's primitive names the FIELD (`"m must be an integer"`) and, for
+    /// an array value, the element index (`d[1]`); the entry key is only known to the
+    /// loop around it. Until 2026-09-10 the report said `m` when it meant `m.j` and
+    /// `d[1]` when it meant `d.a[1]`. `position` is the depth just past the field's own
+    /// component, so the key lands between the field and whatever the primitive added.
+    /// Cold: called on the failure path only, on the issues that failure added, so the
+    /// hot path pays one `checkpoint()` read per entry.
+    @inlinable
+    @_documentation(visibility: internal)
+    public mutating func _insertKey(since checkpoint: Int, _ key: String, at position: Int) {
+        var i = checkpoint
+        while i < issues.count {
+            let p = position < issues[i].path.count ? position : issues[i].path.count
+            issues[i].path.insert(.key(key), at: p)
+            i &+= 1
+        }
+    }
+
     @inlinable
     public mutating func rollback(to checkpoint: Int) {
         if issues.count > checkpoint {

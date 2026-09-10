@@ -260,16 +260,21 @@ struct MessageCoverageTests {
     /// message table is a code nobody can match on by name.
     @Test("no raise site uses a string literal the names file does not know")
     func noAnonymousCodes() throws {
-        let root = "/" + #filePath.split(separator: "/").dropLast(3).joined(separator: "/")
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let sources = root.appendingPathComponent("Sources")
         let fm = FileManager.default
         var offenders: [String] = []
-        let e = try #require(fm.enumerator(atPath: root + "/Sources"))
+        let e = try #require(fm.enumerator(atPath: sources.path))
         for case let rel as String in e where rel.hasSuffix(".swift") {
+            // `rel` uses the platform separator; normalise for the prefix test.
+            let unix = rel.replacingOccurrences(of: "\\", with: "/")
             // The macro target emits SOURCE TEXT; its one `.custom("Instant")` is a
             // `ColumnMetadata` unit, not an issue code.
-            if rel.hasSuffix("IssueCode+Names.swift") || rel.hasSuffix("Messages.swift")
-                || rel.hasPrefix("AssayMacros/") { continue }
-            let text = try String(contentsOfFile: root + "/Sources/" + rel, encoding: .utf8)
+            if unix.hasSuffix("IssueCode+Names.swift") || unix.hasSuffix("Messages.swift")
+                || unix.hasPrefix("AssayMacros/") { continue }
+            let text = try String(contentsOfFile: sources.appendingPathComponent(rel).path,
+                                  encoding: .utf8)
             var search = text[...]
             while let r = search.range(of: ".custom(\"") {
                 let rest = search[r.upperBound...]

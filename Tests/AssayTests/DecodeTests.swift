@@ -282,3 +282,117 @@ enum KeyStyleShim {
         return words.filter { !$0.isEmpty }
     }
 }
+
+// MARK: - One bad element is one issue
+//
+// 2026-09-10, second audit. `{"a":[1,"x",3]}` reported the element AND "is not a
+// well-formed document" AND "unexpected content after the end of the document" — the
+// element loop broke out with the cursor still inside the array, and the closing-bracket
+// check then called a well-formed document malformed. With the bad element FIRST the decode
+// silently stopped and later fields were neither decoded nor reported. An element failure
+// now skips the element and continues, exactly as a field failure inside an object does.
+
+@Schema struct ElemInts: Equatable { var a: [Int]; var b: Int }
+@Schema struct ElemPoint: Equatable { var x: Int }
+@Schema struct ElemNested: Equatable { var a: [ElemPoint]; var b: Int }
+@Schema struct ElemMatrix: Equatable { var a: [[Int]]; var b: Int }
+@Schema struct ElemDict: Equatable { var a: [String: Int]; var b: Int }
+@Schema struct ElemDictNested: Equatable { var a: [String: ElemPoint]; var b: Int }
+@Schema struct ElemDictArrays: Equatable { var d: [String: [Int]]; var e: [String: [String: Int]] }
+
+@Suite("Collections — one bad element is one issue")
+struct CollectionElementTests {
+
+    @Test("a bad scalar element first, middle and last", arguments: [
+        #"{"a":["x",2,3],"b":9}"#, #"{"a":[1,"x",3],"b":9}"#, #"{"a":[1,2,"x"],"b":9}"#,
+    ])
+    func scalarElement(_ json: String) {
+        let d = ElemInts.diagnose(json: json)
+        #expect(d.issues.count == 1, "\(d.issues)")
+        #expect(d.issues.first?.code == .typeMismatch)
+        #expect(d.issues.first?.path.pathDescription.hasPrefix("a[") == true)
+        // The document is well-formed and `b` is present: neither may be reported.
+        #expect(!d.issues.contains { $0.code == .malformedDocument || $0.code == .trailingContent })
+        #expect(!d.issues.contains { $0.path == [.key("b")] })
+    }
+
+    @Test("a bad nested-object element")
+    func nestedElement() {
+        let d = ElemNested.diagnose(json: #"{"a":[{"x":1},{"x":"no"},{"x":3}],"b":9}"#)
+        #expect(d.issues.count == 1, "\(d.issues)")
+        #expect(d.issues.first?.path.pathDescription == "a[1].x")
+    }
+
+    @Test("a bad element inside a nested array")
+    func matrixElement() {
+        let d = ElemMatrix.diagnose(json: #"{"a":[[1,2],[3,"x"],[5]],"b":9}"#)
+        #expect(d.issues.count == 1, "\(d.issues)")
+        #expect(!d.issues.contains { $0.code == .malformedDocument })
+    }
+
+    @Test("a bad dictionary value, and a bad nested value")
+    func dictValue() {
+        let d = ElemDict.diagnose(json: #"{"a":{"k":1,"j":"x","l":3},"b":9}"#)
+        #expect(d.issues.count == 1, "\(d.issues)")
+        #expect(!d.issues.contains { $0.code == .malformedDocument })
+        let n = ElemDictNested.diagnose(json: #"{"a":{"k":{"x":1},"j":{"x":"no"}},"b":9}"#)
+        #expect(n.issues.count == 1, "\(n.issues)")
+        #expect(n.issues.first?.path.pathDescription == "a.j.x")
+    }
+
+    /// The entry key is only known to the loop, so the primitive's issue named the FIELD:
+    /// `m must be an integer` for `m.j`, and `d[1]` for `d.a[1]`. Every dictionary value
+    /// shape now carries its key at the right depth.
+    @Test("a dictionary value's issue names the entry key, at every nesting")
+    func dictEntryKey() {
+        let d = ElemDict.diagnose(json: #"{"a":{"k":1,"j":"x"},"b":9}"#)
+        #expect(d.issues.first?.path.pathDescription == "a.j")
+        let arr = ElemDictArrays.diagnose(json: #"{"d":{"p":[1,"y"]},"e":{"p":{"q":"z"}}}"#)
+        #expect(arr.issues.map(\.path.pathDescription) == ["d.p[1]", "e.p.q"], "\(arr.issues)")
+    }
+
+    @Test("a genuinely malformed array is still malformed")
+    func malformed() {
+        let d = ElemInts.diagnose(json: #"{"a":[1,2,"b":9}"#)
+        #expect(d.issues.contains { $0.code == .malformedDocument }, "\(d.issues)")
+    }
+}
+
+// MARK: - Keyword property names
+//
+// `` var `default`: Int `` is how a Swift property is named after a keyword, and a JSON
+// API that has a `default` or a `class` key is not rare. Until 2026-09-10 the identifier's
+// backticks went into the wire key, so nothing decoded and the missing-key message said
+// `` `default` is required``.
+
+@Schema(encodes: true)
+struct KeywordKeys: Equatable {
+    var `default`: Int
+    var `class`: String
+    var `protocol`: Int?
+}
+
+@Schema(encodes: true)
+enum KeywordEnum: Equatable {
+    case `default`, `import`
+    @Unknown case other(String)
+}
+
+@Suite("Keyword property names")
+struct KeywordKeyTests {
+    @Test("a backticked property decodes from and encodes to the bare key")
+    func roundTrip() throws {
+        let v = try KeywordKeys.parse(json: #"{"default":1,"class":"c"}"#)
+        #expect(v == KeywordKeys(default: 1, class: "c", protocol: nil))
+        #expect(try v.jsonText() == #"{"default":1,"class":"c","protocol":null}"#)
+        let d = KeywordKeys.diagnose(json: #"{"class":"c"}"#)
+        #expect(d.issues.first?.path.pathDescription == "default")
+        #expect(!"\(d.issues.first!)".contains("`"))
+    }
+
+    @Test("a backticked enum case has a bare wire name")
+    func enumCase() throws {
+        #expect(try KeywordEnum.parse(json: #""default""#) == .default)
+        #expect(try KeywordEnum.default.jsonText() == #""default""#)
+    }
+}

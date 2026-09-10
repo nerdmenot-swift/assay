@@ -83,6 +83,13 @@ struct SchemaField {
     /// validated fields, and fields targeted by a field-form @Check).
     var needsSpan: Bool = false
 
+    /// The identifier as a NAME rather than as Swift: backticks stripped. `identifier`
+    /// keeps them because it is interpolated into emitted code, where `` `default` `` is
+    /// required; this is what the wire key, the descriptor and every message use. Until
+    /// 2026-09-10 the wire key for `` var `default`: Int `` was `` `default` `` with the
+    /// backticks in it, so `{"default": 1}` reported `` `default` is required``.
+    var name: String { SchemaMacro.unbackticked(identifier) }
+
     /// The type decode and validation operate on — the transform's wire type when one
     /// exists, otherwise the declared type with optionality stripped.
     var decodedType: String {
@@ -183,6 +190,7 @@ public struct SchemaMacro: ExtensionMacro {
                                               context: context) else { return [] }
         guard SchemaRefusals.type(config: config, fields: analysis.fields,
                                   extras: analysis.extras, typeName: typeName,
+                                  isGeneric: structDecl.genericParameterClause != nil,
                                   node: node, context: context) else { return [] }
         guard let body = Self.emit(analysis, config: config, typeName: typeName,
                                    node: node, context: context) else { return [] }
@@ -649,7 +657,7 @@ public struct SchemaMacro: ExtensionMacro {
         let typeName = typeAnnotation.type.trimmedDescription
         let isOptional = typeName.hasSuffix("?") || typeName.hasPrefix("Optional<")
 
-        var wireKey = keyStyle.apply(name)
+        var wireKey = keyStyle.apply(Self.unbackticked(name))
         var aliases: [String] = []
         var pathSegments: [String]?
         for attr in attrs where attr.attributeName.trimmedDescription == "Key" {
@@ -692,6 +700,15 @@ public struct SchemaMacro: ExtensionMacro {
             inverse: inverse,
             dateFormats: dateFormats,
             pathSegments: pathSegments)
+    }
+
+    /// `` `default` `` → `default`. An identifier token's text carries the backticks a
+    /// keyword needs to be a property name; a wire key and a message must not.
+    static func unbackticked(_ identifier: String) -> String {
+        if identifier.hasPrefix("`"), identifier.hasSuffix("`"), identifier.count >= 2 {
+            return String(identifier.dropFirst().dropLast())
+        }
+        return identifier
     }
 
     /// Split and check a `@Key(path:)` string. Returns nil having diagnosed.

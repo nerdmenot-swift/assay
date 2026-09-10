@@ -1,4 +1,4 @@
-extension S: Assay.JSONAssayable, Assay.SourceDecodable {nonisolated static let __assayKeyTable: [UInt8] = {
+extension GoldenSources: Assay.JSONAssayable, Assay.SourceDecodable {nonisolated static let __assayKeyTable: [UInt8] = {
     var t = [UInt8](repeating: 3, count: 256)
         t[97] = 0
         t[98] = 1
@@ -10,7 +10,7 @@ nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
     at path: [Assay.PathComponent]
-) -> S? {
+) -> GoldenSources? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
         return nil
@@ -89,7 +89,7 @@ nonisolated public static func _assay(
 
         guard let __v0 = __f0 else { return nil }
         guard let __v1 = __f1 else { return nil }
-    let __result = S(a: __v0, b: __v1, c: __f2)
+    let __result = GoldenSources(a: __v0, b: __v1, c: __f2)
 
     guard sink.checkpoint() == __ck0 else { return nil }
     return __result
@@ -110,7 +110,7 @@ nonisolated public static func _assayBatch<__C: Assay.ColumnarSource & ~Copyable
     from source: borrowing __C,
     into sink: inout Assay.IssueSink,
     at path: [Assay.PathComponent]
-) -> [S] {
+) -> [GoldenSources] {
         let __c0 = source.int64Column("a", 0)
         let __n0 = source.nulls("a", 0)
         if __c0 == nil {
@@ -123,7 +123,7 @@ nonisolated public static func _assayBatch<__C: Assay.ColumnarSource & ~Copyable
         }
         let __c2 = source.doubleColumn("c", 2)
         let __n2 = source.nulls("c", 2)
-    var __out: [S] = []
+    var __out: [GoldenSources] = []
     __out.reserveCapacity(source.rowCount)
 
     for __r in 0..<source.rowCount {
@@ -152,7 +152,7 @@ nonisolated public static func _assayBatch<__C: Assay.ColumnarSource & ~Copyable
                 Assay._assayRowMissing(&sink, path, "b")
                 continue
             }
-        __out.append(S(a: __v0, b: __v1, c: __f2))
+        __out.append(GoldenSources(a: __v0, b: __v1, c: __f2))
     }
     return __out
 }}

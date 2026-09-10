@@ -58,7 +58,7 @@ extension SchemaMacro {
                     Assay.FieldDescriptor(
                         wireKey: "\(f.wireKey)",
                         aliases: [\(aliases)],
-                        propertyName: "\(f.identifier)",
+                        propertyName: "\(f.name)",
                         type: \(typeDescriptor(f.typeName, f)),
                         isRequired: \(required),
                         rules: \(rulesExpr))
@@ -70,7 +70,7 @@ extension SchemaMacro {
                         Assay.FieldDescriptor(
                             wireKey: "\(f.wireKey)",
                             aliases: [\(aliases)],
-                            propertyName: "\(f.identifier)",
+                            propertyName: "\(f.name)",
                             type: \(typeDescriptor(f.typeName, f)),
                             wireType: \(typeDescriptor(t.wireType, f)),
                             isRequired: \(required),

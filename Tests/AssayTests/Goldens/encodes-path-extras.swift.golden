@@ -1,4 +1,4 @@
-extension S: Assay.JSONAssayable, Assay.JSONEncodableSchema {nonisolated static let __assayKeyTable: [UInt8] = {
+extension GoldenEncodes: Assay.JSONAssayable, Assay.JSONEncodableSchema {nonisolated static let __assayKeyTable: [UInt8] = {
     var t = [UInt8](repeating: 3, count: 256)
         t[48] = 0
         t[53] = 1
@@ -11,7 +11,7 @@ nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
     at path: [Assay.PathComponent]
-) -> S? {
+) -> GoldenEncodes? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
         return nil
@@ -151,7 +151,7 @@ nonisolated public static func _assay(
         guard let __v0 = __f0 else { return nil }
         guard let __v1 = __f1 else { return nil }
         guard let __v2 = __f2 else { return nil }
-    let __result = S(a: __v0, q: __v1, k: __v2, rest: __extras)
+    let __result = GoldenEncodes(a: __v0, q: __v1, k: __v2, rest: __extras)
 
     guard sink.checkpoint() == __ck0 else { return nil }
     return __result

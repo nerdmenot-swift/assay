@@ -218,3 +218,26 @@ public protocol ContextualAsyncCheckAssayable: ContextualAssayable {
     static func _assayAsyncChecks(
         _ value: Self, at path: [PathComponent], context: AssayContext) async -> [Issue]
 }
+
+// MARK: - The nominal-type assertion
+//
+// A field whose type is a name the macro has never heard of — `var n: N` — is emitted as
+// `N._assay(from:into:at:)` and the macro trusts the type checker to complain if `N` has
+// no such member. It does, with "type 'N' has no member '_assay'": an underscored internal,
+// at a line inside the expansion, and nothing about what to do. That was the single most
+// common error in a 54-declaration newcomer probe battery (2026-09-10).
+//
+// So the body also calls one of these, once per distinct nested type, before any field is
+// read. They are empty and `@inlinable`, so they are specialised away and cost nothing;
+// what they buy is the type checker's OTHER diagnostic — "global function
+// '_assayRequireJSON' requires that 'N' conform to 'JSONAssayable'" — which names the
+// protocol to adopt. Hard constraint 6 is untouched: the decode call itself is still the
+// concrete, monomorphic one.
+
+@inlinable @inline(__always)
+@_documentation(visibility: internal)
+public func _assayRequireJSON<T: JSONAssayable>(_: T.Type) {}
+
+@inlinable @inline(__always)
+@_documentation(visibility: internal)
+public func _assayRequireRaw<T: RawDecodable>(_: T.Type) {}

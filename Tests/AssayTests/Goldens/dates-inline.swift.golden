@@ -1,4 +1,4 @@
-extension S: Assay.JSONAssayable {nonisolated static let __assayDateFormats_3: [Assay.DateFormat] = [.unixSeconds, .iso8601]
+extension GoldenDates: Assay.JSONAssayable {nonisolated static let __assayDateFormats_3: [Assay.DateFormat] = [.unixSeconds, .iso8601]
 
 nonisolated static let __assayKeyTable: [UInt8] = {
     var t = [UInt8](repeating: 4, count: 256)
@@ -13,7 +13,7 @@ nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
     at path: [Assay.PathComponent]
-) -> S? {
+) -> GoldenDates? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
         return nil
@@ -108,7 +108,7 @@ nonisolated public static func _assay(
         guard let __v1 = __f1 else { return nil }
         guard let __v2 = __f2 else { return nil }
         guard let __v3 = __f3 else { return nil }
-    let __result = S(p: P(x: __v0, y: __v1), when: __v2, ts: __v3)
+    let __result = GoldenDates(p: P(x: __v0, y: __v1), when: __v2, ts: __v3)
 
     guard sink.checkpoint() == __ck0 else { return nil }
     return __result

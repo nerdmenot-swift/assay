@@ -1,4 +1,4 @@
-extension S: Assay.JSONAssayable, Assay.Validatable, Assay.SchemaDescribing {nonisolated static let __assayRules_0_0: [Assay.Rule] = [.min(1)]
+extension GoldenDescribes: Assay.JSONAssayable, Assay.Validatable, Assay.SchemaDescribing {nonisolated static let __assayRules_0_0: [Assay.Rule] = [.min(1)]
 nonisolated static let __assayKnownKeys: [String] = ["a", "b"]
 
 nonisolated static let __assayKeyTable: [UInt8] = {
@@ -12,7 +12,7 @@ nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
     at path: [Assay.PathComponent]
-) -> S? {
+) -> GoldenDescribes? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
         return nil
@@ -93,7 +93,7 @@ nonisolated public static func _assay(
     }
 
         guard let __v0 = __f0 else { return nil }
-    let __result = S(a: __v0, b: __f1)
+    let __result = GoldenDescribes(a: __v0, b: __f1)
 
     guard sink.checkpoint() == __ck0 else { return nil }
     return __result
@@ -103,7 +103,7 @@ nonisolated public static func _assay(
 ///
 /// Issues carry a path and no location: there is no source document to point at.
 nonisolated public static func _assayCheck(
-    _ __result: S,
+    _ __result: GoldenDescribes,
     into sink: inout Assay.IssueSink,
     at path: [Assay.PathComponent]
 ) {
@@ -116,7 +116,7 @@ nonisolated public static func _assayCheck(
 /// `AssayCore`, not once per type in every user's expansion.
 nonisolated public static var _assaySchemaDescriptor: Assay.SchemaDescriptor {
     Assay.SchemaDescriptor(
-        typeName: "S",
+        typeName: "GoldenDescribes",
         fields: [
         Assay.FieldDescriptor(
             wireKey: "a",

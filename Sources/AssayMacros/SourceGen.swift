@@ -164,7 +164,7 @@ extension SchemaMacro {
         for (i, f) in fields.enumerated() {
             guard isColumnar(f.decodedType) else { continue }
             if f.isOptional {
-                args.append("\(f.identifier): __f\(i)")
+                args.append("\(f.name): __f\(i)")
             } else {
                 unwraps += """
                             guard let __v\(i) = __f\(i) else {
@@ -173,7 +173,7 @@ extension SchemaMacro {
                             }
 
                 """
-                args.append("\(f.identifier): __v\(i)")
+                args.append("\(f.name): __v\(i)")
             }
         }
 

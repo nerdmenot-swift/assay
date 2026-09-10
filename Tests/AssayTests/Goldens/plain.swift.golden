@@ -1,4 +1,4 @@
-extension S: Assay.JSONAssayable {nonisolated static let __assayKeyTable: [UInt8] = {
+extension GoldenPlain: Assay.JSONAssayable {nonisolated static let __assayKeyTable: [UInt8] = {
     var t = [UInt8](repeating: 4, count: 256)
         t[97] = 0
         t[98] = 1
@@ -11,7 +11,8 @@ nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
     at path: [Assay.PathComponent]
-) -> S? {
+) -> GoldenPlain? {
+    Assay._assayRequireJSON(GoldenNested.self)
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
         return nil
@@ -26,7 +27,7 @@ nonisolated public static func _assay(
     var __f0: Int? = nil
     var __f1: String? = nil
     var __f2: [Int]? = []
-    var __f3: Nested? = nil
+    var __f3: GoldenNested? = nil
     var __presence: UInt64 = 0
 
     if !reader.tryConsume(0x7D) {
@@ -67,8 +68,7 @@ nonisolated public static func _assay(
                             var __arr2_0: [Int] = []
                             if !reader.tryConsume(0x5D) {
                                 while true {
-                                guard let __e2_0 = reader._decodeInt(&sink, path, "c", __arr2_0.count) else { break }
-                                    __arr2_0.append(__e2_0)
+                                if let __e2_0 = reader._decodeInt(&sink, path, "c", __arr2_0.count) { __arr2_0.append(__e2_0) }
                                     if reader.tryConsume(0x2C) { continue }
                                     break
                                 }
@@ -96,9 +96,9 @@ nonisolated public static func _assay(
                     if reader.keyMatches(__key, "d") {
                         __presence |= 8
                         if reader._consumeNullIfPresent() {
-                            reader._nullNotAllowed(&sink, path, "d", "Nested")
+                            reader._nullNotAllowed(&sink, path, "d", "GoldenNested")
                         } else {
-                            __f3 = Nested._assay(
+                            __f3 = GoldenNested._assay(
                                 from: &reader, into: &sink, at: path + [.key("d")])
                         }
                     } else {
@@ -129,7 +129,7 @@ nonisolated public static func _assay(
         guard let __v0 = __f0 else { return nil }
         guard let __v2 = __f2 else { return nil }
         guard let __v3 = __f3 else { return nil }
-    let __result = S(a: __v0, b: __f1, c: __v2, d: __v3)
+    let __result = GoldenPlain(a: __v0, b: __f1, c: __v2, d: __v3)
 
     guard sink.checkpoint() == __ck0 else { return nil }
     return __result

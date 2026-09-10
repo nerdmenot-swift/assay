@@ -1,4 +1,4 @@
-extension S: Assay.ContextualJSONAssayable {public typealias AssayContext = Ctx
+extension GoldenContext: Assay.ContextualJSONAssayable {public typealias AssayContext = GoldenCtx
 
 nonisolated static let __assayKeyTable: [UInt8] = {
     var t = [UInt8](repeating: 2, count: 256)
@@ -11,8 +11,8 @@ nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
     at path: [Assay.PathComponent],
-            context: Ctx
-) -> S? {
+            context: GoldenCtx
+) -> GoldenContext? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
         return nil
@@ -25,7 +25,7 @@ nonisolated public static func _assay(
     let __ck0 = sink.checkpoint()
 
     var __f0: Int? = nil
-    var __f1: Nested? = nil
+    var __f1: GoldenNested? = nil
     var __presence: UInt64 = 0
 
     if !reader.tryConsume(0x7D) {
@@ -56,9 +56,9 @@ nonisolated public static func _assay(
                     if reader.keyMatches(__key, "n") {
                         __presence |= 2
                         if reader._consumeNullIfPresent() {
-                            reader._nullNotAllowed(&sink, path, "n", "Nested")
+                            reader._nullNotAllowed(&sink, path, "n", "GoldenNested")
                         } else {
-                            __f1 = Nested._assay(
+                            __f1 = GoldenNested._assay(
                                 from: &reader, into: &sink, at: path + [.key("n")], context: context)
                         }
                     } else {
@@ -88,7 +88,7 @@ nonisolated public static func _assay(
 
         guard let __v0 = __f0 else { return nil }
         guard let __v1 = __f1 else { return nil }
-    let __result = S(a: __v0, n: __v1)
+    let __result = GoldenContext(a: __v0, n: __v1)
 
     guard sink.checkpoint() == __ck0 else { return nil }
     return __result

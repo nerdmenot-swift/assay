@@ -133,7 +133,11 @@ let package = Package(
                 // therefore needs a full Xcode, not just Command Line Tools. The
                 // swift-testing equivalent is SwiftSyntaxMacrosGenericTestSupport; add it
                 // when expansion-assertion tests are written.
-            ]
+            ],
+            // The golden expansions are read by path at test time, not bundled — a resource
+            // bundle would need Foundation's `Bundle.module` on every platform the tests
+            // run on, and a plain path is what `ASSAY_UPDATE_GOLDENS=1` writes back to.
+            exclude: ["Goldens"]
         ),
     ]
 )

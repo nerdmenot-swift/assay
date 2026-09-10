@@ -156,7 +156,8 @@ and never existed (found 2026-09-10); when it is, it takes an identifier `String
 - The macro type-checks rule-against-field-type at expansion and emits a purpose-written
   diagnostic.
 - `.custom { }` does not exist — a closure in an attribute has no type context. Use
-  `@Check(\.field) static func f(_ x: String) -> String?`.
+  `@Check(\Type.field) static func f(_ x: String) -> String?` — the root is required;
+  `\.field` has never compiled (an attached macro's argument has no `Root` to infer).
 - `@Check` in an extension is permanently invisible to the macro → emit an error.
 
 ### Keys

@@ -253,7 +253,7 @@ struct EncodingMacroTests {
     func inverseWithoutTransform() {
         let (_, diags) = expandSchemaForTesting("""
         @Schema(encodes: true) struct S {
-            @Inverse({ (s: Set<String>) in Array(s) }) var tags: Set<String>
+            @Inverse({ (s: [String]) in s }) var tags: [String]
         }
         """)
         #expect(diags.contains { $0.contains("would never run") })

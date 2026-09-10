@@ -1,4 +1,4 @@
-extension S: Assay.JSONAssayable, Assay.RawDecodable, Assay.JSONEncodableSchema, Assay.RawEncodableSchema, Assay.XMLEncodableSchema, Assay.XMLRooted {nonisolated static let __assayKeyTable: [UInt8] = {
+extension GoldenXML: Assay.JSONAssayable, Assay.RawDecodable, Assay.JSONEncodableSchema, Assay.RawEncodableSchema, Assay.XMLEncodableSchema, Assay.XMLRooted {nonisolated static let __assayKeyTable: [UInt8] = {
     var t = [UInt8](repeating: 3, count: 256)
         t[98] = 1
         t[105] = 0
@@ -10,7 +10,7 @@ nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
     at path: [Assay.PathComponent]
-) -> S? {
+) -> GoldenXML? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
         return nil
@@ -65,8 +65,7 @@ nonisolated public static func _assay(
                             var __arr2_0: [String] = []
                             if !reader.tryConsume(0x5D) {
                                 while true {
-                                guard let __e2_0 = reader._decodeString(&sink, path, "tags", __arr2_0.count) else { break }
-                                    __arr2_0.append(__e2_0)
+                                if let __e2_0 = reader._decodeString(&sink, path, "tags", __arr2_0.count) { __arr2_0.append(__e2_0) }
                                     if reader.tryConsume(0x2C) { continue }
                                     break
                                 }
@@ -118,7 +117,7 @@ nonisolated public static func _assay(
         guard let __v0 = __f0 else { return nil }
         guard let __v1 = __f1 else { return nil }
         guard let __v2 = __f2 else { return nil }
-    let __result = S(id: __v0, body: __v1, tags: __v2)
+    let __result = GoldenXML(id: __v0, body: __v1, tags: __v2)
 
     guard sink.checkpoint() == __ck0 else { return nil }
     return __result
@@ -128,7 +127,7 @@ nonisolated public static func _assay(
     from raw: Assay.RawValue,
     into sink: inout Assay.IssueSink,
     at path: [Assay.PathComponent]
-) -> S? {
+) -> GoldenXML? {
     guard case .mapping(let __members) = raw else {
         Assay.RawValue._notAnObject(&sink, path, raw)
         return nil
@@ -202,7 +201,7 @@ nonisolated public static func _assay(
         guard let __v0 = __f0 else { return nil }
         guard let __v1 = __f1 else { return nil }
         guard let __v2 = __f2 else { return nil }
-    let __result = S(id: __v0, body: __v1, tags: __v2)
+    let __result = GoldenXML(id: __v0, body: __v1, tags: __v2)
 
     guard sink.checkpoint() == __ck0 else { return nil }
     return __result

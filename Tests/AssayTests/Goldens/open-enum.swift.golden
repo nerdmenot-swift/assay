@@ -1,6 +1,6 @@
-extension E: Assay.JSONAssayable, Assay.JSONEncodableSchema {/// The wire string to a case, with the catch-all keeping anything unrecognised —
+extension GoldenOpen: Assay.JSONAssayable, Assay.JSONEncodableSchema {/// The wire string to a case, with the catch-all keeping anything unrecognised —
 /// which is the entire point: a v1 client must survive a v2 server.
-nonisolated public static func _assayFromWire(_ __s: String) -> E {
+nonisolated public static func _assayFromWire(_ __s: String) -> GoldenOpen {
     switch __s.utf8.count {
         case 6: if __s == "active" { return .active }
         case 9: if __s == "suspended" { return .suspended }
@@ -28,7 +28,7 @@ nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
     at path: [Assay.PathComponent]
-) -> E? {
+) -> GoldenOpen? {
     reader.beginValue()
     guard let __s = reader.scanString() else {
         reader.reportTypeMismatch(&sink, path, expected: "string")

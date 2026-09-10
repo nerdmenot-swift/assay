@@ -111,4 +111,23 @@ extension SchemaMacro {
         t == "RawValue" || t == "Assay.RawValue"
             || t == "JSON.Value" || t == "Assay.JSON.Value"
     }
+
+    /// The distinct nominal types a field list decodes through `T._assay`, in first-seen
+    /// order — everything that is not a scalar, a date, an open map, or a collection of
+    /// those, unwrapped through arrays, dictionaries and optionals. Each gets one
+    /// `_assayRequire…` assertion at the top of the body.
+    static func nestedNominalTypes(_ fields: [SchemaField]) -> [String] {
+        var seen: [String] = []
+        func visit(_ t: String) {
+            let base = stripOptional(t)
+            if let e = arrayElement(base) { visit(e); return }
+            if let v = dictionaryValue(base) { visit(v); return }
+            if scalarCall(base, key: "") != nil || isDateType(base) || isCollectible(base) { return }
+            // A tuple, a function type, `Any`: refused earlier; never emit a `.self` on one.
+            if base.hasPrefix("(") || base.containsSubstring("->") { return }
+            if !seen.contains(base) { seen.append(base) }
+        }
+        for f in fields where !f.isExtras && !f.isIgnored { visit(f.decodedType) }
+        return seen
+    }
 }

@@ -210,8 +210,17 @@ extension Assayer {
         _ raw: RawValue, limits: Limits = .default, sourceName: String = "<value>"
     ) -> Diagnosis<T> {
         var sink = IssueSink(limits: limits)
-        guard let out = plan.run(raw, &sink, [], limits), sink.isValid,
-              let value = build(out) else {
+        guard let out = plan.run(raw, &sink, [], limits), sink.isValid else {
+            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
+                             truncatedIssues: sink.truncatedIssues,
+                             source: SourceBytes([]), sourceName: sourceName)
+        }
+        guard let value = build(out) else {
+            // The plan accepted the shape and the rules passed; a `.map` refused the
+            // value. Until 2026-09-10 this returned a Diagnosis that was VALID with no
+            // value, so `get()` threw an error carrying zero issues. Same code
+            // `AssayerBacked` uses for the same situation.
+            sink.add(Issue(code: .assayerConversionFailed, path: []))
             return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
                              truncatedIssues: sink.truncatedIssues,
                              source: SourceBytes([]), sourceName: sourceName)

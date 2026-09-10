@@ -391,12 +391,18 @@ Arbitrary logic is a function instead:
 struct Signup {
     var workEmail: String
 
-    @Check(\.workEmail)
+    @Check(\Signup.workEmail)
     static func companyDomain(_ email: String) -> String? {
         email.hasSuffix("@acme.com") ? nil : "must be a company address"
     }
 }
 ```
+
+The key path names its root — `\Signup.workEmail`, not `\.workEmail`. This document wrote
+the short form until 2026-09-10 and it has never compiled: an attached macro's argument
+is type-checked before the macro runs, with no enclosing type to infer `Root` from, so
+`\.workEmail` is "cannot infer key path type from context". The full spelling is what
+gives the check its type-checked link to the field, which is the point of the key path.
 
 Real parameter, real type, real autocomplete, breakpoints work, and it is testable on its own without constructing a `Signup`. The issue lands on `workEmail` with the right path and the right source span, because the key path told the macro where it belongs.
 
@@ -1329,7 +1335,7 @@ enum P: String, Assayable { case low, high; @Unknown case other(String) }
 
 // Cross-field — must be in the type body, never an extension
 @Check static func f(_ v: T, _ issues: inout Issues<T>)
-@Check(\.field) static func g(_ x: String) -> String?
+@Check(\T.field) static func g(_ x: String) -> String?
 @Schema(context: Ctx.self)
 @AsyncCheck static func h(_ v: T, _ ctx: Ctx, _ issues: inout Issues<T>) async
 

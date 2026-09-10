@@ -25,37 +25,39 @@ import Foundation
 @Suite("Golden expansions")
 struct GoldenExpansionTests {
 
-    static let shapes: [(name: String, source: String)] = [
-        ("plain",
-         "@Schema struct S { var a: Int; var b: String?; var c: [Int] = []; var d: Nested }"),
-        ("all-formats-snake",
-         "@Schema(formats: .all, keys: .snakeCase) struct S { var aB: Int; var c: [String]; var m: [String: Int] }"),
-        ("encodes-path-extras",
-         #"@Schema(encodes: true) struct S { var a: Int; @Key(path: "p.q") var q: Int; @Key("k", or: "kk") var k: String; @Extras var rest: [String: RawValue] }"#),
-        ("rules-checks-async",
-         #"@Schema struct S { @Validate(.min(1), .email) var a: String; @Validate(.count(1...3)) var t: [Int]; @Preprocess(.trim) var p: String; @Fallback(0) var f: Int; @Transform({ (a: [String]) in Set(a) }) var s: Set<String>; @Check(\.a) static func f(_ a: String) -> String? { nil }; @AsyncCheck static func g(_ v: S, _ i: inout Issues<S>) async {} }"#),
-        ("context",
-         "@Schema(context: Ctx.self) struct S { var a: Int; var n: Nested }"),
-        ("describes",
-         "@Schema(describes: true, unknownKeys: .reject) struct S { @Validate(.min(1)) var a: String; var b: Int? }"),
-        ("sources",
-         "@Schema(sources: true) struct S { var a: Int; var b: String; var c: Double? }"),
-        ("xml-encodes-root",
-         #"@Schema(formats: .all, encodes: true, coerceScalars: true) @XML(root: "r") struct S { @XML(.attribute) var id: Int; @XML(.text) var body: String; @XML(.wrapped) var tags: [String] }"#),
-        ("dates-inline",
-         #"@Schema struct S { struct P { var x: Int; @Key("yy") var y: Int }; @Inline var p: P; var when: Date; @DateFormat(.unixSeconds, .iso8601) var ts: Date }"#),
-        ("tagged-union-encodes",
-         #"@Schema(keys: .snakeCase, encodes: true, discriminator: "type") enum U { case click(A); @Key("pv") case pageView(B) }"#),
-        ("untagged-union",
-         "@Schema(discriminator: .untagged) enum U { case text(String); case number(Double); case b(B) }"),
-        ("open-enum",
-         "@Schema(encodes: true) enum E { case active, suspended; @Unknown(roundTrips: true) case other(String) }"),
-        ("one-or-many-narrow",
-         "@Schema(formats: .all) struct S { @OneOrMany var tags: [String]; var w: UInt8; var bytes: [UInt8]; @Coerce var n: Int }"),
-    ]
+    /// The shapes, read from `GoldenFixtures.swift`: each `// GOLDEN: name` marker and the
+    /// declaration that follows it, up to the next blank line. The fixtures file is compiled
+    /// as part of this target, so every shape here is one the type checker accepted.
+    static let shapes: [(name: String, source: String)] = {
+        let path = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("GoldenFixtures.swift").path
+        guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { return [] }
+        var out: [(String, String)] = []
+        var name: String? = nil
+        var body: [String] = []
+        func flush() {
+            if let n = name, !body.isEmpty { out.append((n, body.joined(separator: "\n"))) }
+            name = nil; body = []
+        }
+        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            if line.hasPrefix("// GOLDEN: ") {
+                flush(); name = String(line.dropFirst("// GOLDEN: ".count)); continue
+            }
+            if name != nil {
+                if line.trimmingCharacters(in: .whitespaces).isEmpty { flush() } else { body.append(String(line)) }
+            }
+        }
+        flush()
+        return out
+    }()
 
     static var goldensDirectory: String {
-        "/" + #filePath.split(separator: "/").dropLast().joined(separator: "/") + "/Goldens"
+        URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Goldens").path
+    }
+
+    @Test("the fixtures file was found and parsed")
+    func fixturesRead() {
+        #expect(GoldenExpansionTests.shapes.count == 13, "\(GoldenExpansionTests.shapes.map(\.name))")
     }
 
     @Test("each shape expands to its golden", arguments: GoldenExpansionTests.shapes.map(\.name))

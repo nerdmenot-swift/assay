@@ -1,10 +1,10 @@
-extension U: Assay.JSONAssayable, Assay.JSONEncodableSchema {nonisolated static let __assayVariants: [String] = ["click", "pv"]
+extension GoldenTagged: Assay.JSONAssayable, Assay.JSONEncodableSchema {nonisolated static let __assayVariants: [String] = ["click", "pv"]
 
 nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
     at path: [Assay.PathComponent]
-) -> U? {
+) -> GoldenTagged? {
     // The whole reader state, not just the cursor: the scan enters a container and a
     // malformed document can leave that unbalanced. docs/UNIONS.md §1.
     let __mark = reader.mark
@@ -22,12 +22,12 @@ nonisolated public static func _assay(
     reader.restore(__mark)
 
         if __tag == "click" {
-            guard let __v = A._assay(
+            guard let __v = GoldenA._assay(
                 from: &reader, into: &sink, at: path) else { return nil }
             return .click(__v)
         }
         if __tag == "pv" {
-            guard let __v = B._assay(
+            guard let __v = GoldenB._assay(
                 from: &reader, into: &sink, at: path) else { return nil }
             return .pageView(__v)
         }

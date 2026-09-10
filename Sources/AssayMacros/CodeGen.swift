@@ -166,13 +166,20 @@ extension SchemaMacro {
         // *internal*. Marking this @inlinable makes every public @Schema type fail to
         // compile with "initializer ... is internal and cannot be referenced from an
         // '@inlinable' function". Found by the compile-time harness, not by reasoning.
+        // One assertion per nested type, so a type that is not a schema fails with a
+        // diagnostic naming `JSONAssayable` rather than `has no member '_assay'`. Skipped
+        // for a contextual parent: its nested types may conform to the contextual
+        // protocol instead and resolve through the defaulted overload.
+        let requires = ctx.isEmpty
+            ? nestedNominalTypes(fields).map { "    Assay._assayRequireJSON(\($0).self)\n" }.joined()
+            : ""
         out += """
         nonisolated public static func _assay(
             from reader: inout Assay.AssayReader,
             into sink: inout Assay.IssueSink,
             at path: [Assay.PathComponent]\(ctxParam)
         ) -> \(typeName)? {
-            guard reader.tryConsume(0x7B) else {
+        \(requires)    guard reader.tryConsume(0x7B) else {
                 reader.reportTypeMismatch(&sink, path, expected: "object")
                 return nil
             }
@@ -616,11 +623,11 @@ extension SchemaMacro {
 
         let inner: String
         if isDateType(element) {
-            inner = "\(pad)        guard let \(elt) = reader._decodeDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map({ \(element)(timeIntervalSince1970: $0) }) else { break }\n"
+            inner = "\(pad)        if let \(elt) = reader._decodeDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map({ \(element)(timeIntervalSince1970: $0) }) { \(arr).append(\(elt)) }\n"
         } else if let call = scalarCall(element, key: key, elementIndex: "\(arr).count") {
             // `arr.count` is the index this element is about to occupy, which is exactly
             // the position a reader needs to be told about.
-            inner = "\(pad)        guard let \(elt) = reader.\(call) else { break }\n"
+            inner = "\(pad)        if let \(elt) = reader.\(call) { \(arr).append(\(elt)) }\n"
         } else if let sub = arrayElement(element) {
             // Nested array. Decode into a local, then append it.
             inner = """
@@ -628,7 +635,7 @@ extension SchemaMacro {
             \(arrayDecode(element: sub, index: i, key: key, optional: false,
                           pad: pad + "        ", slot: elt, depth: depth + 1,
                           dateFormatsRef: dateFormatsRef, ctx: ctx))
-            \(pad)        guard let \(elt) = \(elt) else { break }
+            \(pad)        if let \(elt) = \(elt) { \(arr).append(\(elt)) }
 
             """
         } else if let sub = dictionaryValue(element) {
@@ -638,14 +645,14 @@ extension SchemaMacro {
             \(dictDecode(value: sub, index: i, key: key, optional: false,
                          pad: pad + "        ", slot: elt, depth: depth + 1,
                          dateFormatsRef: dateFormatsRef, ctx: ctx))
-            \(pad)        guard let \(elt) = \(elt) else { break }
+            \(pad)        if let \(elt) = \(elt) { \(arr).append(\(elt)) }
 
             """
         } else {
             inner = """
-            \(pad)        guard let \(elt) = \(element)._assay(
+            \(pad)        if let \(elt) = \(element)._assay(
             \(pad)            from: &reader, into: &sink,
-            \(pad)            at: path + [.key("\(key)"), .index(\(arr).count)]\(ctxArg)) else { break }
+            \(pad)            at: path + [.key("\(key)"), .index(\(arr).count)]\(ctxArg)) { \(arr).append(\(elt)) }
 
             """
         }
@@ -658,8 +665,7 @@ extension SchemaMacro {
         \(pad)    var \(arr): [\(element)] = []
         \(pad)    if !reader.tryConsume(0x5D) {
         \(pad)        while true {
-        \(inner)\(pad)            \(arr).append(\(elt))
-        \(pad)            if reader.tryConsume(0x2C) { continue }
+        \(inner)\(pad)            if reader.tryConsume(0x2C) { continue }
         \(pad)            break
         \(pad)        }
         \(pad)        guard reader.tryConsume(0x5D) else {
@@ -701,17 +707,23 @@ extension SchemaMacro {
         let elt = "__de\(i)_\(depth)"
 
         let inner: String
+        // A nested schema or collectible value carries the entry key in its own path; the
+        // other shapes name the field and get the key inserted after the fact, which needs
+        // the checkpoint. Emitting it unread is a warning in every user's build.
+        let usesCheckpoint = isDateType(value) || scalarCall(value, key: key) != nil
+            || arrayElement(value) != nil || dictionaryValue(value) != nil
         if isDateType(value) {
-            inner = "\(pad)            guard let \(elt) = reader._decodeDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map({ \(value)(timeIntervalSince1970: $0) }) else { break }\n"
+            inner = "\(pad)            if let \(elt) = reader._decodeDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map({ \(value)(timeIntervalSince1970: $0) }) { \(dict)[__dks\(i)_\(depth)] = \(elt) }\n\(pad)            if sink.checkpoint() != __dck\(i)_\(depth) { sink._insertKey(since: __dck\(i)_\(depth), __dks\(i)_\(depth), at: path.count + 1) }\n"
         } else if let call = scalarCall(value, key: key) {
-            inner = "\(pad)            guard let \(elt) = reader.\(call) else { break }\n"
+            inner = "\(pad)            if let \(elt) = reader.\(call) { \(dict)[__dks\(i)_\(depth)] = \(elt) }\n\(pad)            if sink.checkpoint() != __dck\(i)_\(depth) { sink._insertKey(since: __dck\(i)_\(depth), __dks\(i)_\(depth), at: path.count + 1) }\n"
         } else if let sub = arrayElement(value) {
             inner = """
             \(pad)            var \(elt): [\(sub)]? = nil
             \(arrayDecode(element: sub, index: i, key: key, optional: false,
                           pad: pad + "            ", slot: elt, depth: depth + 1,
                           dateFormatsRef: dateFormatsRef, ctx: ctx))
-            \(pad)            guard let \(elt) = \(elt) else { break }
+            \(pad)            if let \(elt) = \(elt) { \(dict)[__dks\(i)_\(depth)] = \(elt) }
+            \(pad)            if sink.checkpoint() != __dck\(i)_\(depth) { sink._insertKey(since: __dck\(i)_\(depth), __dks\(i)_\(depth), at: path.count + 1) }
 
             """
         } else if let sub = dictionaryValue(value) {
@@ -720,23 +732,24 @@ extension SchemaMacro {
             \(dictDecode(value: sub, index: i, key: key, optional: false,
                          pad: pad + "            ", slot: elt, depth: depth + 1,
                          dateFormatsRef: dateFormatsRef, ctx: ctx))
-            \(pad)            guard let \(elt) = \(elt) else { break }
+            \(pad)            if let \(elt) = \(elt) { \(dict)[__dks\(i)_\(depth)] = \(elt) }
+            \(pad)            if sink.checkpoint() != __dck\(i)_\(depth) { sink._insertKey(since: __dck\(i)_\(depth), __dks\(i)_\(depth), at: path.count + 1) }
 
             """
         } else if isCollectible(value) {
             // [String: RawValue] / [String: JSON.Value] as an ordinary declared field —
             // the open-map case that is not @Extras.
             inner = """
-            \(pad)            guard let \(elt) = Assay._assayCollect(
+            \(pad)            if let \(elt) = Assay._assayCollect(
             \(pad)                \(value).self, from: &reader, into: &sink,
-            \(pad)                at: path + [.key("\(key)")]) else { break }
+            \(pad)                at: path + [.key("\(key)"), .key(__dks\(i)_\(depth))]) { \(dict)[__dks\(i)_\(depth)] = \(elt) }
 
             """
         } else {
             inner = """
-            \(pad)            guard let \(elt) = \(value)._assay(
+            \(pad)            if let \(elt) = \(value)._assay(
             \(pad)                from: &reader, into: &sink,
-            \(pad)                at: path + [.key("\(key)")]\(ctxArg)) else { break }
+            \(pad)                at: path + [.key("\(key)"), .key(__dks\(i)_\(depth))]\(ctxArg)) { \(dict)[__dks\(i)_\(depth)] = \(elt) }
 
             """
         }
@@ -751,8 +764,8 @@ extension SchemaMacro {
         \(pad)                reader.leaveContainer()
         \(pad)                return nil
         \(pad)            }
-        \(inner)\(pad)            \(dict)[reader._keyString(\(kTok))] = \(elt)
-        \(pad)            if reader.tryConsume(0x2C) { continue }
+        \(pad)            let __dks\(i)_\(depth) = reader._keyString(\(kTok))
+        \(usesCheckpoint ? "\(pad)            let __dck\(i)_\(depth) = sink.checkpoint()\n" : "")\(inner)\(pad)            if reader.tryConsume(0x2C) { continue }
         \(pad)            break
         \(pad)        }
         \(pad)        guard reader.tryConsume(0x7D) else {
@@ -826,12 +839,12 @@ extension SchemaMacro {
                 let members = fields.filter { $0.inlineOwner?.identifier == owner.identifier }
                 let inner = members.compactMap { m -> String? in
                     guard let j = indexOf[m.identifier] else { return nil }
-                    return "\(m.identifier): \(m.isOptional ? "__f\(j)" : "__v\(j)")"
+                    return "\(m.name): \(m.isOptional ? "__f\(j)" : "__v\(j)")"
                 }
-                args.append("\(owner.identifier): \(owner.typeName)"
+                args.append("\(SchemaMacro.unbackticked(owner.identifier)): \(owner.typeName)"
                             + "(\(inner.joined(separator: ", ")))")
             } else if f.isExtras {
-                args.append("\(f.identifier): __extras")
+                args.append("\(f.name): __extras")
             } else if let i = indexOf[f.identifier] {
                 let raw = f.isOptional ? "__f\(i)" : "__v\(i)"
                 if f.transform != nil {
@@ -839,9 +852,9 @@ extension SchemaMacro {
                     let applied = f.isOptional
                         ? "\(raw).map(Self.__assayTransform_\(i))"
                         : "Self.__assayTransform_\(i)(\(raw))"
-                    args.append("\(f.identifier): \(applied)")
+                    args.append("\(f.name): \(applied)")
                 } else {
-                    args.append("\(f.identifier): \(raw)")
+                    args.append("\(f.name): \(raw)")
                 }
             }
         }
@@ -850,6 +863,19 @@ extension SchemaMacro {
 }
 
 extension String {
+    /// `String.contains(_: some StringProtocol)` is macOS 13; the macro target's floor is
+    /// swift-syntax's 10.15. A byte scan is all a type spelling needs.
+    func containsSubstring(_ needle: String) -> Bool {
+        let h = Array(utf8), n = Array(needle.utf8)
+        guard !n.isEmpty, h.count >= n.count else { return n.isEmpty }
+        var i = 0
+        while i + n.count <= h.count {
+            if h[i] == n[0], Array(h[i..<i + n.count]) == n { return true }
+            i += 1
+        }
+        return false
+    }
+
     /// No Foundation in the macro target, so no `trimmingCharacters`.
     func trimmingWhitespace() -> String {
         var s = Substring(self)

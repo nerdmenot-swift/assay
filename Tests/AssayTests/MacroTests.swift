@@ -351,11 +351,74 @@ struct RefusalTests {
         #expect(d.contains { $0.contains("is not one") }, "got \(d)")
         let ok = diags("@Schema struct S { @Preprocess(.trim) var a: String? }")
         #expect(ok.isEmpty, "an optional String is a String: \(ok)")
+        // The WIRE type is what @Preprocess sees. The first version of this refusal read
+        // the declared type and refused exactly the pairing the attributes exist for.
+        let transformed = diags(
+            "@Schema struct S { @Preprocess(.trim) @Transform({ (s: String) in s.count }) var n: Int }")
+        #expect(transformed.isEmpty, "a String wire type is a String: \(transformed)")
     }
 
     @Test("an empty @Schema struct")
     func emptyStruct() {
         let d = diags("@Schema struct S { }")
         #expect(d.contains { $0.contains("no stored properties") }, "got \(d)")
+    }
+}
+
+// MARK: - Types the macro can see are wrong
+//
+// 2026-09-10, second audit: each of these compiled to "type 'X' has no member '_assay'"
+// inside the expansion — the single most common error in a newcomer probe battery.
+
+extension RefusalTests {
+
+    @Test("undecodable shapes are refused with the alternative named", arguments: [
+        ("var a: Set<String>", "Set"),
+        ("var a: Int??", "optional of an optional"),
+        ("var a: [Int?]", "array of optionals"),
+        ("var a: (Int, Int)", "tuple"),
+        ("var a: (Int) -> Int", "function type"),
+        ("var a: Any", "cannot be decoded"),
+        ("var a: Int!", "implicitly unwrapped"),
+        ("var a: Character", "not a field type"),
+        ("var a: Data", "not a field type"),
+        ("var a: URL", "not a field type"),
+        ("var a: Decimal", "not a field type"),
+    ])
+    func undecodable(_ decl: String, _ fragment: String) {
+        let d = diags("@Schema struct S { \(decl); var ok: Int }")
+        #expect(d.contains { $0.contains(fragment) }, "\(decl): \(d)")
+    }
+
+    @Test("an @Ignore'd property of an undecodable type is fine")
+    func ignoredUndecodable() {
+        let d = diags("@Schema struct S { var ok: Int; @Ignore var a: Set<String> = [] }")
+        #expect(d.isEmpty, "\(d)")
+    }
+
+    @Test("a generic struct is refused")
+    func generic() {
+        let d = diags("@Schema struct S<T: Sendable> { var a: Int }")
+        #expect(d.contains { $0.contains("generic") }, "\(d)")
+    }
+
+    @Test("@Extras with a value type that cannot hold anything")
+    func extrasValueType() {
+        let d = diags("@Schema(unknownKeys: .collect) struct S { var a: Int; @Extras var r: [String: Int] }")
+        #expect(d.contains { $0.contains("[String: RawValue]") }, "\(d)")
+    }
+
+    /// The nominal case the macro cannot see — a struct that is not `@Schema` — gets a
+    /// zero-cost assertion whose failure names the protocol to adopt.
+    @Test("a nested nominal type gets a _assayRequire assertion, once")
+    func requireAssertion() {
+        let (exp, d) = expandSchemaForTesting(
+            "@Schema(formats: .all) struct S { var n: N; var m: [N]; var o: N?; var p: [String: P] }")
+        #expect(d.isEmpty, "\(d)")
+        #expect(exp.components(separatedBy: "Assay._assayRequireJSON(N.self)").count == 2)
+        #expect(exp.contains("Assay._assayRequireJSON(P.self)"))
+        #expect(exp.contains("Assay._assayRequireRaw(N.self)"))
+        let (ctx, _) = expandSchemaForTesting("@Schema(context: C.self) struct S { var n: N }")
+        #expect(!ctx.contains("_assayRequire"), "a contextual parent must not assert")
     }
 }

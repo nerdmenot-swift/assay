@@ -100,7 +100,7 @@ extension SchemaMacro {
                     continue
                 }
                 cases.append(UnionCase(identifier: name,
-                                       wireName: wireOverride ?? keyStyle.apply(name),
+                                       wireName: wireOverride ?? keyStyle.apply(Self.unbackticked(name)),
                                        payloadType: params.first!.type.trimmedDescription))
             }
         }

@@ -127,13 +127,16 @@ extension SchemaMacro {
             unwraps += "        guard let __v\(i) = __f\(i) else { return nil }\n"
         }
 
+        let requires = ctx.isEmpty
+            ? nestedNominalTypes(fields).map { "    Assay._assayRequireRaw(\($0).self)\n" }.joined()
+            : ""
         return prefix + """
         nonisolated public static func _assay(
             from raw: Assay.RawValue,
             into sink: inout Assay.IssueSink,
             at path: [Assay.PathComponent]\(ctxParam)
         ) -> \(typeName)? {
-            guard case .mapping(let __members) = raw else {
+        \(requires)    guard case .mapping(let __members) = raw else {
                 Assay.RawValue._notAnObject(&sink, path, raw)
                 return nil
             }

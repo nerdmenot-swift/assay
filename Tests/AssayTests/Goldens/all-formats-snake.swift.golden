@@ -1,4 +1,4 @@
-extension S: Assay.JSONAssayable, Assay.RawDecodable {nonisolated static let __assayKeyTable: [UInt8] = {
+extension GoldenAllFormats: Assay.JSONAssayable, Assay.RawDecodable {nonisolated static let __assayKeyTable: [UInt8] = {
     var t = [UInt8](repeating: 3, count: 256)
         t[97] = 0
         t[99] = 1
@@ -10,7 +10,7 @@ nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
     at path: [Assay.PathComponent]
-) -> S? {
+) -> GoldenAllFormats? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
         return nil
@@ -58,8 +58,7 @@ nonisolated public static func _assay(
                             var __arr1_0: [String] = []
                             if !reader.tryConsume(0x5D) {
                                 while true {
-                                guard let __e1_0 = reader._decodeString(&sink, path, "c", __arr1_0.count) else { break }
-                                    __arr1_0.append(__e1_0)
+                                if let __e1_0 = reader._decodeString(&sink, path, "c", __arr1_0.count) { __arr1_0.append(__e1_0) }
                                     if reader.tryConsume(0x2C) { continue }
                                     break
                                 }
@@ -95,8 +94,10 @@ nonisolated public static func _assay(
                                         reader.leaveContainer()
                                         return nil
                                     }
-                                    guard let __de2_0 = reader._decodeInt(&sink, path, "m") else { break }
-                                    __dd2_0[reader._keyString(__dk2_0)] = __de2_0
+                                    let __dks2_0 = reader._keyString(__dk2_0)
+                                    let __dck2_0 = sink.checkpoint()
+                                    if let __de2_0 = reader._decodeInt(&sink, path, "m") { __dd2_0[__dks2_0] = __de2_0 }
+                                    if sink.checkpoint() != __dck2_0 { sink._insertKey(since: __dck2_0, __dks2_0, at: path.count + 1) }
                                     if reader.tryConsume(0x2C) { continue }
                                     break
                                 }
@@ -148,7 +149,7 @@ nonisolated public static func _assay(
         guard let __v0 = __f0 else { return nil }
         guard let __v1 = __f1 else { return nil }
         guard let __v2 = __f2 else { return nil }
-    let __result = S(aB: __v0, c: __v1, m: __v2)
+    let __result = GoldenAllFormats(aB: __v0, c: __v1, m: __v2)
 
     guard sink.checkpoint() == __ck0 else { return nil }
     return __result
@@ -158,7 +159,7 @@ nonisolated public static func _assay(
     from raw: Assay.RawValue,
     into sink: inout Assay.IssueSink,
     at path: [Assay.PathComponent]
-) -> S? {
+) -> GoldenAllFormats? {
     guard case .mapping(let __members) = raw else {
         Assay.RawValue._notAnObject(&sink, path, raw)
         return nil
@@ -233,7 +234,7 @@ nonisolated public static func _assay(
         guard let __v0 = __f0 else { return nil }
         guard let __v1 = __f1 else { return nil }
         guard let __v2 = __f2 else { return nil }
-    let __result = S(aB: __v0, c: __v1, m: __v2)
+    let __result = GoldenAllFormats(aB: __v0, c: __v1, m: __v2)
 
     guard sink.checkpoint() == __ck0 else { return nil }
     return __result

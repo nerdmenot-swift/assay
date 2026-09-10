@@ -67,14 +67,7 @@ extension JSONAssayable {
             into: &sink,
             limits: limits)
 
-        return Diagnosis(
-            value: sink.isValid ? value : nil,
-            issues: sink.issues,
-            warnings: sink.warnings,
-            truncatedIssues: sink.truncatedIssues,
-            // Borrowed, not copied. A 10 GB file must not become a 10 GB array here.
-            source: file.sourceBytes,
-            sourceName: url.lastPathComponent)
+        return Diagnosis(sink: sink, value: value, source: file.sourceBytes, sourceName: url.lastPathComponent)
     }
 }
 
@@ -111,11 +104,7 @@ extension JSONAssayable {
             base: file.base.assumingMemoryBound(to: UInt8.self),
             count: file.count, into: &sink, limits: limits)
 
-        return Diagnosis(
-            value: sink.isValid ? value : nil,
-            issues: sink.issues, warnings: sink.warnings,
-            truncatedIssues: sink.truncatedIssues,
-            source: file.sourceBytes, sourceName: path)
+        return Diagnosis(sink: sink, value: value, source: file.sourceBytes, sourceName: path)
     }
 }
 
@@ -174,5 +163,41 @@ extension JSON.Value {
         limits: Limits = .mapped
     ) throws -> JSON.Value {
         try parse(mapped: MappedFile.open(url), limits: limits)
+    }
+}
+
+// MARK: - Contextual types
+
+extension ContextualJSONAssayable {
+
+    /// `parse(mmapped:)` for a type that declares a context. Added 2026-09-10: the
+    /// contextual entry points were a copy of the plain ones, and the copy stopped short
+    /// of this file.
+    public static func parse(
+        mmapped url: URL, context: AssayContext, limits: Limits = .mapped
+    ) throws -> Self {
+        try diagnose(mmapped: url, context: context, limits: limits).get()
+    }
+
+    public static func diagnose(
+        mmapped url: URL, context: AssayContext, limits: Limits = .mapped
+    ) -> Diagnosis<Self> {
+        let file: MappedFile
+        do {
+            file = try MappedFile.open(url)
+        } catch {
+            var sink = IssueSink(limits: limits)
+            sink.add(Issue(code: .cannotMapFile,
+                           params: ["path": .string(url.path),
+                                    "reason": .string(String(describing: error))]))
+            return Diagnosis(sink: sink, value: nil, source: .empty,
+                             sourceName: url.lastPathComponent)
+        }
+        var sink = IssueSink(limits: limits)
+        let value = unsafe Self._decode(
+            base: file.base.assumingMemoryBound(to: UInt8.self), count: file.count,
+            into: &sink, limits: limits, context: context)
+        return Diagnosis(sink: sink, value: value, source: file.sourceBytes,
+                         sourceName: url.lastPathComponent)
     }
 }

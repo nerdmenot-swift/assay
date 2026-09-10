@@ -53,7 +53,6 @@ struct SchemaConfig {
         xmlRoot = SchemaConfig.xmlRoot(from: declaration)
     }
 
-    var isUnion: Bool { discriminator != nil }
     var isContextual: Bool { !context.isEmpty }
 
     /// The policy the bodies are emitted against. `@Extras` implies `.collect`: declaring a

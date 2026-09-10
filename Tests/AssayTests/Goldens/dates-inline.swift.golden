@@ -1,7 +1,8 @@
 extension GoldenDates: Assay.JSONAssayable {nonisolated static let __assayDateFormats_3: [Assay.DateFormat] = [.unixSeconds, .iso8601]
 
 nonisolated static let __assayKeyTable: [UInt8] = {
-    var t = [UInt8](repeating: 4, count: 256)
+    var t = [UInt8](repeating: 5, count: 256)
+        t[105] = 4
         t[116] = 3
         t[119] = 2
         t[120] = 0
@@ -29,6 +30,7 @@ nonisolated public static func _assay(
     var __f1: Int? = nil
     var __f2: Date? = nil
     var __f3: Date? = nil
+    var __f4: UUID? = nil
     var __presence: UInt64 = 0
 
     if !reader.tryConsume(0x7D) {
@@ -76,6 +78,18 @@ nonisolated public static func _assay(
                     } else {
                         _ = reader.skipValue(&sink)
                     }
+                case 4:
+                    if reader.keyMatches(__key, "id") {
+                        __presence |= 16
+                        if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "id", "UUID")
+                        } else {
+                            __f4 = UUID._assay(
+                                from: &reader, into: &sink, at: path + [.key("id")])
+                        }
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
                 default:
                     _ = reader.skipValue(&sink)
                 }
@@ -102,13 +116,17 @@ nonisolated public static func _assay(
         if __presence & 8 == 0 {
             reader._missingRequired(&sink, path, "ts")
         }
+        if __presence & 16 == 0 {
+            reader._missingRequired(&sink, path, "id")
+        }
 
 
         guard let __v0 = __f0 else { return nil }
         guard let __v1 = __f1 else { return nil }
         guard let __v2 = __f2 else { return nil }
         guard let __v3 = __f3 else { return nil }
-    let __result = GoldenDates(p: P(x: __v0, y: __v1), when: __v2, ts: __v3)
+        guard let __v4 = __f4 else { return nil }
+    let __result = GoldenDates(p: P(x: __v0, y: __v1), when: __v2, ts: __v3, id: __v4)
 
     guard sink.checkpoint() == __ck0 else { return nil }
     return __result

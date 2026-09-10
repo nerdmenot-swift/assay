@@ -2,4 +2,6 @@
 version: 1
 builder:
   configs:
-    - documentation_targets: [Assay, AssayYAML, AssayXML, AssayFoundation]
+    # AssayCore is where `Rule`, `Issue`, `Limits`, `RawValue` and `IssueCode` live; it
+    # was missing until 2026-09-10, so the type a user reaches for first had no page.
+    - documentation_targets: [Assay, AssayCore, AssayYAML, AssayXML, AssayPlist, AssayFoundation]

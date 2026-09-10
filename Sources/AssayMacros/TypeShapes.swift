@@ -123,6 +123,10 @@ extension SchemaMacro {
             if let e = arrayElement(base) { visit(e); return }
             if let v = dictionaryValue(base) { visit(v); return }
             if scalarCall(base, key: "") != nil || isDateType(base) || isCollectible(base) { return }
+            // `UUID` decodes through a static `_assay` that AssayFoundation adds WITHOUT a
+            // `JSONAssayable` conformance — the type is Foundation's, and a conformance
+            // would give it `parse(json:)` as a document. The assertion would refuse it.
+            if base == "UUID" || base == "Foundation.UUID" { return }
             // A tuple, a function type, `Any`: refused earlier; never emit a `.self` on one.
             if base.hasPrefix("(") || base.containsSubstring("->") { return }
             if !seen.contains(base) { seen.append(base) }

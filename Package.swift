@@ -68,6 +68,8 @@ let package = Package(
         // The scanner and the reader. No Foundation.
         .target(
             name: "AssayCore",
+            // The generator for DecodeWidths.swift lives beside its output; CI diffs them.
+            exclude: ["gen-decode-widths.sh"],
             swiftSettings: [.strictMemorySafety()]
         ),
 

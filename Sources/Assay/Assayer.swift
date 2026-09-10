@@ -211,9 +211,7 @@ extension Assayer {
     ) -> Diagnosis<T> {
         var sink = IssueSink(limits: limits)
         guard let out = plan.run(raw, &sink, [], limits), sink.isValid else {
-            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: sink.truncatedIssues,
-                             source: SourceBytes([]), sourceName: sourceName)
+            return Diagnosis(sink: sink, value: nil, source: SourceBytes([]), sourceName: sourceName)
         }
         guard let value = build(out) else {
             // The plan accepted the shape and the rules passed; a `.map` refused the
@@ -221,9 +219,7 @@ extension Assayer {
             // value, so `get()` threw an error carrying zero issues. Same code
             // `AssayerBacked` uses for the same situation.
             sink.add(Issue(code: .assayerConversionFailed, path: []))
-            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: sink.truncatedIssues,
-                             source: SourceBytes([]), sourceName: sourceName)
+            return Diagnosis(sink: sink, value: nil, source: SourceBytes([]), sourceName: sourceName)
         }
         return Diagnosis(value: value, issues: sink.issues, warnings: sink.warnings,
                          truncatedIssues: sink.truncatedIssues,
@@ -236,9 +232,7 @@ extension Assayer {
     ) -> Diagnosis<T> {
         var sink = IssueSink(limits: limits)
         guard let v = JSON.Value.decode(bytes, into: &sink, limits: limits), sink.isValid else {
-            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: sink.truncatedIssues,
-                             source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         let d = diagnose(RawValue(v), limits: limits, sourceName: sourceName)
         return Diagnosis(value: d.value, issues: sink.issues + d.issues,

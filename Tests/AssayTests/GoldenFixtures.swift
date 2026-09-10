@@ -19,6 +19,7 @@
 import Foundation
 import Assay
 import AssayCore
+import AssayFoundation
 
 @Schema(formats: .all, encodes: true)
 struct GoldenNested: Equatable { var x: Int }
@@ -70,6 +71,7 @@ struct GoldenB: Equatable { var y: String }
     @Inline var p: P
     var when: Date
     @DateFormat(.unixSeconds, .iso8601) var ts: Date
+    var id: UUID
 }
 
 // GOLDEN: tagged-union-encodes

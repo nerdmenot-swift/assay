@@ -55,6 +55,14 @@ public struct Diagnosis<T: Sendable>: Sendable {
         self.sourceName = sourceName
     }
 
+    /// From a sink: the value only if the sink is clean, everything else carried across.
+    /// Thirty-three call sites spelled this out by hand until 2026-09-10.
+    public init(sink: IssueSink, value: T?, source: SourceBytes, sourceName: String) {
+        self.init(value: sink.isValid ? value : nil, issues: sink.issues,
+                  warnings: sink.warnings, truncatedIssues: sink.truncatedIssues,
+                  source: source, sourceName: sourceName)
+    }
+
     public var isValid: Bool { issues.isEmpty }
 
     public func get() throws -> T {
@@ -123,9 +131,7 @@ extension JSONAssayable {
 
         if bytes.count > limits.maxBytes {
             sink.add(Issue(code: .tooManyBytes, params: ["maxBytes": .int(limits.maxBytes)]))
-            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: sink.truncatedIssues,
-                             source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
 
         let value: Self? = bytes.withUnsafeBufferPointer { buf -> Self? in
@@ -134,13 +140,7 @@ extension JSONAssayable {
                                        into: &sink, limits: limits)
         }
 
-        return Diagnosis(
-            value: sink.isValid ? value : nil,
-            issues: sink.issues,
-            warnings: sink.warnings,
-            truncatedIssues: sink.truncatedIssues,
-            source: SourceBytes(bytes),
-            sourceName: sourceName)
+        return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
     /// Convenience for text input.

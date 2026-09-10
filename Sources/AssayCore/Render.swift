@@ -364,3 +364,72 @@ extension LineIndex {
         return start..<end
     }
 }
+
+// MARK: - Line index
+//
+// Internal since 2026-09-10 — it was public, in UTF8Validation.swift, and this file is its
+// only user.
+
+/// Lazily-built newline index, for turning a byte offset into line:column at render time.
+///
+/// Nothing is computed until the first diagnostic is rendered — LLVM's `SourceMgr` shape:
+/// "Vector of offsets into Buffer at which there are line-endings (lazily populated)."
+struct LineIndex {
+    @usableFromInline var newlines: [UInt32]
+    /// Total buffer length, so the final (newline-less) line has a real end offset.
+    @usableFromInline var byteCount: Int
+
+    init(_ base: UnsafePointer<UInt8>, _ count: Int) {
+        unsafe self.init(base, count, indexingThrough: count)
+    }
+
+    /// Index only as far as the render will reach.
+    ///
+    /// A full index over the whole buffer is what the mmap path must not pay: a 10 GB
+    /// mapped file has ~250M newlines, so indexing all of them faults every page back in
+    /// and allocates a gigabyte of `UInt32` — to print one caret, on the error path,
+    /// undoing the entire reason `SourceBytes` can borrow a mapping. The renderer knows
+    /// every offset it will report before it builds this, so it indexes to the deepest
+    /// one plus the two lines of trailing context a snippet shows, and stops.
+    ///
+    /// Line numbers stay exact, because every newline *before* the deepest reported
+    /// offset is still counted. What is lost is knowledge of the buffer beyond it —
+    /// `byteCount` is clamped to where the scan stopped so the final line cannot render
+    /// as the remaining gigabytes.
+    init(_ base: UnsafePointer<UInt8>, _ count: Int, indexingThrough limit: Int) {
+        var acc: [UInt32] = []
+        let horizon = min(count, max(0, limit))
+        // Estimate lines only over the region actually indexed; ~40 bytes per line is the
+        // usual shape for config and API payloads.
+        acc.reserveCapacity(horizon / 40 + 8)
+        var i = 0
+        var trailingLines = 0
+        while i < count {
+            if unsafe base[i] == 0x0A {
+                acc.append(UInt32(i))
+                // Two newlines past the horizon covers the one line of trailing context a
+                // snippet renders, plus its terminator.
+                if i >= horizon {
+                    trailingLines &+= 1
+                    if trailingLines >= 2 { i &+= 1; break }
+                }
+            }
+            i &+= 1
+        }
+        self.newlines = acc
+        self.byteCount = i
+    }
+
+    /// 1-based line, 1-based column.
+    func lineAndColumn(of offset: UInt32) -> (line: Int, column: Int) {
+        var lo = 0
+        var hi = newlines.count
+        while lo < hi {
+            let mid = (lo &+ hi) / 2
+            if newlines[mid] < offset { lo = mid &+ 1 } else { hi = mid }
+        }
+        let line = lo &+ 1
+        let lineStart = lo == 0 ? 0 : newlines[lo &- 1] &+ 1
+        return (line, Int(offset &- lineStart) &+ 1)
+    }
+}

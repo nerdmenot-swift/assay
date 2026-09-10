@@ -68,20 +68,13 @@ extension RawDecodable {
         switch _assayNegotiate(contentType: contentType, accepting: accepting) {
         case .failure(let why):
             sink.add(why.issue)
-            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: sink.truncatedIssues,
-                             source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         case .success(let format):
             guard let raw = format.decode(bytes, &sink, limits), sink.isValid else {
-                return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                                 truncatedIssues: sink.truncatedIssues,
-                                 source: SourceBytes(bytes), sourceName: sourceName)
+                return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
             }
             let value = Self._assay(from: raw, into: &sink, at: [])
-            return Diagnosis(value: sink.isValid ? value : nil,
-                             issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: sink.truncatedIssues,
-                             source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
         }
     }
 
@@ -118,23 +111,52 @@ extension RawDecodable where Self: JSONAssayable {
         case .failure(let why):
             var sink = IssueSink(limits: limits)
             sink.add(why.issue)
-            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: sink.truncatedIssues,
-                             source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         case .success(let format) where format.name == "json":
             return diagnose(json: bytes, limits: limits, sourceName: sourceName)
         case .success(let format):
             var sink = IssueSink(limits: limits)
             guard let raw = format.decode(bytes, &sink, limits), sink.isValid else {
-                return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                                 truncatedIssues: sink.truncatedIssues,
-                                 source: SourceBytes(bytes), sourceName: sourceName)
+                return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
             }
             let value = Self._assay(from: raw, into: &sink, at: [])
-            return Diagnosis(value: sink.isValid ? value : nil,
-                             issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: sink.truncatedIssues,
-                             source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
         }
+    }
+}
+
+// MARK: - Contextual types
+
+extension ContextualRawDecodable {
+
+    /// Content negotiation for a type that declares a context. `accepting:` is required
+    /// here for the same reason it is everywhere else.
+    public static func diagnose(
+        body bytes: [UInt8], contentType: String?, accepting: [WireFormat],
+        context: AssayContext, limits: Limits = .default, sourceName: String = "<body>"
+    ) -> Diagnosis<Self> {
+        var sink = IssueSink(limits: limits)
+        switch _assayNegotiate(contentType: contentType, accepting: accepting) {
+        case .failure(let why):
+            sink.add(why.issue)
+            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes),
+                             sourceName: sourceName)
+        case .success(let format):
+            guard let raw = format.decode(bytes, &sink, limits), sink.isValid else {
+                return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes),
+                                 sourceName: sourceName)
+            }
+            let value = Self._assay(from: raw, into: &sink, at: [], context: context)
+            return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes),
+                             sourceName: sourceName)
+        }
+    }
+
+    public static func parse(
+        body bytes: [UInt8], contentType: String?, accepting: [WireFormat],
+        context: AssayContext, limits: Limits = .default, sourceName: String = "<body>"
+    ) throws -> Self {
+        try diagnose(body: bytes, contentType: contentType, accepting: accepting,
+                     context: context, limits: limits, sourceName: sourceName).get()
     }
 }

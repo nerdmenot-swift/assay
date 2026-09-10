@@ -77,15 +77,10 @@ extension RawDecodable {
     ) -> Diagnosis<Self> {
         var sink = IssueSink(limits: limits)
         guard let raw = __assayYAMLDocument(bytes, into: &sink, limits: limits) else {
-            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: sink.truncatedIssues,
-                             source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         let value = Self._assay(from: raw, into: &sink, at: [])
-        return Diagnosis(value: sink.isValid ? value : nil,
-                         issues: sink.issues, warnings: sink.warnings,
-                         truncatedIssues: sink.truncatedIssues,
-                         source: SourceBytes(bytes), sourceName: sourceName)
+        return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
     public static func diagnose(
@@ -234,15 +229,10 @@ extension ContextualRawDecodable {
     ) -> Diagnosis<Self> {
         var sink = IssueSink(limits: limits)
         guard let raw = __assayYAMLDocument(bytes, into: &sink, limits: limits) else {
-            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: sink.truncatedIssues,
-                             source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         let value = Self._assay(from: raw, into: &sink, at: [], context: context)
-        return Diagnosis(value: sink.isValid ? value : nil,
-                         issues: sink.issues, warnings: sink.warnings,
-                         truncatedIssues: sink.truncatedIssues,
-                         source: SourceBytes(bytes), sourceName: sourceName)
+        return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
     public static func diagnose(

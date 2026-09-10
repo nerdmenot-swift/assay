@@ -79,17 +79,12 @@ extension RawDecodable {
     ) -> Diagnosis<Self> {
         var sink = IssueSink(limits: limits)
         guard let doc = XML.decode(bytes, into: &sink, limits: limits), sink.isValid else {
-            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: sink.truncatedIssues,
-                             source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         __assayCheckXMLRoot(Self.self, doc, &sink)
         let raw = RawValue(doc)
         let value = Self._assay(from: raw, into: &sink, at: [])
-        return Diagnosis(value: sink.isValid ? value : nil,
-                         issues: sink.issues, warnings: sink.warnings,
-                         truncatedIssues: sink.truncatedIssues,
-                         source: SourceBytes(bytes), sourceName: sourceName)
+        return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
     public static func diagnose(
@@ -139,16 +134,11 @@ extension ContextualRawDecodable {
     ) -> Diagnosis<Self> {
         var sink = IssueSink(limits: limits)
         guard let doc = XML.decode(bytes, into: &sink, limits: limits), sink.isValid else {
-            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: sink.truncatedIssues,
-                             source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         __assayCheckXMLRoot(Self.self, doc, &sink)
         let value = Self._assay(from: RawValue(doc), into: &sink, at: [], context: context)
-        return Diagnosis(value: sink.isValid ? value : nil,
-                         issues: sink.issues, warnings: sink.warnings,
-                         truncatedIssues: sink.truncatedIssues,
-                         source: SourceBytes(bytes), sourceName: sourceName)
+        return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
     public static func diagnose(

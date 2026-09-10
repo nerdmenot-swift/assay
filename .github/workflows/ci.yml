@@ -224,6 +224,11 @@ jobs:
       # The cold-start type set is generated too, by a Python script rather than a Swift
       # target, and until 2026-09-10 nothing checked that the checked-in file still
       # matched its generator — the exact drift the corpus job above exists to prevent.
+      - name: DecodeWidths.swift matches its generator
+        run: |
+          Sources/AssayCore/gen-decode-widths.sh > /tmp/DecodeWidths.swift
+          diff -q /tmp/DecodeWidths.swift Sources/AssayCore/DecodeWidths.swift \
+            || { echo "DecodeWidths.swift is stale — regenerate with gen-decode-widths.sh"; exit 1; }
       - name: ColdStartTypes.swift matches its generator
         run: |
           python3 Benchmarks/gen-coldstart.py > /tmp/ColdStartTypes.swift

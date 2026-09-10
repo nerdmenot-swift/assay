@@ -133,9 +133,7 @@ extension ContextualJSONAssayable {
 
         if bytes.count > limits.maxBytes {
             sink.add(Issue(code: .tooManyBytes, params: ["maxBytes": .int(limits.maxBytes)]))
-            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: sink.truncatedIssues,
-                             source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
 
         let value: Self? = bytes.withUnsafeBufferPointer { buf -> Self? in
@@ -144,13 +142,7 @@ extension ContextualJSONAssayable {
                                        into: &sink, limits: limits, context: context)
         }
 
-        return Diagnosis(
-            value: sink.isValid ? value : nil,
-            issues: sink.issues,
-            warnings: sink.warnings,
-            truncatedIssues: sink.truncatedIssues,
-            source: SourceBytes(bytes),
-            sourceName: sourceName)
+        return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
     public static func parse(

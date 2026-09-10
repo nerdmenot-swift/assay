@@ -30,7 +30,9 @@ public enum RawValue: Sendable, Hashable {
 
     /// One key/value pair. A struct rather than a tuple so the mapping can be `Hashable`.
     public struct Member: Sendable, Hashable {
+        /// The key, as the document spelled it.
         public var key: String
+        /// The value.
         public var value: RawValue
 
         /// Where this member's VALUE began in the source document, when the parser knew.
@@ -46,6 +48,7 @@ public enum RawValue: Sendable, Hashable {
         /// to users as ordinary data. A span is provenance, not value.
         public var span: SourceSpan?
 
+        /// A member, with an optional source span for carets.
         public init(key: String, value: RawValue, span: SourceSpan? = nil) {
             self.key = key
             self.value = value
@@ -69,8 +72,10 @@ public enum RawValue: Sendable, Hashable {
 // caller never has to pattern-match a case to read an ordinary value.
 
 extension RawValue {
+    /// `true` for `.null` only — an absent key is not a value at all.
     public var isNull: Bool { if case .null = self { return true }; return false }
 
+    /// The value if it is `.bool`, else nil. No coercion: `"true"` is a string.
     public var bool: Bool? {
         if case .bool(let b) = self { return b }
         return nil
@@ -93,16 +98,19 @@ extension RawValue {
         }
     }
 
+    /// The value if it is `.string`, else nil.
     public var string: String? {
         if case .string(let s) = self { return s }
         return nil
     }
 
+    /// The elements if it is `.sequence`, else nil.
     public var sequence: [RawValue]? {
         if case .sequence(let xs) = self { return xs }
         return nil
     }
 
+    /// The members if it is `.mapping`, else nil. See `Member` for why this is a list.
     public var mapping: [Member]? {
         if case .mapping(let m) = self { return m }
         return nil
@@ -122,6 +130,7 @@ extension RawValue {
         return members.lazy.filter { $0.key == key }.map(\.value)
     }
 
+    /// The element at `index` of a sequence, or nil when out of range or not a sequence.
     public subscript(_ index: Int) -> RawValue? {
         guard case .sequence(let xs) = self, xs.indices.contains(index) else { return nil }
         return xs[index]
@@ -202,10 +211,12 @@ extension RawValue {
 // MARK: - Literals, for tests and for hand-built values
 
 extension RawValue: ExpressibleByNilLiteral {
+    /// `nil` as a literal is `.null`.
     public init(nilLiteral: ()) { self = .null }
 }
 
 extension RawValue: ExpressibleByBooleanLiteral {
+    /// Literals build values: `let v: RawValue = ["a": 1, "b": [true, nil]]`.
     public init(booleanLiteral value: Bool) { self = .bool(value) }
 }
 

@@ -40,6 +40,11 @@ that distinguish it:
 - **`Assayer<T>`** runtime schemas, `@Wraps`, `@Inline`, `@Key(path:)`, `@OneOrMany`,
   `@XML` placement and `@XML(root:)`, `@Schema(context:)`, `parse(plist:)`,
   `parse(body:contentType:accepting:)`, `jsonSchema(for:)`, columnar batch decode.
+- **Collections report one issue per bad element** and continue; a dictionary value's
+  issue names its key (`m.j`, `d.a[1]`). A backticked property name (`` `default` ``)
+  decodes. A UTF-8 BOM is skipped. `@Check` misuse, undecodable field types (`Set`,
+  tuples, `Data`, `URL`, `T!`, generic structs…) and a non-`@Schema` nested type all get
+  purpose-written diagnostics instead of `has no member '_assay'`.
 - **One error type.** `JSON.Value.parse`, `YAML.parse` and `XML.parse` throw `AssayError`
   like every other entry point, with the source retained, so their failures render carets
   too. `JSONValueError`, `YAMLParseError` and `XMLParseError` are gone.

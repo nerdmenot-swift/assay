@@ -235,14 +235,12 @@ guard FileManager.default.fileExists(atPath: corpus.path) else {
     exit(2)
 }
 
-let checked = try runDifferential(corpus: corpus)
-print("JSON differential: \(checked) corpus files agree with JSONSerialization")
-
-// ---- YAML and XML oracles ----
+// ---- The oracles, by name ----
 //
-// Reporting shape, for all three: agreements are a count, disagreements are named
-// individually with the first divergence located. A summary line that says "3 failures"
-// and makes you go looking is a summary line that gets ignored.
+// `DiffFuzz --list` names them; `DiffFuzz json plist-fuzz` runs two; no arguments runs
+// every one in the order below. Until 2026-09-10 this file was fourteen oracles run
+// unconditionally — the same shape `AssayBench/main.swift` had, fixed for the same reason:
+// a parser change should cost the oracle for that parser, not all of them.
 
 func report(_ title: String, _ oracle: String,
             agreed: Int, bothRejected: Int,
@@ -271,99 +269,127 @@ func report(_ title: String, _ oracle: String,
     }
 }
 
-// 1. YAML against libyaml, hand-written feature cases.
-let yamsHand = runYAMLDifferential(handWrittenYAML, oracleName: "Yams")
-report("YAML hand-written", "Yams/libyaml",
-       agreed: yamsHand.agreed, bothRejected: yamsHand.bothRejected,
-       assayOnly: yamsHand.assayOnlyRejected, oracleOnly: yamsHand.oracleOnlyRejected,
-       disagreed: yamsHand.disagreed)
 
-// 2. YAML against libyaml, generated volume from the JSON corpus.
-var generatedYAML: [(name: String, text: String)] = []
-var jsonFiles: [(name: String, data: Data)] = []
-if let all = try? FileManager.default.contentsOfDirectory(
-    at: corpus, includingPropertiesForKeys: nil) {
+struct Oracle {
+    let name: String
+    let summary: String
+    let run: () throws -> Void
+}
+
+// The JSON corpus is shared by several oracles; loaded once, on first use. A `let` at top
+// level rather than a lazily-filled `var`: top-level state is MainActor-isolated and the
+// oracle closures are not.
+let jsonFiles: [(name: String, data: Data)] = {
+    guard let all = try? FileManager.default.contentsOfDirectory(at: corpus, includingPropertiesForKeys: nil)
+    else { return [] }
+    var out: [(name: String, data: Data)] = []
     for url in all.sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
     where url.pathExtension == "json" && !url.lastPathComponent.hasPrefix("neg-") {
         guard let data = try? Data(contentsOf: url) else { continue }
-        jsonFiles.append((url.lastPathComponent, data))
-        guard let value = try? JSON.Value.parse([UInt8](data)) else { continue }
-        let rendered = renderYAML(RawValue(value))
-        // A top-level scalar renders bare; mappings and sequences render with a leading
-        // newline, which is legal YAML on its own.
-        generatedYAML.append((url.lastPathComponent, rendered.hasPrefix("\n")
-                              ? String(rendered.dropFirst()) : rendered))
+        out.append((url.lastPathComponent, data))
     }
+    return out
+}()
+
+let oracles: [Oracle] = [
+    Oracle(name: "json", summary: "JSON.Value vs JSONSerialization over the corpus") {
+        let checked = try runDifferential(corpus: corpus)
+        print("JSON differential: \(checked) corpus files agree with JSONSerialization")
+    },
+    Oracle(name: "yaml", summary: "YAML vs Yams/libyaml, hand-written and generated; JSON as YAML") {
+        let yamsHand = runYAMLDifferential(handWrittenYAML, oracleName: "Yams")
+        report("YAML hand-written", "Yams/libyaml",
+               agreed: yamsHand.agreed, bothRejected: yamsHand.bothRejected,
+               assayOnly: yamsHand.assayOnlyRejected, oracleOnly: yamsHand.oracleOnlyRejected,
+               disagreed: yamsHand.disagreed)
+        var generatedYAML: [(name: String, text: String)] = []
+        for (name, data) in jsonFiles {
+            guard let value = try? JSON.Value.parse([UInt8](data)) else { continue }
+            let rendered = renderYAML(RawValue(value))
+            // A top-level scalar renders bare; mappings and sequences render with a
+            // leading newline, which is legal YAML on its own.
+            generatedYAML.append((name, rendered.hasPrefix("\n") ? String(rendered.dropFirst()) : rendered))
+        }
+        let yamsGen = runYAMLDifferential(generatedYAML, oracleName: "Yams")
+        report("YAML generated (\(generatedYAML.count) documents)", "Yams/libyaml",
+               agreed: yamsGen.agreed, bothRejected: yamsGen.bothRejected,
+               assayOnly: yamsGen.assayOnlyRejected, oracleOnly: yamsGen.oracleOnlyRejected,
+               disagreed: yamsGen.disagreed)
+        // YAML 1.2 defines JSON as a strict subset, so the whole JSON corpus is a YAML
+        // corpus and JSONSerialization is a second, independent oracle.
+        let jsonAsYaml = runJSONAsYAML(jsonFiles)
+        report("JSON-as-YAML (\(jsonFiles.count) files)", "JSONSerialization",
+               agreed: jsonAsYaml.agreed, bothRejected: jsonAsYaml.bothRejected,
+               assayOnly: jsonAsYaml.assayOnlyRejected, oracleOnly: jsonAsYaml.oracleOnlyRejected,
+               disagreed: jsonAsYaml.disagreed)
+    },
+    Oracle(name: "xml", summary: "XML vs Foundation XMLParser, hand-written and generated") {
+        let xmlHand = runXMLDifferential(handWrittenXML)
+        report("XML hand-written", "Foundation XMLParser",
+               agreed: xmlHand.agreed, bothRejected: xmlHand.bothRejected,
+               assayOnly: xmlHand.assayOnlyRejected, oracleOnly: xmlHand.foundationOnlyRejected,
+               disagreed: xmlHand.disagreed)
+        var generatedXML: [(name: String, text: String)] = []
+        for (name, data) in jsonFiles {
+            guard let value = try? JSON.Value.parse([UInt8](data)) else { continue }
+            generatedXML.append((name, renderXML(RawValue(value))))
+        }
+        let xmlGen = runXMLDifferential(generatedXML)
+        report("XML generated (\(generatedXML.count) documents)", "Foundation XMLParser",
+               agreed: xmlGen.agreed, bothRejected: xmlGen.bothRejected,
+               assayOnly: xmlGen.assayOnlyRejected, oracleOnly: xmlGen.foundationOnlyRejected,
+               disagreed: xmlGen.disagreed)
+    },
+    Oracle(name: "encode", summary: "documents Assay wrote, read back by Foundation and libyaml") {
+        print("encode differential: \(runEncodeDifferential(corpus: corpus)) documents Assay wrote that Foundation accepts")
+        print("YAML encode differential: \(runYAMLEncodeDifferential(corpus: corpus)) documents Assay wrote that libyaml reads back")
+        print("XML encode differential: \(runXMLEncodeDifferential(corpus: corpus)) documents Assay wrote that Foundation accepts")
+    },
+    Oracle(name: "dates", summary: "date parsers and Date/UUID columns vs Foundation") {
+        print("date differential: \(runDateDifferential()) instants agree with Foundation exactly")
+        print("Date/UUID differential: \(runFoundationColumnDifferential()) checks against Foundation, on the tree and columnar paths")
+    },
+    Oracle(name: "reject", summary: "RFC 8259 accept/reject verdicts") {
+        print("reject differential: \(runRejectDifferential()) documents, RFC 8259 accept/reject verdicts")
+    },
+    Oracle(name: "numbers", summary: "number literals bit-exact against the stdlib") {
+        print("number differential: \(runNumberValueDifferential()) literals decode bit-exactly (oracle: the stdlib)")
+    },
+    Oracle(name: "formats", summary: "email/url/uuid/hostname validators vs a naive oracle") {
+        if !runFormatDifferential() { Failures.shared.fail("format validators disagree with the naive oracle") }
+    },
+    Oracle(name: "plist", summary: "binary and XML plists vs Foundation") {
+        let (plistBinary, plistXML) = try runPlistDifferential()
+        print("plist differential: \(plistBinary) binary + \(plistXML) XML documents Foundation")
+        print("    wrote decode to the same tree")
+    },
+    // The fuzz arm matters more here than the differential: a binary plist is steered by a
+    // trailer at the END of the file, so one flipped byte redirects every subsequent read
+    // rather than producing a parse error nearby. It found an Int(UInt64) trap on its first run.
+    Oracle(name: "plist-fuzz", summary: "mutated/truncated/random plists, no crashes or traps") {
+        print("plist fuzz: \(try runPlistFuzz()) mutated/truncated/random documents, no crashes, no traps")
+    },
+    Oracle(name: "fuzz", summary: "mutated/truncated JSON, YAML and XML, no crashes or hangs") {
+        print("fuzz: \(try runFuzz(corpus: corpus)) mutated/truncated inputs, no crashes, no hangs")
+    },
+]
+
+var args = Array(CommandLine.arguments.dropFirst())
+if args.contains("--list") || args.contains("--help") {
+    print("usage: DiffFuzz [--list] [oracle ...] | --probe <yaml|xml|json> <input>")
+    for o in oracles { print("  " + o.name.padding(toLength: 12, withPad: " ", startingAt: 0) + o.summary) }
+    exit(0)
 }
-let yamsGen = runYAMLDifferential(generatedYAML, oracleName: "Yams")
-report("YAML generated (\(generatedYAML.count) documents)", "Yams/libyaml",
-       agreed: yamsGen.agreed, bothRejected: yamsGen.bothRejected,
-       assayOnly: yamsGen.assayOnlyRejected, oracleOnly: yamsGen.oracleOnlyRejected,
-       disagreed: yamsGen.disagreed)
-
-// 3. YAML against JSON — YAML 1.2 defines JSON as a strict subset, so the whole JSON
-//    corpus is a YAML corpus and JSONSerialization is a second, independent oracle.
-let jsonAsYaml = runJSONAsYAML(jsonFiles)
-report("JSON-as-YAML (\(jsonFiles.count) files)", "JSONSerialization",
-       agreed: jsonAsYaml.agreed, bothRejected: jsonAsYaml.bothRejected,
-       assayOnly: jsonAsYaml.assayOnlyRejected, oracleOnly: jsonAsYaml.oracleOnlyRejected,
-       disagreed: jsonAsYaml.disagreed)
-
-// 4. XML against Foundation, hand-written feature cases.
-let xmlHand = runXMLDifferential(handWrittenXML)
-report("XML hand-written", "Foundation XMLParser",
-       agreed: xmlHand.agreed, bothRejected: xmlHand.bothRejected,
-       assayOnly: xmlHand.assayOnlyRejected, oracleOnly: xmlHand.foundationOnlyRejected,
-       disagreed: xmlHand.disagreed)
-
-// 5. XML against Foundation, generated volume.
-var generatedXML: [(name: String, text: String)] = []
-for (name, data) in jsonFiles {
-    guard let value = try? JSON.Value.parse([UInt8](data)) else { continue }
-    generatedXML.append((name, renderXML(RawValue(value))))
+let selected: [Oracle] = args.isEmpty ? oracles : args.map { name in
+    guard let o = oracles.first(where: { $0.name == name }) else {
+        print("unknown oracle '\(name)' — DiffFuzz --list names them"); exit(2)
+    }
+    return o
 }
-let xmlGen = runXMLDifferential(generatedXML)
-report("XML generated (\(generatedXML.count) documents)", "Foundation XMLParser",
-       agreed: xmlGen.agreed, bothRejected: xmlGen.bothRejected,
-       assayOnly: xmlGen.assayOnlyRejected, oracleOnly: xmlGen.foundationOnlyRejected,
-       disagreed: xmlGen.disagreed)
-print("")
-
-let encodeChecks = runEncodeDifferential(corpus: corpus)
-print("encode differential: \(encodeChecks) documents Assay wrote that Foundation accepts")
-
-let yamlEncodeChecks = runYAMLEncodeDifferential(corpus: corpus)
-print("YAML encode differential: \(yamlEncodeChecks) documents Assay wrote that libyaml reads back")
-
-let xmlEncodeChecks = runXMLEncodeDifferential(corpus: corpus)
-print("XML encode differential: \(xmlEncodeChecks) documents Assay wrote that Foundation accepts")
-
-let dateChecks = runDateDifferential()
-print("date differential: \(dateChecks) instants agree with Foundation exactly")
-
-let foundationColumnChecks = runFoundationColumnDifferential()
-print("Date/UUID differential: \(foundationColumnChecks) checks against Foundation, on the tree and columnar paths")
-
-let rejectChecks = runRejectDifferential()
-print("reject differential: \(rejectChecks) documents, RFC 8259 accept/reject verdicts")
-
-let numberChecks = runNumberValueDifferential()
-print("number differential: \(numberChecks) literals decode bit-exactly (oracle: the stdlib)")
-
-if !runFormatDifferential() { Failures.shared.fail("format validators disagree with the naive oracle") }
-
-let (plistBinary, plistXML) = try runPlistDifferential()
-print("plist differential: \(plistBinary) binary + \(plistXML) XML documents Foundation")
-print("    wrote decode to the same tree")
-
-// The fuzz arm matters more here than the differential: a binary plist is steered by a
-// trailer at the END of the file, so one flipped byte redirects every subsequent read rather
-// than producing a parse error nearby. It found an Int(UInt64) trap on its first run.
-let plistRuns = try runPlistFuzz()
-print("plist fuzz: \(plistRuns) mutated/truncated/random documents, no crashes, no traps")
-
-let iterations = try runFuzz(corpus: corpus)
-print("fuzz: \(iterations) mutated/truncated inputs, no crashes, no hangs")
+for o in selected {
+    if selected.count > 1 { print(""); print("== \(o.name) ==") }
+    try o.run()
+}
 
 if Failures.shared.count > 0 {
     print("\(Failures.shared.count) FAILURES")

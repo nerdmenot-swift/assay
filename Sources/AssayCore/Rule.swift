@@ -159,29 +159,40 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
 
     // MARK: - Constructors, matching EXPERIENCE.md §5's table
 
+    /// At least `n`: characters for a `String`, elements for an array, magnitude for a
+    /// number. Reports `too_small` with `minimum` and, for strings and arrays, `unit`.
+    /// `or:` replaces the derived message.
     public static func min(_ n: Int, or message: String? = nil) -> Rule {
         Rule(.min(Double(n)), message: message)
     }
+    /// At least `n`, for a `Double` or `Float` field.
     public static func min(_ n: Double, or message: String? = nil) -> Rule {
         Rule(.min(n), message: message)
     }
+    /// At most `n`: characters, elements, or magnitude. Reports `too_large`.
     public static func max(_ n: Int, or message: String? = nil) -> Rule {
         Rule(.max(Double(n)), message: message)
     }
+    /// At most `n`, for a `Double` or `Float` field.
     public static func max(_ n: Double, or message: String? = nil) -> Rule {
         Rule(.max(n), message: message)
     }
+    /// Within `r`, inclusive. Numbers only; reports `not_in_range` with both bounds.
     public static func range(_ r: ClosedRange<Int>, or message: String? = nil) -> Rule {
         Rule(.range(Double(r.lowerBound), Double(r.upperBound)), message: message)
     }
+    /// Within `r`, inclusive, for a `Double` or `Float` field.
     public static func range(_ r: ClosedRange<Double>, or message: String? = nil) -> Rule {
         Rule(.range(r.lowerBound, r.upperBound), message: message)
     }
 
+    /// Exactly `n` characters. Strings only; reports `wrong_length`.
     public static func length(_ n: Int, or message: String? = nil) -> Rule {
         Rule(.length(n), message: message)
     }
+    /// Not `""` and not `[]`. Strings and arrays; reports `empty`.
     public static let notEmpty = Rule(.notEmpty)
+    /// `.notEmpty` with a message of your own.
     public static func notEmpty(or message: String? = nil) -> Rule {
         Rule(.notEmpty, message: message)
     }
@@ -194,14 +205,22 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
         Rule(.regex(CompiledPattern(pattern)), message: message)
     }
 
+    /// A syntactically plausible email address — one `@`, a local part, a dotted domain.
+    /// Deliberately not RFC 5322: that grammar accepts things no mail server delivers to.
+    /// Reports `invalid_email`.
     public static let email = Rule(.email)
     public static func email(or message: String? = nil) -> Rule { Rule(.email, message: message) }
+    /// An absolute URL with a scheme and a host. Reports `invalid_url`.
     public static let url = Rule(.url)
     public static func url(or message: String? = nil) -> Rule { Rule(.url, message: message) }
+    /// The canonical 8-4-4-4-12 hex form, either case. Reports `invalid_uuid`.
     public static let uuid = Rule(.uuid)
     public static func uuid(or message: String? = nil) -> Rule { Rule(.uuid, message: message) }
+    /// An RFC 1123 hostname: dotted labels of letters, digits and hyphens, none longer
+    /// than 63, the whole no longer than 253. Reports `invalid_hostname`.
     public static let hostname = Rule(.hostname)
     public static func hostname(or message: String? = nil) -> Rule { Rule(.hostname, message: message) }
+    /// Every scalar below U+0080. Reports `not_ascii`.
     public static let ascii = Rule(.ascii)
     public static func ascii(or message: String? = nil) -> Rule { Rule(.ascii, message: message) }
     /// **An assertion, not a normalisation**: the value must ALREADY be free of leading and
@@ -216,42 +235,62 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
     public static let isLowercase = Rule(.lowercased)
     public static func isLowercase(or message: String? = nil) -> Rule { Rule(.lowercased, message: message) }
 
+    /// Starts with `s`. Reports `missing_prefix` with `prefix`.
     public static func prefix(_ s: String, or message: String? = nil) -> Rule {
         Rule(.prefix(s), message: message)
     }
+    /// Ends with `s`. Reports `missing_suffix` with `suffix`.
     public static func suffix(_ s: String, or message: String? = nil) -> Rule {
         Rule(.suffix(s), message: message)
     }
+    /// Contains `s` somewhere. Reports `missing_substring` with `substring`.
     public static func contains(_ s: String, or message: String? = nil) -> Rule {
         Rule(.contains(s), message: message)
     }
+    /// Exactly one of `options`, compared as whole strings. For a closed set that is
+    /// known at compile time an `enum … : String, JSONAssayable` is the better tool — it
+    /// gives the typed value and the same did-you-mean. Reports `not_one_of`.
     public static func oneOf(_ options: [String], or message: String? = nil) -> Rule {
         Rule(.oneOf(options), message: message)
     }
 
+    /// Strictly greater than zero. Reports `not_positive`.
     public static let positive = Rule(.positive)
     public static func positive(or message: String? = nil) -> Rule { Rule(.positive, message: message) }
+    /// Strictly less than zero. Reports `not_negative`.
     public static let negative = Rule(.negative)
     public static func negative(or message: String? = nil) -> Rule { Rule(.negative, message: message) }
+    /// Zero or more. Reports `negative`.
     public static let nonNegative = Rule(.nonNegative)
     public static func nonNegative(or message: String? = nil) -> Rule { Rule(.nonNegative, message: message) }
+    /// Divisible by `n`. Reports `not_multiple` with `divisor`.
     public static func multipleOf(_ n: Int, or message: String? = nil) -> Rule {
         Rule(.multipleOf(Double(n)), message: message)
     }
+    /// A multiple of `n`, for a `Double` field — `0.25` for a quarter-step, say.
     public static func multipleOf(_ n: Double, or message: String? = nil) -> Rule {
         Rule(.multipleOf(n), message: message)
     }
+    /// Not NaN and not infinite. A JSON document cannot spell either, so this matters
+    /// for `T.validate(_:)` on a value some other reader produced. Reports `not_finite`.
     public static let finite = Rule(.finite)
     public static func finite(or message: String? = nil) -> Rule { Rule(.finite, message: message) }
 
+    /// Between `r.lowerBound` and `r.upperBound` elements, inclusive. Arrays only;
+    /// reports `wrong_count` with both bounds.
     public static func count(_ r: ClosedRange<Int>, or message: String? = nil) -> Rule {
         Rule(.count(r.lowerBound, r.upperBound), message: message)
     }
+    /// Exactly `n` elements.
     public static func count(_ n: Int, or message: String? = nil) -> Rule {
         Rule(.count(n, n), message: message)
     }
+    /// No two elements equal. Elements must be `String`, `Int` or `Double`. Reports
+    /// `not_unique`.
     public static let unique = Rule(.unique)
     public static func unique(or message: String? = nil) -> Rule { Rule(.unique, message: message) }
+    /// Apply `rules` to every element. The issue path carries the element index —
+    /// `recipients[2]` — and `or:` sets the message for every element that fails.
     public static func each(_ rules: Rule..., or message: String? = nil) -> Rule {
         Rule(.each(rules), message: message)
     }

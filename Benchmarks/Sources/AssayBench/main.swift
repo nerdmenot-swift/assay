@@ -47,6 +47,7 @@ let arms: [Arm] = [
     Arm(name: "columndecodable", summary: "the ColumnDecodable extension point") { runColumnDecodableBenchmarks(); return true },
     Arm(name: "pathab", summary: "generic vs concrete entry point") { runPathAB(); return true },
     Arm(name: "colfloor", summary: "the generated columnar body vs a hand-written floor") { runColumnarFloor(); return true },
+    Arm(name: "rowbatch", summary: "row-shaped sources through RowBatch — the transpose, measured") { runRowBatchBenchmarks(); return true },
     Arm(name: "validate", summary: "T.validate(_:) on an existing value") { runValidateBenchmarks(); return true },
     Arm(name: "rules", summary: "per-rule cost of the rule engine") { runRuleCostBenchmarks(); return true },
     Arm(name: "simd", summary: "the SIMD-tier baseline (yyjson)") { runSIMDBaselineBenchmarks(corpusDir: corpusDir, sizes: sizes); return true },

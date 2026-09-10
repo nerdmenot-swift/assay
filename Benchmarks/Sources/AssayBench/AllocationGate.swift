@@ -108,6 +108,21 @@ func runAllocationGate() -> Bool {
                  foundation: { Box(decodeRowwise(store)) })
     }
 
+    // Rows in through `RowBatch`: the batch's own columns are O(columns) blocks, never
+    // O(rows), and the strings are retained from the input rather than copied. Eight
+    // columns, one mask at most, the output array and the box — 12 with headroom.
+    do {
+        let store = makeStore(rows: 64)
+        let rows = RowShapedStore(store: store)
+        allocRow("RowBatch, 64 rows x 8 cols", limitBlocks: 16,
+                 assay: {
+                     var b = RowBatch(manifest: BenchRow._assayManifest, columns: rows.columns, capacity: 64)
+                     fillRowBatch(rows, into: &b)
+                     return Box(BenchRow.batch(from: b).values)
+                 },
+                 foundation: { Box(decodeRowwise(store)) })
+    }
+
     print("")
     if failures.isEmpty {
         print("allocation gate: PASS")

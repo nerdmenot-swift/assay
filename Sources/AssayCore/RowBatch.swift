@@ -19,12 +19,13 @@
 // caller's module can inline), and the decode happens once per batch through the existing
 // `_assayBatch`. Nothing in this file knows what SQL, CSV or Excel are.
 //
-// STORAGE, and the one rule that keeps it fast. There is no enum-with-payload per field:
+// STORAGE, and the two rules that keep it fast. No enum-with-payload per field:
 // `case .int64(var a): a.append(v); storage[f] = .int64(a)` copies the array on EVERY
-// append, because copy-on-write sees two references during the mutation. Instead each
-// kind has one array of columns (`ints: [[Int64]]`, …) and a field maps to a slot in it;
-// `ints[slot].append(v)` mutates in place through `Array`'s accessor. An `append` is a
-// bounds check, two array reads and one array append.
+// append, because copy-on-write sees two references during the mutation. And no nested
+// `[[Int64]]` either: that spelling paid two copy-on-write checks per cell — the outer
+// array's `_modify` and the inner append's — and the outer one is a runtime call. Each
+// column is a boxed array reached through a reference; the batch is `~Copyable` so that
+// reference is never shared. An `append` is a bounds check, two loads, one array append.
 //
 // TYPED, NOT CONVERTING. A cell is stored as what the source said it was. A text cell
 // appended to an `Int` field is dropped and counted, so the batch reports `missing_column
@@ -43,15 +44,54 @@
 /// `beginRow()`, one `append` per cell in the source's own column order, and when the batch
 /// is full, hand it to `batch(from:)`. `RowDecoder<T>` wraps this with chunking and global
 /// row numbers; use it unless you need the buffer itself.
-public struct RowBatch: ColumnarSource, Sendable {
+/// `@unchecked Sendable`: the batch owns class-backed column tables and reaches them
+/// through `Unmanaged`, neither of which the compiler can check — but the batch is
+/// `~Copyable`, so exactly one owner ever holds them, and sending it moves that ownership.
+@safe public struct RowBatch: ColumnarSource, ~Copyable, @unchecked Sendable {
+
+    /// The columns of one kind, as `[T]` values in tail-allocated slots. This shape is the
+    /// result of measuring three others on the 8-column row, and the profile is the record:
+    ///   * `[[T]]` — every append paid TWO copy-on-write checks, the outer array's `_modify`
+    ///     and the inner append's; the outer one is a runtime call per cell (40 ns/row).
+    ///   * a class per column — mutating a class's stored property is DYNAMIC exclusivity
+    ///     enforcement, `swift_beginAccess`/`endAccess` and a TLS lookup per cell, 40% of
+    ///     the profile (60 ns/row). CLAUDE.md rule 3, met on the way in for once.
+    ///   * class refs read out of an array — a retain/release pair per cell on top.
+    /// Here the slot is reached through a pointer (no exclusivity, no outer copy-on-write)
+    /// and `Unmanaged` (no retain), and the inner `append` pays the one uniqueness check a
+    /// hand-written transpose also pays. The `[T]` hands off to the decode with no copy.
+    @usableFromInline
+    final class ColumnTable<T>: ManagedBuffer<Int, [T]> {
+        @usableFromInline
+        static func make(slots: Int) -> ColumnTable<T> {
+            let t = ColumnTable<T>.create(minimumCapacity: slots) { _ in 0 } as! ColumnTable<T>
+            unsafe t.withUnsafeMutablePointerToElements { unsafe $0.initialize(repeating: [], count: slots) }
+            t.header = slots
+            return t
+        }
+        deinit {
+            let n = header
+            _ = unsafe withUnsafeMutablePointerToElements { unsafe $0.deinitialize(count: n) }
+        }
+        /// The slots. Valid for as long as this object is — which `RowBatch` guarantees by
+        /// owning it for as long as it holds the pointer.
+        var elements: UnsafeMutablePointer<[T]> {
+            unsafe withUnsafeMutablePointerToElements { unsafe $0 }
+        }
+        /// The slot, for the cold paths. Pointer access: no exclusivity bookkeeping.
+        @inlinable @inline(__always)
+        func with<R>(_ slot: Int, _ body: (inout [T]) -> R) -> R {
+            unsafe withUnsafeMutablePointerToElements { unsafe body(&$0[slot]) }
+        }
+    }
 
     /// The storage kind a field's column holds. Fixed by the manifest for the built-in
     /// kinds; decided by the first cell appended for a `.custom` field.
     @usableFromInline
-    enum Kind: UInt8, Sendable { case undecided, int64, double, bool, string, bytes }
+    enum Kind: UInt8, Sendable { case undecided, int64, double, bool, string, bytes, unbound }
 
     /// Per manifest field, in ONE array: an append reads one element of it, not one element
-    /// of each of six. `slot` indexes the kind's column array below.
+    /// of each of six. `slot` indexes the kind's column table below.
     @usableFromInline
     struct FieldState: Sendable {
         @usableFromInline var kind: Kind
@@ -70,22 +110,53 @@ public struct RowBatch: ColumnarSource, Sendable {
     @usableFromInline var nullMask: [[Bool]?]
     @usableFromInline var metadata: [ColumnMetadata]
 
-    /// Which fields the open row has a cell for — a bit per field, so "exactly one cell per
-    /// field per row" is one AND and one OR rather than a counter per field. Fields past
-    /// the 64th use `overflowFilled`; a manifest that wide is rare and pays a little more.
-    @usableFromInline var touched: UInt64 = 0
-    @usableFromInline var overflowFilled: [Int]
+    /// Per SOURCE column, what an append needs — the field, and a copy of its kind and
+    /// slot — so the hot path does one bounds-checked load, not two. `field` is -1 for an
+    /// unbound column. Kept in step with `fields[field]` by `allocate`.
+    @safe @usableFromInline
+    struct ColumnState: @unchecked Sendable {
+        @usableFromInline var field: Int32
+        @usableFromInline var kind: Kind
+        /// The `[T]` this column appends to — the tail-allocated slot itself, so the hot
+        /// path is `self → columns → slot → array`, one hop shorter than an index.
+        @unsafe @usableFromInline var slot: UnsafeMutableRawPointer?
+        @usableFromInline init(field: Int32, kind: Kind, slot: UnsafeMutableRawPointer?) {
+            self.field = field; self.kind = kind; unsafe self.slot = slot
+        }
+    }
+    @usableFromInline var columns: [ColumnState]
 
-    /// Per SOURCE column: the manifest field it feeds, or -1.
-    @usableFromInline let fieldOf: [Int32]
+    // PRESENCE IS DERIVED, NOT TRACKED. Field `f` has a cell in the open row exactly when
+    // its column is one longer than `completedRows`; nothing is written per cell but the
+    // cell. A per-cell bitmask was tried and measured: a read-modify-write on `self`
+    // through memory serialises consecutive cells on store forwarding, and that alone was
+    // ~12 ns/row. `finishRow` reads eight lengths instead, independently.
+    /// Nulls seen by an `.undecided` field, which has no column yet to be long.
+    @usableFromInline var pendingNulls: [Int]
 
-    // The columns, by kind.
-    @usableFromInline var ints: [[Int64]] = []
-    @usableFromInline var doubles: [[Double]] = []
-    @usableFromInline var bools: [[Bool]] = []
-    @usableFromInline var strings: [[String]] = []
-    @usableFromInline var byteBlobs: [[UInt8]] = []
-    @usableFromInline var byteOffsets: [[Int]] = []
+    // The columns, by kind: one table each with a slot per field (at most `fields.count`
+    // of any kind), owned strongly here and reached per cell through the `Unmanaged`
+    // beside it — a class reference read from a stored property is retained and released,
+    // and that pair costs more than the append. `slotsUsed` is how many slots of each
+    // table a field has claimed.
+    @usableFromInline let ints: ColumnTable<Int64>
+    @usableFromInline let doubles: ColumnTable<Double>
+    @usableFromInline let bools: ColumnTable<Bool>
+    @usableFromInline let strings: ColumnTable<String>
+    @usableFromInline let blobBytes: ColumnTable<UInt8>
+    @usableFromInline let blobOffsets: ColumnTable<Int>
+    // The slots themselves, as pointers taken once: a tail-allocated element never moves
+    // for the life of its buffer, and the buffers above live as long as the batch. An
+    // append is then `intSlots[slot].append(v)` — no closure (a closure capturing the
+    // value retained and released it per cell, 4 strings × 200k rows was 40% of the fill),
+    // no exclusivity bookkeeping, no copy-on-write check on the table.
+    @unsafe @usableFromInline let intSlots: UnsafeMutablePointer<[Int64]>
+    @unsafe @usableFromInline let doubleSlots: UnsafeMutablePointer<[Double]>
+    @unsafe @usableFromInline let boolSlots: UnsafeMutablePointer<[Bool]>
+    @unsafe @usableFromInline let stringSlots: UnsafeMutablePointer<[String]>
+    @unsafe @usableFromInline let blobByteSlots: UnsafeMutablePointer<[UInt8]>
+    @unsafe @usableFromInline let blobOffsetSlots: UnsafeMutablePointer<[Int]>
+    @usableFromInline var slotsUsed: (ints: Int, doubles: Int, bools: Int, strings: Int, blobs: Int) = (0, 0, 0, 0, 0)
 
     @usableFromInline var completedRows: Int = 0
     @usableFromInline var rowOpen: Bool = false
@@ -116,75 +187,88 @@ public struct RowBatch: ColumnarSource, Sendable {
             }
         }
         self.fields = kinds.enumerated().map { FieldState(kind: $1, bound: plan[$0] >= 0) }
+        self.pendingNulls = [Int](repeating: 0, count: n)
+        let slots = Swift.max(n, 1)
+        ints = .make(slots: slots); unsafe intSlots = ints.elements
+        doubles = .make(slots: slots); unsafe doubleSlots = doubles.elements
+        bools = .make(slots: slots); unsafe boolSlots = bools.elements
+        strings = .make(slots: slots); unsafe stringSlots = strings.elements
+        blobBytes = .make(slots: slots); unsafe blobByteSlots = blobBytes.elements
+        blobOffsets = .make(slots: slots); unsafe blobOffsetSlots = blobOffsets.elements
         self.nullMask = [[Bool]?](repeating: nil, count: n)
         self.metadata = [ColumnMetadata](repeating: .none, count: n)
-        self.overflowFilled = n > 64 ? [Int](repeating: 0, count: n - 64) : []
         // Invert the plan: field -> source column becomes source column -> field. The
         // widest source column any field binds to sizes the table; a column past it is
         // simply unbound.
         var width = 0
         for f in 0..<n where plan[f] >= 0 { width = Swift.max(width, plan[f] + 1) }
-        var inverse = [Int32](repeating: -1, count: width)
-        for f in 0..<n where plan[f] >= 0 { inverse[plan[f]] = Int32(f) }
-        self.fieldOf = inverse
+        var inverse = unsafe [ColumnState](repeating: ColumnState(field: -1, kind: .unbound, slot: nil), count: width)
+        for f in 0..<n where plan[f] >= 0 { unsafe inverse[plan[f]] = ColumnState(field: Int32(f), kind: kinds[f], slot: nil) }
+        self.columns = inverse
         for f in 0..<n where kinds[f] != .undecided { allocate(f, kinds[f]) }
     }
 
-    /// How many cells field `f` has, counting the open row's.
-    @inlinable
+    /// How many cells field `f` has, counting the open row's: its column's length, or
+    /// for a field with no column yet, the nulls it has seen.
+    @usableFromInline
     func filledCount(_ f: Int) -> Int {
-        completedRows + (isTouched(f) ? 1 : 0)
+        let s = Int(fields[f].slot)
+        switch fields[f].kind {
+        case .int64: return unsafe intSlots[s].count
+        case .double: return unsafe doubleSlots[s].count
+        case .bool: return unsafe boolSlots[s].count
+        case .string: return unsafe stringSlots[s].count
+        case .bytes: return unsafe blobOffsetSlots[s].count - 1
+        case .undecided, .unbound: return pendingNulls[f]
+        }
     }
 
-    @inlinable
-    func isTouched(_ f: Int) -> Bool {
-        f < 64 ? touched & (1 << UInt64(f)) != 0 : overflowFilled[f - 64] > completedRows
-    }
-
-    @inlinable
-    mutating func touch(_ f: Int) {
-        if f < 64 { touched |= 1 << UInt64(f) } else { overflowFilled[f - 64] = completedRows + 1 }
-    }
+    @usableFromInline
+    func isTouched(_ f: Int) -> Bool { filledCount(f) > completedRows }
 
     /// Give field `f` a column of kind `k`. Called at init for the built-in kinds and on
     /// first append for a `.custom` field — which may already have seen nulls, so the new
     /// column is back-filled with placeholders to keep it dense and aligned.
     @usableFromInline
     mutating func allocate(_ f: Int, _ k: Kind) {
+        // Nulls seen while the field was undecided, to back-fill. At init the kind is
+        // already set from the manifest and no slot exists yet, so this must not read one.
+        let behind = fields[f].kind == .undecided ? pendingNulls[f] : 0
         fields[f].kind = k
-        let behind = filledCount(f)
         switch k {
         case .int64:
-            fields[f].slot = Int32(ints.count)
-            ints.append([Int64](repeating: 0, count: behind))
-            ints[ints.count - 1].reserveCapacity(capacity)
+            fields[f].slot = Int32(slotsUsed.ints); slotsUsed.ints += 1
+            ints.with(Int(fields[f].slot)) { $0 = [Int64](repeating: 0, count: behind); $0.reserveCapacity(capacity) }
         case .double:
-            fields[f].slot = Int32(doubles.count)
-            doubles.append([Double](repeating: 0, count: behind))
-            doubles[doubles.count - 1].reserveCapacity(capacity)
+            fields[f].slot = Int32(slotsUsed.doubles); slotsUsed.doubles += 1
+            doubles.with(Int(fields[f].slot)) { $0 = [Double](repeating: 0, count: behind); $0.reserveCapacity(capacity) }
         case .bool:
-            fields[f].slot = Int32(bools.count)
-            bools.append([Bool](repeating: false, count: behind))
-            bools[bools.count - 1].reserveCapacity(capacity)
+            fields[f].slot = Int32(slotsUsed.bools); slotsUsed.bools += 1
+            bools.with(Int(fields[f].slot)) { $0 = [Bool](repeating: false, count: behind); $0.reserveCapacity(capacity) }
         case .string:
-            fields[f].slot = Int32(strings.count)
-            strings.append([String](repeating: "", count: behind))
-            strings[strings.count - 1].reserveCapacity(capacity)
+            fields[f].slot = Int32(slotsUsed.strings); slotsUsed.strings += 1
+            strings.with(Int(fields[f].slot)) { $0 = [String](repeating: "", count: behind); $0.reserveCapacity(capacity) }
         case .bytes:
-            fields[f].slot = Int32(byteBlobs.count)
-            byteBlobs.append([])
-            byteOffsets.append([Int](repeating: 0, count: behind + 1))
-            byteOffsets[byteOffsets.count - 1].reserveCapacity(capacity + 1)
-        case .undecided:
+            fields[f].slot = Int32(slotsUsed.blobs); slotsUsed.blobs += 1
+            blobOffsets.with(Int(fields[f].slot)) { $0 = [Int](repeating: 0, count: behind + 1); $0.reserveCapacity(capacity + 1) }
+        case .undecided, .unbound:
             break
         }
+        let slot = Int(fields[f].slot)
+        let pointer: UnsafeMutableRawPointer?
+        switch k {
+        case .int64: unsafe pointer = UnsafeMutableRawPointer(intSlots + slot)
+        case .double: unsafe pointer = UnsafeMutableRawPointer(doubleSlots + slot)
+        case .bool: unsafe pointer = UnsafeMutableRawPointer(boolSlots + slot)
+        case .string: unsafe pointer = UnsafeMutableRawPointer(stringSlots + slot)
+        case .bytes: unsafe pointer = UnsafeMutableRawPointer(blobByteSlots + slot)
+        case .undecided, .unbound: unsafe pointer = nil
+        }
+        for c in columns.indices where columns[c].field == Int32(f) {
+            columns[c].kind = k
+            unsafe columns[c].slot = pointer
+        }
     }
-
-    /// The row this cell belongs to must be the open one, exactly once per field: a second
-    /// cell for the same field in one row, or a cell with no `beginRow()`, would shift
-    /// every later row of that column. Refused as a rejected cell instead.
-    @inlinable
-    func inRow(_ f: Int) -> Bool { rowOpen && !isTouched(f) }
 
     // MARK: Rows
 
@@ -192,36 +276,31 @@ public struct RowBatch: ColumnarSource, Sendable {
     /// `finishRow()`.
     public var rowCount: Int { completedRows }
 
+    /// Whether a row is being built — begun and not yet finished.
+    @inlinable public var isRowOpen: Bool { rowOpen }
+
     /// Start a row, finishing the previous one if it is still open.
-    @inlinable
+    @inlinable @inline(__always)
     public mutating func beginRow() {
         if rowOpen { finishRow() }
         rowOpen = true
     }
 
     /// Finish the open row: any field it did not touch gets a null. Idempotent.
-    @inlinable
+    ///
+    /// A row is pending if `beginRow()` opened one, or if any cell arrived without one —
+    /// a driver that never calls `beginRow()` still gets its rows, completed here.
     public mutating func finishRow() {
-        guard rowOpen else { return }
-        // The common case — every field touched — is one compare and no loop.
-        if fields.count <= 64 && touched == (fields.count == 64 ? .max : (1 << UInt64(fields.count)) - 1) {
-            completedRows += 1
-            touched = 0
-            rowOpen = false
-            return
+        let next = completedRows + 1
+        var pending = rowOpen
+        if !pending {
+            for f in 0..<fields.count where filledCount(f) >= next { pending = true; break }
         }
-        backfill()
-    }
-
-    /// The uncommon case: a ragged row. Cold.
-    @inline(never)
-    @usableFromInline
-    mutating func backfill() {
-        for f in 0..<fields.count where !isTouched(f) {
+        guard pending else { return }
+        for f in 0..<fields.count where filledCount(f) < next {
             appendNull(field: f)
         }
-        completedRows += 1
-        touched = 0
+        completedRows = next
         rowOpen = false
     }
 
@@ -232,19 +311,17 @@ public struct RowBatch: ColumnarSource, Sendable {
     /// Empty the batch for reuse. Column storage is kept, so a steady-state reader
     /// allocates nothing per batch.
     public mutating func removeAll(keepingCapacity: Bool = true) {
-        for i in ints.indices { ints[i].removeAll(keepingCapacity: keepingCapacity) }
-        for i in doubles.indices { doubles[i].removeAll(keepingCapacity: keepingCapacity) }
-        for i in bools.indices { bools[i].removeAll(keepingCapacity: keepingCapacity) }
-        for i in strings.indices { strings[i].removeAll(keepingCapacity: keepingCapacity) }
-        for i in byteBlobs.indices {
-            byteBlobs[i].removeAll(keepingCapacity: keepingCapacity)
-            byteOffsets[i].removeAll(keepingCapacity: keepingCapacity)
-            byteOffsets[i].append(0)
+        for i in 0..<slotsUsed.ints { ints.with(i) { $0.removeAll(keepingCapacity: keepingCapacity) } }
+        for i in 0..<slotsUsed.doubles { doubles.with(i) { $0.removeAll(keepingCapacity: keepingCapacity) } }
+        for i in 0..<slotsUsed.bools { bools.with(i) { $0.removeAll(keepingCapacity: keepingCapacity) } }
+        for i in 0..<slotsUsed.strings { strings.with(i) { $0.removeAll(keepingCapacity: keepingCapacity) } }
+        for i in 0..<slotsUsed.blobs {
+            blobBytes.with(i) { $0.removeAll(keepingCapacity: keepingCapacity) }
+            blobOffsets.with(i) { $0.removeAll(keepingCapacity: keepingCapacity); $0.append(0) }
         }
         for f in nullMask.indices { nullMask[f] = nil }
         for f in fields.indices { fields[f].rejected = 0 }
-        for i in overflowFilled.indices { overflowFilled[i] = 0 }
-        touched = 0
+        for i in pendingNulls.indices { pendingNulls[i] = 0 }
         completedRows = 0
         rowOpen = false
     }
@@ -252,47 +329,75 @@ public struct RowBatch: ColumnarSource, Sendable {
     // MARK: Cells, by SOURCE column
 
     /// The field a source column feeds, or nil for an unbound column.
-    @inlinable
+    @inlinable @inline(__always)
     func field(_ column: Int) -> Int? {
-        guard column >= 0, column < fieldOf.count else { return nil }
-        let f = fieldOf[column]
+        guard column >= 0, column < columns.count else { return nil }
+        let f = columns[column].field
         return f >= 0 ? Int(f) : nil
     }
 
-    @inlinable
+    @inlinable @inline(__always)
     public mutating func append(int64 v: Int64, column: Int) {
-        guard let f = field(column) else { return }
-        if fields[f].kind == .undecided { allocate(f, .int64) }
-        guard fields[f].kind == .int64, inRow(f) else { reject(f); return }
-        ints[Int(fields[f].slot)].append(v)
-        touch(f)
+        guard column >= 0, column < columns.count else { return }
+        var c = columns[column]
+        if c.kind == .undecided { allocate(Int(c.field), .int64); c = columns[column] }
+        // One compare covers "wrong kind" and "no field at all" (`.unbound`).
+        guard c.kind == .int64 else { if c.kind != .unbound { reject(Int(c.field)) }; return }
+        let p = unsafe c.slot.unsafelyUnwrapped.assumingMemoryBound(to: [Int64].self)
+        // Exactly one cell per field per row: the column must be exactly `completedRows`
+        // long. A second cell in the same row, or one after the row was finished, would
+        // shift every later row of the column; it is rejected instead.
+        guard unsafe p.pointee.count == completedRows else { reject(Int(c.field)); return }
+        unsafe p.pointee.append(v)
     }
 
-    @inlinable
+    @inlinable @inline(__always)
     public mutating func append(double v: Double, column: Int) {
-        guard let f = field(column) else { return }
-        if fields[f].kind == .undecided { allocate(f, .double) }
-        guard fields[f].kind == .double, inRow(f) else { reject(f); return }
-        doubles[Int(fields[f].slot)].append(v)
-        touch(f)
+        guard column >= 0, column < columns.count else { return }
+        var c = columns[column]
+        if c.kind == .undecided { allocate(Int(c.field), .double); c = columns[column] }
+        // One compare covers "wrong kind" and "no field at all" (`.unbound`).
+        guard c.kind == .double else { if c.kind != .unbound { reject(Int(c.field)) }; return }
+        let p = unsafe c.slot.unsafelyUnwrapped.assumingMemoryBound(to: [Double].self)
+        // Exactly one cell per field per row: the column must be exactly `completedRows`
+        // long. A second cell in the same row, or one after the row was finished, would
+        // shift every later row of the column; it is rejected instead.
+        guard unsafe p.pointee.count == completedRows else { reject(Int(c.field)); return }
+        unsafe p.pointee.append(v)
     }
 
-    @inlinable
+    @inlinable @inline(__always)
     public mutating func append(bool v: Bool, column: Int) {
-        guard let f = field(column) else { return }
-        if fields[f].kind == .undecided { allocate(f, .bool) }
-        guard fields[f].kind == .bool, inRow(f) else { reject(f); return }
-        bools[Int(fields[f].slot)].append(v)
-        touch(f)
+        guard column >= 0, column < columns.count else { return }
+        var c = columns[column]
+        if c.kind == .undecided { allocate(Int(c.field), .bool); c = columns[column] }
+        // One compare covers "wrong kind" and "no field at all" (`.unbound`).
+        guard c.kind == .bool else { if c.kind != .unbound { reject(Int(c.field)) }; return }
+        let p = unsafe c.slot.unsafelyUnwrapped.assumingMemoryBound(to: [Bool].self)
+        // Exactly one cell per field per row: the column must be exactly `completedRows`
+        // long. A second cell in the same row, or one after the row was finished, would
+        // shift every later row of the column; it is rejected instead.
+        guard unsafe p.pointee.count == completedRows else { reject(Int(c.field)); return }
+        unsafe p.pointee.append(v)
     }
 
-    @inlinable
-    public mutating func append(string v: String, column: Int) {
-        guard let f = field(column) else { return }
-        if fields[f].kind == .undecided { allocate(f, .string) }
-        guard fields[f].kind == .string, inRow(f) else { reject(f); return }
-        strings[Int(fields[f].slot)].append(v)
-        touch(f)
+    /// `consuming`: the caller's +1 (a string it just loaded from its row) flows straight
+    /// into the column. As a borrowed parameter the compiler copied it in and released the
+    /// caller's — a retain/release pair per string cell, and the difference between this
+    /// transpose and a hand-written one.
+    @inlinable @inline(__always)
+    public mutating func append(string v: consuming String, column: Int) {
+        guard column >= 0, column < columns.count else { return }
+        var c = columns[column]
+        if c.kind == .undecided { allocate(Int(c.field), .string); c = columns[column] }
+        // One compare covers "wrong kind" and "no field at all" (`.unbound`).
+        guard c.kind == .string else { if c.kind != .unbound { reject(Int(c.field)) }; return }
+        let p = unsafe c.slot.unsafelyUnwrapped.assumingMemoryBound(to: [String].self)
+        // Exactly one cell per field per row: the column must be exactly `completedRows`
+        // long. A second cell in the same row, or one after the row was finished, would
+        // shift every later row of the column; it is rejected instead.
+        guard unsafe p.pointee.count == completedRows else { reject(Int(c.field)); return }
+        unsafe p.pointee.append(v)
     }
 
     /// Text as bytes — a CSV field, a text-format wire value. Becomes a `String`.
@@ -304,18 +409,21 @@ public struct RowBatch: ColumnarSource, Sendable {
     /// A binary cell, stored flat with offsets (`BytesColumn`'s layout) — no array per row.
     @inlinable
     public mutating func append<C: Collection<UInt8>>(bytes v: C, column: Int) {
-        guard let f = field(column) else { return }
-        if fields[f].kind == .undecided { allocate(f, .bytes) }
-        guard fields[f].kind == .bytes, inRow(f) else { reject(f); return }
-        let s = Int(fields[f].slot)
-        byteBlobs[s].append(contentsOf: v)
-        byteOffsets[s].append(byteBlobs[s].count)
-        touch(f)
+        guard column >= 0, column < columns.count else { return }
+        var c = columns[column]
+        if c.kind == .undecided { allocate(Int(c.field), .bytes); c = columns[column] }
+        guard c.kind == .bytes else { if c.kind != .unbound { reject(Int(c.field)) }; return }
+        let f = Int(c.field)
+        let slot = Int(fields[f].slot)
+        guard unsafe blobOffsetSlots[slot].count - 1 == completedRows else { reject(f); return }
+        unsafe blobByteSlots[slot].append(contentsOf: v)
+        unsafe blobOffsetSlots[slot].append(blobByteSlots[slot].count)
     }
 
-    @inlinable
+    @inlinable @inline(__always)
     public mutating func appendNull(column: Int) {
-        guard let f = field(column), inRow(f) else { if let f = field(column) { reject(f) }; return }
+        guard let f = field(column) else { return }
+        guard !isTouched(f) else { reject(f); return }
         appendNull(field: f)
     }
 
@@ -326,15 +434,18 @@ public struct RowBatch: ColumnarSource, Sendable {
         let row = filledCount(f)
         let s = Int(fields[f].slot)
         switch fields[f].kind {
-        case .int64: ints[s].append(0)
-        case .double: doubles[s].append(0)
-        case .bool: bools[s].append(false)
-        case .string: strings[s].append("")
-        case .bytes: byteOffsets[s].append(byteBlobs[s].count)
-        case .undecided:
-            // No kind yet and nothing to store: the mask records the null, and when the
-            // kind is decided `allocate` back-fills placeholders up to here.
-            break
+        case .int64: ints.with(s) { $0.append(0) }
+        case .double: doubles.with(s) { $0.append(0) }
+        case .bool: bools.with(s) { $0.append(false) }
+        case .string: strings.with(s) { $0.append("") }
+        case .bytes:
+            let end = blobBytes.with(s) { $0.count }
+            blobOffsets.with(s) { $0.append(end) }
+        case .undecided, .unbound:
+            // No kind yet and nothing to store: the mask records the null, the count
+            // here keeps presence honest, and when the kind is decided `allocate`
+            // back-fills placeholders up to it.
+            pendingNulls[f] += 1
         }
         // The mask is only as long as the last null: `_assayIsNullAt` treats rows past
         // its end as present. So pad it with `false` up to this row, then mark the row.
@@ -342,7 +453,6 @@ public struct RowBatch: ColumnarSource, Sendable {
         let short = row - nullMask[f]!.count
         if short > 0 { nullMask[f]!.append(contentsOf: repeatElement(false, count: short)) }
         nullMask[f]!.append(true)
-        touch(f)
     }
 
     /// A cell of the wrong kind, or a second cell for the field in one row: dropped, and
@@ -372,21 +482,21 @@ public struct RowBatch: ColumnarSource, Sendable {
     }
 
     public borrowing func int64Column(_ key: StaticString, _ field: Int) -> [Int64]? {
-        serves(field, .int64) ? ints[Int(fields[field].slot)] : nil
+        serves(field, .int64) ? ints.with(Int(fields[field].slot)) { $0 } : nil
     }
     public borrowing func doubleColumn(_ key: StaticString, _ field: Int) -> [Double]? {
-        serves(field, .double) ? doubles[Int(fields[field].slot)] : nil
+        serves(field, .double) ? doubles.with(Int(fields[field].slot)) { $0 } : nil
     }
     public borrowing func boolColumn(_ key: StaticString, _ field: Int) -> [Bool]? {
-        serves(field, .bool) ? bools[Int(fields[field].slot)] : nil
+        serves(field, .bool) ? bools.with(Int(fields[field].slot)) { $0 } : nil
     }
     public borrowing func stringColumn(_ key: StaticString, _ field: Int) -> [String]? {
-        serves(field, .string) ? strings[Int(fields[field].slot)] : nil
+        serves(field, .string) ? strings.with(Int(fields[field].slot)) { $0 } : nil
     }
     public borrowing func bytesColumn(_ key: StaticString, _ field: Int) -> BytesColumn? {
         guard serves(field, .bytes) else { return nil }
         let s = Int(fields[field].slot)
-        return BytesColumn(bytes: byteBlobs[s], offsets: byteOffsets[s],
+        return BytesColumn(bytes: blobBytes.with(s) { $0 }, offsets: blobOffsets.with(s) { $0 },
                            nulls: nullMask[field], metadata: metadata[field])
     }
     public borrowing func nulls(_ key: StaticString, _ field: Int) -> [Bool]? {

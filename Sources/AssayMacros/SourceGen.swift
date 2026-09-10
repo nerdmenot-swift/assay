@@ -224,6 +224,13 @@ extension SchemaMacro {
 
         """ : ""
         let missingFlag = hasRequired ? "    var __columnMissing = false\n" : ""
+        // A row that reported anything is not a value, on this path as on every other:
+        // `values` holds the rows that decoded clean, `issues` names the rest by index.
+        // Until 2026-09-10 a rule violation was reported AND the row was appended. Only
+        // emitted when there are rules — the presence checks above `continue` themselves.
+        let rowGuard = validation.isEmpty ? ("", "") : (
+            "        let __rck = sink.checkpoint()\n",
+            "        if sink.checkpoint() != __rck { continue }\n")
 
         return """
         /// Decode a whole batch, one sequential pass per column.
@@ -243,7 +250,7 @@ extension SchemaMacro {
             // per row: `sink.add` inserts it, cold, only when something is reported.
             for __r in 0..<source.rowCount {
                 sink._enterRow(__r, depth: path.count)
-        \(perRow)\(validation)
+        \(perRow)\(rowGuard.0)\(validation)\(rowGuard.1)
         \(unwraps)        __out.append(\(typeName)(\(args.joined(separator: ", "))))
             }
             sink._leaveRows()

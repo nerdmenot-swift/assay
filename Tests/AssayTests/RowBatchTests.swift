@@ -65,7 +65,8 @@ struct RowBatchTests {
     func kinds() {
         let b = batch([[1, "a", 1.5, true, [UInt8]([1, 2]), "nick", 7],
                        [2, "b", 2.5, false, [UInt8]([]), nil, nil]])
-        #expect(b.rowCount == 2)
+        let rows = b.rowCount
+        #expect(rows == 2)
         let d = RB.batch(from: b)
         #expect(d.isValid, "\(d.issues)")
         #expect(d.values == [
@@ -131,7 +132,8 @@ struct RowBatchTests {
             b.append(string: "n", column: 1); b.append(double: 1, column: 2); b.append(bool: true, column: 3)
         }
         b.finishRow()
-        #expect(b.rejectedCells[0] == 3)
+        let rejected = b.rejectedCells
+        #expect(rejected[0] == 3)
         let d = RB.batch(from: b)
         #expect(d.values.isEmpty)
         #expect(d.issues.count == 1)
@@ -139,16 +141,21 @@ struct RowBatchTests {
         #expect(d.issues.first?.path == [.key("id")])
     }
 
-    @Test("two cells for one field in a row, or a cell with no open row, are rejected")
+    @Test("two cells for one field in a row are rejected; a cell before beginRow starts the row")
     func duplicateCell() {
         var b = RowBatch(manifest: RB._assayManifest, columns: Self.columns)
-        b.append(int64: 1, column: 0)                     // no beginRow
-        #expect(b.rejectedCells[0] == 1)
+        b.append(int64: 1, column: 0)                     // no beginRow: it is row 0's cell
+        b.append(string: "a", column: 1); b.append(double: 1, column: 2); b.append(bool: true, column: 3)
+        b.finishRow()
+        let rows = b.rowCount
+        #expect(rows == 1)
+        #expect(RB.batch(from: b).values.map(\.id) == [1])
         var c = RowBatch(manifest: RB._assayManifest, columns: Self.columns)
         c.beginRow()
         c.append(int64: 1, column: 0)
         c.append(int64: 2, column: 0)
-        #expect(c.rejectedCells[0] == 1)
+        let twice = c.rejectedCells
+        #expect(twice[0] == 1)
     }
 
     @Test("a custom scalar takes its kind from the first cell and its unit from the batch")
@@ -181,14 +188,16 @@ struct RowBatchTests {
         let d = RB.batch(from: b)
         #expect(d.values.map(\.name) == ["ünï", ""])
         #expect(d.values.map(\.blob) == [[0xDE, 0xAD], []])
-        #expect(b.bytesColumn("blob", 4)?.count == 2)
+        let blobs = b.bytesColumn("blob", 4)?.count
+        #expect(blobs == 2)
     }
 
     @Test("removeAll keeps the columns and the binding; the next batch is clean")
     func reuse() {
         var b = batch([[1, "a", 1.0, true, [UInt8](), nil, 1]])
         b.removeAll()
-        #expect(b.rowCount == 0)
+        let rows = b.rowCount
+        #expect(rows == 0)
         b.beginRow()
         b.append(int64: 2, column: 0); b.append(string: "b", column: 1); b.append(double: 2, column: 2)
         b.append(bool: false, column: 3); b.append(bytes: [1], column: 4); b.append(string: "n", column: 5)

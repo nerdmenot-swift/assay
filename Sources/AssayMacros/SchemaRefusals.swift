@@ -71,6 +71,19 @@ enum SchemaRefusals {
             return true
         }
 
+        // An empty wire key. `@Key("")` decoded `{"": 1}` and its missing-key message was
+        // `" is required"`; nobody meant that.
+        for a in attrs where a.attributeName.trimmedDescription == "Key" {
+            guard let args = a.arguments?.as(LabeledExprListSyntax.self) else { continue }
+            for arg in args {
+                if let lit = arg.expression.as(StringLiteralExprSyntax.self),
+                   lit.segments.description.isEmpty {
+                    return refuse("@Key names an empty wire key. A key has at least one "
+                        + "character; remove the attribute to use the property's own name.")
+                }
+            }
+        }
+
         // `@Key("x")` and `@Key(path:)` together. One field has one wire location; until
         // 2026-09-10 whichever attribute came last won, silently.
         var positionalKey = false, pathKey = false

@@ -396,3 +396,63 @@ struct KeywordKeyTests {
         #expect(try KeywordEnum.default.jsonText() == #""default""#)
     }
 }
+
+// MARK: - Second-audit small fixes (2026-09-10)
+
+@Schema struct BomDoc: Equatable { var s: String }
+@Schema(unknownKeys: .warn) struct SnippetDoc: Equatable { var s: String; var n: Int }
+
+@Suite("Second audit — input edge cases")
+struct SecondAuditInputTests {
+
+    @Test("a UTF-8 byte-order mark is skipped, and carets stay true")
+    func bom() throws {
+        let bom = "\u{FEFF}"
+        #expect(try BomDoc.parse(json: bom + #"{"s":"x"}"#) == BomDoc(s: "x"))
+        let d = BomDoc.diagnose(json: bom + #"{"s":1}"#, sourceName: "t.json")
+        #expect(d.issues.count == 1)
+        // Column 6 with the BOM counted as a character: the index sees the whole buffer.
+        #expect(d.render(.plain).contains("t.json:1:"))
+        #expect(try JSON.Value.parse(Array((bom + "[1]").utf8)) == .array([.int(1)]))
+    }
+
+    @Test("a lone surrogate is one invalid_escape issue, and the document is not malformed")
+    func loneSurrogate() {
+        let d = SnippetDoc.diagnose(json: #"{"s":"\ud800","n":1}"#)
+        #expect(d.issues.map(\.code) == [.invalidEscape], "\(d.issues)")
+        #expect(d.issues.first?.path == [.key("s")])
+        #expect(d.issues.first?.location?.lo == 6)
+        #expect(!d.issues.contains { $0.code == .malformedDocument })
+    }
+
+    @Test("a mismatch on a container says what it found in words, and a snippet ends on a scalar boundary")
+    func snippets() {
+        let arr = SnippetDoc.diagnose(json: #"{"s":[1,2,3],"n":1}"#)
+        #expect(arr.issues.first?.received == "an array")
+        let obj = SnippetDoc.diagnose(json: #"{"s":{"a":1},"n":1}"#)
+        #expect(obj.issues.first?.received == "an object")
+        // 32 bytes of 3-byte scalars is not a multiple of three; the cut must not split one.
+        let long = String(repeating: "€", count: 20)
+        let d = SnippetDoc.diagnose(json: #"{"s":"ok","n":"#  + long + "}")
+        let r = try? #require(d.issues.first?.received)
+        #expect(r?.unicodeScalars.contains("\u{FFFD}") == false, "\(r ?? "")")
+    }
+
+    @Test("Issue, Warning and IssueCode are Hashable")
+    func hashable() {
+        let d = SnippetDoc.diagnose(json: #"{"s":1,"n":"x","zz":0}"#)
+        let byCode = Dictionary(grouping: d.issues, by: \.code)
+        #expect(byCode[.typeMismatch]?.count == 2)
+        #expect(Set(d.issues).count == 2)
+        #expect(Set(d.warnings).count == 1)
+    }
+}
+
+@Suite("Second audit — Assayer text overloads")
+struct SecondAuditAssayerTests {
+    @Test("parse(json: String) exists on Assayer")
+    func text() throws {
+        #expect(try Assayer.string.parse(json: "\"x\"") == "x")
+        #expect(Assayer.int.diagnose(json: "\"x\"").isValid == false)
+    }
+}

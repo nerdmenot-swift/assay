@@ -70,6 +70,7 @@ extension XML {
                 return nil
             }
             var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
+            reader.advanceBy(unsafe UTF8Validation.bomLength(base, buf.count))
             var parser = Parser(limits: limits, inputBytes: buf.count)
             return parser.parseDocument(&reader, &sink)
         }

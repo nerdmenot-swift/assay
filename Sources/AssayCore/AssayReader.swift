@@ -73,6 +73,11 @@ public struct AssayReader: ~Copyable {
     /// code only for fields that carry @Validate, so `replicas: 0` renders with a caret
     /// under the 0. Two integer stores; nothing else on the hot path.
     @usableFromInline var valueStart: Int = 0
+    /// Where a string escape went wrong, or -1. `scanStringSlow` sets it and scans on to
+    /// the closing quote so the cursor is past the value; `failed` reads it and reports
+    /// `invalid_escape` at that byte instead of a type mismatch. One Int, so the reader
+    /// stays transitively trivial.
+    @usableFromInline var escapeErrorAt: Int = -1
     @usableFromInline let limits: Limits
 
     /// The limits this reader was created with. Public because generated code consults
@@ -381,6 +386,13 @@ public struct AssayReader: ~Copyable {
     @inline(never)
     func describeCurrentValue() -> String? {
         guard cursor < count else { return nil }
+        // A container is summarised, not quoted: `found [[[[[[[[[[[[[[[[` told nobody
+        // anything, and `found {` told them less.
+        switch unsafe base[cursor] {
+        case 0x5B: return "an array"
+        case 0x7B: return "an object"
+        default: break
+        }
         var end = cursor
         var n = 0
         while end < count, n < 32 {
@@ -389,6 +401,9 @@ public struct AssayReader: ~Copyable {
             end &+= 1
             n &+= 1
         }
+        // Never cut inside a multi-byte scalar: back up over continuation bytes so the
+        // snippet ends on a boundary rather than on a replacement character.
+        while end > cursor, end < count, unsafe (base[end] & 0xC0) == 0x80 { end &-= 1 }
         guard end > cursor else { return nil }
         return unsafe String(decoding: UnsafeBufferPointer(start: base + cursor, count: end - cursor),
                              as: UTF8.self)

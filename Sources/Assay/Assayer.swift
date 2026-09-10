@@ -253,6 +253,19 @@ extension Assayer {
         try diagnose(json: bytes, limits: limits, sourceName: sourceName).get()
     }
 
+    /// Text input — the same pair every `@Schema` type has.
+    public func parse(
+        json text: String, limits: Limits = .default, sourceName: String = "<input>"
+    ) throws -> T {
+        try diagnose(json: Array(text.utf8), limits: limits, sourceName: sourceName).get()
+    }
+
+    public func diagnose(
+        json text: String, limits: Limits = .default, sourceName: String = "<input>"
+    ) -> Diagnosis<T> {
+        diagnose(json: Array(text.utf8), limits: limits, sourceName: sourceName)
+    }
+
     public func parse(
         _ raw: RawValue, limits: Limits = .default, sourceName: String = "<value>"
     ) throws -> T {

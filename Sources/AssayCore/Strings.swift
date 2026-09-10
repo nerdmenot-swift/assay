@@ -97,6 +97,7 @@ extension AssayReader {
                 continue
             }
             // escape
+            let escapeStart = cursor
             cursor &+= 1
             guard cursor < count else { return nil }
             let e = unsafe base[cursor]
@@ -111,7 +112,16 @@ extension AssayReader {
             case 0x72: out.append(0x0D)          // \r
             case 0x74: out.append(0x09)          // \t
             case 0x75:                            // \uXXXX
-                guard let scalar = scanUnicodeEscape() else { return nil }
+                guard let scalar = scanUnicodeEscape() else {
+                    // A lone surrogate or a non-hex digit. Remember where, then scan on
+                    // to the closing quote so the value is consumed: until 2026-09-10
+                    // this returned with the cursor mid-string and the caller reported
+                    // "must be a string" followed by "is not a well-formed document".
+                    escapeErrorAt = escapeStart
+                    cursor = escapeStart
+                    _ = skipString()
+                    return nil
+                }
                 appendUTF8(scalar, to: &out)
             default:
                 return nil

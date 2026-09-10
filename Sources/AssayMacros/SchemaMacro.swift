@@ -360,7 +360,8 @@ public struct SchemaMacro: ExtensionMacro {
         }
 
         // @Check / @AsyncCheck members, and span requirements they add.
-        let checkDecls = Self.checks(in: structDecl, context: context)
+        let checkDecls = Self.checks(in: structDecl, fields: activeC,
+                                     hasContext: config.isContextual, context: context)
         let checkedFields = Set(checkDecls.compactMap(\.fieldIdentifier))
         var activeS = activeC
         for i in activeS.indices {

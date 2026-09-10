@@ -113,8 +113,8 @@ failed, so the choice stays visible rather than drifting.
 
 | case | Assay | Foundation |
 |---|---|---|
-| duplicate keys | last wins | last wins |
-| a leading byte-order mark | **reject** | accept |
+| duplicate keys | last wins, silently, on every `unknownKeys` policy — the XML parser reports `.duplicateKey` for the same situation; JSON does not, because a duplicate key in JSON is far more often a producer quirk than an attack, and a policy for it is its own decision (`ROADMAP.md`) | last wins |
+| a leading byte-order mark | accept (skipped, since 2026-09-10; it was **reject** before, and Notepad disagreed) | accept |
 | nesting past `Limits.maxDepth` (64) | **reject** | accept |
 | `1e400` | accept, as `+∞` | reject |
 | integers past Int64 | accept, as the correctly-rounded Double | accept |

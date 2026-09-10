@@ -144,6 +144,7 @@ extension JSON.Value {
                 return nil
             }
             var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
+            reader.advanceBy(unsafe UTF8Validation.bomLength(base, buf.count))
             guard let v = reader.scanJSONValue(&sink, []) else { return nil }
             reader.skipWhitespace()
             if !reader.atEnd {

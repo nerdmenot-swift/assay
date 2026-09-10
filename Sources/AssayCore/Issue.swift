@@ -24,7 +24,7 @@
 /// everyone serious does it that way (Swift's `SourceLoc` is one pointer, Clang's is a
 /// bare `uint32_t`, serde_json runs `memrchr` backwards at error-construction time).
 @frozen
-public struct SourceSpan: Sendable, Equatable {
+public struct SourceSpan: Sendable, Hashable {
     public var lo: UInt32
     public var len: UInt32
 
@@ -42,7 +42,7 @@ public struct SourceSpan: Sendable, Equatable {
 }
 
 /// One step in the path to a value: `.key("services")`, `.index(2)`.
-public enum PathComponent: Sendable, Equatable {
+public enum PathComponent: Sendable, Hashable {
     case key(String)
     case index(Int)
 }
@@ -65,7 +65,7 @@ extension Array where Element == PathComponent {
 }
 
 /// A machine-readable classification. Match on this, never on `message`.
-public enum IssueCode: Sendable, Equatable {
+public enum IssueCode: Sendable, Hashable {
     case missing
     case typeMismatch
     case malformedDocument
@@ -80,7 +80,7 @@ public enum IssueCode: Sendable, Equatable {
 }
 
 /// A parameter value carried alongside an `IssueCode`.
-public enum IssueValue: Sendable, Equatable {
+public enum IssueValue: Sendable, Hashable {
     case int(Int)
     case double(Double)
     case bool(Bool)
@@ -88,7 +88,7 @@ public enum IssueValue: Sendable, Equatable {
 }
 
 /// A hard failure.
-public struct Issue: Sendable, Equatable {
+public struct Issue: Sendable, Hashable {
     public var code: IssueCode
     public var path: [PathComponent]
     public var params: [String: IssueValue]
@@ -113,7 +113,7 @@ public struct Issue: Sendable, Equatable {
 
 /// A tolerated deviation: a fallback that fired, an alias that matched, an unknown key
 /// that was ignored. Only ever surfaced through `diagnose`.
-public struct Warning: Sendable, Equatable {
+public struct Warning: Sendable, Hashable {
     public var code: IssueCode
     public var path: [PathComponent]
     public var params: [String: IssueValue]

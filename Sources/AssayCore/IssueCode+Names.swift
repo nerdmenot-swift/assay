@@ -23,6 +23,9 @@ extension IssueCode {
 
     // MARK: Decoding
 
+    /// A string escape that is not one: a lone surrogate, a non-hex `\u` digit.
+    /// `location` is the backslash.
+    public static let invalidEscape = IssueCode.custom("invalid_escape")
     public static let assayerConversionFailed = IssueCode.custom("assayer_conversion_failed")
     public static let fallbackApplied = IssueCode.custom("fallback_applied")
     public static let invalidRegexPattern = IssueCode.custom("invalid_regex_pattern")

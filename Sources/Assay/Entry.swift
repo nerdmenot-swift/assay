@@ -89,6 +89,8 @@ extension JSONAssayable {
         }
 
         var reader = unsafe AssayReader(base: base, count: count, limits: limits)
+
+        reader.advanceBy(unsafe UTF8Validation.bomLength(base, count))
         let v = Self._assay(from: &reader, into: &sink, at: [])
 
         // Trailing content is an error, not a shrug.

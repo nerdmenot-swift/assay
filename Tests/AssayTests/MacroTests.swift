@@ -422,3 +422,34 @@ extension RefusalTests {
         #expect(!ctx.contains("_assayRequire"), "a contextual parent must not assert")
     }
 }
+
+// MARK: - @Check shapes, and an empty key
+
+extension RefusalTests {
+
+    @Test("a field check whose parameter type is not the field's")
+    func checkParamType() {
+        let d = diags(#"@Schema struct S { var a: Int; @Check(\S.a) static func f(_ a: String) -> String? { nil } }"#)
+        #expect(d.contains { $0.contains("declares its parameter as 'String'") }, "\(d)")
+    }
+
+    @Test("a cross-field check with the wrong shape")
+    func crossShape() {
+        let d = diags(#"@Schema struct S { var a: Int; @Check static func f(_ v: S) -> String? { nil } }"#)
+        #expect(d.contains { $0.contains("inout Issues<S>") }, "\(d)")
+        let ok = diags(#"@Schema struct S { var a: Int; @Check static func f(_ v: S, _ i: inout Issues<S>) {} }"#)
+        #expect(ok.isEmpty, "\(ok)")
+    }
+
+    @Test("a key path to a property the type does not declare")
+    func checkUnknownField() {
+        let d = diags(#"@Schema struct S { var a: Int; @Check(\S.b) static func f(_ b: Int) -> String? { nil } }"#)
+        #expect(d.contains { $0.contains("does not declare") && $0.contains("'a'") }, "\(d)")
+    }
+
+    @Test("@Key with an empty name")
+    func emptyKey() {
+        let d = diags(#"@Schema struct S { @Key("") var a: Int }"#)
+        #expect(d.contains { $0.contains("empty wire key") }, "\(d)")
+    }
+}

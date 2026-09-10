@@ -29,8 +29,16 @@ struct CheckDecl {
 extension SchemaMacro {
 
     /// Collect `@Check` and `@AsyncCheck` members from the type body.
+    ///
+    /// `fields` and `hasContext` are what the shape checks below need: the macro has the
+    /// function's signature and the field list in hand, so a check whose parameter type
+    /// does not match its field, a cross-field check with the wrong shape, or a key path
+    /// to a property that does not exist are all said here — before the type checker says
+    /// "extra argument in call" at a line inside the expansion (second audit, 2026-09-10).
     static func checks(
         in structDecl: StructDeclSyntax,
+        fields: [SchemaField] = [],
+        hasContext: Bool = false,
         context: some MacroExpansionContext
     ) -> [CheckDecl] {
         var out: [CheckDecl] = []
@@ -56,9 +64,56 @@ extension SchemaMacro {
                let first = args.first {
                 let text = first.expression.trimmedDescription
                 if text.hasPrefix("\\.") {
-                    field = String(text.dropFirst(2))
+                    field = SchemaMacro.unbackticked(String(text.dropFirst(2)))
                 } else if text.hasPrefix("\\") , let dot = text.firstIndex(of: ".") {
-                    field = String(text[text.index(after: dot)...])
+                    field = SchemaMacro.unbackticked(String(text[text.index(after: dot)...]))
+                }
+            }
+
+            // THE SHAPE, checked against what the emitted call will pass. Field form:
+            // `(FieldType[, Context]) -> String?`. Cross-field form: `(Self[, Context],
+            // inout Issues<Self>)`. Everything else was a type-checker error inside the
+            // expansion — "extra argument in call", "cannot convert 'Int' to 'String'".
+            let params = fn.signature.parameterClause.parameters
+            let expectedCount = (field == nil ? 2 : 1) + (hasContext ? 1 : 0)
+            func refuse(_ m: String) {
+                context.diagnose(Diagnostic(node: Syntax(fn), message: SimpleDiagnostic(m)))
+            }
+            if let field {
+                guard let f = fields.first(where: { $0.name == field }) else {
+                    refuse("@Check(\\.\(field)) names a property this type does not declare"
+                        + (fields.isEmpty ? "." : "; the fields are "
+                           + fields.map { "'\($0.name)'" }.joined(separator: ", ") + "."))
+                    continue
+                }
+                guard params.count == expectedCount else {
+                    refuse("a field check takes the field's value\(hasContext ? " and the context" : "") "
+                        + "and returns `String?` — `static func \(fn.name.text)(_ value: "
+                        + "\(f.typeName)\(hasContext ? ", _ context: Context" : "")) -> String?`; "
+                        + "'\(fn.name.text)' declares \(params.count) parameter\(params.count == 1 ? "" : "s").")
+                    continue
+                }
+                // The check receives the CONSTRUCTED property — after `@Transform` — so the
+                // declared type is the one to match. Optionality is left to the type
+                // checker: its message for a missing `?` is already the right one.
+                let declared = params.first!.type.trimmedDescription
+                let wanted = f.typeName
+                if SchemaMacro.stripOptional(declared) != SchemaMacro.stripOptional(wanted) {
+                    refuse("@Check(\\.\(field)) receives the field's value, which is "
+                        + "'\(wanted)'; '\(fn.name.text)' declares its parameter as "
+                        + "'\(declared)'.")
+                    continue
+                }
+            } else {
+                guard params.count == expectedCount,
+                      params.last!.type.trimmedDescription.hasPrefix("inout ") else {
+                    refuse("a cross-field check takes the whole value\(hasContext ? ", the context" : "") "
+                        + "and the issue collector — `static func \(fn.name.text)(_ value: "
+                        + "\(structDecl.name.text)\(hasContext ? ", _ context: Context" : ""), "
+                        + "_ issues: inout Issues<\(structDecl.name.text)>)`; "
+                        + "'\(fn.name.text)' declares \(params.count) parameter\(params.count == 1 ? "" : "s")"
+                        + (params.count == expectedCount ? " and the last is not `inout`." : "."))
+                    continue
                 }
             }
 

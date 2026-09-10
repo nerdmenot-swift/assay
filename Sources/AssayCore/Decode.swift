@@ -159,6 +159,14 @@ extension AssayReader {
         var p = path
         p.append(.key(String(describing: key)))
         if element >= 0 { p.append(.index(element)) }
+        if escapeErrorAt >= 0 {
+            // The string was scanned to its closing quote already; say what was wrong
+            // with it rather than that it was not a string.
+            sink.add(Issue(code: .invalidEscape, path: p,
+                           location: SourceSpan(lo: escapeErrorAt, len: 2)))
+            escapeErrorAt = -1
+            return
+        }
         sink.add(Issue(
             code: .typeMismatch,
             path: p,

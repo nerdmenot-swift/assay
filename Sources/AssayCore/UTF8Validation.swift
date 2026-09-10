@@ -24,6 +24,16 @@
 
 public enum UTF8Validation {
 
+    /// The length of a leading UTF-8 byte-order mark, 3 or 0. RFC 8259 §8.1 lets a parser
+    /// ignore one, `JSONDecoder` does, and every file Notepad saves has one; until
+    /// 2026-09-10 Assay reported it as `must be an object, found ﻿{…`. The mark is skipped,
+    /// not deleted: offsets stay absolute, so carets and line numbers are unchanged.
+    @inlinable
+    public static func bomLength(_ base: UnsafePointer<UInt8>, _ count: Int) -> Int {
+        guard count >= 3 else { return 0 }
+        return unsafe (base[0] == 0xEF && base[1] == 0xBB && base[2] == 0xBF) ? 3 : 0
+    }
+
     /// Returns the byte offset of the first invalid sequence, or nil if the whole buffer
     /// is well-formed UTF-8.
     ///

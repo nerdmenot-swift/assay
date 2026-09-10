@@ -1,0 +1,136 @@
+extension S: Assay.JSONAssayable {nonisolated static let __assayKeyTable: [UInt8] = {
+    var t = [UInt8](repeating: 4, count: 256)
+        t[97] = 0
+        t[98] = 1
+        t[99] = 2
+        t[100] = 3
+    return t
+}()
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathComponent]
+) -> S? {
+    guard reader.tryConsume(0x7B) else {
+        reader.reportTypeMismatch(&sink, path, expected: "object")
+        return nil
+    }
+    guard reader.enterContainer(&sink) else { return nil }
+    // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+    // anything ever failed?", which is wrong the moment one sink spans more than
+    // one decode — a driver collecting every issue from a result set would find
+    // one bad row silently discarding every good row after it.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: Int? = nil
+    var __f1: String? = nil
+    var __f2: [Int]? = []
+    var __f3: Nested? = nil
+    var __presence: UInt64 = 0
+
+    if !reader.tryConsume(0x7D) {
+        while true {
+            guard let __key = reader.scanKey() else {
+                reader.reportMalformed(&sink, path)
+                reader.leaveContainer()
+                return nil
+            }
+            guard reader.expect(0x3A) else {
+                reader.reportMalformed(&sink, path)
+                reader.leaveContainer()
+                return nil
+            }
+                let __w = reader._keyWindow(
+                    __key,
+                    byteOffset: 0,
+                    shift: 0)
+                switch Self.__assayKeyTable[Int(__w)] {
+                case 0:
+                    if reader.keyMatches(__key, "a") {
+                        __presence |= 1
+                        __f0 = reader._decodeInt(&sink, path, "a")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 1:
+                    if reader.keyMatches(__key, "b") {
+                        __presence |= 2
+                        if let __r = reader._decodeStringOrNull(&sink, path, "b") { __f1 = __r }
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 2:
+                    if reader.keyMatches(__key, "c") {
+                        __presence |= 4
+                        if reader.tryConsume(0x5B) {
+                            var __arr2_0: [Int] = []
+                            if !reader.tryConsume(0x5D) {
+                                while true {
+                                guard let __e2_0 = reader._decodeInt(&sink, path, "c", __arr2_0.count) else { break }
+                                    __arr2_0.append(__e2_0)
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x5D) else {
+                                    reader.reportMalformed(&sink, path)
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            __f2 = __arr2_0
+                        } else if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "c", "array")
+                        } else {
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                        // whole-value mismatch on a collection reported an issue whose path
+                        // was EMPTY at the top level -- worse than the missing element index
+                        // this change set out to fix, and found by a test written for that.
+                        reader.reportTypeMismatch(&sink, path + [.key("c")], expected: "array")
+                        }
+
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 3:
+                    if reader.keyMatches(__key, "d") {
+                        __presence |= 8
+                        if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "d", "Nested")
+                        } else {
+                            __f3 = Nested._assay(
+                                from: &reader, into: &sink, at: path + [.key("d")])
+                        }
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                default:
+                    _ = reader.skipValue(&sink)
+                }
+            if reader.tryConsume(0x2C) { continue }
+            break
+        }
+        guard reader.tryConsume(0x7D) else {
+            reader.reportMalformed(&sink, path)
+            reader.leaveContainer()
+            return nil
+        }
+    }
+    reader.leaveContainer()
+
+        if __presence & 1 == 0 {
+            reader._missingRequired(&sink, path, "a")
+        }
+        if __presence & 8 == 0 {
+            reader._missingRequired(&sink, path, "d")
+        }
+
+
+        guard let __v0 = __f0 else { return nil }
+        guard let __v2 = __f2 else { return nil }
+        guard let __v3 = __f3 else { return nil }
+    let __result = S(a: __v0, b: __f1, c: __v2, d: __v3)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}}

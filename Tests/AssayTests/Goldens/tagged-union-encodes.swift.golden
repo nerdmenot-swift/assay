@@ -1,0 +1,66 @@
+extension U: Assay.JSONAssayable, Assay.JSONEncodableSchema {nonisolated static let __assayVariants: [String] = ["click", "pv"]
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathComponent]
+) -> U? {
+    // The whole reader state, not just the cursor: the scan enters a container and a
+    // malformed document can leave that unbalanced. docs/UNIONS.md §1.
+    let __mark = reader.mark
+    guard let __tag = reader._scanDiscriminator(&sink, "type", path) else {
+        // RESYNCHRONISE, or the caller reports a second issue this document does not
+        // deserve. A failed pre-scan leaves the cursor part-way through the value; the
+        // top-level entry point then finds bytes remaining and adds `trailingContent`,
+        // and a missing tag is reported as two errors instead of one. Consuming the
+        // value here is what the unknown-variant arm below already does, for the same
+        // reason — found by a test asserting `issues.count == 1`.
+        reader.restore(__mark)
+        _ = reader.skipValue(&sink)
+        return nil
+    }
+    reader.restore(__mark)
+
+        if __tag == "click" {
+            guard let __v = A._assay(
+                from: &reader, into: &sink, at: path) else { return nil }
+            return .click(__v)
+        }
+        if __tag == "pv" {
+            guard let __v = B._assay(
+                from: &reader, into: &sink, at: path) else { return nil }
+            return .pageView(__v)
+        }
+    // The tag was read and names nothing this enum declares. One issue, with a
+    // did-you-mean — not a branch's issues, because no branch was chosen.
+    reader._unknownVariant(&sink, path, "type", __tag, Self.__assayVariants)
+    _ = reader.skipValue(&sink)
+    return nil
+}
+
+nonisolated public func _assayEncodeMembers(
+    into w: inout Assay.JSONWriter,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathComponent]
+) {
+    switch self {
+        case .click(let __v):
+            w.key("type")
+            w.write("click")
+            __v._assayEncodeMembers(into: &w, into: &sink, at: path)
+        case .pageView(let __v):
+            w.key("type")
+            w.write("pv")
+            __v._assayEncodeMembers(into: &w, into: &sink, at: path)
+    }
+}
+
+nonisolated public func _assayEncode(
+    into w: inout Assay.JSONWriter,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathComponent]
+) {
+    w.beginObject()
+    self._assayEncodeMembers(into: &w, into: &sink, at: path)
+    w.endObject()
+}}

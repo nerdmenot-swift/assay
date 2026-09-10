@@ -1,0 +1,158 @@
+extension S: Assay.JSONAssayable, Assay.SourceDecodable {nonisolated static let __assayKeyTable: [UInt8] = {
+    var t = [UInt8](repeating: 3, count: 256)
+        t[97] = 0
+        t[98] = 1
+        t[99] = 2
+    return t
+}()
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathComponent]
+) -> S? {
+    guard reader.tryConsume(0x7B) else {
+        reader.reportTypeMismatch(&sink, path, expected: "object")
+        return nil
+    }
+    guard reader.enterContainer(&sink) else { return nil }
+    // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+    // anything ever failed?", which is wrong the moment one sink spans more than
+    // one decode — a driver collecting every issue from a result set would find
+    // one bad row silently discarding every good row after it.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: Int? = nil
+    var __f1: String? = nil
+    var __f2: Double? = nil
+    var __presence: UInt64 = 0
+
+    if !reader.tryConsume(0x7D) {
+        while true {
+            guard let __key = reader.scanKey() else {
+                reader.reportMalformed(&sink, path)
+                reader.leaveContainer()
+                return nil
+            }
+            guard reader.expect(0x3A) else {
+                reader.reportMalformed(&sink, path)
+                reader.leaveContainer()
+                return nil
+            }
+                let __w = reader._keyWindow(
+                    __key,
+                    byteOffset: 0,
+                    shift: 0)
+                switch Self.__assayKeyTable[Int(__w)] {
+                case 0:
+                    if reader.keyMatches(__key, "a") {
+                        __presence |= 1
+                        __f0 = reader._decodeInt(&sink, path, "a")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 1:
+                    if reader.keyMatches(__key, "b") {
+                        __presence |= 2
+                        __f1 = reader._decodeString(&sink, path, "b")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 2:
+                    if reader.keyMatches(__key, "c") {
+                        __presence |= 4
+                        if let __r = reader._decodeDoubleOrNull(&sink, path, "c") { __f2 = __r }
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                default:
+                    _ = reader.skipValue(&sink)
+                }
+            if reader.tryConsume(0x2C) { continue }
+            break
+        }
+        guard reader.tryConsume(0x7D) else {
+            reader.reportMalformed(&sink, path)
+            reader.leaveContainer()
+            return nil
+        }
+    }
+    reader.leaveContainer()
+
+        if __presence & 1 == 0 {
+            reader._missingRequired(&sink, path, "a")
+        }
+        if __presence & 2 == 0 {
+            reader._missingRequired(&sink, path, "b")
+        }
+
+
+        guard let __v0 = __f0 else { return nil }
+        guard let __v1 = __f1 else { return nil }
+    let __result = S(a: __v0, b: __v1, c: __f2)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}
+
+nonisolated public static let _assayManifest = Assay.FieldManifest(fields: [
+        .init(key: "a", kind: .int, isOptional: false, hasDefault: false),
+        .init(key: "b", kind: .string, isOptional: false, hasDefault: false),
+        .init(key: "c", kind: .double, isOptional: true, hasDefault: false),
+])
+
+/// Decode a whole batch, one sequential pass per column.
+///
+/// The inversion a column store wants: N records over M columns row-by-row is N×M
+/// strided reads; this is M sequential ones. Rules, defaults and presence behave
+/// exactly as they do on every other path, and issues carry the row index.
+nonisolated public static func _assayBatch<__C: Assay.ColumnarSource & ~Copyable>(
+    from source: borrowing __C,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathComponent]
+) -> [S] {
+        let __c0 = source.int64Column("a", 0)
+        let __n0 = source.nulls("a", 0)
+        if __c0 == nil {
+            Assay._assayColumnMissing(&sink, path, "a", "int")
+        }
+        let __c1 = source.stringColumn("b", 1)
+        let __n1 = source.nulls("b", 1)
+        if __c1 == nil {
+            Assay._assayColumnMissing(&sink, path, "b", "string")
+        }
+        let __c2 = source.doubleColumn("c", 2)
+        let __n2 = source.nulls("c", 2)
+    var __out: [S] = []
+    __out.reserveCapacity(source.rowCount)
+
+    for __r in 0..<source.rowCount {
+        let path = path + [.index(__r)]
+            var __f0: Int? = nil
+            if let __col0 = __c0, __r < __col0.count,
+               !Assay._assayIsNullAt(__n0, __r) {
+                __f0 = Int(exactly: __col0[__r])
+            }
+            var __f1: String? = nil
+            if let __col1 = __c1, __r < __col1.count,
+               !Assay._assayIsNullAt(__n1, __r) {
+                __f1 = __col1[__r]
+            }
+            var __f2: Double? = nil
+            if let __col2 = __c2, __r < __col2.count,
+               !Assay._assayIsNullAt(__n2, __r) {
+                __f2 = __col2[__r]
+            }
+
+            guard let __v0 = __f0 else {
+                Assay._assayRowMissing(&sink, path, "a")
+                continue
+            }
+            guard let __v1 = __f1 else {
+                Assay._assayRowMissing(&sink, path, "b")
+                continue
+            }
+        __out.append(S(a: __v0, b: __v1, c: __f2))
+    }
+    return __out
+}}

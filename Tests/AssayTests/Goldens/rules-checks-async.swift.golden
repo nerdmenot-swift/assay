@@ -1,0 +1,239 @@
+extension S: Assay.JSONAssayable, Assay.Validatable, Assay.AsyncCheckAssayable {nonisolated static let __assayRules_0_0: [Assay.Rule] = [.min(1), .email]
+nonisolated static let __assayRules_1_0: [Assay.Rule] = [.count(1...3)]
+nonisolated static let __assayPre_2: [Assay.PreprocessOp] = [.trim]
+nonisolated static let __assayTransform_4: @Sendable ([String]) -> Set<String> = { (a: [String]) in Set(a) }
+nonisolated(unsafe) static let __assayFieldNames: [PartialKeyPath<S>: String] = [\.a: "a", \.t: "t", \.p: "p", \.f: "f", \.s: "s"]
+nonisolated static let __assayKeyTable: [UInt8] = {
+    var t = [UInt8](repeating: 5, count: 256)
+        t[97] = 0
+        t[102] = 3
+        t[112] = 2
+        t[115] = 4
+        t[116] = 1
+    return t
+}()
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathComponent]
+) -> S? {
+    guard reader.tryConsume(0x7B) else {
+        reader.reportTypeMismatch(&sink, path, expected: "object")
+        return nil
+    }
+    guard reader.enterContainer(&sink) else { return nil }
+    // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+    // anything ever failed?", which is wrong the moment one sink spans more than
+    // one decode — a driver collecting every issue from a result set would find
+    // one bad row silently discarding every good row after it.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: String? = nil
+    var __f1: [Int]? = nil
+    var __f2: String? = nil
+    var __f3: Int? = nil
+    var __f4: [String]? = nil
+    var __sp0: Assay.SourceSpan? = nil
+    var __sp1: Assay.SourceSpan? = nil
+    var __presence: UInt64 = 0
+
+    if !reader.tryConsume(0x7D) {
+        while true {
+            guard let __key = reader.scanKey() else {
+                reader.reportMalformed(&sink, path)
+                reader.leaveContainer()
+                return nil
+            }
+            guard reader.expect(0x3A) else {
+                reader.reportMalformed(&sink, path)
+                reader.leaveContainer()
+                return nil
+            }
+                let __w = reader._keyWindow(
+                    __key,
+                    byteOffset: 0,
+                    shift: 0)
+                switch Self.__assayKeyTable[Int(__w)] {
+                case 0:
+                    if reader.keyMatches(__key, "a") {
+                        __presence |= 1
+                        __f0 = reader._decodeString(&sink, path, "a")
+                        __sp0 = reader.lastValueSpan
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 1:
+                    if reader.keyMatches(__key, "t") {
+                        __presence |= 2
+                        reader.skipWhitespace()
+                        let __ss1 = reader.byteOffset
+                        if reader.tryConsume(0x5B) {
+                            var __arr1_0: [Int] = []
+                            if !reader.tryConsume(0x5D) {
+                                while true {
+                                guard let __e1_0 = reader._decodeInt(&sink, path, "t", __arr1_0.count) else { break }
+                                    __arr1_0.append(__e1_0)
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x5D) else {
+                                    reader.reportMalformed(&sink, path)
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            __f1 = __arr1_0
+                        } else if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "t", "array")
+                        } else {
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                        // whole-value mismatch on a collection reported an issue whose path
+                        // was EMPTY at the top level -- worse than the missing element index
+                        // this change set out to fix, and found by a test written for that.
+                        reader.reportTypeMismatch(&sink, path + [.key("t")], expected: "array")
+                        }
+
+                        __sp1 = Assay.SourceSpan(lo: __ss1, len: reader.byteOffset &- __ss1)
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 2:
+                    if reader.keyMatches(__key, "p") {
+                        __presence |= 4
+                        __f2 = reader._decodeString(&sink, path, "p")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 3:
+                    if reader.keyMatches(__key, "f") {
+                        __presence |= 8
+                        let __fck3 = sink.checkpoint()
+                        __f3 = reader._decodeInt(&sink, path, "f")
+                        if __f3 == nil { sink.rollback(to: __fck3) }
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 4:
+                    if reader.keyMatches(__key, "s") {
+                        __presence |= 16
+                        if reader.tryConsume(0x5B) {
+                            var __arr4_0: [String] = []
+                            if !reader.tryConsume(0x5D) {
+                                while true {
+                                guard let __e4_0 = reader._decodeString(&sink, path, "s", __arr4_0.count) else { break }
+                                    __arr4_0.append(__e4_0)
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x5D) else {
+                                    reader.reportMalformed(&sink, path)
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            __f4 = __arr4_0
+                        } else if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "s", "array")
+                        } else {
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                        // whole-value mismatch on a collection reported an issue whose path
+                        // was EMPTY at the top level -- worse than the missing element index
+                        // this change set out to fix, and found by a test written for that.
+                        reader.reportTypeMismatch(&sink, path + [.key("s")], expected: "array")
+                        }
+
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                default:
+                    _ = reader.skipValue(&sink)
+                }
+            if reader.tryConsume(0x2C) { continue }
+            break
+        }
+        guard reader.tryConsume(0x7D) else {
+            reader.reportMalformed(&sink, path)
+            reader.leaveContainer()
+            return nil
+        }
+    }
+    reader.leaveContainer()
+
+        if __presence & 1 == 0 {
+            reader._missingRequired(&sink, path, "a")
+        }
+        if __presence & 2 == 0 {
+            reader._missingRequired(&sink, path, "t")
+        }
+        if __presence & 4 == 0 {
+            reader._missingRequired(&sink, path, "p")
+        }
+        if __presence & 16 == 0 {
+            reader._missingRequired(&sink, path, "s")
+        }
+
+    if let __pp2 = __f2 {
+        __f2 = Assay._assayPreprocess(__pp2, Self.__assayPre_2)
+    }
+    if let __vv0 = __f0 {
+        Assay._assayValidate(__vv0, Self.__assayRules_0_0, override: nil, field: "a", at: __sp0, path: path, &sink)
+    }
+    if let __vv1 = __f1 {
+        Assay._assayValidate(__vv1, Self.__assayRules_1_0, override: nil, field: "t", at: __sp1, path: path, &sink)
+    }
+    if __f3 == nil {
+        __f3 = 0
+        sink.add(warning: Assay.Warning(
+            code: .fallbackApplied,
+            path: path + [.key("f")]))
+    }
+
+        guard let __v0 = __f0 else { return nil }
+        guard let __v1 = __f1 else { return nil }
+        guard let __v2 = __f2 else { return nil }
+        guard let __v3 = __f3 else { return nil }
+        guard let __v4 = __f4 else { return nil }
+    let __result = S(a: __v0, t: __v1, p: __v2, f: __v3, s: Self.__assayTransform_4(__v4))
+    if let __m = Self.f(__result.a) {
+        sink.add(Assay.Issue(code: .custom(__m),
+                             path: path + [.key("a")],
+                             location: __sp0))
+    }
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}
+
+/// Run this schema's rules against an already-constructed value. docs/VALIDATE.md.
+///
+/// Issues carry a path and no location: there is no source document to point at.
+nonisolated public static func _assayCheck(
+    _ __result: S,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathComponent]
+) {
+        Assay._assayValidate(__result.a, Self.__assayRules_0_0, override: nil, field: "a", at: nil, path: path, &sink)
+        Assay._assayValidate(__result.t, Self.__assayRules_1_0, override: nil, field: "t", at: nil, path: path, &sink)
+    if let __m = Self.f(__result.a) {
+        sink.add(Assay.Issue(code: .custom(__m),
+                             path: path + [.key("a")],
+                             location: nil))
+    }
+}
+
+nonisolated public static func _assayAsyncChecks(
+    _ __value: S,
+    at path: [Assay.PathComponent]
+) async -> [Assay.Issue] {
+    await withTaskGroup(of: Assay.Issues<S>.self) { group in
+        group.addTask {
+            var __i = Assay.Issues<S>(names: Self.__assayFieldNames)
+            await Self.g(__value, &__i)
+            return __i
+        }
+        var __sink = Assay.IssueSink()
+        for await __i in group { __i.merge(into: &__sink, at: path) }
+        return __sink.issues
+    }
+}}

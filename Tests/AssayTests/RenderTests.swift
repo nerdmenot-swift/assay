@@ -5,7 +5,7 @@
 import Testing
 import Foundation
 import Assay
-import AssayCore
+@testable import AssayCore
 
 // EXPERIENCE.md §3: "Errors are the product. Everything else in this document is in
 // service of this section." These tests hold the renderer to the worked examples.
@@ -347,5 +347,32 @@ struct PrintingTests {
     func encodeDiagnosisDescription() {
         let good = PrintTarget(a: 1, name: "n").diagnoseEncodeJSON()
         #expect("\(good)" == "valid (\(good.bytes.count) bytes)")
+    }
+}
+
+@Suite("Terminal rendering")
+struct TerminalRenderTests {
+
+    /// `.terminal` decides colour from whether stdout is a TTY, which under a test runner it
+    /// never is — so the public entry point can only be tested for the "no TTY" branch.
+    /// The colour branch is reached through the renderer directly, so the escape codes
+    /// are pinned rather than assumed.
+    @Test("with colour on, the header is bold and the label is red; with it off, no escapes")
+    func colour() {
+        let d = RenderTarget.diagnose(json: #"{"a":1,"port":"x","b":2}"#, sourceName: "t.json")
+        let plain = Renderer.render(issues: d.issues, warnings: d.warnings, source: d.source,
+                                    sourceName: d.sourceName, style: .plain)
+        #expect(!plain.contains("\u{1B}["))
+        let coloured = Renderer.caretRender(d.issues, d.warnings, d.source, d.sourceName,
+                                            color: true)
+        #expect(coloured.contains("\u{1B}[1m"), "bold header")
+        #expect(coloured.contains("\u{1B}[31m"), "red error label")
+        #expect(coloured.contains("\u{1B}[0m"), "reset")
+        // Strip the escapes and the two renders are the same text.
+        var stripped = coloured
+        for code in ["\u{1B}[1m", "\u{1B}[31m", "\u{1B}[33m", "\u{1B}[0m", "\u{1B}[36m"] {
+            stripped = stripped.replacingOccurrences(of: code, with: "")
+        }
+        #expect(stripped == plain)
     }
 }

@@ -4,7 +4,7 @@
 
 import Testing
 import Assay
-import AssayCore
+@testable import AssayCore
 
 // EXPERIENCE.md §5 — the validation surface, held to its own worked examples.
 
@@ -297,5 +297,100 @@ struct ValidateMacroDiagnosticTests {
         let (_, diags) = expandSchemaForTesting(
             "@Schema struct S { @Validate(.companySlug) var slug: String }")
         #expect(diags.isEmpty)
+    }
+}
+
+// MARK: - Every rule by name
+//
+// 2026-09-10. The audit found `.suffix`, `.oneOf`, `.length`, `.isTrimmed` and
+// `.isLowercase` with no test naming them, and several others exercised only through a
+// fixture's incidental use. One table, one rule per row: the value that passes, the value
+// that fails, and the code the failure carries — so a rule cannot silently change what it
+// checks or what it reports.
+
+@Schema
+struct EveryStringRule {
+    @Validate(.length(3))          var exact: String
+    @Validate(.notEmpty)           var present: String
+    @Validate(.ascii)              var plain: String
+    @Validate(.isTrimmed)          var trimmed: String
+    @Validate(.isLowercase)        var lower: String
+    @Validate(.prefix("id_"))      var prefixed: String
+    @Validate(.suffix(".txt"))     var suffixed: String
+    @Validate(.contains("@"))      var containing: String
+    @Validate(.oneOf(["a", "b"]))  var choice: String
+}
+
+@Schema
+struct EveryNumberRule {
+    @Validate(.positive)      var pos: Int
+    @Validate(.negative)      var neg: Int
+    @Validate(.nonNegative)   var nonNeg: Int
+    @Validate(.multipleOf(5)) var five: Int
+    @Validate(.finite)        var fin: Double
+}
+
+@Schema
+struct EveryCollectionRule {
+    @Validate(.unique)   var distinct: [Int]
+    @Validate(.notEmpty) var some: [Int]
+    @Validate(.count(2)) var pair: [Int]
+}
+
+@Suite("Every rule, by name")
+struct EveryRuleTests {
+
+    private func code(_ d: Diagnosis<some Sendable>, _ key: String) -> IssueCode? {
+        d.issues.first { $0.path == [.key(key)] }?.code
+    }
+
+    @Test("string rules: pass, fail, and the code")
+    func strings() {
+        let good = #"{"exact":"abc","present":"x","plain":"ok","trimmed":"t","lower":"low","prefixed":"id_1","suffixed":"a.txt","containing":"a@b","choice":"a"}"#
+        #expect(EveryStringRule.diagnose(json: good).isValid)
+        let bad = #"{"exact":"ab","present":"","plain":"é","trimmed":" t","lower":"Low","prefixed":"x_1","suffixed":"a.md","containing":"ab","choice":"c"}"#
+        let d = EveryStringRule.diagnose(json: bad)
+        #expect(d.issues.count == 9)
+        #expect(code(d, "exact") == .wrongLength)
+        #expect(code(d, "present") == .empty)
+        #expect(code(d, "plain") == .notAscii)
+        #expect(code(d, "trimmed") == .notTrimmed)
+        #expect(code(d, "lower") == .notLowercased)
+        #expect(code(d, "prefixed") == .missingPrefix)
+        #expect(code(d, "suffixed") == .missingSuffix)
+        #expect(code(d, "containing") == .missingSubstring)
+        #expect(code(d, "choice") == .notOneOf)
+        // And none of them renders as its identifier.
+        for i in d.issues { #expect(i.message != i.code.codeString, Comment(rawValue: i.message)) }
+    }
+
+    @Test("number rules: pass, fail, and the code")
+    func numbers() {
+        #expect(EveryNumberRule.diagnose(json: #"{"pos":1,"neg":-1,"nonNeg":0,"five":10,"fin":1.5}"#).isValid)
+        let d = EveryNumberRule.diagnose(json: #"{"pos":0,"neg":0,"nonNeg":-1,"five":7,"fin":1e400}"#)
+        #expect(code(d, "pos") == .notPositive)
+        #expect(code(d, "neg") == .notNegative)
+        #expect(code(d, "nonNeg") == .negative)
+        #expect(code(d, "five") == .notMultiple)
+        // 1e400 overflows to infinity on the scanner; whichever layer reports, `fin` fails.
+        #expect(d.issues.contains { $0.path == [.key("fin")] })
+    }
+
+    @Test("collection rules: pass, fail, and the code")
+    func collections() {
+        #expect(EveryCollectionRule.diagnose(json: #"{"distinct":[1,2],"some":[1],"pair":[1,2]}"#).isValid)
+        let d = EveryCollectionRule.diagnose(json: #"{"distinct":[1,1],"some":[],"pair":[1]}"#)
+        #expect(code(d, "distinct") == .notUnique)
+        #expect(code(d, "some") == .empty)
+        #expect(code(d, "pair") == .wrongCount)
+    }
+
+    /// The `(or:)` overloads added 2026-09-10 for the rules that had none.
+    @Test("every message-less rule now takes a message")
+    func messages() {
+        let rules: [Rule] = [.isTrimmed(or: "m"), .isLowercase(or: "m"), .positive(or: "m"),
+                             .negative(or: "m"), .nonNegative(or: "m"), .finite(or: "m"),
+                             .unique(or: "m")]
+        for r in rules { #expect(r.message == "m") }
     }
 }

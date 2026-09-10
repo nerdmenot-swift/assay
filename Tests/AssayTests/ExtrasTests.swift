@@ -86,7 +86,7 @@ struct ExtrasTests {
     }
 
     @Test("did-you-mean fires on a near miss and stays quiet on a far one")
-    func didYouMean() {
+    func _didYouMean() {
         let d = Warned.diagnose(json: #"{"timeout":5,"retries":2,"tiemout":9,"zzz":1}"#)
 
         let typo = d.warnings.first { $0.params["received"] == .string("tiemout") }

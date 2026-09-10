@@ -205,10 +205,10 @@ struct BoundPlanTests {
         // property of the SOURCE, so it should not be rediscovered a million times.
         let plan = BoundPlan(manifest: Row._assayManifest,
                              columns: ["id", "age", "score", "active"])
-        let missing = plan.missingRequired(in: Row._assayManifest)
+        let missing = plan._missingRequired(in: Row._assayManifest)
         #expect(missing == ["name"])
         #expect(BoundPlan(manifest: Row._assayManifest, columns: Self.columns)
-                    .missingRequired(in: Row._assayManifest).isEmpty)
+                    ._missingRequired(in: Row._assayManifest).isEmpty)
     }
 
     @Test("a duplicate column name binds to the first occurrence")

@@ -1,0 +1,115 @@
+extension S: Assay.JSONAssayable {nonisolated static let __assayDateFormats_3: [Assay.DateFormat] = [.unixSeconds, .iso8601]
+
+nonisolated static let __assayKeyTable: [UInt8] = {
+    var t = [UInt8](repeating: 4, count: 256)
+        t[116] = 3
+        t[119] = 2
+        t[120] = 0
+        t[121] = 1
+    return t
+}()
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathComponent]
+) -> S? {
+    guard reader.tryConsume(0x7B) else {
+        reader.reportTypeMismatch(&sink, path, expected: "object")
+        return nil
+    }
+    guard reader.enterContainer(&sink) else { return nil }
+    // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+    // anything ever failed?", which is wrong the moment one sink spans more than
+    // one decode — a driver collecting every issue from a result set would find
+    // one bad row silently discarding every good row after it.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: Int? = nil
+    var __f1: Int? = nil
+    var __f2: Date? = nil
+    var __f3: Date? = nil
+    var __presence: UInt64 = 0
+
+    if !reader.tryConsume(0x7D) {
+        while true {
+            guard let __key = reader.scanKey() else {
+                reader.reportMalformed(&sink, path)
+                reader.leaveContainer()
+                return nil
+            }
+            guard reader.expect(0x3A) else {
+                reader.reportMalformed(&sink, path)
+                reader.leaveContainer()
+                return nil
+            }
+                let __w = reader._keyWindow(
+                    __key,
+                    byteOffset: 0,
+                    shift: 0)
+                switch Self.__assayKeyTable[Int(__w)] {
+                case 0:
+                    if reader.keyMatches(__key, "x") {
+                        __presence |= 1
+                        __f0 = reader._decodeInt(&sink, path, "x")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 1:
+                    if reader.keyMatches(__key, "yy") {
+                        __presence |= 2
+                        __f1 = reader._decodeInt(&sink, path, "yy")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 2:
+                    if reader.keyMatches(__key, "when") {
+                        __presence |= 4
+                        __f2 = reader._decodeDate(&sink, path, "when", Assay.DateFormat.defaultFormats).map { Date(timeIntervalSince1970: $0) }
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 3:
+                    if reader.keyMatches(__key, "ts") {
+                        __presence |= 8
+                        __f3 = reader._decodeDate(&sink, path, "ts", Self.__assayDateFormats_3).map { Date(timeIntervalSince1970: $0) }
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                default:
+                    _ = reader.skipValue(&sink)
+                }
+            if reader.tryConsume(0x2C) { continue }
+            break
+        }
+        guard reader.tryConsume(0x7D) else {
+            reader.reportMalformed(&sink, path)
+            reader.leaveContainer()
+            return nil
+        }
+    }
+    reader.leaveContainer()
+
+        if __presence & 1 == 0 {
+            reader._missingRequired(&sink, path, "x")
+        }
+        if __presence & 2 == 0 {
+            reader._missingRequired(&sink, path, "yy")
+        }
+        if __presence & 4 == 0 {
+            reader._missingRequired(&sink, path, "when")
+        }
+        if __presence & 8 == 0 {
+            reader._missingRequired(&sink, path, "ts")
+        }
+
+
+        guard let __v0 = __f0 else { return nil }
+        guard let __v1 = __f1 else { return nil }
+        guard let __v2 = __f2 else { return nil }
+        guard let __v3 = __f3 else { return nil }
+    let __result = S(p: P(x: __v0, y: __v1), when: __v2, ts: __v3)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}}

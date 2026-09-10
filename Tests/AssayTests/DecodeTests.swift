@@ -96,7 +96,7 @@ struct DecodeTests {
     }
 
     @Test("missing required field is reported with a path")
-    func missingRequired() {
+    func _missingRequired() {
         let d = Settings.diagnose(json: #"{"nickname":"a"}"#)
         #expect(d.isValid == false)
         #expect(d.value == nil)

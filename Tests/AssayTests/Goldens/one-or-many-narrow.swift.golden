@@ -1,0 +1,266 @@
+extension S: Assay.JSONAssayable, Assay.RawDecodable {nonisolated static let __assayKeyTable: [UInt8] = {
+    var t = [UInt8](repeating: 4, count: 256)
+        t[98] = 2
+        t[110] = 3
+        t[116] = 0
+        t[119] = 1
+    return t
+}()
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathComponent]
+) -> S? {
+    guard reader.tryConsume(0x7B) else {
+        reader.reportTypeMismatch(&sink, path, expected: "object")
+        return nil
+    }
+    guard reader.enterContainer(&sink) else { return nil }
+    // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+    // anything ever failed?", which is wrong the moment one sink spans more than
+    // one decode — a driver collecting every issue from a result set would find
+    // one bad row silently discarding every good row after it.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: [String]? = nil
+    var __f1: UInt8? = nil
+    var __f2: [UInt8]? = nil
+    var __f3: Int? = nil
+    var __presence: UInt64 = 0
+
+    if !reader.tryConsume(0x7D) {
+        while true {
+            guard let __key = reader.scanKey() else {
+                reader.reportMalformed(&sink, path)
+                reader.leaveContainer()
+                return nil
+            }
+            guard reader.expect(0x3A) else {
+                reader.reportMalformed(&sink, path)
+                reader.leaveContainer()
+                return nil
+            }
+                let __w = reader._keyWindow(
+                    __key,
+                    byteOffset: 0,
+                    shift: 0)
+                switch Self.__assayKeyTable[Int(__w)] {
+                case 0:
+                    if reader.keyMatches(__key, "tags") {
+                        __presence |= 1
+                        if reader.tryConsume(0x5B) {
+                            var __arr0_0: [String] = []
+                            if !reader.tryConsume(0x5D) {
+                                while true {
+                                guard let __e0_0 = reader._decodeString(&sink, path, "tags", __arr0_0.count) else { break }
+                                    __arr0_0.append(__e0_0)
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x5D) else {
+                                    reader.reportMalformed(&sink, path)
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            __f0 = __arr0_0
+                        } else if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "tags", "array")
+                        } else {
+                        if let __e0_0 = reader._decodeString(&sink, path, "tags") {
+                                __f0 = [__e0_0]
+                            } else {
+                                // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                            // whole-value mismatch on a collection reported an issue whose path
+                            // was EMPTY at the top level -- worse than the missing element index
+                            // this change set out to fix, and found by a test written for that.
+                            reader.reportTypeMismatch(&sink, path + [.key("tags")], expected: "array")
+                            }
+                                }
+
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 1:
+                    if reader.keyMatches(__key, "w") {
+                        __presence |= 2
+                        __f1 = reader._decodeUInt8(&sink, path, "w")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 2:
+                    if reader.keyMatches(__key, "bytes") {
+                        __presence |= 4
+                        if reader.tryConsume(0x5B) {
+                            var __arr2_0: [UInt8] = []
+                            if !reader.tryConsume(0x5D) {
+                                while true {
+                                guard let __e2_0 = reader._decodeUInt8(&sink, path, "bytes", __arr2_0.count) else { break }
+                                    __arr2_0.append(__e2_0)
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x5D) else {
+                                    reader.reportMalformed(&sink, path)
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            __f2 = __arr2_0
+                        } else if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "bytes", "array")
+                        } else {
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                        // whole-value mismatch on a collection reported an issue whose path
+                        // was EMPTY at the top level -- worse than the missing element index
+                        // this change set out to fix, and found by a test written for that.
+                        reader.reportTypeMismatch(&sink, path + [.key("bytes")], expected: "array")
+                        }
+
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 3:
+                    if reader.keyMatches(__key, "n") {
+                        __presence |= 8
+                        __f3 = reader._decodeIntCoercing(&sink, path, "n")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                default:
+                    _ = reader.skipValue(&sink)
+                }
+            if reader.tryConsume(0x2C) { continue }
+            break
+        }
+        guard reader.tryConsume(0x7D) else {
+            reader.reportMalformed(&sink, path)
+            reader.leaveContainer()
+            return nil
+        }
+    }
+    reader.leaveContainer()
+
+        if __presence & 1 == 0 {
+            reader._missingRequired(&sink, path, "tags")
+        }
+        if __presence & 2 == 0 {
+            reader._missingRequired(&sink, path, "w")
+        }
+        if __presence & 4 == 0 {
+            reader._missingRequired(&sink, path, "bytes")
+        }
+        if __presence & 8 == 0 {
+            reader._missingRequired(&sink, path, "n")
+        }
+
+
+        guard let __v0 = __f0 else { return nil }
+        guard let __v1 = __f1 else { return nil }
+        guard let __v2 = __f2 else { return nil }
+        guard let __v3 = __f3 else { return nil }
+    let __result = S(tags: __v0, w: __v1, bytes: __v2, n: __v3)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}
+
+nonisolated public static func _assay(
+    from raw: Assay.RawValue,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathComponent]
+) -> S? {
+    guard case .mapping(let __members) = raw else {
+        Assay.RawValue._notAnObject(&sink, path, raw)
+        return nil
+    }
+    // See the note in the JSON body: local validity, not global.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: [String]? = nil
+    var __f1: UInt8? = nil
+    var __f2: [UInt8]? = nil
+    var __f3: Int? = nil
+    var __presence: UInt64 = 0
+
+    for __m in __members {
+        let __k = __m.key
+        let __v = __m.value
+        switch __k.utf8.count {
+            case 1:
+                if __k == "w" {
+                    __presence |= 2
+                    __f1 = __v._assayUInt8(&sink, path, "w")
+                } else if __k == "n" {
+                    __presence |= 8
+                    __f3 = __v._assayInt(&sink, path, "n", coerce: true)
+                } else {
+                    break
+                }
+            case 4:
+                if __k == "tags" {
+                    __presence |= 1
+                    if let __r = __v.sequence.map({ $0.compactMap { __e0 in __e0._assayString(&sink, path, "tags") } }) {
+                    __f0 = __r
+                } else if __v.isNull {
+                    Assay.RawValue._mismatchPublic(&sink, path, "tags", "array", __v)
+                } else {
+                    // One repeated sibling. Append, so `<tag>a</tag><tag>b</tag>`
+                    // accumulates across calls instead of the last one winning.
+                    let __ev0 = __v
+                    if let __one0 = __ev0._assayString(&sink, path, "tags") {
+                        if __f0 == nil { __f0 = [] }
+                        __f0?.append(__one0)
+                    }
+                }
+                } else {
+                    break
+                }
+            case 5:
+                if __k == "bytes" {
+                    __presence |= 4
+                    if let __r = __v.sequence.map({ $0.compactMap { __e0 in __e0._assayUInt8(&sink, path, "bytes") } }) {
+                    __f2 = __r
+                } else if __v.isNull {
+                    Assay.RawValue._mismatchPublic(&sink, path, "bytes", "array", __v)
+                } else {
+                    // One repeated sibling. Append, so `<tag>a</tag><tag>b</tag>`
+                    // accumulates across calls instead of the last one winning.
+                    let __ev2 = __v
+                    if let __one2 = __ev2._assayUInt8(&sink, path, "bytes") {
+                        if __f2 == nil { __f2 = [] }
+                        __f2?.append(__one2)
+                    }
+                }
+                } else {
+                    break
+                }
+            default:
+            break
+        }
+    }
+
+        if __presence & 1 == 0 {
+            Assay.RawValue._missing(&sink, path, "tags")
+        }
+        if __presence & 2 == 0 {
+            Assay.RawValue._missing(&sink, path, "w")
+        }
+        if __presence & 4 == 0 {
+            Assay.RawValue._missing(&sink, path, "bytes")
+        }
+        if __presence & 8 == 0 {
+            Assay.RawValue._missing(&sink, path, "n")
+        }
+
+
+        guard let __v0 = __f0 else { return nil }
+        guard let __v1 = __f1 else { return nil }
+        guard let __v2 = __f2 else { return nil }
+        guard let __v3 = __f3 else { return nil }
+    let __result = S(tags: __v0, w: __v1, bytes: __v2, n: __v3)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}}

@@ -234,7 +234,7 @@ struct EnumTests {
     }
 
     @Test("an invalid variant lists the cases and suggests the near miss")
-    func unknownVariant() {
+    func _unknownVariant() {
         let d = Ticket.diagnose(json: #"{"title":"t","priority":"hgih"}"#)
         #expect(d.isValid == false)
         let issue = d.issues[0]

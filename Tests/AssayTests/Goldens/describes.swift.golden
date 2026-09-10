@@ -1,0 +1,137 @@
+extension S: Assay.JSONAssayable, Assay.Validatable, Assay.SchemaDescribing {nonisolated static let __assayRules_0_0: [Assay.Rule] = [.min(1)]
+nonisolated static let __assayKnownKeys: [String] = ["a", "b"]
+
+nonisolated static let __assayKeyTable: [UInt8] = {
+    var t = [UInt8](repeating: 2, count: 256)
+        t[97] = 0
+        t[98] = 1
+    return t
+}()
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathComponent]
+) -> S? {
+    guard reader.tryConsume(0x7B) else {
+        reader.reportTypeMismatch(&sink, path, expected: "object")
+        return nil
+    }
+    guard reader.enterContainer(&sink) else { return nil }
+    // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+    // anything ever failed?", which is wrong the moment one sink spans more than
+    // one decode — a driver collecting every issue from a result set would find
+    // one bad row silently discarding every good row after it.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: String? = nil
+    var __f1: Int? = nil
+    var __sp0: Assay.SourceSpan? = nil
+    var __presence: UInt64 = 0
+
+    if !reader.tryConsume(0x7D) {
+        while true {
+            guard let __key = reader.scanKey() else {
+                reader.reportMalformed(&sink, path)
+                reader.leaveContainer()
+                return nil
+            }
+            guard reader.expect(0x3A) else {
+                reader.reportMalformed(&sink, path)
+                reader.leaveContainer()
+                return nil
+            }
+                let __w = reader._keyWindow(
+                    __key,
+                    byteOffset: 0,
+                    shift: 0)
+                switch Self.__assayKeyTable[Int(__w)] {
+                case 0:
+                    if reader.keyMatches(__key, "a") {
+                        __presence |= 1
+                        __f0 = reader._decodeString(&sink, path, "a")
+                        __sp0 = reader.lastValueSpan
+                    } else {
+                        reader._reportUnknownKey(&sink, path, __key,
+                                            known: Self.__assayKnownKeys,
+                                            reject: true)
+                    _ = reader.skipValue(&sink)
+                    }
+                case 1:
+                    if reader.keyMatches(__key, "b") {
+                        __presence |= 2
+                        if let __r = reader._decodeIntOrNull(&sink, path, "b") { __f1 = __r }
+                    } else {
+                        reader._reportUnknownKey(&sink, path, __key,
+                                            known: Self.__assayKnownKeys,
+                                            reject: true)
+                    _ = reader.skipValue(&sink)
+                    }
+                default:
+                    reader._reportUnknownKey(&sink, path, __key,
+                                            known: Self.__assayKnownKeys,
+                                            reject: true)
+                    _ = reader.skipValue(&sink)
+                }
+            if reader.tryConsume(0x2C) { continue }
+            break
+        }
+        guard reader.tryConsume(0x7D) else {
+            reader.reportMalformed(&sink, path)
+            reader.leaveContainer()
+            return nil
+        }
+    }
+    reader.leaveContainer()
+
+        if __presence & 1 == 0 {
+            reader._missingRequired(&sink, path, "a")
+        }
+
+    if let __vv0 = __f0 {
+        Assay._assayValidate(__vv0, Self.__assayRules_0_0, override: nil, field: "a", at: __sp0, path: path, &sink)
+    }
+
+        guard let __v0 = __f0 else { return nil }
+    let __result = S(a: __v0, b: __f1)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}
+
+/// Run this schema's rules against an already-constructed value. docs/VALIDATE.md.
+///
+/// Issues carry a path and no location: there is no source document to point at.
+nonisolated public static func _assayCheck(
+    _ __result: S,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathComponent]
+) {
+        Assay._assayValidate(__result.a, Self.__assayRules_0_0, override: nil, field: "a", at: nil, path: path, &sink)
+}
+
+/// This type's shape, for `jsonSchema(for:)`. `docs/EXPERIENCE.md` §14.
+///
+/// A descriptor rather than document text: the rule-to-keyword mapping lives once in
+/// `AssayCore`, not once per type in every user's expansion.
+nonisolated public static var _assaySchemaDescriptor: Assay.SchemaDescriptor {
+    Assay.SchemaDescriptor(
+        typeName: "S",
+        fields: [
+        Assay.FieldDescriptor(
+            wireKey: "a",
+            aliases: [],
+            propertyName: "a",
+            type: .string,
+            isRequired: true,
+            rules: Self.__assayRules_0_0),
+        Assay.FieldDescriptor(
+            wireKey: "b",
+            aliases: [],
+            propertyName: "b",
+            type: .optional(.integer),
+            isRequired: false,
+            rules: [])
+        ],
+        rejectsUnknownKeys: true)
+}}

@@ -241,3 +241,22 @@ struct LocalizedErrorTests {
         }
     }
 }
+
+extension MappedFileTests {
+
+    /// `diagnose(mmappedPath:)` had no test of its own — only `parse`, which calls it. The
+    /// diagnose form is the one that carries warnings and the borrowed source through.
+    @Test("diagnose(mmappedPath:) reports issues with carets over the mapped bytes")
+    func diagnoseMapped() throws {
+        let bad = #"{"version":"1","items":[{"id":"x","name":"a","active":true}]}"#
+        try withTempFile(Array(bad.utf8)) { path in
+            let d = MappedDoc.diagnose(mmappedPath: path)
+            #expect(!d.isValid)
+            #expect(d.issues.first?.path.pathDescription == "items[0].id")
+            #expect(d.issues.first?.location != nil)
+            // The render reaches into the mapping for the snippet.
+            #expect(d.render(.plain).contains("\"id\": \"x\"") || d.render(.plain).contains("\"id\":\"x\""))
+            #expect(d.sourceName.hasSuffix(".json"))
+        }
+    }
+}

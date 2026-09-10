@@ -1,0 +1,72 @@
+extension U: Assay.JSONAssayable {nonisolated static let __assayVariants: [String] = ["text", "number", "b"]
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathComponent]
+) -> U? {
+    let __mark = reader.mark
+    let __ck = sink.checkpoint()
+    let __verbose = reader.activeLimits.verboseUnions
+    var __best = Int.max
+    var __n = 0
+    var __closest = ""
+
+        guard reader._chargeUnionAttempt(&sink, path) else { return nil }
+        if let __v = reader._decodeString(&sink, path, "text") {
+            return .text(__v)
+        }
+        __n = sink.checkpoint() - __ck
+        if __n < __best {
+            __best = __n
+            __closest = "text"
+        }
+        reader.restore(__mark)
+        if !__verbose { sink.rollback(to: __ck) }
+
+        guard reader._chargeUnionAttempt(&sink, path) else { return nil }
+        if let __v = reader._decodeDouble(&sink, path, "number") {
+            return .number(__v)
+        }
+        __n = sink.checkpoint() - __ck
+        if __n < __best {
+            __best = __n
+            __closest = "number"
+        }
+        reader.restore(__mark)
+        if !__verbose { sink.rollback(to: __ck) }
+
+        guard reader._chargeUnionAttempt(&sink, path) else { return nil }
+        if let __v = B._assay(from: &reader, into: &sink, at: path) {
+            return .b(__v)
+        }
+        __n = sink.checkpoint() - __ck
+        if __n < __best {
+            __best = __n
+            __closest = "b"
+        }
+        reader.restore(__mark)
+        if !__verbose { sink.rollback(to: __ck) }
+
+    // Every branch failed. One summary naming the guess as a guess, then the closest
+    // branch replayed so its detail follows it. docs/UNIONS.md §2.2.
+    reader.restore(__mark)
+    if !__verbose { sink.rollback(to: __ck) }
+    reader._noVariantMatched(&sink, path, "U", __closest,
+                            Self.__assayVariants)
+    if !__verbose {
+        reader.restore(__mark)
+            if __closest == "text" {
+                _ = reader._decodeString(&sink, path, "text")
+            }
+            if __closest == "number" {
+                _ = reader._decodeDouble(&sink, path, "number")
+            }
+            if __closest == "b" {
+                _ = B._assay(from: &reader, into: &sink, at: path)
+            }
+    }
+    reader.restore(__mark)
+    _ = reader.skipValue(&sink)
+    return nil
+}}

@@ -161,7 +161,7 @@ struct UnionErrors {
     /// An unrecognised tag gets a did-you-mean, from the same machinery unknown keys use —
     /// `"pageview"` for `"page_view"` is how this fails in practice.
     @Test("an unrecognised tag is one issue, with a did-you-mean")
-    func unknownVariant() {
+    func _unknownVariant() {
         let d = UnionEvent.diagnose(json: #"{"type":"pageview","url":"/"}"#)
         #expect(d.issues.count == 1)
         #expect(d.issues.first?.code == .unionUnknownVariant)
@@ -189,7 +189,7 @@ struct UnionErrors {
     }
 
     @Test("a non-object where a union was declared is a type mismatch")
-    func notAnObject() {
+    func _notAnObject() {
         let d = UnionEvent.diagnose(json: #"[1,2,3]"#)
         #expect(!d.isValid)
         #expect(d.issues.first?.code == .typeMismatch)

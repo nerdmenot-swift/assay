@@ -60,16 +60,16 @@ extension XML {
                            params: ["maxBytes": .int(limits.maxBytes)]))
             return nil
         }
-        return bytes.withUnsafeBufferPointer { buf -> Document? in
+        return unsafe bytes.withUnsafeBufferPointer { buf -> Document? in
             guard let base = buf.baseAddress else { return nil }
             // Same whole-buffer UTF-8 pass as the JSON path, for the same reason: it is
             // one linear pass, and it removes validation from every String built after.
-            if let bad = UTF8Validation.firstInvalid(base, buf.count) {
+            if let bad = unsafe UTF8Validation.firstInvalid(base, buf.count) {
                 sink.add(Issue(code: .invalidUTF8, params: ["offset": .int(bad)],
                                location: SourceSpan(lo: bad, len: 1)))
                 return nil
             }
-            var reader = AssayReader(base: base, count: buf.count, limits: limits)
+            var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
             var parser = Parser(limits: limits, inputBytes: buf.count)
             return parser.parseDocument(&reader, &sink)
         }
@@ -399,7 +399,7 @@ extension XML {
                    equal literal: StaticString) -> Bool {
             let n = literal.utf8CodeUnitCount
             guard range.count == n else { return false }
-            return unsafe bytesMatch(r, range.lowerBound, literal, n)
+            return bytesMatch(r, range.lowerBound, literal, n)
         }
 
         /// Whether the bytes in `range` begin with `literal`.
@@ -408,7 +408,7 @@ extension XML {
                    hasPrefix literal: StaticString) -> Bool {
             let n = literal.utf8CodeUnitCount
             guard range.count >= n else { return false }
-            return unsafe bytesMatch(r, range.lowerBound, literal, n)
+            return bytesMatch(r, range.lowerBound, literal, n)
         }
 
         @inline(never)
@@ -473,17 +473,17 @@ extension XML {
             _ r: borrowing AssayReader, _ range: Range<Int>, isAttribute: Bool
         ) -> XML.Name {
             var colonAt = -1
-            for i in range where unsafe r.byte(absolute: i) == UInt8(ascii: ":") {
+            for i in range where r.byte(absolute: i) == UInt8(ascii: ":") {
                 colonAt = i
                 break
             }
             guard colonAt >= 0 else {
-                let whole = unsafe r.string(from: range.lowerBound, to: range.upperBound)
+                let whole = r.string(from: range.lowerBound, to: range.upperBound)
                 if isAttribute { return XML.Name(whole) }
                 return XML.Name(whole, namespaceURI: lookup(""))
             }
-            let prefix = unsafe r.string(from: range.lowerBound, to: colonAt)
-            let local = unsafe r.string(from: colonAt + 1, to: range.upperBound)
+            let prefix = r.string(from: range.lowerBound, to: colonAt)
+            let local = r.string(from: colonAt + 1, to: range.upperBound)
             if prefix == "xml" {
                 return XML.Name(local, namespaceURI: "http://www.w3.org/XML/1998/namespace")
             }

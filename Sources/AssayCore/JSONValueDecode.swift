@@ -159,18 +159,18 @@ extension JSON.Value {
                            params: ["maxBytes": .int(limits.maxBytes)]))
             return nil
         }
-        return bytes.withUnsafeBufferPointer { buf -> JSON.Value? in
+        return unsafe bytes.withUnsafeBufferPointer { buf -> JSON.Value? in
             guard let base = buf.baseAddress else {
                 sink.add(Issue(code: .malformedDocument))
                 return nil
             }
-            if let bad = UTF8Validation.firstInvalid(base, buf.count) {
+            if let bad = unsafe UTF8Validation.firstInvalid(base, buf.count) {
                 sink.add(Issue(code: .invalidUTF8,
                                params: ["offset": .int(bad)],
                                location: SourceSpan(lo: bad, len: 1)))
                 return nil
             }
-            var reader = AssayReader(base: base, count: buf.count, limits: limits)
+            var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
             guard let v = reader.scanJSONValue(&sink, []) else { return nil }
             reader.skipWhitespace()
             if !reader.atEnd {

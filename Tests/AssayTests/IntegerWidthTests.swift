@@ -221,8 +221,10 @@ struct IntegerSpanTests {
         let d = Spanned.diagnose(json: Array(json.utf8))
         #expect(d.issues.count == 2)
         for issue in d.issues {
-            let span = try? #require(issue.location)
-            guard let span else { continue }
+            guard let span = issue.location else {
+                Issue.record("expected a location on \(issue)")
+                continue
+            }
             let bytes = Array(json.utf8)
             let text = String(decoding: bytes[Int(span.lo) ..< Int(span.lo) + Int(span.len)],
                               as: UTF8.self)

@@ -91,14 +91,14 @@ extension YAML {
                            params: ["maxBytes": .int(limits.maxBytes)]))
             return []
         }
-        return bytes.withUnsafeBufferPointer { buf -> [Node] in
+        return unsafe bytes.withUnsafeBufferPointer { buf -> [Node] in
             guard let base = buf.baseAddress else { return [] }
-            if let bad = UTF8Validation.firstInvalid(base, buf.count) {
+            if let bad = unsafe UTF8Validation.firstInvalid(base, buf.count) {
                 sink.add(Issue(code: .invalidUTF8, params: ["offset": .int(bad)],
                                location: SourceSpan(lo: bad, len: 1)))
                 return []
             }
-            var reader = AssayReader(base: base, count: buf.count, limits: limits)
+            var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
             var parser = Parser(limits: limits)
             return parser.parseStream(&reader, &sink)
         }

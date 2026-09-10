@@ -68,10 +68,9 @@ struct ValidateValueTests {
         #expect(throws: AssayError.self) { try Account.validate(a) }
         do {
             try Account.validate(a)
-        } catch let e as AssayError {
-            #expect(e.issues.count == 2)
         } catch {
-            Issue.record("wrong error type")
+            // `validate` throws `AssayError` and nothing else — typed throws, so no cast.
+            #expect(error.issues.count == 2)
         }
     }
 
@@ -413,10 +412,8 @@ struct CallerSuppliedPathTests {
         do {
             try ExternallyDecoded.validate(bad, at: [.index(7)])
             Issue.record("expected a throw")
-        } catch let e as AssayError {
-            #expect(e.issues.first?.path.pathDescription == "[7].vendor")
         } catch {
-            Issue.record("wrong error type")
+            #expect(error.issues.first?.path.pathDescription == "[7].vendor")
         }
     }
 

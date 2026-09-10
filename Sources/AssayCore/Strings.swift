@@ -40,7 +40,7 @@ extension AssayReader {
             let c = unsafe base[cursor]
             if c == 0x22 {
                 let n = cursor &- start
-                let s = unsafe makeString(at: start, count: n)
+                let s = makeString(at: start, count: n)
                 cursor &+= 1
                 return s
             }

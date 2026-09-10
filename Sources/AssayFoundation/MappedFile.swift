@@ -87,13 +87,13 @@ public final class MappedFile: @unchecked Sendable {
         count: Int,
         release: @escaping @Sendable (UnsafeRawPointer, Int) -> Void
     ) {
-        self.base = base
+        unsafe self.base = base
         self.count = count
-        self.release = release
+        unsafe self.release = release
     }
 
     deinit {
-        release(base, count)
+        unsafe release(base, count)
     }
 
     /// Map `url` read-only.
@@ -105,7 +105,7 @@ public final class MappedFile: @unchecked Sendable {
         guard url.isFileURL else {
             throw MappedFileError.notAFileURL(url)
         }
-        return try open(path: url.withUnsafeFileSystemRepresentation { String(cString: $0!) })
+        return try open(path: unsafe url.withUnsafeFileSystemRepresentation { unsafe String(cString: $0!) })
     }
 
     /// Map a filesystem path read-only.
@@ -133,9 +133,9 @@ public final class MappedFile: @unchecked Sendable {
             UnsafeMutableRawPointer(mutating: p).deallocate()
         }
         #else
-        let fd = path.withCString { unsafe Foundation.open($0, O_RDONLY) }
+        let fd = unsafe path.withCString { unsafe Foundation.open($0, O_RDONLY) }
         guard fd >= 0 else { throw MappedFileError.cannotOpen(path, errno) }
-        defer { _ = unsafe close(fd) }
+        defer { _ = close(fd) }
 
         var st = stat()
         guard unsafe fstat(fd, &st) == 0 else {
@@ -146,13 +146,13 @@ public final class MappedFile: @unchecked Sendable {
         guard size > 0 else {
             // Zero-length mapping is not permitted; hand back a valid empty region.
             let buf = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1)
-            return MappedFile(base: UnsafeRawPointer(buf), count: 0) { p, _ in
-                UnsafeMutableRawPointer(mutating: p).deallocate()
+            return unsafe MappedFile(base: UnsafeRawPointer(buf), count: 0) { p, _ in
+                unsafe UnsafeMutableRawPointer(mutating: p).deallocate()
             }
         }
 
         guard let raw = unsafe mmap(nil, size, PROT_READ, MAP_PRIVATE, fd, 0),
-              raw != MAP_FAILED else {
+              unsafe raw != MAP_FAILED else {
             throw MappedFileError.cannotMap(path, errno)
         }
 
@@ -161,7 +161,7 @@ public final class MappedFile: @unchecked Sendable {
         // reason the mmap path is not just "slower malloc".
         unsafe madvise(raw, size, MADV_SEQUENTIAL)
 
-        return MappedFile(base: UnsafeRawPointer(raw), count: size) { p, n in
+        return unsafe MappedFile(base: UnsafeRawPointer(raw), count: size) { p, n in
             unsafe munmap(UnsafeMutableRawPointer(mutating: p), n)
         }
         #endif
@@ -192,11 +192,11 @@ public enum MappedFileError: Error, CustomStringConvertible {
         case .notAFileURL(let u):
             return "mmap requires a file URL, got \(u)"
         case .cannotOpen(let p, let e):
-            return "could not open \(p): \(String(cString: strerror(e)))"
+            return "could not open \(p): \(unsafe String(cString: strerror(e)))"
         case .cannotStat(let p, let e):
-            return "could not stat \(p): \(String(cString: strerror(e)))"
+            return "could not stat \(p): \(unsafe String(cString: strerror(e)))"
         case .cannotMap(let p, let e):
-            return "could not map \(p): \(String(cString: strerror(e)))"
+            return "could not map \(p): \(unsafe String(cString: strerror(e)))"
         }
     }
 }

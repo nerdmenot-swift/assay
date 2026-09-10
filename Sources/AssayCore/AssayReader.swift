@@ -64,7 +64,7 @@ public struct AssayReader: ~Copyable {
 
     @inlinable
     public init(base: UnsafePointer<UInt8>, count: Int, limits: Limits = .default) {
-        self.base = base
+        unsafe self.base = base
         self.count = count
         self.cursor = 0
         self.depth = 0
@@ -240,7 +240,7 @@ public struct AssayReader: ~Copyable {
     public func keyMatches(_ key: KeyRange, _ literal: StaticString) -> Bool {
         let n = literal.utf8CodeUnitCount
         guard key.len == n else { return false }
-        let p = literal.utf8Start
+        let p = unsafe literal.utf8Start
         var i = 0
         while i < n {
             if unsafe (base[key.lo &+ i] != p[i]) { return false }
@@ -476,7 +476,7 @@ extension AssayReader {
     public func matches(_ literal: StaticString) -> Bool {
         let n = literal.utf8CodeUnitCount
         guard cursor &+ n <= count else { return false }
-        let p = literal.utf8Start
+        let p = unsafe literal.utf8Start
         var i = 0
         while i < n {
             if unsafe (base[cursor &+ i] != p[i]) { return false }

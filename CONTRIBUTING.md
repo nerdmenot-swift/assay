@@ -34,6 +34,10 @@ first step for any non-trivial change is reading the documents the change touche
   and compile-time are.
 - **Compile-time budget**: `bash Experiments/03-compile-time/gate.sh` must stay under
   100 ms per type. "Emit less code per field" is the lever that works.
+- **Zero warnings, in `Sources/`, `Tests/` and every macro expansion.** CI fails on one.
+  The library carried 56 for a while and `.strictMemorySafety()` was decorative for
+  exactly that long. A warning inside generated code is the emitter's bug, not the
+  user's — fix it in `AssayMacros`, never by suppressing it at the use site.
 - **No new dependencies in the library.** The benchmark package may take dependencies
   (Yams lives there as an oracle); the shipping products may not.
 

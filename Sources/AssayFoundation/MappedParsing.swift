@@ -61,7 +61,7 @@ extension JSONAssayable {
         }
 
         var sink = IssueSink(limits: limits)
-        let value = Self._decode(
+        let value = unsafe Self._decode(
             base: file.base.assumingMemoryBound(to: UInt8.self),
             count: file.count,
             into: &sink,
@@ -107,7 +107,7 @@ extension JSONAssayable {
         }
 
         var sink = IssueSink(limits: limits)
-        let value = Self._decode(
+        let value = unsafe Self._decode(
             base: file.base.assumingMemoryBound(to: UInt8.self),
             count: file.count, into: &sink, limits: limits)
 
@@ -134,16 +134,16 @@ extension JSON.Value {
         limits: Limits
     ) throws -> JSON.Value {
         var sink = IssueSink(limits: limits)
-        let v = file.withUnsafeBytes { buf -> JSON.Value? in
-            guard let base = buf.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
+        let v = unsafe file.withUnsafeBytes { buf -> JSON.Value? in
+            guard let base = unsafe buf.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
                 return nil
             }
-            if let bad = UTF8Validation.firstInvalid(base, buf.count) {
+            if let bad = unsafe UTF8Validation.firstInvalid(base, buf.count) {
                 sink.add(Issue(code: .invalidUTF8, params: ["offset": .int(bad)],
                                location: SourceSpan(lo: bad, len: 1)))
                 return nil
             }
-            var reader = AssayReader(base: base, count: buf.count, limits: limits)
+            var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
             guard let v = reader.scanJSONValue(&sink, []) else { return nil }
             reader.skipWhitespace()
             if !reader.atEnd {

@@ -99,7 +99,7 @@ public enum Renderer {
         // deepest offset any of them reports, so rendering a caret from a mapped file
         // does not index the whole file. See LineIndex.init(_:_:indexingThrough:).
         let horizon = renderHorizon(issues, warnings)
-        let index = source.count > 0 ? source.withUnsafeBytes { buf in
+        let index = source.count > 0 ? unsafe source.withUnsafeBytes { buf in
             unsafe LineIndex(buf.baseAddress!.assumingMemoryBound(to: UInt8.self),
                              buf.count, indexingThrough: horizon)
         } : nil
@@ -179,10 +179,10 @@ public enum Renderer {
         var out = ""
         for n in first...last {
             guard let range = index.byteRange(ofLine: n) else { continue }
-            let text = source.withUnsafeBytes { buf -> String in
+            let text = unsafe source.withUnsafeBytes { buf -> String in
                 // Strip a trailing CR so CRLF documents do not render a stray ^M.
                 var r = range
-                if r.count > 0, buf[r.upperBound - 1] == 0x0D {
+                if r.count > 0, unsafe buf[r.upperBound - 1] == 0x0D {
                     r = r.lowerBound..<(r.upperBound - 1)
                 }
                 let slice = unsafe UnsafeRawBufferPointer(rebasing: buf[r])
@@ -221,7 +221,7 @@ public enum Renderer {
         _ source: SourceBytes, _ sourceName: String
     ) -> String {
         let horizon = renderHorizon(issues, warnings)
-        let index = source.count > 0 ? source.withUnsafeBytes { buf in
+        let index = source.count > 0 ? unsafe source.withUnsafeBytes { buf in
             unsafe LineIndex(buf.baseAddress!.assumingMemoryBound(to: UInt8.self),
                              buf.count, indexingThrough: horizon)
         } : nil

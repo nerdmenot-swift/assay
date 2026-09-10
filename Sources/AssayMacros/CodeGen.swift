@@ -115,7 +115,7 @@ extension SchemaMacro {
         }
         if let e = extras {
             let value = stripOptional(e.typeName)
-            locals += "    var __extras: \(value) = [:]\n"
+            locals += "    \(policy == "collect" ? "var" : "let") __extras: \(value) = [:]\n"
         }
 
         // Dispatch.
@@ -454,6 +454,23 @@ extension SchemaMacro {
     /// One line per scalar field. Body size is what dominates @Schema's compile cost
     /// (~9ms per field measured, against ~9ms fixed per type), so null handling lives in
     /// the runtime rather than in an `if/else` wrapper emitted per field.
+    /// A collection field's span, when a rule needs one: from its first byte to the byte
+    /// after its closing bracket, so `.count(1...10)` on an array puts a caret under the
+    /// whole array. Scalars take `lastValueSpan` instead; a collection's decode calls
+    /// `beginValue` once per ELEMENT and the last one would win. Until 2026-09-10 the
+    /// span slot for a rule-carrying array was declared and never written — a caret-less
+    /// issue, and a "never mutated" warning in every user's build.
+    static func collectionSpan(_ f: SchemaField, _ i: Int, _ pad: String,
+                               _ decode: String) -> String {
+        guard f.needsSpan else { return decode }
+        return """
+        \(pad)reader.skipWhitespace()
+        \(pad)let __ss\(i) = reader.byteOffset
+        \(decode)
+        \(pad)__sp\(i) = Assay.SourceSpan(lo: __ss\(i), len: reader.byteOffset &- __ss\(i))
+        """
+    }
+
     static func decodeStatement(field f: SchemaField, index i: Int, indent: Int,
                              ctx: String = "") -> String {
         let ctxArg = ctx.isEmpty ? "" : ", context: context"
@@ -462,16 +479,18 @@ extension SchemaMacro {
         let key = f.wireKey
 
         if let element = arrayElement(base) {
-            return arrayDecode(element: element, index: i, key: key,
-                               optional: f.isOptional, pad: pad,
-                               oneOrMany: f.oneOrMany,
-                               dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)
+            return collectionSpan(f, i, pad, arrayDecode(
+                element: element, index: i, key: key,
+                optional: f.isOptional, pad: pad,
+                oneOrMany: f.oneOrMany,
+                dateFormatsRef: dateFormatsRef(f, i), ctx: ctx))
         }
 
         if let value = dictionaryValue(base) {
-            return dictDecode(value: value, index: i, key: key,
-                              optional: f.isOptional, pad: pad,
-                              dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)
+            return collectionSpan(f, i, pad, dictDecode(
+                value: value, index: i, key: key,
+                optional: f.isOptional, pad: pad,
+                dateFormatsRef: dateFormatsRef(f, i), ctx: ctx))
         }
 
         // Fields carrying @Validate capture their value's span right after the decode,

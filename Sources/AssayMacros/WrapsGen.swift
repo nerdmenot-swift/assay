@@ -116,9 +116,13 @@ public struct WrapsMacro {
 }
 
 extension WrapsMacro: MemberMacro {
+    /// The current `MemberMacro` requirement. `conformingTo` lists the protocols the
+    /// member expansion could add conformances for; this macro adds them all through its
+    /// extension expansion instead, so the list is not consulted.
     public static func expansion(
         of node: AttributeSyntax,
         providingMembersOf declaration: some DeclGroupSyntax,
+        conformingTo protocols: [TypeSyntax],
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
         guard let p = parse(node, declaration, context) else { return [] }

@@ -31,7 +31,7 @@ struct MediaTypeTests {
 
     @Test("the essence is parsed, lowercased, and parameters ignored")
     func essence() {
-        let m = try? #require(MediaType.parse("Application/JSON; charset=UTF-8"))
+        let m = MediaType.parse("Application/JSON; charset=UTF-8")
         #expect(m?.type == "application")
         #expect(m?.subtype == "json")
         #expect(m?.charset == "utf-8")

@@ -104,7 +104,7 @@ public struct JSONWriter: ~Copyable {
         needsComma = false
         byte(0x22)
         let n = k.utf8CodeUnitCount
-        let p = k.utf8Start
+        let p = unsafe k.utf8Start
         var i = 0
         while i < n {
             let c = unsafe p[i]

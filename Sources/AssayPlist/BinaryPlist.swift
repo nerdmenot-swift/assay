@@ -51,8 +51,8 @@
 // plist, and reading one as data is a separate feature nobody has asked for.
 //===----------------------------------------------------------------------===//
 
-public import Assay
-public import AssayCore
+import Assay
+import AssayCore
 
 enum BinaryPlist {
 

@@ -169,6 +169,28 @@ jobs:
   # minimum of three builds rather than a single one. CI enforces only the hardware-independent
   # `schema / codable` ratio, and that is precisely the reading sampling helps most — it went
   # from the noisiest number here to stable within 1%. Roughly 10 minutes against a 60 minute
+  # Zero warnings, and it is a gate. Until 2026-09-10 the library built with 56 warnings
+  # (49 of them StrictMemorySafety), which made `.strictMemorySafety()` decorative: the next
+  # genuinely unmarked `unsafe` was invisible in the noise. Not `-warnings-as-errors`: that
+  # flag reaches every dependency too, and a swift-syntax warning on a nightly would fail
+  # this repository's build for a line it does not own. The grep excludes `.build/`, so it is
+  # exactly "our sources and our tests", macro expansions included.
+  warnings:
+    timeout-minutes: 60
+    name: Zero warnings
+    runs-on: ubuntu-latest
+    container: swift:6.3.3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build library and tests, fail on any warning outside .build/
+        run: |
+          swift build --build-tests 2>&1 | tee build.log
+          if grep -E 'warning:' build.log | grep -v '/\.build/' | grep -q .; then
+            echo "::error::warnings in Sources/ or Tests/ (see above)"
+            grep -E 'warning:' build.log | grep -v '/\.build/'
+            exit 1
+          fi
+
   # timeout.
   compile-time:
     timeout-minutes: 60

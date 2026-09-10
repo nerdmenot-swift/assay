@@ -68,7 +68,7 @@ extension SchemaMacro {
             }
         }
         if let e = extras {
-            locals += "    var __extras: \(stripOptional(e.typeName)) = [:]\n"
+            locals += "    \(policy == "collect" ? "var" : "let") __extras: \(stripOptional(e.typeName)) = [:]\n"
         }
 
         // Bucket by key length, then compare within the bucket.
@@ -325,7 +325,7 @@ extension SchemaMacro {
         if let element = arrayElement(type) {
             let inner = "__e\(depth)"
             return """
-            \(v).sequence.map { $0.compactMap { \(inner) in \(rawElementExpr(element, inner, key: key, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef, ctx: ctx)) } }
+            \(v).sequence.map({ $0.compactMap { \(inner) in \(rawElementExpr(element, inner, key: key, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef, ctx: ctx)) } })
             """.trimmingWhitespace()
         }
         if let value = dictionaryValue(type) {
@@ -333,13 +333,13 @@ extension SchemaMacro {
             // repeats (`<tag/><tag/>`), and last-wins matches the JSON body.
             let m = "__dm\(depth)", d = "__dd\(depth)", x = "__dx\(depth)"
             return """
-            \(v).mapping.map { (__ms\(depth): [Assay.RawValue.Member]) -> [String: \(value)] in
+            \(v).mapping.map({ (__ms\(depth): [Assay.RawValue.Member]) -> [String: \(value)] in
                                     var \(d): [String: \(value)] = [:]
                                     for \(m) in __ms\(depth) {
                                         if let \(x) = \(rawElementExpr(value, "\(m).value", key: key, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef, ctx: ctx)) { \(d)[\(m).key] = \(x) }
                                     }
                                     return \(d)
-                                }
+                                })
             """.trimmingWhitespace()
         }
         if isDateType(type) {

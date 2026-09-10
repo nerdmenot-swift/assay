@@ -61,8 +61,8 @@ struct WrapsTests {
             #"{"email":"nope","handle":"ada"}"#.utf8))
         let plain = PlainSignup.diagnose(json: Array(#"{"email":"nope"}"#.utf8))
 
-        let a = try? #require(wrapped.issues.first)
-        let b = try? #require(plain.issues.first)
+        let a = wrapped.issues.first
+        let b = plain.issues.first
         #expect(a?.code == b?.code, "\(String(describing: a?.code)) vs \(String(describing: b?.code))")
         #expect(a?.path == b?.path)
         #expect(a?.params["message"] == b?.params["message"])

@@ -38,9 +38,9 @@
 // and being lenient about which value belongs to which key is not a leniency worth having.
 //===----------------------------------------------------------------------===//
 
-public import Assay
-public import AssayCore
-public import AssayXML
+import Assay
+import AssayCore
+import AssayXML
 
 enum XMLPlist {
 

@@ -21,8 +21,12 @@
 /// The bytes a `Diagnosis` was produced from, retained for rendering.
 public struct SourceBytes: @unchecked Sendable {
 
+    // `@safe`: the borrowed case holds a raw pointer, and what makes it safe to hold is
+    // the `owner` beside it — retained for exactly as long as the pointer is, so the
+    // memory cannot be unmapped while any copy of this value exists. The attribute is the
+    // assertion of that invariant, made here where the invariant is stated.
     @usableFromInline
-    enum Storage {
+    @safe enum Storage {
         case owned([UInt8])
         /// A borrowed region. `owner` is retained solely to keep it valid — for a mapped
         /// file that is the `MappedFile` whose `deinit` calls `munmap`.
@@ -44,7 +48,7 @@ public struct SourceBytes: @unchecked Sendable {
     /// construction; nothing else should use this.
     @inlinable
     public init(unsafeBorrowed base: UnsafeRawPointer, count: Int, owner: AnyObject) {
-        self.storage = .borrowed(base: base, count: count, owner: owner)
+        self.storage = unsafe .borrowed(base: base, count: count, owner: owner)
     }
 
     public static let empty = SourceBytes([])
@@ -64,7 +68,7 @@ public struct SourceBytes: @unchecked Sendable {
     ) rethrows -> R {
         switch storage {
         case .owned(let bytes):
-            return try bytes.withUnsafeBytes(body)
+            return try unsafe bytes.withUnsafeBytes(body)
         case .borrowed(let base, let count, let owner):
             let buffer = unsafe UnsafeRawBufferPointer(start: base, count: count)
             defer { withExtendedLifetime(owner) {} }

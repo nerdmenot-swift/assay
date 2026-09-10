@@ -15,7 +15,7 @@ import AssayCore
 // not `==`, so a one-ulp difference cannot slip through.
 
 private func assayParse(_ s: String) -> Double? {
-    var bytes = Array(s.utf8)
+    let bytes = Array(s.utf8)
     return bytes.withUnsafeBufferPointer { buf -> Double? in
         guard let base = buf.baseAddress else { return nil }
         var r = AssayReader(base: base, count: buf.count)

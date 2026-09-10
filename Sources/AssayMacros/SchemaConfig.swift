@@ -119,7 +119,7 @@ struct SchemaConfig {
             if names.contains("all") { return (true, true, true) }
             if names.isEmpty { return (false, false, false) }
             let json = names.contains("json")
-            let raw = names.contains("yaml") || names.contains("xml")
+            let raw = names.contains("yaml") || names.contains("xml") || names.contains("toml")
             // An unrecognised name falls back rather than silently emitting nothing.
             return (json || !raw, raw, names.contains("xml"))
         }

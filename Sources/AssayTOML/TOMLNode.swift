@@ -1,0 +1,151 @@
+// Assay — a decoder for Swift that tells you what went wrong.
+// Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
+// See LICENSE and NOTICE at the repository root for terms.
+
+//===----------------------------------------------------------------------===//
+// TOML 1.0.0, as a tree.
+//
+// TOML is the smallest of the four formats and the only one that is TYPED on the wire: a
+// bare `1` is an integer, `"1"` is a string, `1979-05-27` is a date, and the parser does
+// not get to guess. That is the opposite of YAML's Norway problem and the reason this
+// node model resolves scalars at parse time where YAML's keeps the text.
+//
+// DATE-TIMES ARE THE ONE VALUE `RawValue` CANNOT HOLD. TOML has four kinds — offset
+// date-time, local date-time, local date, local time — and `RawValue` has no date case
+// (docs/VALUE-MODELS.md: it is the intersection of the formats, and JSON has no date
+// either). The projection carries them as `.string` in RFC 3339 spelling with a `T`
+// separator, which is exactly the text the schema's `Date` path already parses, so
+// `var when: Date` decodes from TOML with no new code. `TOML.Node` keeps the kind, for a
+// caller who wants to know which of the four it was.
+//
+// TABLES ARE ORDERED AND KEYED BY STRING. A TOML key is always a string — bare, quoted,
+// or dotted — so unlike YAML there is no unrepresentable-key case, and the projection to
+// `RawValue` never fails.
+//===----------------------------------------------------------------------===//
+
+public import AssayCore
+
+public enum TOML {}
+
+extension TOML {
+
+    /// One of TOML's four date-time kinds, carrying its canonical RFC 3339 text.
+    ///
+    /// The text is normalised on the way in: a space separator becomes `T`, and the
+    /// components have been range-checked (a 13th month or a 25th hour is a parse
+    /// error, as the specification requires). Fractional seconds and the offset are kept
+    /// exactly as written.
+    public enum DateTime: Sendable, Hashable {
+        /// `1979-05-27T07:32:00Z`, `1979-05-27T00:32:00.999-07:00` — an instant.
+        case offsetDateTime(String)
+        /// `1979-05-27T07:32:00` — a wall-clock time with no zone.
+        case localDateTime(String)
+        /// `1979-05-27`.
+        case localDate(String)
+        /// `07:32:00`, `00:32:00.999999`.
+        case localTime(String)
+
+        /// The RFC 3339 text.
+        public var text: String {
+            switch self {
+            case .offsetDateTime(let s), .localDateTime(let s), .localDate(let s), .localTime(let s):
+                return s
+            }
+        }
+    }
+
+    /// One key/value pair of a table, in document order.
+    public struct Member: Sendable, Hashable {
+        /// The key, unquoted and unescaped. A dotted key `a.b = 1` produces nested tables,
+        /// so a member's key is always a single segment.
+        public var key: String
+        public var value: Node
+        /// Where the VALUE sits in the source, so a schema issue on this member can carry
+        /// a caret. Excluded from equality and hashing: two documents differing only in
+        /// whitespace are the same tree.
+        public var span: SourceSpan?
+
+        public init(key: String, value: Node, span: SourceSpan? = nil) {
+            self.key = key
+            self.value = value
+            self.span = span
+        }
+
+        public static func == (a: Member, b: Member) -> Bool { a.key == b.key && a.value == b.value }
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(key)
+            hasher.combine(value)
+        }
+    }
+
+    /// A TOML value.
+    public indirect enum Node: Sendable, Hashable {
+        case bool(Bool)
+        case int(Int64)
+        case double(Double)
+        case string(String)
+        case dateTime(DateTime)
+        case array([Node])
+        /// A table — a header section, an inline table, or one produced by dotted keys.
+        /// Members are in document order.
+        case table([Member])
+
+        public var bool: Bool? { if case .bool(let b) = self { return b }; return nil }
+        public var int: Int64? { if case .int(let i) = self { return i }; return nil }
+        /// A `.double`, or a `.int` widened.
+        public var double: Double? {
+            switch self {
+            case .double(let d): return d
+            case .int(let i): return Double(i)
+            default: return nil
+            }
+        }
+        public var string: String? { if case .string(let s) = self { return s }; return nil }
+        public var dateTime: DateTime? { if case .dateTime(let d) = self { return d }; return nil }
+        public var array: [Node]? { if case .array(let a) = self { return a }; return nil }
+        public var table: [Member]? { if case .table(let m) = self { return m }; return nil }
+
+        /// The first member named `key` of a table, or nil.
+        public subscript(_ key: String) -> Node? {
+            guard case .table(let members) = self else { return nil }
+            return members.first { $0.key == key }?.value
+        }
+        /// The element at `index` of an array, or nil.
+        public subscript(_ index: Int) -> Node? {
+            guard case .array(let items) = self, index >= 0, index < items.count else { return nil }
+            return items[index]
+        }
+    }
+}
+
+// MARK: - The RawValue projection
+
+extension RawValue {
+
+    /// The format-neutral projection every `@Schema` type decodes from.
+    ///
+    /// Total, unlike YAML's: every TOML key is a string. Date-times become strings in
+    /// RFC 3339 form (see the file header), which is the one lossy step and the reason
+    /// `TOML.Node` exists beside this.
+    public init(_ node: TOML.Node) {
+        switch node {
+        case .bool(let b): self = .bool(b)
+        case .int(let i): self = .int(i)
+        case .double(let d): self = .double(d)
+        case .string(let s): self = .string(s)
+        case .dateTime(let dt): self = .string(dt.text)
+        case .array(let items):
+            var out: [RawValue] = []
+            out.reserveCapacity(items.count)
+            for item in items { out.append(RawValue(item)) }
+            self = .sequence(out)
+        case .table(let members):
+            var out: [RawValue.Member] = []
+            out.reserveCapacity(members.count)
+            for m in members {
+                out.append(RawValue.Member(key: m.key, value: RawValue(m.value), span: m.span))
+            }
+            self = .mapping(out)
+        }
+    }
+}

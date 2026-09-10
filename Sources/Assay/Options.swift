@@ -50,7 +50,7 @@ public enum XMLPlacement: Sendable {
 ///
 ///     @Schema                                   // JSON only
 ///     @Schema(formats: [.json, .yaml])          // both
-///     @Schema(formats: .all)                    // JSON, YAML and XML
+///     @Schema(formats: .all)                    // JSON, YAML, XML and TOML
 ///     @Schema(formats: [.yaml])                 // YAML only — no JSON body emitted
 ///
 /// Calling `parse(yaml:)` on a type that did not opt into `.yaml` is a **compile** error,
@@ -65,8 +65,10 @@ public struct SchemaFormats: OptionSet, Sendable {
     public static let yaml = SchemaFormats(rawValue: 1 << 1)
     /// Via `XML.Document` and the `RawValue` projection.
     public static let xml = SchemaFormats(rawValue: 1 << 2)
+    /// Via `TOML.Node` and the `RawValue` projection. Added 2026-09-10.
+    public static let toml = SchemaFormats(rawValue: 1 << 3)
 
-    public static let all: SchemaFormats = [.json, .yaml, .xml]
+    public static let all: SchemaFormats = [.json, .yaml, .xml, .toml]
 }
 
 

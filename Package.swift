@@ -48,10 +48,11 @@ let package = Package(
     platforms: [.macOS(.v11), .iOS(.v14), .tvOS(.v14), .watchOS(.v7), .visionOS(.v1)],
     products: [
         .library(name: "Assay",     targets: ["Assay"]),
-        // Separate products so a JSON-only user never links YAML or XML. Each currently
+        // Separate products so a JSON-only user never links YAML, XML or TOML. Each currently
         // vends its value model; the parsers land later.
         .library(name: "AssayYAML", targets: ["AssayYAML"]),
         .library(name: "AssayXML",  targets: ["AssayXML"]),
+        .library(name: "AssayTOML", targets: ["AssayTOML"]),
         // Property lists, both flavours. Depends on AssayXML because the XML flavour IS an
         // XML document and shipping a second parser to read it would be shipping a second
         // XXE surface — the existing one refuses external entities by construction, which is
@@ -110,6 +111,13 @@ let package = Package(
             swiftSettings: [.strictMemorySafety()]
         ),
 
+        // TOML.Node, the parser, and parse(toml:) on a @Schema type.
+        .target(
+            name: "AssayTOML",
+            dependencies: ["Assay", "AssayCore"],
+            swiftSettings: [.strictMemorySafety()]
+        ),
+
         // Binary and XML property lists, and parse(plist:) on a @Schema type.
         .target(
             name: "AssayPlist",
@@ -124,6 +132,7 @@ let package = Package(
                 "AssayCore",
                 "AssayYAML",
                 "AssayXML",
+                "AssayTOML",
                 "AssayPlist",
                 "AssayFoundation",
                 // The macro implementation itself, so its diagnostics and expansions are

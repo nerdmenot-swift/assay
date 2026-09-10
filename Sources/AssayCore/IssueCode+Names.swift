@@ -179,6 +179,43 @@ extension IssueCode {
     /// `plist_unrepresentable_key`.
     public static let plistUnrepresentableKey = IssueCode.custom("plist_unrepresentable_key")
 
+    // MARK: TOML (AssayTOML)
+
+    /// `toml_bad_date_time` — "invalid date-time".
+    public static let tomlBadDateTime = IssueCode.custom("toml_bad_date_time")
+    /// `toml_bad_escape` — "invalid escape sequence".
+    public static let tomlBadEscape = IssueCode.custom("toml_bad_escape")
+    /// `toml_bad_number` — "invalid number literal".
+    public static let tomlBadNumber = IssueCode.custom("toml_bad_number")
+    /// `toml_control_character` — "control characters must be escaped".
+    public static let tomlControlCharacter = IssueCode.custom("toml_control_character")
+    /// `toml_expected_equals` — "expected '=' after the key".
+    public static let tomlExpectedEquals = IssueCode.custom("toml_expected_equals")
+    /// `toml_expected_key` — "expected a key".
+    public static let tomlExpectedKey = IssueCode.custom("toml_expected_key")
+    /// `toml_expected_newline` — "expected a newline after the value".
+    public static let tomlExpectedNewline = IssueCode.custom("toml_expected_newline")
+    /// `toml_expected_value` — "expected a value".
+    public static let tomlExpectedValue = IssueCode.custom("toml_expected_value")
+    /// `toml_inline_table_closed` — "inline table '…' cannot be extended after it is defined". Params: `key`.
+    public static let tomlInlineTableClosed = IssueCode.custom("toml_inline_table_closed")
+    /// `toml_no_null` — "TOML has no null; the value cannot be encoded". Encoding only.
+    public static let tomlNoNull = IssueCode.custom("toml_no_null")
+    /// `toml_not_a_table` — "'…' is not a table and cannot be extended". Params: `key`.
+    public static let tomlNotATable = IssueCode.custom("toml_not_a_table")
+    /// `toml_redefined_table` — "table '…' is already defined". Params: `key`.
+    public static let tomlRedefinedTable = IssueCode.custom("toml_redefined_table")
+    /// `toml_root_not_a_table` — "a TOML document is a table; the root value is not". Encoding only.
+    public static let tomlRootNotATable = IssueCode.custom("toml_root_not_a_table")
+    /// `toml_unterminated_array` — "unterminated array; expected ',' or ']'".
+    public static let tomlUnterminatedArray = IssueCode.custom("toml_unterminated_array")
+    /// `toml_unterminated_inline_table` — "unterminated inline table; expected ',' or '}'".
+    public static let tomlUnterminatedInlineTable = IssueCode.custom("toml_unterminated_inline_table")
+    /// `toml_unterminated_string` — "unterminated string".
+    public static let tomlUnterminatedString = IssueCode.custom("toml_unterminated_string")
+    /// `toml_unterminated_table_header` — "expected ']' closing the table header".
+    public static let tomlUnterminatedTableHeader = IssueCode.custom("toml_unterminated_table_header")
+
     // MARK: YAML (AssayYAML)
 
     /// `yaml_anchor_on_alias` — "an anchor cannot be placed on an alias (`&a *b`); an alias refers to an anchored node and is not a node of its own".

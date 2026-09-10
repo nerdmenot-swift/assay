@@ -1,0 +1,521 @@
+// Assay — a decoder for Swift that tells you what went wrong.
+// Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
+// See LICENSE and NOTICE at the repository root for terms.
+
+//===----------------------------------------------------------------------===//
+// Values: the four string forms, integers in four bases, floats, the four date-time
+// kinds, booleans, arrays and inline tables.
+//
+// The first byte decides the kind; nothing here backtracks. A leading digit is the one
+// ambiguous case — `1979-05-27`, `07:32:00` and `1979` all start the same way — and it is
+// settled by looking four bytes ahead for `-` (a date) or two for `:` (a time) before
+// the number scanner is entered.
+//===----------------------------------------------------------------------===//
+
+import AssayCore
+
+extension TOML.Parser {
+
+    mutating func parseValue(_ r: inout AssayReader, _ sink: inout IssueSink) -> TOML.Node? {
+        guard let c = r.currentByte else {
+            r.report(&sink, .tomlExpectedValue)
+            return nil
+        }
+        switch c {
+        case UInt8(ascii: "\""):
+            let multiline = r.byte(at: 1) == UInt8(ascii: "\"") && r.byte(at: 2) == UInt8(ascii: "\"")
+            return scanBasicString(&r, &sink, multiline: multiline).map { .string($0) }
+        case UInt8(ascii: "'"):
+            let multiline = r.byte(at: 1) == UInt8(ascii: "'") && r.byte(at: 2) == UInt8(ascii: "'")
+            return scanLiteralString(&r, &sink, multiline: multiline).map { .string($0) }
+        case UInt8(ascii: "["):
+            return parseArray(&r, &sink)
+        case UInt8(ascii: "{"):
+            return parseInlineTable(&r, &sink)
+        case UInt8(ascii: "t"):
+            if r.consume("true") { return .bool(true) }
+        case UInt8(ascii: "f"):
+            if r.consume("false") { return .bool(false) }
+        case UInt8(ascii: "i"), UInt8(ascii: "n"), UInt8(ascii: "+"), UInt8(ascii: "-"):
+            return scanNumber(&r, &sink)
+        case 0x30...0x39:
+            // `1979-05-27` or `07:32:00` before `1979`.
+            if isDigit(r.byte(at: 1)), isDigit(r.byte(at: 2)), isDigit(r.byte(at: 3)),
+               r.byte(at: 4) == UInt8(ascii: "-") {
+                return scanDateTime(&r, &sink)
+            }
+            if isDigit(r.byte(at: 1)), r.byte(at: 2) == UInt8(ascii: ":") {
+                return scanLocalTime(&r, &sink)
+            }
+            return scanNumber(&r, &sink)
+        default:
+            break
+        }
+        r.report(&sink, .tomlExpectedValue)
+        return nil
+    }
+
+    func isDigit(_ b: UInt8?) -> Bool { b.map { $0 >= 0x30 && $0 <= 0x39 } ?? false }
+
+    // MARK: Arrays and inline tables
+
+    /// `[ 1, 2, 3 ]` — values may be of mixed type, span lines, carry comments, and end
+    /// with a trailing comma.
+    mutating func parseArray(_ r: inout AssayReader, _ sink: inout IssueSink) -> TOML.Node? {
+        guard r.enterContainer(&sink) else { return nil }
+        defer { r.leaveContainer() }
+        r.advanceBy(1)
+        var items: [TOML.Node] = []
+        while true {
+            guard skipBlankLines(&r, &sink) else { return nil }
+            guard let c = r.currentByte else {
+                r.report(&sink, .tomlUnterminatedArray)
+                return nil
+            }
+            if c == UInt8(ascii: "]") { r.advanceBy(1); return .array(items) }
+            guard let value = parseValue(&r, &sink) else { return nil }
+            items.append(value)
+            guard skipBlankLines(&r, &sink) else { return nil }
+            if r.currentByte == UInt8(ascii: ",") { r.advanceBy(1); continue }
+            if r.currentByte == UInt8(ascii: "]") { r.advanceBy(1); return .array(items) }
+            r.report(&sink, .tomlUnterminatedArray)
+            return nil
+        }
+    }
+
+    /// `{ a = 1, b.c = 2 }` — one line, no trailing comma (TOML 1.0). Closed on return:
+    /// nothing later in the document can add to it.
+    mutating func parseInlineTable(_ r: inout AssayReader, _ sink: inout IssueSink) -> TOML.Node? {
+        guard r.enterContainer(&sink) else { return nil }
+        defer { r.leaveContainer() }
+        r.advanceBy(1)
+        let table = TOML.TableBuilder(origin: .header)
+        skipSpace(&r)
+        if r.currentByte == UInt8(ascii: "}") { r.advanceBy(1); return .table([]) }
+        while true {
+            skipSpace(&r)
+            guard parseKeyValue(&r, &sink, into: table) else { return nil }
+            skipSpace(&r)
+            if r.currentByte == UInt8(ascii: ",") { r.advanceBy(1); continue }
+            if r.currentByte == UInt8(ascii: "}") { r.advanceBy(1); return finish(table) }
+            r.report(&sink, .tomlUnterminatedInlineTable)
+            return nil
+        }
+    }
+
+    // MARK: Strings
+
+    /// `"…"` or `"""…"""`. The cursor is on the opening quote.
+    mutating func scanBasicString(
+        _ r: inout AssayReader, _ sink: inout IssueSink, multiline: Bool
+    ) -> String? {
+        r.advanceBy(multiline ? 3 : 1)
+        if multiline { _ = consumeNewline(&r) }
+        var out: [UInt8] = []
+        while true {
+            guard let c = r.currentByte else {
+                r.report(&sink, .tomlUnterminatedString)
+                return nil
+            }
+            if c == UInt8(ascii: "\"") {
+                if !multiline { r.advanceBy(1); return String(decoding: out, as: UTF8.self) }
+                var n = 0
+                while r.byte(at: n) == UInt8(ascii: "\"") { n += 1 }
+                if n >= 3 {
+                    // One or two quotes may sit just inside the closing delimiter.
+                    guard n <= 5 else {
+                        r.advanceBy(n)
+                        r.report(&sink, .tomlExpectedNewline)
+                        return nil
+                    }
+                    for _ in 0..<(n - 3) { out.append(UInt8(ascii: "\"")) }
+                    r.advanceBy(n)
+                    return String(decoding: out, as: UTF8.self)
+                }
+                for _ in 0..<n { out.append(UInt8(ascii: "\"")) }
+                r.advanceBy(n)
+                continue
+            }
+            if c == UInt8(ascii: "\\") {
+                guard scanEscape(&r, &sink, into: &out, multiline: multiline) else { return nil }
+                continue
+            }
+            if c == 0x0A || c == 0x0D {
+                guard multiline else {
+                    r.report(&sink, .tomlUnterminatedString)
+                    return nil
+                }
+                if c == 0x0D {
+                    guard r.byte(at: 1) == 0x0A else {
+                        r.report(&sink, .tomlControlCharacter)
+                        return nil
+                    }
+                    out.append(0x0D)
+                    r.advanceBy(1)
+                }
+                out.append(0x0A)
+                r.advanceBy(1)
+                continue
+            }
+            if c < 0x20 && c != 0x09 || c == 0x7F {
+                r.report(&sink, .tomlControlCharacter)
+                return nil
+            }
+            out.append(c)
+            r.advanceBy(1)
+        }
+    }
+
+    /// One escape, cursor on the backslash. Appends the bytes it denotes.
+    func scanEscape(
+        _ r: inout AssayReader, _ sink: inout IssueSink, into out: inout [UInt8], multiline: Bool
+    ) -> Bool {
+        let at = r.byteOffset
+        r.advanceBy(1)
+        guard let e = r.currentByte else {
+            r.report(&sink, .tomlUnterminatedString)
+            return false
+        }
+        switch e {
+        case UInt8(ascii: "b"): out.append(0x08)
+        case UInt8(ascii: "t"): out.append(0x09)
+        case UInt8(ascii: "n"): out.append(0x0A)
+        case UInt8(ascii: "f"): out.append(0x0C)
+        case UInt8(ascii: "r"): out.append(0x0D)
+        case UInt8(ascii: "\""): out.append(0x22)
+        case UInt8(ascii: "\\"): out.append(0x5C)
+        case UInt8(ascii: "u"), UInt8(ascii: "U"):
+            let digits = e == UInt8(ascii: "u") ? 4 : 8
+            r.advanceBy(1)
+            var value: UInt32 = 0
+            for _ in 0..<digits {
+                guard let h = r.currentByte, let d = hexValue(h) else {
+                    r.report(&sink, .tomlBadEscape, span: SourceSpan(lo: at, len: r.byteOffset - at))
+                    return false
+                }
+                value = value &* 16 &+ UInt32(d)
+                r.advanceBy(1)
+            }
+            // Surrogates and values past U+10FFFF are not scalars; `Unicode.Scalar` is
+            // the arbiter.
+            guard let scalar = Unicode.Scalar(value) else {
+                r.report(&sink, .tomlBadEscape, span: SourceSpan(lo: at, len: r.byteOffset - at))
+                return false
+            }
+            out.append(contentsOf: Array(String(scalar).utf8))
+            return true
+        case 0x20, 0x09, 0x0A, 0x0D:
+            // A line-ending backslash: trims all whitespace and newlines that follow.
+            // Only whitespace may sit between the backslash and the newline, and only
+            // a multi-line string has one.
+            guard multiline else {
+                r.report(&sink, .tomlBadEscape, span: SourceSpan(lo: at, len: 2))
+                return false
+            }
+            var i = 0
+            while r.byte(at: i) == 0x20 || r.byte(at: i) == 0x09 { i += 1 }
+            guard r.byte(at: i) == 0x0A || (r.byte(at: i) == 0x0D && r.byte(at: i + 1) == 0x0A) else {
+                r.report(&sink, .tomlBadEscape, span: SourceSpan(lo: at, len: 2))
+                return false
+            }
+            r.advanceBy(i)
+            while let c = r.currentByte, c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0D {
+                if c == 0x0D, r.byte(at: 1) != 0x0A { break }
+                r.advanceBy(1)
+            }
+            return true
+        default:
+            r.report(&sink, .tomlBadEscape, span: SourceSpan(lo: at, len: 2))
+            return false
+        }
+        r.advanceBy(1)
+        return true
+    }
+
+    func hexValue(_ b: UInt8) -> UInt8? {
+        switch b {
+        case 0x30...0x39: return b - 0x30
+        case 0x41...0x46: return b - 0x41 + 10
+        case 0x61...0x66: return b - 0x61 + 10
+        default: return nil
+        }
+    }
+
+    /// `'…'` or `'''…'''`. No escapes; what you see is what you get.
+    mutating func scanLiteralString(
+        _ r: inout AssayReader, _ sink: inout IssueSink, multiline: Bool
+    ) -> String? {
+        r.advanceBy(multiline ? 3 : 1)
+        if multiline { _ = consumeNewline(&r) }
+        let start = r.byteOffset
+        var extra = 0
+        while true {
+            guard let c = r.currentByte else {
+                r.report(&sink, .tomlUnterminatedString)
+                return nil
+            }
+            if c == UInt8(ascii: "'") {
+                if !multiline {
+                    let s = r.string(from: start, to: r.byteOffset)
+                    r.advanceBy(1)
+                    return s
+                }
+                var n = 0
+                while r.byte(at: n) == UInt8(ascii: "'") { n += 1 }
+                if n >= 3 {
+                    guard n <= 5 else {
+                        r.advanceBy(n)
+                        r.report(&sink, .tomlExpectedNewline)
+                        return nil
+                    }
+                    extra = n - 3
+                    let s = r.string(from: start, to: r.byteOffset + extra)
+                    r.advanceBy(n)
+                    return s
+                }
+                r.advanceBy(n)
+                continue
+            }
+            if c == 0x0A || c == 0x0D {
+                guard multiline else {
+                    r.report(&sink, .tomlUnterminatedString)
+                    return nil
+                }
+                if c == 0x0D, r.byte(at: 1) != 0x0A {
+                    r.report(&sink, .tomlControlCharacter)
+                    return nil
+                }
+                r.advanceBy(1)
+                continue
+            }
+            if c < 0x20 && c != 0x09 || c == 0x7F {
+                r.report(&sink, .tomlControlCharacter)
+                return nil
+            }
+            r.advanceBy(1)
+        }
+    }
+
+    // MARK: Numbers
+
+    /// An integer or a float, with the sign, `inf`/`nan`, prefixed bases and underscores.
+    mutating func scanNumber(_ r: inout AssayReader, _ sink: inout IssueSink) -> TOML.Node? {
+        let start = r.byteOffset
+        guard let node = scanNumberBody(&r, &sink, start: start) else { return nil }
+        // `+0x1`, `1x`, `infinity`: a number followed by more word is a bad number, not a
+        // good number with something after it.
+        if let c = r.currentByte, isBareKeyByte(c) {
+            r.report(&sink, .tomlBadNumber, span: SourceSpan(lo: start, len: r.byteOffset - start + 1))
+            return nil
+        }
+        return node
+    }
+
+    mutating func scanNumberBody(_ r: inout AssayReader, _ sink: inout IssueSink, start: Int) -> TOML.Node? {
+        var negative = false
+        var signed = false
+        if let c = r.currentByte, c == UInt8(ascii: "+") || c == UInt8(ascii: "-") {
+            signed = true
+            negative = c == UInt8(ascii: "-")
+            r.advanceBy(1)
+        }
+        if r.consume("inf") { return .double(negative ? -.infinity : .infinity) }
+        if r.consume("nan") { return .double(.nan) }
+
+        if !signed, r.currentByte == UInt8(ascii: "0"), let p = r.byte(at: 1),
+           p == UInt8(ascii: "x") || p == UInt8(ascii: "o") || p == UInt8(ascii: "b") {
+            r.advanceBy(2)
+            let radix: Int64 = p == UInt8(ascii: "x") ? 16 : (p == UInt8(ascii: "o") ? 8 : 2)
+            return scanPrefixedInteger(&r, &sink, radix: radix, start: start)
+        }
+
+        // Decimal: the integer part, then an optional fraction and exponent make a float.
+        var text: [UInt8] = []
+        if negative { text.append(UInt8(ascii: "-")) }
+        let intStart = text.count
+        guard scanDigits(&r, &sink, into: &text, radix: 10, start: start) else { return nil }
+        if text.count - intStart > 1, text[intStart] == UInt8(ascii: "0") {
+            r.report(&sink, .tomlBadNumber, span: SourceSpan(lo: start, len: r.byteOffset - start))
+            return nil
+        }
+        var isFloat = false
+        if r.currentByte == UInt8(ascii: ".") {
+            isFloat = true
+            text.append(UInt8(ascii: "."))
+            r.advanceBy(1)
+            guard scanDigits(&r, &sink, into: &text, radix: 10, start: start) else { return nil }
+        }
+        if let e = r.currentByte, e == UInt8(ascii: "e") || e == UInt8(ascii: "E") {
+            isFloat = true
+            text.append(UInt8(ascii: "e"))
+            r.advanceBy(1)
+            if let s = r.currentByte, s == UInt8(ascii: "+") || s == UInt8(ascii: "-") {
+                text.append(s)
+                r.advanceBy(1)
+            }
+            guard scanDigits(&r, &sink, into: &text, radix: 10, start: start) else { return nil }
+        }
+        if isFloat {
+            // The grammar has been checked above; the stdlib's conversion is correctly
+            // rounded, which is more than a hand-rolled one would be.
+            guard let d = Double(String(decoding: text, as: UTF8.self)) else {
+                r.report(&sink, .tomlBadNumber, span: SourceSpan(lo: start, len: r.byteOffset - start))
+                return nil
+            }
+            return .double(d)
+        }
+        var value: Int64 = 0
+        for b in text[intStart...] {
+            let (m, o1) = value.multipliedReportingOverflow(by: 10)
+            let digit = Int64(b - 0x30)
+            let (a, o2) = negative ? m.subtractingReportingOverflow(digit) : m.addingReportingOverflow(digit)
+            guard !o1, !o2 else {
+                r.report(&sink, .numberOverflow, span: SourceSpan(lo: start, len: r.byteOffset - start))
+                return nil
+            }
+            value = a
+        }
+        return .int(value)
+    }
+
+    /// `0xDEAD_BEEF`, `0o755`, `0b1101` — after the prefix.
+    func scanPrefixedInteger(
+        _ r: inout AssayReader, _ sink: inout IssueSink, radix: Int64, start: Int
+    ) -> TOML.Node? {
+        var text: [UInt8] = []
+        guard scanDigits(&r, &sink, into: &text, radix: Int(radix), start: start) else { return nil }
+        var value: Int64 = 0
+        for b in text {
+            let digit = Int64(hexValue(b) ?? 0)
+            let (m, o1) = value.multipliedReportingOverflow(by: radix)
+            let (a, o2) = m.addingReportingOverflow(digit)
+            guard !o1, !o2 else {
+                r.report(&sink, .numberOverflow, span: SourceSpan(lo: start, len: r.byteOffset - start))
+                return nil
+            }
+            value = a
+        }
+        return .int(value)
+    }
+
+    /// One or more digits of `radix`, with underscores allowed only between two digits.
+    func scanDigits(
+        _ r: inout AssayReader, _ sink: inout IssueSink, into out: inout [UInt8], radix: Int, start: Int
+    ) -> Bool {
+        var count = 0
+        while let c = r.currentByte {
+            if let d = hexValue(c), Int(d) < radix {
+                out.append(c)
+                count += 1
+                r.advanceBy(1)
+            } else if c == UInt8(ascii: "_") {
+                // Only between two digits: `1_000` yes, `1_`, `_1` and `1__0` no.
+                guard count > 0, let n = r.byte(at: 1), let d = hexValue(n), Int(d) < radix else {
+                    r.report(&sink, .tomlBadNumber, span: SourceSpan(lo: start, len: max(1, r.byteOffset - start + 1)))
+                    return false
+                }
+                r.advanceBy(1)
+            } else {
+                break
+            }
+        }
+        guard count > 0 else {
+            r.report(&sink, .tomlBadNumber, span: SourceSpan(lo: start, len: max(1, r.byteOffset - start)))
+            return false
+        }
+        return true
+    }
+
+    // MARK: Date-times
+
+    /// A date, and if a time follows it, a local or offset date-time. Cursor on the first
+    /// digit; the caller has seen `DDDD-`.
+    mutating func scanDateTime(_ r: inout AssayReader, _ sink: inout IssueSink) -> TOML.Node? {
+        let start = r.byteOffset
+        func fail() -> TOML.Node? {
+            r.report(&sink, .tomlBadDateTime, span: SourceSpan(lo: start, len: max(1, r.byteOffset - start)))
+            return nil
+        }
+        guard let year = fixedDigits(&r, 4), r.currentByte == UInt8(ascii: "-") else { return fail() }
+        r.advanceBy(1)
+        guard let month = fixedDigits(&r, 2), r.currentByte == UInt8(ascii: "-") else { return fail() }
+        r.advanceBy(1)
+        guard let day = fixedDigits(&r, 2) else { return fail() }
+        guard month >= 1, month <= 12, day >= 1, day <= daysIn(month: month, year: year) else { return fail() }
+        var text = r.string(from: start, to: r.byteOffset)
+
+        // `T`, `t`, or a space that is followed by a digit, introduces the time.
+        let sep = r.currentByte
+        let hasTime = sep == UInt8(ascii: "T") || sep == UInt8(ascii: "t")
+            || (sep == 0x20 && isDigit(r.byte(at: 1)))
+        guard hasTime else { return .dateTime(.localDate(text)) }
+        r.advanceBy(1)
+        guard let time = scanTime(&r) else { return fail() }
+        text += "T" + time
+
+        if let z = r.currentByte, z == UInt8(ascii: "Z") || z == UInt8(ascii: "z") {
+            r.advanceBy(1)
+            return .dateTime(.offsetDateTime(text + "Z"))
+        }
+        if let s = r.currentByte, s == UInt8(ascii: "+") || s == UInt8(ascii: "-") {
+            let offsetStart = r.byteOffset
+            r.advanceBy(1)
+            guard let oh = fixedDigits(&r, 2), r.currentByte == UInt8(ascii: ":") else { return fail() }
+            r.advanceBy(1)
+            guard let om = fixedDigits(&r, 2), oh <= 23, om <= 59 else { return fail() }
+            text += r.string(from: offsetStart, to: r.byteOffset)
+            return .dateTime(.offsetDateTime(text))
+        }
+        return .dateTime(.localDateTime(text))
+    }
+
+    /// `07:32:00`, `00:32:00.999999`. Cursor on the first digit.
+    mutating func scanLocalTime(_ r: inout AssayReader, _ sink: inout IssueSink) -> TOML.Node? {
+        let start = r.byteOffset
+        guard let time = scanTime(&r) else {
+            r.report(&sink, .tomlBadDateTime, span: SourceSpan(lo: start, len: max(1, r.byteOffset - start)))
+            return nil
+        }
+        return .dateTime(.localTime(time))
+    }
+
+    /// `HH:MM:SS` with an optional fraction, range-checked. Seconds are required in TOML
+    /// 1.0; a leap second (`:60`) is allowed, as RFC 3339 allows it.
+    func scanTime(_ r: inout AssayReader) -> String? {
+        let start = r.byteOffset
+        guard let h = fixedDigits(&r, 2), r.currentByte == UInt8(ascii: ":") else { return nil }
+        r.advanceBy(1)
+        guard let m = fixedDigits(&r, 2), r.currentByte == UInt8(ascii: ":") else { return nil }
+        r.advanceBy(1)
+        guard let s = fixedDigits(&r, 2) else { return nil }
+        guard h <= 23, m <= 59, s <= 60 else { return nil }
+        if r.currentByte == UInt8(ascii: ".") {
+            r.advanceBy(1)
+            var n = 0
+            while isDigit(r.currentByte) { r.advanceBy(1); n += 1 }
+            guard n > 0 else { return nil }
+        }
+        return r.string(from: start, to: r.byteOffset)
+    }
+
+    /// Exactly `n` ASCII digits, as an integer.
+    func fixedDigits(_ r: inout AssayReader, _ n: Int) -> Int? {
+        var v = 0
+        for _ in 0..<n {
+            guard let c = r.currentByte, c >= 0x30, c <= 0x39 else { return nil }
+            v = v * 10 + Int(c - 0x30)
+            r.advanceBy(1)
+        }
+        return v
+    }
+
+    func daysIn(month: Int, year: Int) -> Int {
+        switch month {
+        case 2:
+            let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+            return leap ? 29 : 28
+        case 4, 6, 9, 11: return 30
+        default: return 31
+        }
+    }
+}

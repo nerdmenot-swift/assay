@@ -90,6 +90,20 @@ func internalCustomMessage(_ code: String) -> String? {
     case "yaml_bad_escape": return "invalid escape sequence"
     case "yaml_unrepresentable_key":
         return "a mapping key is not a plain scalar; parse to YAML.Node instead"
+    case "toml_expected_key": return "expected a key"
+    case "toml_expected_equals": return "expected '=' after the key"
+    case "toml_expected_value": return "expected a value"
+    case "toml_expected_newline": return "expected a newline after the value"
+    case "toml_unterminated_string": return "unterminated string"
+    case "toml_bad_escape": return "invalid escape sequence"
+    case "toml_control_character": return "control characters must be escaped"
+    case "toml_bad_number": return "invalid number literal"
+    case "toml_bad_date_time": return "invalid date-time"
+    case "toml_unterminated_array": return "unterminated array; expected ',' or ']'"
+    case "toml_unterminated_inline_table": return "unterminated inline table; expected ',' or '}'"
+    case "toml_unterminated_table_header": return "expected ']' closing the table header"
+    case "toml_no_null": return "TOML has no null; the value cannot be encoded"
+    case "toml_root_not_a_table": return "a TOML document is a table; the root value is not"
     case "cannot_map_file": return "could not open or map the file"
     case "invalid_escape": return "contains an invalid escape sequence"
     case "fallback_applied": return "fell back to the declared value"
@@ -371,6 +385,15 @@ extension Issue {
             let expected = params["expected"]?.displayString ?? ""
             if let r = received { return "root element must be <\(expected)>, found <\(r)>" }
             return "root element must be <\(expected)>"
+        case .custom("toml_redefined_table"):
+            if let k = params["key"]?.displayString { return "table '\(k)' is already defined" }
+            return "table is already defined"
+        case .custom("toml_inline_table_closed"):
+            if let k = params["key"]?.displayString { return "inline table '\(k)' cannot be extended after it is defined" }
+            return "an inline table cannot be extended after it is defined"
+        case .custom("toml_not_a_table"):
+            if let k = params["key"]?.displayString { return "'\(k)' is not a table and cannot be extended" }
+            return "the key is not a table and cannot be extended"
         case .custom("yaml_anchor_on_alias"):
             return "an anchor cannot be placed on an alias (`&a *b`); an alias refers to an anchored node and is not a node of its own"
 

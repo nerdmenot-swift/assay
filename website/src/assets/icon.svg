@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Placeholder mark: the caret. -->
+  <rect width="64" height="64" rx="8" fill="#1a1816"/>
+  <path d="M14 46 L32 14 L50 46" fill="none" stroke="#f3efe6" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M32 58 l-7 -10 h14 z" fill="#d9553a"/>
+</svg>

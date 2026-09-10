@@ -1,0 +1,224 @@
+/* Landing page only. A real stylesheet rather than an inline <style is:global> block:
+   something in an inline block can break parsing partway and silently drop every rule
+   after it, which is invisible until you read computed styles. */
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--assay-paper); color: var(--assay-ink);
+  font-family: var(--assay-sans); line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- chrome --------------------------------------------------------------- */
+
+.top {
+  display: flex; align-items: center; justify-content: space-between; gap: 2rem;
+  padding: 1rem clamp(1rem, 5vw, 3.5rem);
+  border-bottom: 1px solid var(--assay-rule);
+  position: sticky; top: 0; z-index: 10;
+  background: color-mix(in srgb, var(--assay-paper) 90%, transparent);
+  backdrop-filter: saturate(1.4) blur(8px);
+}
+.top-brand { display: block; width: 7.5rem; color: var(--assay-ink); }
+.top-brand svg { width: 100%; height: auto; display: block; }
+.top-nav { display: flex; align-items: center; gap: 1.3rem; }
+.top-nav a {
+  color: var(--assay-muted); text-decoration: none; font-size: .88rem; font-weight: 500;
+}
+.top-nav a:hover { color: var(--assay-accent); }
+#theme {
+  border: 1px solid var(--assay-rule); background: transparent;
+  color: var(--assay-muted); border-radius: 3px; cursor: pointer;
+  width: 2rem; height: 2rem;
+}
+
+main {
+  max-width: 78rem; margin: 0 auto;
+  padding: var(--space-5) clamp(1rem, 5vw, 3.5rem) var(--space-6);
+  display: flex; flex-direction: column; gap: var(--space-6);
+}
+
+.foot {
+  border-top: 1px solid var(--assay-rule);
+  padding: var(--space-4) clamp(1rem, 5vw, 3.5rem);
+  display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-5);
+  justify-content: space-between;
+  font-family: var(--assay-mono); font-size: .72rem; color: var(--assay-faint);
+}
+
+/* ---- section furniture ---------------------------------------------------- */
+
+.doc-label {
+  font-family: var(--assay-mono); font-size: .68rem; font-weight: 500;
+  letter-spacing: .16em; text-transform: uppercase; color: var(--assay-faint);
+  margin: 0 0 var(--space-1); padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--assay-rule);
+}
+h1 {
+  font-family: var(--assay-display); font-weight: 700;
+  font-size: clamp(2.2rem, 5vw, 3.4rem); line-height: 1.04;
+  letter-spacing: -.03em; margin: 0;
+}
+h2 {
+  font-family: var(--assay-display); font-weight: 700;
+  font-size: clamp(1.5rem, 2.6vw, 2.1rem); line-height: 1.12;
+  letter-spacing: -.02em; margin: 0;
+}
+h3 {
+  font-family: var(--assay-display); font-weight: 700;
+  font-size: 1.05rem; letter-spacing: -.01em; margin: 0 0 var(--space-2);
+}
+.voice { margin: 0; color: var(--assay-muted); max-width: 46ch; }
+.voice.wide { max-width: 62ch; }
+.voice strong, .knobs strong { color: var(--assay-ink); font-weight: 600; }
+.voice em { font-style: normal; color: var(--assay-accent); font-weight: 600; }
+.fineprint {
+  margin: 0; font-size: .82rem; color: var(--assay-faint);
+}
+.fineprint a { color: var(--assay-accent); text-decoration: none; font-weight: 500; }
+.fineprint a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.reg { display: flex; flex-direction: column; gap: var(--space-3); }
+/* A banded section reaches the full width while its content stays in the column: the
+   band is what separates the three long sections without three more rules. */
+.band {
+  background: var(--assay-band);
+  padding: var(--space-5) clamp(1rem, 4vw, 2.5rem);
+  border: 1px solid var(--assay-rule); border-radius: 4px;
+}
+
+.knobs {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: var(--space-3) var(--space-5);
+}
+.knobs p { margin: 0; color: var(--assay-muted); }
+.knobs code, .voice code, .notes code {
+  font-family: var(--assay-mono); font-size: .86em;
+  background: var(--assay-card); border: 1px solid var(--assay-rule);
+  border-radius: 3px; padding: .05em .3em; color: var(--assay-ink);
+}
+
+/* ---- hero ----------------------------------------------------------------- */
+
+.hero {
+  display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 5fr);
+  gap: var(--space-4) clamp(1.5rem, 4vw, 3rem); align-items: start;
+}
+.hero-say { display: flex; flex-direction: column; gap: var(--space-3); }
+.cta { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-1); }
+.btn {
+  display: inline-block; padding: .6rem 1.1rem; border-radius: 3px;
+  background: var(--assay-ink); color: var(--assay-paper);
+  text-decoration: none; font-weight: 600; font-size: .9rem;
+  border: 1px solid var(--assay-ink);
+}
+.btn:hover { background: var(--assay-accent); border-color: var(--assay-accent); color: #fff; }
+.btn-ghost {
+  background: transparent; color: var(--assay-ink); border-color: var(--assay-rule);
+}
+.btn-ghost:hover { background: transparent; color: var(--assay-accent); }
+
+/* ---- renders -------------------------------------------------------------- */
+
+/* Two kinds of block, deliberately different: `.src` is the document you fed in, on
+   paper; `.out` is what the library printed, on a terminal. Same border, same family,
+   different ground — so nobody reads the report as if it were the input. */
+.render {
+  margin: 0; border: 1px solid var(--assay-rule); border-radius: 4px;
+  background: var(--assay-card); overflow: hidden;
+}
+.code-head {
+  font-family: var(--assay-mono); font-size: .64rem; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--assay-faint);
+  padding: .5rem .85rem; border-bottom: 1px solid var(--assay-rule);
+  background: var(--assay-band);
+}
+.render pre {
+  margin: 0; padding: .85rem; overflow-x: auto;
+  font-family: var(--assay-mono); font-size: .8rem; line-height: 1.55;
+}
+.render pre.out {
+  background: #15141a; color: #d7d2c8;
+  border-top: 1px solid var(--assay-rule);
+}
+.render-hero pre.src { max-height: 12rem; }
+
+.r-loc { color: #9aa6c4; }
+.r-err { color: #f07b62; font-weight: 600; }
+.r-warn { color: #e0b45a; font-weight: 600; }
+.r-gutter { color: #8b857b; }
+.r-caret { color: #f07b62; font-weight: 600; }
+.r-sum { color: #b3ada3; }
+
+/* The document and its report, side by side down to tablet width, stacked below it —
+   because the caret only means something next to the line it points at. */
+.pairing {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(24rem, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+}
+
+/* ---- stats ---------------------------------------------------------------- */
+
+.stat-strip {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  border: 1px solid var(--assay-rule); border-radius: 4px;
+  background: var(--assay-card); overflow: hidden;
+}
+.stat {
+  display: flex; flex-direction: column; gap: .15rem;
+  padding: var(--space-3);
+  border-right: 1px solid var(--assay-rule);
+  border-bottom: 1px solid var(--assay-rule);
+}
+.stat-n {
+  font-family: var(--assay-display); font-weight: 700; font-size: 1.6rem;
+  letter-spacing: -.02em; color: var(--assay-accent); line-height: 1;
+}
+.stat-l { font-size: .82rem; color: var(--assay-ink); }
+.stat-v { font-size: .72rem; color: var(--assay-faint); font-family: var(--assay-mono); }
+
+/* ---- tabs ----------------------------------------------------------------- */
+
+.tabs { display: flex; gap: .4rem; flex-wrap: wrap; }
+.pill {
+  font-family: var(--assay-mono); font-size: .78rem; font-weight: 500;
+  padding: .35rem .8rem; border-radius: 3px; cursor: pointer;
+  border: 1px solid var(--assay-rule); background: transparent; color: var(--assay-muted);
+}
+.pill:hover { color: var(--assay-accent); border-color: var(--assay-accent); }
+.pill.on {
+  background: var(--assay-ink); border-color: var(--assay-ink); color: var(--assay-paper);
+}
+
+.taste { display: flex; flex-direction: column; gap: var(--space-3); }
+
+/* ---- notes and ends -------------------------------------------------------- */
+
+.notes {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: var(--space-4);
+}
+.notes p { margin: 0; color: var(--assay-muted); font-size: .92rem; }
+
+.ends {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-3);
+}
+.end {
+  display: block; padding: var(--space-4);
+  border: 1px solid var(--assay-rule); border-radius: 4px;
+  background: var(--assay-card); text-decoration: none; color: inherit;
+}
+.end:hover { border-color: var(--assay-accent); }
+.end p { margin: 0; color: var(--assay-muted); font-size: .9rem; }
+.end h3 { color: var(--assay-accent); }
+
+@media (max-width: 56rem) {
+  .hero { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important; transition-duration: .001ms !important;
+  }
+}

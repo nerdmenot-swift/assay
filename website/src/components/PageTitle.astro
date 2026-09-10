@@ -1,0 +1,22 @@
+---
+// A docs page opens like a document: an eyebrow naming the section, then the title in
+// the display face. Overriding Starlight's PageTitle is what lets the docs and the
+// landing page read as one site.
+const { entry } = Astro.locals.starlightRoute
+const group = entry.id.split('/')[0]
+const LABELS: Record<string, string> = {
+  start: 'Start', guides: 'Guides', reference: 'Reference',
+}
+---
+<p class="assay-eyebrow">{LABELS[group] ?? 'Assay'}</p>
+<h1 id="_top">{entry.data.title}</h1>
+<style>
+  .assay-eyebrow {
+    font-family: var(--assay-mono); font-size: .68rem; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--assay-faint); margin: 0 0 .35rem;
+  }
+  h1 {
+    font-family: var(--assay-display); font-weight: 700;
+    letter-spacing: -.02em; line-height: 1.08; margin: 0;
+  }
+</style>

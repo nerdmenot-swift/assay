@@ -1,0 +1,273 @@
+/*
+ * Assay's theme. The job, as with every docs site built on Starlight, is mostly not
+ * looking like Starlight: its cool grey ramp, purple accent, system type and rounded
+ * corners are replaced, not tinted.
+ *
+ * The one colour that means something here is the caret. Every error Assay prints ends
+ * in a `^` under the byte that was wrong, and that is the accent: a warm coral on paper,
+ * a lighter one on ink. Body text and links use darker siblings that pass WCAG AA.
+ */
+
+:root {
+  --space-1: 0.35rem;
+  --space-2: 0.6rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2.25rem;
+  --space-6: clamp(3rem, 6vw, 4.5rem);
+
+  --assay-display: 'Bricolage Grotesque', 'Public Sans', -apple-system, sans-serif;
+  --assay-sans: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --assay-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --assay-coral: #d9553a;
+  --assay-gold: #c99a2e;
+  --assay-cream: #f6f1e7;
+}
+
+/* ---- light ---------------------------------------------------------------- */
+
+:root[data-theme='light'] {
+  --assay-paper: #f3efe6;
+  --assay-card: #ffffff;
+  --assay-ink: #1a1816;
+  --assay-muted: #5b5751;
+  --assay-faint: #6b665e;
+  --assay-rule: #d9d2c3;
+  --assay-accent: #b8432c;
+  --assay-accent-soft: #f7e4dd;
+  --assay-band: #e9e3d6;
+  --assay-gold-soft: #f4ead2;
+  --assay-caution: #8a6210;
+  --assay-ok: #2f7a4a;
+
+  --sl-color-accent-low: #f7e4dd;
+  --sl-color-accent: #b8432c;
+  --sl-color-accent-high: #8d3120;
+  --sl-color-white: #1a1816;
+  --sl-color-gray-1: #262320;
+  --sl-color-gray-2: #45413b;
+  --sl-color-gray-3: #66615a;
+  --sl-color-gray-4: #918b82;
+  --sl-color-gray-5: #d9d2c3;
+  --sl-color-gray-6: #e9e3d6;
+  --sl-color-gray-7: #efeae0;
+  --sl-color-black: #f3efe6;
+  --sl-color-text: #1a1816;
+  --sl-color-text-accent: #b8432c;
+  --sl-color-hairline: #d9d2c3;
+  --sl-color-hairline-light: #e9e3d6;
+  --sl-color-bg: #f3efe6;
+  --sl-color-bg-nav: #f3efe6;
+  --sl-color-bg-sidebar: #f3efe6;
+  --sl-color-bg-inline-code: #e9e3d6;
+}
+
+/* ---- dark ----------------------------------------------------------------- */
+
+:root[data-theme='dark'] {
+  --assay-paper: #15141a;
+  --assay-card: #1d1c23;
+  --assay-ink: #ece8e0;
+  --assay-muted: #b3ada3;
+  --assay-faint: #8f897f;
+  --assay-rule: #33313a;
+  --assay-accent: #f07b62;
+  --assay-accent-soft: #3a2621;
+  --assay-band: #1a1920;
+  --assay-gold-soft: #302a1a;
+  --assay-caution: #e0b45a;
+  --assay-ok: #6fc28c;
+
+  --sl-color-accent-low: #3a2621;
+  --sl-color-accent: #f07b62;
+  --sl-color-accent-high: #f7a08c;
+  --sl-color-white: #ece8e0;
+  --sl-color-gray-1: #dcd8cf;
+  --sl-color-gray-2: #b3ada3;
+  --sl-color-gray-3: #8f897f;
+  --sl-color-gray-4: #5f5a52;
+  --sl-color-gray-5: #33313a;
+  --sl-color-gray-6: #26252c;
+  --sl-color-gray-7: #1d1c23;
+  --sl-color-black: #15141a;
+  --sl-color-text: #ece8e0;
+  --sl-color-text-accent: #f07b62;
+  --sl-color-hairline: #33313a;
+  --sl-color-hairline-light: #26252c;
+  --sl-color-bg: #15141a;
+  --sl-color-bg-nav: #15141a;
+  --sl-color-bg-sidebar: #15141a;
+  --sl-color-bg-inline-code: #26252c;
+}
+
+/* ---- typography ----------------------------------------------------------- */
+
+:root {
+  --sl-font: var(--assay-sans);
+  --sl-font-mono: var(--assay-mono);
+  --sl-text-h1: 2.6rem;
+  --sl-text-h2: 1.75rem;
+  --sl-text-h3: 1.25rem;
+  --sl-line-height: 1.65;
+  --sl-content-width: 48rem;
+  --sl-nav-height: 4rem;
+}
+
+/* Collapsed table of contents. See TocToggle.astro for why it exists.
+
+   Hiding the panel alone buys nothing: .main-pane is
+   width: min(100% - var(--sl-sidebar-width), …) and reserves the panel's width whether or
+   not one is rendered. Taking the full width and letting .sl-container's max-width — which
+   is --sl-content-width — do the capping is what actually returns the space.
+
+   margin-inline goes back to auto because Starlight's default of `auto 0` would otherwise
+   pin the content against the right edge, into the gap the panel used to fill. */
+@media (min-width: 72rem) {
+  html[data-toc='collapsed'] {
+    --sl-content-width: 78rem;
+  }
+  html[data-toc='collapsed'] .right-sidebar-container {
+    display: none;
+  }
+  html[data-toc='collapsed'] .main-pane {
+    width: 100%;
+    --sl-content-margin-inline: auto;
+  }
+  /* Running text keeps its measure; tables and code take the width that was freed. A
+     paragraph at 78rem is ~125 characters a line, which is worse to read than the panel
+     was to look at. */
+  html[data-toc='collapsed']
+    .sl-markdown-content
+    > :is(p, ul, ol, dl, blockquote, h1, h2, h3, h4, h5, h6) {
+    max-width: 48rem;
+  }
+}
+
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3,
+.sl-markdown-content h4 {
+  font-family: var(--assay-display);
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+
+/* A rule under h2 rather than extra space above it. Reads as a document with sections
+   instead of a page with headings, which suits a project about record-keeping. */
+.sl-markdown-content h2 {
+  /* Starlight sets headings to `display: inline` so its anchor link sits alongside.
+     A border on an inline box wraps with the text, so the rule stopped at the last word
+     and a two-line heading got two stubs. Blocking it makes the rule span the column. */
+  display: block;
+  border-bottom: 2px solid var(--sl-color-hairline);
+  padding-bottom: 0.4rem;
+  margin-top: 2.6rem;
+}
+
+.sl-markdown-content a {
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+/* ---- squaring off --------------------------------------------------------- */
+
+/* Starlight rounds nearly everything to 0.5rem. Near-square corners are the single
+   cheapest change that stops it reading as the default. */
+.sl-markdown-content :is(pre, .expressive-code, blockquote, table, img),
+.card,
+.starlight-aside {
+  border-radius: 3px !important;
+}
+
+.sl-markdown-content blockquote {
+  border-inline-start: 3px solid var(--assay-amber);
+  background: var(--sl-color-gray-7);
+  padding: 0.8rem 1rem;
+  font-style: normal;
+}
+
+.sl-markdown-content table {
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.sl-markdown-content :is(th, td) {
+  border: 1px solid var(--sl-color-hairline);
+  padding: 0.45rem 0.7rem;
+}
+.sl-markdown-content th {
+  font-family: var(--assay-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--assay-muted);
+  background: var(--sl-color-gray-7);
+}
+/* Figures line up in columns wherever a table carries counts. */
+.sl-markdown-content td {
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-markdown-content code:not(pre code) {
+  font-size: 0.86em;
+  padding: 0.1em 0.35em;
+  border-radius: 2px;
+  border: 1px solid var(--sl-color-hairline);
+}
+
+/* The generator tables put the whole signature in the first column, so give it room
+   and keep the example column from being squeezed to nothing. */
+.sl-markdown-content table td:first-child code {
+  font-size: 0.76rem;
+  white-space: normal;
+}
+.sl-markdown-content table td:first-child { width: 45%; }
+.sl-markdown-content td code {
+  border: 0;
+  background: var(--sl-color-gray-7);
+}
+
+/* ---- sidebar -------------------------------------------------------------- */
+
+/* Group labels as small caps against a hairline, rather than Starlight's bold sans.
+   The sidebar is the most-seen surface on a docs site and the most recognisable. */
+.sidebar-content summary,
+.sidebar-content > ul > li > span {
+  font-family: var(--assay-mono) !important;
+  font-size: 0.68rem !important;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--assay-faint) !important;
+  font-weight: 500 !important;
+}
+
+.sidebar-content a {
+  border-radius: 2px;
+  font-size: 0.92rem;
+}
+.sidebar-content a[aria-current='page'] {
+  background: var(--assay-accent-soft);
+  color: var(--sl-color-text-accent);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--assay-accent);
+}
+
+/* ---- header --------------------------------------------------------------- */
+
+header.header {
+  border-bottom: 1px solid var(--sl-color-hairline);
+  backdrop-filter: saturate(1.4) blur(6px);
+}
+
+/* ---- reduced motion ------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

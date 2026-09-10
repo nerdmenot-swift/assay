@@ -1,0 +1,198 @@
+---
+title: Rules
+description: Validating what you decoded, in the same pass, checked against your field's type when you build.
+---
+
+A rule turns "this decoded" into "this is usable".
+
+```swift
+@Schema(keys: .snakeCase)
+struct Deployment {
+    @Validate(.min(1), .max(63), .hostname) var name: String
+    @Validate(.min(1)) var replicas: Int
+    @Validate(.url) var image: String
+}
+```
+
+Two things happen here that are worth naming.
+
+**The rule is checked against the field's type at compile time.** `.email` on an `Int` does
+not build — you get a message written for that mistake, not a runtime surprise in
+production.
+
+**A rule failure renders exactly like a decode failure**, because to whoever reads it they
+are the same thing: the data is wrong, here is where.
+
+```
+deploy.json:4:15: error: replicas must be at least 1
+  3 │   "image": "registry.internal/api:2.4.1",
+  4 │   "replicas": 0,
+    │               ^
+  5 │   "region": "eu-west-1"
+```
+
+## The rules
+
+### Bounds
+
+```swift
+@Validate(.min(1)) var replicas: Int
+@Validate(.max(100.0)) var ratio: Double
+@Validate(.range(1...65535)) var port: Int
+@Validate(.positive) var quantity: Int
+@Validate(.nonNegative) var balance: Double
+@Validate(.multipleOf(15)) var minutes: Int
+@Validate(.finite) var score: Double          // rejects nan and infinity
+```
+
+`.min` and `.max` mean different things by type, deliberately: character count on a
+`String`, element count on an array, magnitude on a number. The message says which —
+`must be at least 3 characters` versus `must be at least 3 items` versus `must be at
+least 3`.
+
+### Size
+
+```swift
+@Validate(.notEmpty) var bio: String
+@Validate(.length(6)) var code: String            // exactly
+@Validate(.count(1...5)) var tags: [String]
+@Validate(.unique) var ids: [Int]
+@Validate(.each(.min(1), .max(20))) var tags: [String]   // every element
+```
+
+`.each` reports per element, with the index in the path: `tags[2] must be at most 20
+characters`.
+
+### Strings
+
+```swift
+@Validate(.email) var email: String
+@Validate(.url) var link: String
+@Validate(.uuid) var id: String
+@Validate(.hostname) var host: String
+@Validate(.ascii) var slug: String
+@Validate(.regex("^[a-z][a-z0-9-]*$")) var name: String
+@Validate(.prefix("sk-")) var key: String
+@Validate(.suffix(".json")) var file: String
+@Validate(.contains("@")) var raw: String
+@Validate(.isTrimmed) var title: String        // asserts, does not trim
+@Validate(.isLowercase) var tag: String        // asserts, does not lowercase
+```
+
+`.isTrimmed` and `.isLowercase` are **assertions**, not normalisations. If you want the
+value changed, that is `@Preprocess(.trim, .lowercase)`, which runs before the rules.
+
+The four format validators are hand-written rather than delegated, and each has a reason.
+`UUID(uuidString:)` has two different C implementations picked by platform — a UUID your
+Mac accepts can be rejected on Linux. Nothing in Foundation validates an email at all. So
+`.uuid`, `.email`, `.url` and `.hostname` behave bit-identically everywhere, which is
+worth more than the fifteen lines each costs.
+
+### Sets
+
+```swift
+@Validate(.oneOf(["draft", "published", "archived"])) var status: String
+```
+
+For a closed set you control, an enum is usually better — see
+[Advanced](/guides/advanced/#enums).
+
+### Dates
+
+```swift
+@Validate(.after("2020-01-01")) var createdAt: Date
+@Validate(.before("2030-01-01T00:00:00Z")) var expiresAt: Date
+@Validate(.between("2020-01-01", "2030-01-01")) var effective: Date
+```
+
+Bounds are ISO-8601 strings, parsed once at expansion. A malformed bound is reported when
+you build, not when the rule runs.
+
+`.past` and `.future` do not exist, deliberately: they need a clock, and a rule that
+depends on when it runs makes a test that passes today fail in a year.
+
+### Combining
+
+```swift
+extension Rule {
+    static let slug = Rule.all(.min(3), .max(40), .isLowercase, .regex("^[a-z0-9-]+$"))
+}
+
+@Validate(.slug) var handle: String
+```
+
+`.all` names a combination so it can live in one place.
+
+## Custom messages
+
+A string literal after the rules replaces the message for every rule in that attribute:
+
+```swift
+@Validate(.min(12), .regex("[0-9]"), "must be 12+ characters with a digit")
+var password: String
+```
+
+Or per rule, with `or:`:
+
+```swift
+@Validate(.min(12, or: "too short"), .regex("[0-9]", or: "needs a digit"))
+var password: String
+```
+
+The literal form works because `Rule` conforms to `ExpressibleByStringLiteral` — which is
+what lets a bare string sit after a variadic parameter that would otherwise demand a label.
+
+## Normalising first
+
+```swift
+@Preprocess(.trim, .lowercase) @Validate(.email) var email: String
+```
+
+`@Preprocess` runs on the wire value, before decoding and before rules. Four operations:
+`.trim`, `.lowercase`, `.uppercase`, `.collapseWhitespace`. `.lowercase` is ASCII, on
+purpose — Unicode case folding is locale-adjacent, and a decoder should not be making
+locale decisions on your behalf.
+
+## Coercing
+
+Some sources send numbers as strings. Say so, per type or per field:
+
+```swift
+@Schema(coerceScalars: true)
+struct Config { var port: Int }         // "8080" decodes
+
+@Schema
+struct Config { @Coerce var port: Int } // just this one
+```
+
+The rules are written down and boring: `"8080"` is an `Int`, `"8080.5"` is not.
+`"true"`, `"yes"`, `"on"` and `"1"` are `true`. XML needs this — every leaf in an XML
+document is text — and CSV usually does.
+
+## What a rule is, underneath
+
+`Rule` is a non-generic value. That matters for one practical reason: leading-dot syntax
+(`.min(1)`) has no type context to infer a generic parameter from, so a generic `Rule<T>`
+could not be written that way, and `.min(1)` is the whole ergonomic point.
+
+There is no `.custom { … }` closure, for the same reason — a closure inside an attribute has
+no type context either. What you want is [`@Check`](/guides/checks/), which is a real
+function with a real signature.
+
+## Validating something you already have
+
+Rules are not only for decoding. If something else built the value:
+
+```swift
+try User.validate(user)          // throws with every issue
+User.diagnose(user)              // → Diagnosis, never throws
+```
+
+Same rules, same messages, no decoding. It is the seam for a fast custom reader, or for
+re-checking a value after your own code edited it. The law it holds:
+`T.validate(try T.parse(json: d))` never reports an issue.
+
+## Next
+
+- [Checks](/guides/checks/) — logic a rule cannot express.
+- [Errors](/guides/errors/) — what a failure actually is, and the four ways to show it.

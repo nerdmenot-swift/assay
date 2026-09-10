@@ -1,0 +1,33 @@
+---
+// Starlight's header is the loudest thing it ships — the centred lockup, its own spacing,
+// its social row. This is the site's header instead, the same one the landing page has,
+// so the two halves read as one thing.
+import Search from '@astrojs/starlight/components/Search.astro'
+import ThemeToggle from './ThemeToggle.astro'
+import TocToggle from './TocToggle.astro'
+import lockup from './lockup.svg?raw'
+---
+<div class="assay-header">
+  <a class="assay-brand" href="/" aria-label="Assay" set:html={lockup} />
+  <div class="assay-search"><Search {...Astro.props} /></div>
+  <nav class="assay-nav">
+    <a href="/start/install/">Install</a>
+    <a href="/guides/errors/">Errors</a>
+    <a href="/reference/attributes/">Reference</a>
+    <a href="https://github.com/nerdmenot-swift/assay">GitHub</a>
+    <TocToggle />
+    <ThemeToggle />
+  </nav>
+</div>
+<style>
+  .assay-header { display: flex; align-items: center; gap: 1rem; width: 100%; }
+  .assay-brand { display: block; width: 7rem; flex: none; color: var(--assay-ink); }
+  .assay-brand :global(svg) { width: 100%; height: auto; display: block; }
+  .assay-search { flex: 1; max-width: 22rem; }
+  .assay-nav { display: flex; align-items: center; gap: .9rem; margin-inline-start: auto; }
+  .assay-nav a {
+    color: var(--assay-muted); text-decoration: none; font-size: .88rem; font-weight: 500;
+  }
+  .assay-nav a:hover { color: var(--assay-accent); }
+  @media (max-width: 50rem) { .assay-nav a { display: none; } }
+</style>

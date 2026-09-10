@@ -19,3 +19,4 @@ Benchmarks/Corpus/manifest.json
 Experiments/**/*.ll
 Experiments/**/*.s
 Experiments/**/ct.txt
+.website-extract/

@@ -1,0 +1,381 @@
+---
+/**
+ * The landing page, deliberately outside Starlight.
+ *
+ * Ordered by what somebody evaluating a decoder actually needs, in the order they need it:
+ * what the errors look like (the whole point), what the code looks like, that it is also
+ * fast, and where to start reading. Every error render on this page is the library's real
+ * output for the document shown beside it — read from src/data/samples.json, written by
+ * `bun run extract` against the compiled package. Nothing here is typed by hand.
+ */
+import samples from '../data/samples.json'
+import lockup from '../components/lockup.svg?raw'
+import ThemeToggle from '../components/ThemeToggle.astro'
+import '../styles/theme.css'
+import '../styles/home.css'
+
+const { stats, renders, numbers } = samples
+
+/** The four formats, in the order a reader meets them. */
+const FORMATS = [
+  ['json', 'JSON'],
+  ['yaml', 'YAML'],
+  ['toml', 'TOML'],
+  ['xml', 'XML'],
+] as const
+
+/** The rows worth leading with, pulled by name out of the RESULTS.md table so the
+ *  numbers on this page and in the repository cannot disagree. */
+const HEADLINE = [
+  'struct decode, full corpus',
+  'vs ZippyJSON (simdjson + Codable)',
+  'Date fields',
+  '[String: T] dictionaries',
+  'encoding, 50 / 200 items',
+  'compile time, 10 fields',
+]
+const rows = HEADLINE.map((arm) => numbers.find((n) => n.arm === arm)).filter(Boolean) as
+  { arm: string; number: string; against: string }[]
+
+/** Three things the macro does that Codable cannot, each with the smallest example that
+ *  shows it. Kept short: this is a taste, the guides are where the depth is. */
+const TASTE = [
+  {
+    id: 'presence',
+    label: 'Five presence states',
+    line: 'The declaration says what absent means. No CodingKeys, no init(from:).',
+    code: `@Schema(keys: .snakeCase)
+struct Account {
+    var id: Int                       // required
+    var nickname: String?             // absent → nil
+    var retries: Int = 3              // absent → 3, still validated
+    @Fallback(0) var score: Int       // absent OR invalid → 0, with a warning
+    @Ignore var cache: Cache?         // never read
+}`,
+  },
+  {
+    id: 'rules',
+    label: 'Rules that fail at compile time',
+    line: '.email on an Int is a build error with a message, not a surprise in production.',
+    code: `@Schema
+struct Signup {
+    @Validate(.min(3), .max(24)) var username: String
+    @Validate(.email) var email: String
+    @Preprocess(.trim, .lowercase) @Validate(.hostname) var host: String
+
+    @Check(\\Signup.username)
+    static func notReserved(_ u: String) -> String? {
+        RESERVED.contains(u) ? "is reserved" : nil
+    }
+}`,
+  },
+  {
+    id: 'formats',
+    label: 'One struct, five formats',
+    line: 'Opt in per type, so a JSON-only app never links a YAML parser.',
+    code: `@Schema(formats: [.json, .yaml, .toml])
+struct Config { var name: String; var replicas: Int }
+
+try Config.parse(json: bytes)
+try Config.parse(yaml: text)
+try Config.parse(toml: text)`,
+  },
+] as const
+
+/** Colour a caret render.
+ *
+ * These blocks are the library's real terminal output, not source code: highlighting them
+ * with a syntax highlighter would be a lie about what they are. Four classes, applied by
+ * line shape — the location header, the source gutter, the caret row, the summary — which
+ * is exactly what the terminal renderer itself colours.
+ */
+function caret(text: string): string {
+  const esc = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return text
+    .split('\n')
+    .map((line) => {
+      const e = esc(line)
+      if (/^\s*[│|]\s*[\^~]/.test(line)) return `<span class="r-caret">${e}</span>`
+      if (/error:/.test(line)) return e.replace(/(error:)/, '<span class="r-err">$1</span>')
+        .replace(/^([^\s].*?:)(\s)/, '<span class="r-loc">$1</span>$2')
+      if (/warning:/.test(line)) return e.replace(/(warning:)/, '<span class="r-warn">$1</span>')
+        .replace(/^([^\s].*?:)(\s)/, '<span class="r-loc">$1</span>$2')
+      if (/^\s*\d+\s*[│|]/.test(line)) return `<span class="r-gutter">${e}</span>`
+      if (/^\s*[│|]/.test(line)) return `<span class="r-gutter">${e}</span>`
+      if (/^\d+ (error|warning)/.test(line) || /^\d+ errors?, \d+ warnings?$/.test(line))
+        return `<span class="r-sum">${e}</span>`
+      return e
+    })
+    .join('\n')
+}
+---
+
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Assay — a decoder for Swift that tells you what went wrong</title>
+    <meta
+      name="description"
+      content="Decode JSON, YAML, XML, TOML and database rows into ordinary Swift structs. Every failure points at the byte that caused it, and you get all of them at once — about 9× faster than Codable while it does."
+    />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    />
+    <script is:inline>
+      const saved = localStorage.getItem('starlight-theme')
+      document.documentElement.dataset.theme =
+        saved ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    </script>
+  </head>
+
+  <body>
+    <header class="top">
+      <a class="top-brand" href="/" aria-label="Assay" set:html={lockup} />
+      <nav class="top-nav">
+        <a href="/start/install/">Install</a>
+        <a href="/start/first-schema/">Start</a>
+        <a href="/guides/errors/">Errors</a>
+        <a href="/reference/attributes/">Reference</a>
+        <a href="https://github.com/nerdmenot-swift/assay">GitHub</a>
+        <ThemeToggle />
+      </nav>
+    </header>
+
+    <main>
+      <!-- The hero leads with the error, not with the struct. Every decoder decodes;
+           what makes this one worth a look is what happens when the data is wrong, and
+           that is the one thing a screenshot can carry. -->
+      <section class="hero">
+        <div class="hero-say">
+          <p class="doc-label">Swift 6 · Apache-2.0 · v{stats.version}</p>
+          <h1>Your JSON is<br />wrong on line 4.</h1>
+          <p class="voice">
+            Assay decodes into ordinary structs, and when the data is bad it tells you
+            <em>where</em>. Not "expected Int, found String, somewhere" — the file, the line,
+            the column, and a caret under the byte.
+          </p>
+          <div class="cta">
+            <a class="btn" href="/start/first-schema/">Start here</a>
+            <a class="btn btn-ghost" href="/start/from-codable/">Coming from Codable &rarr;</a>
+          </div>
+        </div>
+
+        <figure class="render render-hero">
+          <figcaption class="code-head">deploy.json</figcaption>
+          <pre class="src"><code>{renders.hero.source}</code></pre>
+          <figcaption class="code-head">what you get back</figcaption>
+          <pre class="out"><code set:html={caret(renders.hero.render)} /></pre>
+        </figure>
+      </section>
+
+      <!-- Two claims, side by side, because they are the two halves of the pitch and
+           people arrive believing you have to pick one. -->
+      <section class="reg">
+        <p class="doc-label">The short version</p>
+        <h2>Better errors. Also faster.</h2>
+        <div class="knobs">
+          <p>
+            Assay is not a validation library that also decodes. It is <strong>the decoder</strong>,
+            with the error reporting built into the same pass — which is why the errors are
+            good and why there is no second traversal to pay for.
+          </p>
+          <p>
+            The speed is a side effect of the same decision. A macro writes concrete decode
+            code for your type at compile time, so there is no
+            <code>KeyedDecodingContainer</code> to cross. That boundary is where most of a
+            Codable decode goes.
+          </p>
+        </div>
+
+        <div class="stat-strip">
+          {rows.map((r) => (
+            <div class="stat">
+              <span class="stat-n">{r.number.split(' ')[0]}</span>
+              <span class="stat-l">{r.arm}</span>
+              <span class="stat-v">vs {r.against}</span>
+            </div>
+          ))}
+        </div>
+        <p class="fineprint">
+          One arm64 Mac, warm, minimum of five rounds — and the same for every row.
+          <a href="/reference/performance/">The numbers, with their caveats &rarr;</a>
+        </p>
+      </section>
+
+      <!-- Errors, at length. This is the section the site exists for. -->
+      <section class="reg band">
+        <p class="doc-label">All of them, not the first one</p>
+        <h2>Four things wrong, four things said</h2>
+        <p class="voice wide">
+          Foundation throws on the first problem, so fixing bad data is a loop: run, fix,
+          run, fix. Assay collects everything in one pass — three errors and a warning here,
+          including a typo it worked out for you.
+        </p>
+
+        <div class="pairing">
+          <figure class="render">
+            <figcaption class="code-head">signup.json</figcaption>
+            <pre class="src"><code>{renders.collect.source}</code></pre>
+          </figure>
+          <figure class="render">
+            <figcaption class="code-head">Signup.diagnose(json:)</figcaption>
+            <pre class="out"><code set:html={caret(renders.collect.render)} /></pre>
+          </figure>
+        </div>
+
+        <div class="notes">
+          <div>
+            <h3>It is not just a string</h3>
+            <p>
+              Every issue is a code plus parameters, so your own UI can render it, translate
+              it, or map it onto form fields. The caret render is one of four; there is also
+              JSON and RFC 9457 problem details for an HTTP response.
+            </p>
+          </div>
+          <div>
+            <h3>The typo is not a guess</h3>
+            <p>
+              <code>newsleter</code> against the keys the schema knows, by edit distance.
+              You choose whether unknown keys are ignored, warned about, rejected outright,
+              or collected into a dictionary.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Formats. The same struct, the same mistake, four parsers, four carets. -->
+      <section class="reg">
+        <p class="doc-label">Same struct, same rules, same errors</p>
+        <h2>It is not only JSON</h2>
+        <p class="voice wide">
+          YAML, XML, TOML and property lists are hand-written parsers in this package — no
+          libyaml, no libxml2, nothing to vendor. Which means the carets work there too.
+          Click a format.
+        </p>
+
+        <div class="tabs" role="tablist" aria-label="Format">
+          {FORMATS.map(([id, label], i) => (
+            <button role="tab" class:list={['pill', { on: i === 0 }]} data-fmt={id}
+                    aria-selected={i === 0 ? 'true' : 'false'}>{label}</button>
+          ))}
+        </div>
+        <div class="pairing">
+          {FORMATS.map(([id], i) => (
+            <Fragment>
+              <figure class="render fmt" data-fmt={id} hidden={i !== 0}>
+                <figcaption class="code-head">deploy.{id}</figcaption>
+                <pre class="src"><code>{renders.formats[id].source}</code></pre>
+              </figure>
+              <figure class="render fmt" data-fmt={id} hidden={i !== 0}>
+                <figcaption class="code-head">the same rule, the same message</figcaption>
+                <pre class="out"><code set:html={caret(renders.formats[id].render)} /></pre>
+              </figure>
+            </Fragment>
+          ))}
+        </div>
+      </section>
+
+      <!-- What the code looks like. Three tabs, because three is what fits before a
+           reader stops reading code samples on a landing page. -->
+      <section class="reg band">
+        <p class="doc-label">What you write</p>
+        <h2>One attribute, no ceremony</h2>
+
+        <div class="tabs" role="tablist" aria-label="Example">
+          {TASTE.map((t, i) => (
+            <button role="tab" class:list={['pill', { on: i === 0 }]} data-taste={t.id}
+                    aria-selected={i === 0 ? 'true' : 'false'}>{t.label}</button>
+          ))}
+        </div>
+        {TASTE.map((t, i) => (
+          <div class="taste" data-taste={t.id} hidden={i !== 0}>
+            <p class="voice wide">{t.line}</p>
+            <figure class="render">
+              <pre class="src"><code>{t.code}</code></pre>
+            </figure>
+          </div>
+        ))}
+      </section>
+
+      <!-- Rows and columns: the thing nobody expects a decoder to do, so it gets a
+           section rather than a bullet. -->
+      <section class="reg">
+        <p class="doc-label">Not only files</p>
+        <h2>Database rows and column stores, too</h2>
+        <div class="knobs">
+          <p>
+            A SQL result set, a CSV, a Parquet file: hand the cells to a
+            <code>RowDecoder</code> and the same struct comes out, with the same rules and
+            the same issues — carrying the row number rather than a byte offset.
+          </p>
+          <p>
+            It is the same seam a column store gets. Parquet and Arrow already hand over one
+            array per field, and that path decodes at about 10 ns per row.
+          </p>
+        </div>
+        <figure class="render">
+          <pre class="src"><code>{`var dec = RowDecoder<User>(columns: resultSet.columnNames)
+for row in resultSet {
+    dec.beginRow()
+    for (i, cell) in row.enumerated() { cell.append(to: &dec, column: i) }
+    if dec.isFull { consume(dec.flush()) }
+}
+let batch = dec.finish()     // values, issues with row indices, warnings`}</code></pre>
+        </figure>
+        <p class="fineprint">
+          <a href="/guides/rows-and-columns/">How to wire a driver up &rarr;</a>
+        </p>
+      </section>
+
+      <!-- Ends. Three doors, by what the reader came for. -->
+      <section class="reg ends">
+        <a class="end" href="/start/install/">
+          <h3>Install it</h3>
+          <p>One line in Package.swift, and which of the six products you actually need.</p>
+        </a>
+        <a class="end" href="/start/from-codable/">
+          <h3>Come from Codable</h3>
+          <p>Every Codable habit, and what it turns into here. Ten minutes.</p>
+        </a>
+        <a class="end" href="/guides/errors/">
+          <h3>Read the errors</h3>
+          <p>Codes, paths, spans, the four renderers, and wiring them into your own UI.</p>
+        </a>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <span>Apache-2.0 · Swift 6.2+ · macOS, Linux, Windows</span>
+      <span>{stats.tests} tests · {stats.codes} issue codes · {stats.formats.join(' · ')}</span>
+      <span>Assay v{stats.version}</span>
+    </footer>
+
+    <script>
+      // Tabs. Two groups on the page with identical behaviour, so one handler does both.
+      for (const attr of ['fmt', 'taste']) {
+        const buttons = document.querySelectorAll(`[data-${attr}]`)
+        for (const b of buttons) {
+          if (b.tagName !== 'BUTTON') continue
+          b.addEventListener('click', () => {
+            const want = (b as HTMLElement).dataset[attr]
+            for (const el of document.querySelectorAll(`[data-${attr}]`)) {
+              const mine = (el as HTMLElement).dataset[attr] === want
+              if (el.tagName === 'BUTTON') {
+                el.classList.toggle('on', mine)
+                el.setAttribute('aria-selected', String(mine))
+              } else {
+                ;(el as HTMLElement).hidden = !mine
+              }
+            }
+          })
+        }
+      }
+    </script>
+  </body>
+</html>

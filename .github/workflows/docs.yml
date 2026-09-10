@@ -1,0 +1,93 @@
+name: Docs
+
+# The website. Builds on any change under website/, deploys to Cloudflare Pages from main.
+#
+# `astro build` rather than `bun run build`, deliberately: the latter runs the extract
+# script, which needs a Swift toolchain to rebuild the example renders. Those renders are
+# committed, so the deploy leg does not need Swift — and the staleness check below is what
+# keeps "committed" honest.
+
+on:
+  push:
+    branches: [main]
+    paths: ['website/**', '.github/workflows/docs.yml']
+  pull_request:
+    paths: ['website/**', '.github/workflows/docs.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+      - run: bun install --frozen-lockfile
+      - run: bun run astro build
+      # A smoke gate rather than a snapshot: a build that silently produces three pages
+      # is the failure worth catching, and it has happened to other people.
+      - name: The build produced a site
+        run: |
+          test -f dist/index.html
+          n=$(find dist -name '*.html' | wc -l)
+          echo "pages: $n"
+          test "$n" -ge 20
+      # Internal links, because a docs site whose sidebar 404s is worse than no site.
+      - name: No broken internal links
+        run: |
+          python3 - <<'PY'
+          import re, os, sys
+          root = 'dist'
+          pages = set()
+          for d, _, fs in os.walk(root):
+              for f in fs:
+                  if f == 'index.html':
+                      rel = os.path.relpath(d, root).replace('.', '').strip('/')
+                      pages.add(('/' + rel + '/').replace('//', '/'))
+          bad = []
+          for d, _, fs in os.walk(root):
+              for f in fs:
+                  if not f.endswith('.html'):
+                      continue
+                  for href in re.findall(r'href="(/[^"#?]*)"', open(os.path.join(d, f)).read()):
+                      if href.startswith('/_') or href.endswith(('.svg', '.png', '.xml', '.js', '.css', '.ico')):
+                          continue
+                      h = href if href.endswith('/') else href + '/'
+                      if h not in pages:
+                          bad.append((os.path.join(d, f), href))
+          for src, h in sorted(set(bad)):
+              print(f'BROKEN {h} in {src}')
+          sys.exit(1 if bad else 0)
+          PY
+
+  deploy:
+    name: Deploy
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+      - run: bun install --frozen-lockfile
+        working-directory: website
+      - run: bun run astro build
+        working-directory: website
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy website/dist --project-name=assay-docs

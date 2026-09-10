@@ -126,7 +126,7 @@ there is no per-row borrow to escape, no per-row dispatch to pay, and no per-row
 ambiguity to translate.
 
 ```swift
-let (values, issues, truncated) = Trip.batch(from: store)
+let batch = Trip.batch(from: store)     // BatchDiagnosis: values, issues, warnings, truncatedIssues
 ```
 
 Measured on this machine, against the honest baseline — a `RawValue` per row through the tree

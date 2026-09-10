@@ -368,7 +368,8 @@ struct ColumnarTests {
     @Test("a batch decodes every row, and equals what the tree path produces")
     func batchEqualsRowwise() throws {
         let s = Self.store(rows: 64)
-        let (values, issues, _) = Row.batch(from: s)
+        let d = Row.batch(from: s)
+        let (values, issues) = (d.values, d.issues)
         #expect(issues.isEmpty)
         #expect(values.count == 64)
 
@@ -389,7 +390,8 @@ struct ColumnarTests {
     func presence() {
         var s = Self.store(rows: 8)
         s.strings["nickname"] = nil          // optional column simply absent
-        let (values, issues, _) = Row.batch(from: s)
+        let d = Row.batch(from: s)
+        let (values, issues) = (d.values, d.issues)
         #expect(issues.isEmpty)
         #expect(values.allSatisfy { $0.nickname == nil })
         #expect(values.allSatisfy { $0.retries == 3 }, "no column, so the default applies")
@@ -399,7 +401,8 @@ struct ColumnarTests {
     func validityMask() {
         var s = Self.store(rows: 6)
         s.masks["nickname"] = [true, false, true, false, true, false]
-        let (values, issues, _) = Row.batch(from: s)
+        let d = Row.batch(from: s)
+        let (values, issues) = (d.values, d.issues)
         #expect(issues.isEmpty)
         #expect(values.map { $0.nickname == nil } == [true, false, true, false, true, false])
     }
@@ -410,18 +413,23 @@ struct ColumnarTests {
     func missingColumnReportedOnce() {
         var s = Self.store(rows: 1_000)
         s.strings["name"] = nil
-        let (values, issues, _) = Row.batch(from: s)
+        let d = Row.batch(from: s)
+        let (values, issues, truncated) = (d.values, d.issues, d.truncatedIssues)
         #expect(issues.filter { $0.code == .missingColumn }.count == 1,
                 "once, not a thousand times")
         #expect(issues.first?.message.contains("not a column") == true)
         #expect(values.isEmpty, "no row can be built without a required field")
+        // And NOTHING else: until 2026-09-10 the loop still ran, filing `missing` for
+        // every row under the column issue until the cap, and marking the list truncated.
+        #expect(issues.count == 1, "the column issue is the whole report: \(issues.map(\.code.codeString))")
+        #expect(!truncated)
     }
 
     @Test("@Validate runs per row, and the issue names the row")
     func validationPerRow() {
         var s = Self.store(rows: 4)
         s.ints["age"] = [30, 500, 40, 900]        // rows 1 and 3 are out of range
-        let (_, issues, _) = Row.batch(from: s)
+        let issues = Row.batch(from: s).issues
         #expect(issues.count == 2)
         let paths = issues.map(\.path.pathDescription)
         #expect(paths.contains { $0.contains("[1]") }, "got \(paths)")
@@ -432,7 +440,8 @@ struct ColumnarTests {
     func shortColumn() {
         var s = Self.store(rows: 4)
         s.ints["id"] = [0, 1]                      // two values for four rows
-        let (values, issues, _) = Row.batch(from: s)
+        let d = Row.batch(from: s)
+        let (values, issues) = (d.values, d.issues)
         #expect(values.count == 2, "rows without an id cannot be built")
         #expect(!issues.isEmpty)
     }

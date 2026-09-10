@@ -294,6 +294,32 @@ extension EncodeDiagnosis: CustomStringConvertible {
 // measurement said it lost to building a `RawValue`; the columnar half survives because
 // a column store has no per-row borrow, dispatch, or presence ambiguity.
 
+/// What a columnar batch decode produced: every row that could be built, and everything
+/// that went wrong, with row indices. `Diagnosis` for a batch.
+///
+/// A struct rather than the tuple it was until 2026-09-10, because a tuple could not carry
+/// `truncatedIssues` — and a million-row batch capped at `Limits.maxIssues` needs to say
+/// that the hundred issues it returned are not all of them.
+public struct BatchDiagnosis<T: Sendable>: Sendable {
+    /// The rows that decoded. A row with any issue is absent; `issues` says which.
+    public var values: [T]
+    public var issues: [Issue]
+    public var warnings: [Warning]
+    /// Set when `Limits.maxIssues` was reached, so a caller can tell a hundred-of-a-hundred
+    /// from a hundred-of-a-million.
+    public var truncatedIssues: Bool
+
+    public init(values: [T], issues: [Issue], warnings: [Warning], truncatedIssues: Bool) {
+        self.values = values
+        self.issues = issues
+        self.warnings = warnings
+        self.truncatedIssues = truncatedIssues
+    }
+
+    /// No issues: every row decoded.
+    public var isValid: Bool { issues.isEmpty }
+}
+
 extension SourceDecodable {
 
     /// Decode a whole batch from a column-first source.
@@ -304,9 +330,10 @@ extension SourceDecodable {
     public static func batch<C: ColumnarSource & ~Copyable>(
         from source: borrowing C,
         limits: Limits = .default
-    ) -> (values: [Self], issues: [Issue], warnings: [Warning]) {
+    ) -> BatchDiagnosis<Self> {
         var sink = IssueSink(limits: limits)
         let values = Self._assayBatch(from: source, into: &sink, at: [])
-        return (values, sink.issues, sink.warnings)
+        return BatchDiagnosis(values: values, issues: sink.issues, warnings: sink.warnings,
+                              truncatedIssues: sink.truncatedIssues)
     }
 }

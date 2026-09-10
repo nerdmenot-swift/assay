@@ -116,6 +116,7 @@ extension SchemaMacro {
 
                         if __c\(i) == nil {
                             Assay._assayColumnMissing(&sink, path, "\(f.wireKey)", "\(expected)")
+                            __columnMissing = true
                         }
                 """
             // Both fetches are ONE call per column for the whole batch, which is what makes
@@ -193,6 +194,18 @@ extension SchemaMacro {
             }
         }
 
+        // A required column the source lacks means no row can be built. Say so once and
+        // stop, rather than running the loop to report `missing` per row under the
+        // `missing_column` already filed — which is what happened until 2026-09-10: a
+        // thousand rows produced one column issue, a hundred row issues (the cap) and
+        // `truncatedIssues`, for a batch whose problem was one sentence long.
+        let hasRequired = fields.contains { isColumnar($0.decodedType) && !$0.isOptional && $0.defaultExpr == nil }
+        let missingGuard = hasRequired ? """
+                if __columnMissing { return [] }
+
+        """ : ""
+        let missingFlag = hasRequired ? "    var __columnMissing = false\n" : ""
+
         return """
         /// Decode a whole batch, one sequential pass per column.
         ///
@@ -204,7 +217,7 @@ extension SchemaMacro {
             into sink: inout Assay.IssueSink,
             at path: [Assay.PathComponent]
         ) -> [\(typeName)] {
-        \(pulls)    var __out: [\(typeName)] = []
+        \(missingFlag)\(pulls)\(missingGuard)    var __out: [\(typeName)] = []
             __out.reserveCapacity(source.rowCount)
 
             // The row index reaches every issue through the sink, not through a path built

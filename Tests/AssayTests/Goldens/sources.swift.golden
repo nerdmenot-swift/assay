@@ -111,18 +111,22 @@ nonisolated public static func _assayBatch<__C: Assay.ColumnarSource & ~Copyable
     into sink: inout Assay.IssueSink,
     at path: [Assay.PathComponent]
 ) -> [GoldenSources] {
+    var __columnMissing = false
         let __c0 = source.int64Column("a", 0)
         let __n0 = source.nulls("a", 0)
         if __c0 == nil {
             Assay._assayColumnMissing(&sink, path, "a", "int")
+            __columnMissing = true
         }
         let __c1 = source.stringColumn("b", 1)
         let __n1 = source.nulls("b", 1)
         if __c1 == nil {
             Assay._assayColumnMissing(&sink, path, "b", "string")
+            __columnMissing = true
         }
         let __c2 = source.doubleColumn("c", 2)
         let __n2 = source.nulls("c", 2)
+        if __columnMissing { return [] }
     var __out: [GoldenSources] = []
     __out.reserveCapacity(source.rowCount)
 

@@ -348,8 +348,10 @@ x86-64 AVX2 ever matters, C is the only way there.
 Since resolved from this list: source spans for YAML and XML (2026-08-13 — `ROADMAP.md` §12,
 carets on all three formats, ~2% on YAML and nothing elsewhere), `Date` and `@DateFormat` (2026-08-06 — built, measured at
 6.06×, differentially verified; `ROADMAP.md` §2 records what remains deferred and why), and
-the loss against yyjson (2026-08-09 — 0.66× on the use-case shape, 0.77× float-dense, 0.06×
-DOM-vs-DOM, all published). What remains, in order:
+the loss against yyjson (2026-08-09 — 0.66× on the use-case shape, 0.77× float-dense, and
+DOM-vs-DOM, which was 0.06× until 2026-09-11 and is 0.13× since: profiling it found an
+array allocation PER VALUE for a diagnostic path nothing reads, the third instance of that
+exact mistake in this codebase. All published). What remains, in order:
 
 Both items that were here are now closed, and what they measured is worth carrying:
 

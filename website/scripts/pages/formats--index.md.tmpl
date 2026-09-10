@@ -1,0 +1,128 @@
+---
+title: Formats
+description: Five formats, one struct, one set of rules, one kind of error. What each costs and what each gives you.
+---
+
+Most decoders read one format. Assay reads five, and the point is not the count — it is
+that **your struct, your rules, your keys and your errors are identical across all of
+them.** You learn one thing.
+
+```swift
+@Schema(keys: .snakeCase, formats: .all)
+struct Deployment {
+    @Validate(.min(1), .max(63)) var name: String
+    var image: String
+    @Validate(.min(1)) var replicas: Int
+    var region: String = "eu-west-1"
+    @Validate(.url) var healthCheck: String?
+}
+```
+
+One `replicas: 0` mistake, four documents, four carets:
+
+{{example:formats.json:json}}
+
+{{example:formats.yaml:yaml}}
+
+{{example:formats.toml:toml}}
+
+{{example:formats.xml:xml}}
+
+Same rule, same message, same code (`too_small`), same parameters. Only the file extension
+and the column number moved.
+
+## The five
+
+| Format | Product | Page | Notes |
+|---|---|---|---|
+| JSON | `Assay` | [JSON](/formats/json/) | RFC 8259. Decodes straight from bytes — the fast path |
+| YAML 1.2 | `AssayYAML` | [YAML](/formats/yaml/) | Anchors, aliases, block scalars, multi-document |
+| XML 1.0 | `AssayXML` | [XML](/formats/xml/) | Namespaces, CDATA, attribute/element/text placement |
+| TOML 1.0.0 | `AssayTOML` | [TOML](/formats/toml/) | 710/710 on the official `toml-test` suite |
+| Property lists | `AssayPlist` | [Property lists](/formats/plist/) | Binary and XML behind one entry point |
+
+Plus two things that are not file formats but decode the same way:
+
+- [**Rows and columns**](/formats/rows-and-columns/) — SQL result sets, CSV, Parquet, Arrow.
+- [**HTTP bodies**](/formats/http/) — pick the parser from a `Content-Type`, safely.
+
+## Opt in per type
+
+```swift
+@Schema                                    // JSON only — the default
+@Schema(formats: [.json, .yaml])           // two
+@Schema(formats: .all)                     // JSON, YAML, XML, TOML
+@Schema(formats: [.toml])                  // TOML only; no JSON body emitted
+```
+
+Generated code is not free. A shared YAML/XML/TOML decode body costs about 34 ms per type
+at build time — roughly 41% of the expansion — and a type that only ever sees JSON should
+not pay for a capability it never calls.
+
+Calling `parse(yaml:)` on a type that did not list `.yaml` is a **compile** error, not a
+runtime one: the conformance that entry point needs simply is not there.
+
+## Everything hand-written
+
+No libyaml, no libxml2, nothing to vendor. Every parser here is pure Swift, and that is
+not purism:
+
+- **It runs everywhere.** macOS, Linux and Windows, plus static-musl and WebAssembly
+  cross-compiles, with no `__declspec(dllimport)` trap and no system library to be missing.
+- **The carets work.** A C parser hands back a tree, not byte offsets you can trust to
+  survive into an error message.
+- **XXE is refused by construction** rather than by configuration — there is no code path
+  that could fetch an external entity, so there is no flag to forget.
+- **It is fast.** A survey of the Swift YAML options found one allocating a class per node,
+  a `String` per scalar eagerly, and doing O(N·K) mapping lookup with an allocation per
+  probe. Assay's YAML parser measures 6.6× it.
+
+## Two decode paths
+
+JSON decodes **directly from bytes into your struct**. That is the fast path, and where the
+5–9× over Foundation comes from.
+
+Every other format parses to its own value model, then decodes through a shared projection:
+
+```
+bytes → YAML.Node / XML.Node / TOML.Node → RawValue → your struct
+```
+
+Two consequences. The tree path is slower — it builds a tree first. And your rules, keys,
+presence states and checks are identical across formats, because they all run on the far
+side of the projection. That is the trade, and it is the right way round: JSON is the
+format people decode in a hot loop.
+
+## Where the formats genuinely differ
+
+Everything above is the same. These are the four places the format itself forces a
+difference, each covered on its own page.
+
+**XML has no types.** Every leaf is text, so a struct decoding from XML needs
+`coerceScalars: true`. It also has attributes, which no other format does — hence
+`@XML(.attribute)`.
+
+**YAML will not guess for you.** A plain scalar keeps its text until something asks a typed
+question, so `NO` is the string `"NO"` for a `String` field. That is the Norway problem
+solved by not having an opinion, and it means `enabled: no` is an *error* rather than
+silently `false`.
+
+**TOML is typed on the wire.** `1` is an integer and `"1"` is a string, by the grammar. It
+also has four date-time kinds, which arrive as RFC 3339 strings.
+
+**Property lists are two formats.** The XML flavour is a document; the binary one is a
+random-access object graph with amplification attacks that no depth limit catches.
+
+## When you do not know the shape
+
+Every format has a value model you can walk by hand — `JSON.Value`, `YAML.Node`,
+`XML.Document`, `TOML.Node`, and `RawValue` as the portable intersection. Each page ends
+with its own.
+
+They are deliberately not unified behind one type: a YAML scalar's resolution and an XML
+element's namespace are not the same kind of thing, and pretending otherwise loses
+information.
+
+## Next
+
+Pick a format, or read [Errors](/guides/errors/) first — it is the same on all of them.

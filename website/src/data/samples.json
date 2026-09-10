@@ -219,7 +219,7 @@
     },
     "yaml.nested": {
       "source": "name: eu-prod\nservers:\n  - host: a.internal\n    port: 8080\n  - host: b.internal\n    port: 8081\n    tls: false\nlabels:\n  tier: prod\n  team: platform",
-      "render": "Cluster(name: \"eu-prod\", servers: [extract.Server(host: \"a.internal\", port: 8080, tls: true), extract.Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"tier\": \"prod\", \"team\": \"platform\"])"
+      "render": "Cluster(name: \"eu-prod\", servers: [extract.Server(host: \"a.internal\", port: 8080, tls: true), extract.Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"team\": \"platform\", \"tier\": \"prod\"])"
     },
     "yaml.flow": {
       "source": "name: eu-prod\nservers: [{host: a.internal, port: 8080}, {host: b.internal, port: 8081}]\nlabels: {tier: prod}",
@@ -235,7 +235,7 @@
     },
     "yaml.norwayBad": {
       "source": "code: NO\nenabled: no",
-      "render": "country.yaml: error: enabled must be a boolean, found \"no\"\n\n1 error\n"
+      "render": "country.yaml:2:10: error: enabled must be a boolean, found \"no\"\n  1 │ code: NO\n  2 │ enabled: no\n    │          ^^\n\n1 error\n"
     },
     "yaml.norwayCoerced": {
       "source": "code: NO\nenabled: no",
@@ -275,7 +275,11 @@
     },
     "xml.repeated": {
       "source": "<cluster>\n  <name>eu-prod</name>\n  <servers><host>a.internal</host><port>8080</port></servers>\n  <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>\n</cluster>",
-      "render": "EXAMPLE FAILED: <input>: error: servers.port must be an integer, found \"8080\"\n\n<input>: error: servers.port must be an integer, found \"8081\"\n\n<input>: error: servers.tls must be a boolean, found \"false\"\n\n3 errors\n"
+      "render": "XMLCluster(name: \"eu-prod\", servers: [extract.XMLServer(host: \"a.internal\", port: 8080, tls: true), extract.XMLServer(host: \"b.internal\", port: 8081, tls: false)])"
+    },
+    "xml.nestedNoCoerce": {
+      "source": "<cluster>\n  <name>eu-prod</name>\n  <servers><host>a.internal</host><port>8080</port></servers>\n  <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>\n</cluster>",
+      "render": "cluster.xml:3:41: error: servers.port must be an integer, found \"8080\"\n  1 │ <cluster>\n  2 │   <name>eu-prod</name>\n  3 │   <servers><host>a.internal</host><port>8080</port></servers>\n    │                                         ^^^^\n  4 │   <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>\n\ncluster.xml:4:41: error: servers.port must be an integer, found \"8081\"\n  2 │   <name>eu-prod</name>\n  3 │   <servers><host>a.internal</host><port>8080</port></servers>\n  4 │   <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>\n    │                                         ^^^^\n  5 │ </cluster>\n\ncluster.xml:4:57: error: servers.tls must be a boolean, found \"false\"\n  2 │   <name>eu-prod</name>\n  3 │   <servers><host>a.internal</host><port>8080</port></servers>\n  4 │   <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>\n    │                                                         ^^^^^\n  5 │ </cluster>\n\n3 errors\n"
     },
     "xml.noCoerce": {
       "source": "<deployment><name>api</name><image>img:1</image><replicas>3</replicas></deployment>",

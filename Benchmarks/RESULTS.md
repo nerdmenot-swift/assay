@@ -11,12 +11,12 @@ are machine-specific by design, so this is pasted, not automated.
 |---|---|---|---|
 | struct decode, full corpus | **8.93×** mean over 25 files (4.92–18.98) | `JSONDecoder` | [three passes](#three-passes-because-one-number-cannot-answer-three-questions) |
 | prefix decode + unknown-key skip | **6.34×** over 45 files | `JSONDecoder` | same |
-| generic value model | **1.51×** over 75 files (0.56–2.25) | `JSONSerialization` | same |
+| generic value model | **3.11×** over 75 files | `JSONSerialization` | same |
 | falsification arm (`apimodel`, 5 sizes) | **5.27×** mean | `JSONDecoder` | [Phase 1](#phase-1--the-falsification-check) |
 | vs ZippyJSON (simdjson + Codable) | **2.97–3.81×** faster | ZippyJSON, which is 1.76–2.08× over Foundation here | [the owed number](#the-owed-loss-assay-against-yyjson) |
 | vs yyjson, use-case shape | **0.69×** (loses) | yyjson parse + extraction | same |
 | vs yyjson, float-dense | **0.78×** (loses) | same | same |
-| vs yyjson, DOM vs DOM | **0.06×** (loses) | `yyjson_read` | same |
+| vs yyjson, DOM vs DOM | **0.13×** (loses) | `yyjson_read` | same |
 | YAML node parse | **6.59×** | Yams `compose` | [YAML and XML](#yaml-and-xml-timed-for-the-first-time) |
 | YAML struct decode | **11.05×** | Yams `YAMLDecoder` | same |
 | XML tree parse | **2.37×** (macOS; **0.96×** on Linux) | Foundation `XMLParser` | [XML, made faster](#making-the-xml-parser-faster-by-profiling-rather-than-by-admiring-libxml2) |
@@ -544,25 +544,51 @@ here is "a SIMD-tier C parser", and it should not be read as a simdjson number.
 
 ## DOM vs DOM — `JSON.Value.parse` vs `yyjson_read`
 
-| shape | size | yyjson ns | Assay ns | ratio |
-|---|---|---|---|---|
-| apimodel | 8k | 1,572 | 28,690 | **0.05×** |
-| apimodel | 64k | 14,361 | 232,392 | **0.06×** |
-| floats-dense | 64k | 50,224 | 1,038,706 | **0.05×** |
-| short-strings | 64k | 20,462 | 237,103 | **0.09×** |
-| arrays-of-structs | 64k | 20,777 | 403,432 | **0.05×** |
+| shape | size | yyjson ns | Assay ns | ratio | (was, before 2026-09-11) |
+|---|---|---|---|---|---|
+| apimodel | 8k | 1,600 | 13,174 | **0.12×** | 0.05× |
+| apimodel | 64k | 14,326 | 105,120 | **0.14×** | 0.06× |
+| floats-dense | 64k | 46,890 | 394,542 | **0.12×** | 0.05× |
+| short-strings | 64k | 20,281 | 102,916 | **0.20×** | 0.09× |
+| arrays-of-structs | 64k | 20,428 | 171,462 | **0.12×** | 0.05× |
 
-**Mean 0.06× — yyjson is roughly 16× faster.** This is the honest scanner-against-scanner
-number and it is not close.
+**Mean 0.13× — yyjson is roughly 7× faster.** Still not close, and still the honest
+scanner-against-scanner number.
 
-It is also not purely a scanner comparison, and saying so is not an excuse — it is what
-the number means. yyjson builds a tape in one arena and its strings point into it.
-Assay's `JSON.Value` is a Swift enum tree: every string is an individually ARC-managed
-`String`, every object an `[Member]` array. That representational difference is most of
-16×, and it is a *design* difference rather than a parsing one. The lesson to take is the
-one already in this file from the other direction: **`JSON.Value` is not the fast path and
-should never be presented as one.** It exists so `@Extras` and "I don't know this shape"
-have somewhere to land.
+### It was 16× until somebody asked whether yyjson had anything to teach
+
+It did, though not the lesson expected. Profiling `JSON.Value.parse` rather than reasoning
+about it found `scanJSONArray` and `scanJSONObject` building `path + [.index(…)]` and
+`path + [.key(…)]` — **an array allocation per VALUE in the document**, copying the parent
+path into it, for a path nothing reads unless the document is malformed. Threading one
+array `inout` and pushing/popping around each descent took the DOM path **2.1–2.6× faster**
+and the corpus-wide value-model sweep from 1.51× to 3.11× over `JSONSerialization`.
+
+That is the third time this exact mistake has been found in this codebase — the columnar
+row path (2026-09-10), haul's report before it, and now here. It is worth naming as a
+pattern rather than three incidents: **a diagnostic path threaded eagerly through a hot
+loop is invisible in every test, because tests assert on the diagnostics rather than on
+what producing them cost.** The `colfloor` arm exists for the columnar one; this section is
+the record for this one.
+
+### What the remaining 7× is, and what closing it would cost
+
+Profiled again after the fix, and it is now what the original write-up predicted: string
+materialisation. `scanString` plus `makeString` plus `String.init(unsafeUninitializedCapacity:)`
+plus the memmove under them is the top of the profile, and `makeString` is already the
+cheapest way to build one Swift `String` from bytes.
+
+yyjson does not build strings at all. It writes a tape into one arena and its string values
+point into the input buffer. Assay's `JSON.Value` is a Swift enum tree: every string an
+individually ARC-managed `String`, every container an `Array`. Closing that gap means a
+different public type — a document that owns a tape, with a cursor type reading it — and
+CLAUDE.md's `~Escapable` note already records why that is a second API rather than a change
+to this one.
+
+So the conclusion is unchanged and now better supported: **`JSON.Value` is not the fast path
+and should never be presented as one.** It exists so `@Extras` and "I do not know this
+shape" have somewhere to land. What did change is that the gap is 7× rather than 16×, and
+2.1× of that came from deleting work nobody had measured.
 
 ## Use case — `@Schema` decode vs yyjson parse *plus extraction*
 

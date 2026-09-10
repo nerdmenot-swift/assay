@@ -363,7 +363,7 @@ Foundation, the thesis is wrong and the SIMD work is moot.*
 |---|---|---|
 | Struct decode, 25 files (`@Schema` vs `Codable`) | Foundation | **9.17×** |
 | Prefix decode + unknown-key skip, 45 files | Foundation | **6.43×** |
-| Generic value model, 75 files (`JSON.Value`) | `JSONSerialization` | **1.49×** |
+| Generic value model, 75 files (`JSON.Value`) | `JSONSerialization` | **3.11×** |
 | Falsification arm (API-shaped, 512 B – 64 kB) | Foundation | **5.44×** |
 | Float-dense (canada.json-shaped) | Foundation | **8.64×** |
 | Date decode (`[Date]`, corpus date strings) | `JSONDecoder` `.iso8601` | **6.06×** |
@@ -403,7 +403,7 @@ both timed regions:
 |---|---|
 | `@Schema` decode vs yyjson parse **+ extracting the same Swift structs** | **0.65×** — C is ~1.5× faster |
 | float-dense, same comparison (the arm predicted to lose) | **0.78×** — C is ~1.3× faster |
-| `JSON.Value` vs `yyjson_read` (DOM vs DOM) | **0.06×** — C is ~16× faster |
+| `JSON.Value` vs `yyjson_read` (DOM vs DOM) | **0.13×** — C is ~7× faster |
 
 The DOM row is the one to read carefully: yyjson builds a tape in one arena with strings
 pointing into it, while `JSON.Value` is a Swift enum tree of individually ARC-managed `String`s.

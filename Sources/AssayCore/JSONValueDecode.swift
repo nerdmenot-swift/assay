@@ -23,9 +23,21 @@ extension AssayReader {
 
     /// Parse one JSON value at the cursor. Returns nil and reports an issue on malformed
     /// input; the caller decides whether that is fatal.
+    ///
+    /// Part of the hand-written-decoder surface, so this signature is fixed. Internally
+    /// the path is threaded `inout` — see `_scanJSONValue`.
     public mutating func scanJSONValue(
         _ sink: inout IssueSink,
         _ path: [PathComponent] = []
+    ) -> JSON.Value? {
+        var p = path
+        return _scanJSONValue(&sink, &p)
+    }
+
+    @usableFromInline
+    mutating func _scanJSONValue(
+        _ sink: inout IssueSink,
+        _ path: inout [PathComponent]
     ) -> JSON.Value? {
         skipWhitespace()
         guard !atEnd else {
@@ -47,13 +59,13 @@ extension AssayReader {
             return .string(s)
 
         case 0x5B:                                   // [
-            return scanJSONArray(&sink, path)
+            return scanJSONArray(&sink, &path)
 
         case 0x7B:                                   // {
-            return scanJSONObject(&sink, path)
+            return scanJSONObject(&sink, &path)
 
         default:
-            return scanJSONNumber(&sink, path)
+            return scanJSONNumber(&sink, &path)
         }
     }
 
@@ -64,7 +76,7 @@ extension AssayReader {
     @usableFromInline
     mutating func scanJSONNumber(
         _ sink: inout IssueSink,
-        _ path: [PathComponent]
+        _ path: inout [PathComponent]
     ) -> JSON.Value? {
         if let i = scanInt64() { return .int(i) }
         if let d = scanDouble() { return .double(d) }
@@ -75,7 +87,7 @@ extension AssayReader {
     @usableFromInline
     mutating func scanJSONArray(
         _ sink: inout IssueSink,
-        _ path: [PathComponent]
+        _ path: inout [PathComponent]
     ) -> JSON.Value? {
         guard tryConsume(0x5B) else { reportMalformed(&sink, path); return nil }
         guard enterContainer(&sink) else { return nil }
@@ -85,9 +97,14 @@ extension AssayReader {
         if tryConsume(0x5D) { return .array(items) }
 
         while true {
-            guard let v = scanJSONValue(&sink, path + [.index(items.count)]) else {
-                return nil
-            }
+            // Push, descend, pop — rather than `path + [.index(…)]`, which allocated an
+            // array per VALUE in the document and copied the parent into it, for a path
+            // nothing reads unless the document is malformed. Same bug as the columnar
+            // row path (2026-09-10) and haul's report before it; this is the third place
+            // it was written, and the last one still standing.
+            path.append(.index(items.count))
+            guard let v = _scanJSONValue(&sink, &path) else { return nil }
+            path.removeLast()
             items.append(v)
             if tryConsume(0x2C) { continue }
             break
@@ -99,7 +116,7 @@ extension AssayReader {
     @usableFromInline
     mutating func scanJSONObject(
         _ sink: inout IssueSink,
-        _ path: [PathComponent]
+        _ path: inout [PathComponent]
     ) -> JSON.Value? {
         guard tryConsume(0x7B) else { reportMalformed(&sink, path); return nil }
         guard enterContainer(&sink) else { return nil }
@@ -115,7 +132,9 @@ extension AssayReader {
             // slower, and it is unavoidable when the key set is unknown.
             guard let key = scanString() else { reportMalformed(&sink, path); return nil }
             guard expect(0x3A) else { reportMalformed(&sink, path); return nil }
-            guard let v = scanJSONValue(&sink, path + [.key(key)]) else { return nil }
+            path.append(.key(key))
+            guard let v = _scanJSONValue(&sink, &path) else { return nil }
+            path.removeLast()
 
             // Duplicates are kept, not overwritten. RFC 8259 leaves the behaviour
             // undefined and dropping one silently is the worst available answer.
@@ -172,7 +191,8 @@ extension JSON.Value {
             }
             var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
             reader.advanceBy(unsafe UTF8Validation.bomLength(base, buf.count))
-            guard let v = reader.scanJSONValue(&sink, []) else { return nil }
+            var path: [PathComponent] = []
+            guard let v = reader._scanJSONValue(&sink, &path) else { return nil }
             reader.skipWhitespace()
             if !reader.atEnd {
                 sink.add(Issue(code: .trailingContent,

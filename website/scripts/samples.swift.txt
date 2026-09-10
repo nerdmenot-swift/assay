@@ -54,6 +54,15 @@ struct Strict { var apiKey: String; var timeoutSeconds: Int }
 @Schema(keys: .snakeCase, formats: .all)
 struct Server { var host: String; var port: Int; var tls: Bool = true }
 
+/// The same shape with coercion, for XML. `coerceScalars` is per TYPE and not inherited by
+/// nested ones — which the XML example on the formats page found the hard way, and which
+/// the page now says out loud.
+@Schema(keys: .snakeCase, coerceScalars: true, formats: [.xml])
+struct XMLServer { var host: String; var port: Int; var tls: Bool = true }
+
+@Schema(keys: .snakeCase, coerceScalars: true, formats: [.xml])
+struct XMLCluster { var name: String; var servers: [XMLServer] }
+
 @Schema(keys: .snakeCase, coerceScalars: true, formats: .all)
 struct Cluster {
     var name: String
@@ -402,7 +411,9 @@ let xmlRepeated = """
   <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>
 </cluster>
 """
-emitTry("xml.repeated", xmlRepeated) { try Cluster.parse(xml: Array(xmlRepeated.utf8)) }
+emitTry("xml.repeated", xmlRepeated) { try XMLCluster.parse(xml: Array(xmlRepeated.utf8)) }
+emit("xml.nestedNoCoerce", xmlRepeated,
+     Cluster.diagnose(xml: Array(xmlRepeated.utf8), sourceName: "cluster.xml").render(.plain))
 
 let xmlCoerce = """
 <deployment><name>api</name><image>img:1</image><replicas>3</replicas></deployment>

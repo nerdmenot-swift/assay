@@ -200,6 +200,55 @@ ${codeTable()}
 `
 writeFileSync(join(HERE, '..', 'src', 'content', 'docs', 'reference', 'issue-codes.md'), CODES_PAGE)
 
+// ---------------------------------------------------------------------------
+// Page templates
+// ---------------------------------------------------------------------------
+//
+// Docs pages that show real output are written as templates in scripts/pages/, with
+// placeholders the renders are substituted into. Markdown files cannot import JSON, and
+// generating a whole page from a string literal makes the prose unreadable to edit — this
+// keeps the words in a file you can write in and the examples impossible to fake.
+//
+//   {{in:key:lang}}     the input document, fenced as `lang`
+//   {{out:key}}         what the library printed, fenced as `text`
+//   {{value:key}}       the decoded value, fenced as `swift`
+//   {{example:key:lang}}  both: input, then output
+//
+// A placeholder naming a key that does not exist is a build failure rather than a page
+// with `{{out:typo}}` printed on it.
+
+function fence(lang: string, body: string): string {
+  return '```' + lang + '\n' + body.replace(/\n+$/, '') + '\n```'
+}
+
+function fillTemplate(tmpl: string, name: string): string {
+  return tmpl.replace(/\{\{(in|out|value|example):([^:}]+)(?::([^}]+))?\}\}/g, (_m, kind, key, lang) => {
+    const r = (renders as Record<string, { source: string; render: string }>)[key]
+    if (!r) throw new Error(`${name}: no render named "${key}"`)
+    const l = lang ?? 'text'
+    switch (kind) {
+      case 'in': return fence(l, r.source)
+      case 'out': return fence('text', r.render)
+      case 'value': return fence('swift', r.render)
+      case 'example': return fence(l, r.source) + '\n\n' + fence('text', r.render)
+      default: return ''
+    }
+  })
+}
+
+const PAGES = join(HERE, 'pages')
+if (existsSync(PAGES)) {
+  for (const f of readdirSync(PAGES)) {
+    if (!f.endsWith('.md.tmpl')) continue
+    // scripts/pages/formats--yaml.md.tmpl → src/content/docs/formats/yaml.md
+    const rel = f.replace(/\.md\.tmpl$/, '').replace(/--/g, '/') + '.md'
+    const out = join(HERE, '..', 'src', 'content', 'docs', rel)
+    mkdirSync(dirname(out), { recursive: true })
+    writeFileSync(out, fillTemplate(readFileSync(join(PAGES, f), 'utf8'), f))
+  }
+  console.log(`  extract: ${readdirSync(PAGES).filter((f) => f.endsWith('.md.tmpl')).length} page templates filled`)
+}
+
 // The performance page: prose in scripts/performance.md.tmpl, numbers from RESULTS.md.
 // A template file rather than a string literal here, because the prose is full of
 // backticks and a template literal full of escaped backticks is unreadable and unsafe

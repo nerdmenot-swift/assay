@@ -39,6 +39,12 @@ that distinguish it:
   Yams/libyaml, and Foundation's XMLParser; deterministic fuzzing; live-allocation
   gate; compile-time budget gate (~87 ms per type against a 100 ms ceiling).
 
+- **The value model is 2.1× faster** (2026-09-11): `JSON.Value.parse` allocated a path
+  array per value in the document, for a diagnostic path nothing reads unless the document
+  is malformed. The corpus-wide sweep goes 1.51× → **3.11×** over `JSONSerialization`, and
+  the DOM-vs-DOM gap against yyjson closes from 16× to 7×.
+- **A type mismatch on the YAML/XML/TOML/plist path now carries a caret** even when the
+  field has no rules; previously only JSON did.
 - **Rows** (2026-09-11, `docs/ROWS.md`): the generic row-shaped path. `RowBatch` transposes
   rows from any source — a SQL result set, a CSV — into typed columns and decodes them
   through the columnar batch (~40 ns/row on the 8-column row against ~70 for a `RawValue`

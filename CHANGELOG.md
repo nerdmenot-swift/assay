@@ -33,9 +33,22 @@ that distinguish it:
   Yams/libyaml, and Foundation's XMLParser; deterministic fuzzing; live-allocation
   gate; compile-time budget gate (~87 ms per type against a 100 ms ceiling).
 
+- **Encoding** for JSON, YAML and XML (`@Schema(encodes: true)`), with round-trip as a
+  stated law and a closed exception list (`docs/ENCODING.md`); 2.85× `JSONEncoder`.
+- **Unions** — `@Schema(discriminator: "type")` and `.untagged` — decode and encode,
+  JSON only (`docs/UNIONS.md`).
+- **`Assayer<T>`** runtime schemas, `@Wraps`, `@Inline`, `@Key(path:)`, `@OneOrMany`,
+  `@XML` placement and `@XML(root:)`, `@Schema(context:)`, `parse(plist:)`,
+  `parse(body:contentType:accepting:)`, `jsonSchema(for:)`, columnar batch decode.
+- **Errors print.** `print(error)`, `"\(diagnosis)"` and (with `AssayFoundation`)
+  `localizedDescription` show the caret render; they used to show a reflection dump.
+
+Renamed before release, no deprecation shims: `Discriminator.none` → `.untagged` (the
+old spelling warned on every use — it resolved to `Optional.none`), and the assertion
+rules `.trimmed`/`.lowercased` → `.isTrimmed`/`.isLowercase` (they never normalised;
+`@Preprocess` does). Every message-less rule now has an `(or:)` overload.
+
 Known limitations at this release, deliberately deferred with reasons in
-`ROADMAP.md`: **no encoding yet** (placement data is preserved so it can be added
-without redesign), no `Assayer<T>` runtime schemas, no `@Inline`/`@XML` placement,
-no streaming (a decision, not a gap — `docs/STREAMING.md`), `.past`/`.future` date
-rules pending a clock seam, and no published comparison against SIMD-tier decoders
-(simdjson/yyjson) — that loss is owed and will be published when measured.
+`ROADMAP.md`: unions have no YAML/XML path, `@Key(path:)` refuses index segments,
+`StandardSchema` waits on a third package, no streaming (a decision, not a gap —
+`docs/STREAMING.md`), `.past`/`.future` date rules pending a clock seam.

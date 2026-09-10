@@ -8,7 +8,6 @@
 //   * A `platforms:` clause covering every Apple platform — see the note on it below.
 //   * No `.unsafeFlags` anywhere, ever — see CLAUDE.md → hard constraints #10.
 //   * No `-enable-library-evolution`.
-//   * AssaySIMD is a separate target so the BuiltinModule feature is contained to it.
 //   * Format support is separate products so the core has no Foundation dependency.
 //
 // swift-syntax is pinned to the 603 line, which is the release line matching Swift 6.3.

@@ -228,7 +228,7 @@ struct UnionDiagnostics {
     @Test("two untagged cases with the same payload type are refused")
     func duplicatePayloadRefused() {
         let (_, diags) = expandSchemaForTesting("""
-            @Schema(discriminator: .none) enum U { case a(Int); case b(Int) }
+            @Schema(discriminator: .untagged) enum U { case a(Int); case b(Int) }
             """)
         #expect(diags.contains { $0.contains("both carry a 'Int'") }, "got \(diags)")
     }
@@ -239,7 +239,7 @@ struct UnionDiagnostics {
     @Test("two distinct types that accept the same documents are NOT refused")
     func indistinguishableTypesNotRefused() {
         let (_, diags) = expandSchemaForTesting("""
-            @Schema(discriminator: .none) enum U { case a(P); case b(Q) }
+            @Schema(discriminator: .untagged) enum U { case a(P); case b(Q) }
             """)
         #expect(diags.isEmpty, "a macro sees tokens, not conformances: \(diags)")
     }
@@ -328,7 +328,7 @@ extension UnionDiagnostics {
 // `docs/UNIONS.md` §§2.2 and 3. Everything a tagged union does not have to answer: which
 // branch to blame when they all fail, and what stops nested unions from going exponential.
 
-@Schema(discriminator: .none)
+@Schema(discriminator: .untagged)
 enum StringOrNumber: Equatable {
     case text(String)
     case number(Double)
@@ -341,7 +341,7 @@ struct UntaggedPoint: Equatable { var x: Int; var y: Int }
 struct UntaggedLine: Equatable { var from: String; var to: String; var width: Int }
 
 /// Two struct branches, so "which one came closest" has a meaningful answer.
-@Schema(discriminator: .none)
+@Schema(discriminator: .untagged)
 enum Figure: Equatable {
     case point(UntaggedPoint)
     case line(UntaggedLine)
@@ -614,7 +614,7 @@ struct UnionEncodingTests {
 
 // MARK: - Untagged encoding
 
-@Schema(encodes: true, discriminator: .none)
+@Schema(encodes: true, discriminator: .untagged)
 enum EncStringOrNumber: Equatable {
     case text(String)
     case number(Double)
@@ -626,7 +626,7 @@ struct EncPoint: Equatable { var x: Int; var y: Int }
 @Schema(encodes: true)
 struct EncLine: Equatable { var from: String; var to: String }
 
-@Schema(encodes: true, discriminator: .none)
+@Schema(encodes: true, discriminator: .untagged)
 enum EncFigure: Equatable {
     case point(EncPoint)
     case line(EncLine)

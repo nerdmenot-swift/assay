@@ -319,13 +319,13 @@ was never the prerequisite.
 The real one is `@Schema(discriminator:)`, which `EXPERIENCE.md` §9 specifies and which is
 absent from this roadmap and from the code entirely. And `@PickFirst var id: StringOrInt`
 cannot be built as spelled regardless: the macro would need `StringOrInt`'s branches and sees
-a token. The sound spelling is an untagged union — `@Schema(discriminator: .none)` — which
+a token. The sound spelling is an untagged union — `@Schema(discriminator: .untagged)` — which
 *is* pick-first by definition. `CLAUDE.md`'s governing principle exactly: a different
 construct, not a transliteration.
 
 ### Unions — BOTH FORMS BUILT 2026-09-09
 
-`EXPERIENCE.md` §9 specifies `@Schema(discriminator: "type")` and `discriminator: .none`.
+`EXPERIENCE.md` §9 specifies `@Schema(discriminator: "type")` and `discriminator: .untagged`.
 Neither existed when this section was written, and neither was listed here — a gap in the
 roadmap itself, found while cutting `@PickFirst`.
 
@@ -659,10 +659,10 @@ schema that is too strict makes a correct client unusable with no way for its au
 discover that the schema is at fault. So a rule with no *exact* 2020-12 equivalent goes into
 `description` prose rather than an approximate keyword:
 
-- `.trimmed` / `.lowercased` are **assertions**, not normalisations — Assay reports
+- `.isTrimmed` / `.isLowercase` are **assertions**, not normalisations — Assay reports
   `not_trimmed`, it does not trim. An earlier version of the renderer said the opposite in a
   comment and a test caught it. A `pattern` could express them only approximately (`isTrimmed`
-  is space/tab/CR/LF, ECMA-262's `\s` is wider; `.lowercased` is full Unicode case folding),
+  is space/tab/CR/LF, ECMA-262's `\s` is wider; `.isLowercase` is full Unicode case folding),
   and an approximate pattern could be *narrower* than the real check.
 - `.before`/`.after`/`.between` hold epoch seconds while the wire form is a date **string**, so
   `minimum` would compare the wrong things and 2020-12 has no keyword for the real constraint.

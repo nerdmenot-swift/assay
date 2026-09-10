@@ -13,7 +13,7 @@ enum Event {
     case purchase(PurchaseEvent)
 }
 
-@Schema(discriminator: .none)
+@Schema(discriminator: .untagged)
 enum StringOrNumber { case text(String), number(Double) }
 ```
 
@@ -147,7 +147,7 @@ already follow, rather than a second convention to remember.
 **Untagged encodes the payload alone**, and here the law can genuinely break:
 
 ```swift
-@Schema(discriminator: .none)
+@Schema(discriminator: .untagged)
 enum Ambiguous { case a(Int), b(Int) }      // refused at expansion
 ```
 

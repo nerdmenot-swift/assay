@@ -22,12 +22,12 @@
 // So a rule with no *exact* 2020-12 equivalent is recorded in `description` prose rather than
 // approximated with a keyword that might be narrower than the real check:
 //
-//   .trimmed, .lowercased   ASSERTIONS, not normalisations — Assay reports `not_trimmed`, it
+//   .isTrimmed, .isLowercase   ASSERTIONS, not normalisations — Assay reports `not_trimmed`, it
 //                           does not trim. (An earlier version of this file said the opposite
 //                           and a test caught it.) A `pattern` could express them, but only
 //                           approximately: `isTrimmed` treats space/tab/CR/LF as whitespace
 //                           while ECMA-262's `\s` also matches Unicode separators and NBSP, and
-//                           `.lowercased` compares against Swift's full Unicode case folding,
+//                           `.isLowercase` compares against Swift's full Unicode case folding,
 //                           which no character class reproduces. Either pattern would be
 //                           NARROWER than the real check in some direction, which is the
 //                           direction that must not happen.

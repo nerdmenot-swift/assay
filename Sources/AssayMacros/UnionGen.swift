@@ -57,7 +57,7 @@ extension SchemaMacro {
 
     /// `@Schema(discriminator:)`, or nil when the type is not a union.
     ///
-    /// Returns the tag key for the tagged form, and `""` for `.none` — distinguished from
+    /// Returns the tag key for the tagged form, and `""` for `.untagged` — distinguished from
     /// "no discriminator at all" by the outer Optional, because those are three states and
     /// two of them must not be confused.
     static func discriminator(from node: AttributeSyntax) -> String?? {
@@ -66,8 +66,9 @@ extension SchemaMacro {
             if let lit = arg.expression.as(StringLiteralExprSyntax.self) {
                 return .some(lit.segments.description)
             }
-            // `.none` — and note this is `Discriminator.none`, not `Optional.none`, which is
-            // why the return type is doubly-optional rather than a plain `String?`.
+            // `.untagged`. Any non-literal expression: the macro sees a token, and the only
+            // other value the type admits is this one. The return type is doubly-optional
+            // rather than a plain `String?` because "absent" and "untagged" must not merge.
             return .some(nil)
         }
         return nil

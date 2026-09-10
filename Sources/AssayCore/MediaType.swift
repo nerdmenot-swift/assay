@@ -95,10 +95,11 @@ public struct MediaType: Sendable, Equatable {
     }
 }
 
-// ASCII-only case folding and trimming, so the core stays Foundation-free and behaves
-// identically on every platform. A media type is ASCII by grammar, so there is nothing to
-// lose here — and `lowercased()` on a `String` is locale-sensitive in ways that have
-// famously broken Turkish-locale builds of other libraries.
+// ASCII-only case folding and trimming. A media type is ASCII by grammar, so there is
+// nothing to lose, and folding seven bits by hand keeps this file free of anything that
+// could vary by platform. (Not because `String.lowercased()` is locale-sensitive — it is
+// not; that is Foundation's `lowercased(with:)`, and the famous Turkish-`I` breakages were
+// in code that called it. The standard-library one would be correct here too.)
 extension StringProtocol {
     fileprivate func lowercasedASCII() -> String {
         String(decoding: utf8.map { $0 >= 65 && $0 <= 90 ? $0 + 32 : $0 }, as: UTF8.self)

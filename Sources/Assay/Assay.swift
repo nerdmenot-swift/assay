@@ -475,19 +475,26 @@ public enum UnknownKeys: Sendable {
 /// Two spellings, one parameter, and the `ExpressibleByStringLiteral` conformance is what
 /// makes that work — the same device `Rule` uses so `@Validate(.min(1), "message")` compiles:
 ///
-///     @Schema(discriminator: "type")   // tagged: the branch is named in the document
-///     @Schema(discriminator: .none)    // untagged: try each branch in order
+///     @Schema(discriminator: "type")      // tagged: the branch is named in the document
+///     @Schema(discriminator: .untagged)   // untagged: try each branch in order
+///
+/// **It was `.none` until 2026-09-10**, and that spelling warned on every use: the parameter
+/// is `Discriminator?` so that "no discriminator" and "untagged" are distinguishable, and an
+/// Optional parameter makes `.none` resolve to `Optional.none` first — "assuming you mean
+/// 'Optional<Discriminator>.none'" in every file that declared an untagged union. The macro
+/// read the token and worked regardless, which is how it shipped. `.untagged` cannot
+/// collide with anything and says what it is.
 public struct Discriminator: Sendable, Equatable, ExpressibleByStringLiteral {
     @usableFromInline enum Storage: Sendable, Equatable {
         case key(String)
-        case none
+        case untagged
     }
     @usableFromInline let storage: Storage
 
     /// An untagged union. `docs/UNIONS.md` §2.2 and §3: this is the form that needs a
     /// composed failure report and a backtracking budget, and the form that carries a
     /// round-trip exception. Prefer a tag whenever the wire format has one.
-    public static let none = Discriminator(storage: .none)
+    public static let untagged = Discriminator(storage: .untagged)
 
     @usableFromInline init(storage: Storage) { self.storage = storage }
 

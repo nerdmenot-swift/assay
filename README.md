@@ -19,8 +19,8 @@ first-class mode, and Assay is a complete serde with no validation at all rather
 on-ramp to one.
 
 > **Status: built, tested and measured. Not released and not API-stable.**
-> The API in `docs/EXPERIENCE.md` is implemented; [`ROADMAP.md`](ROADMAP.md) lists what is
-> deliberately deferred, encoding included.
+> The API in `docs/EXPERIENCE.md` is implemented; [`ROADMAP.md`](ROADMAP.md) lists the few
+> things deliberately deferred, and why.
 
 ---
 
@@ -52,7 +52,7 @@ Foundation** on the corpus below, from scalar Swift with no SIMD and no C.
 ## Install
 
 ```swift
-.package(url: "https://github.com/<owner>/assay.git", from: "0.1.0")
+.package(url: "https://github.com/nerdmenot-swift/assay.git", from: "0.1.0")
 ```
 
 ```swift

@@ -367,7 +367,7 @@ The same mechanism means `.min(1)` is polymorphic in the way people already expe
 
 ### The built-in rules
 
-Strings — `.min` `.max` `.length` `.notEmpty` `.regex` `.email` `.url` `.uuid` `.hostname` `.prefix` `.suffix` `.contains` `.oneOf` `.trimmed` `.lowercased` `.ascii`
+Strings — `.min` `.max` `.length` `.notEmpty` `.regex` `.email` `.url` `.uuid` `.hostname` `.prefix` `.suffix` `.contains` `.oneOf` `.isTrimmed` `.isLowercase` `.ascii`
 Numbers — `.min` `.max` `.range` `.positive` `.negative` `.nonNegative` `.multipleOf` `.finite`
 Collections — `.count` `.notEmpty` `.unique` `.each(...)`
 Dates — `.before` `.after` `.between` (`.past` and `.future` need a clock the core does not have — `ROADMAP.md` §2)
@@ -614,7 +614,7 @@ enum Event {
 Untagged unions exist for wire formats you don't control:
 
 ```swift
-@Schema(discriminator: .none)
+@Schema(discriminator: .untagged)
 enum StringOrNumber { case text(String), number(Double) }
 ```
 
@@ -649,12 +649,12 @@ tokens, not conformances — and that is the one round-trip exception the untagg
 
 ```swift
 @OneOrMany var tags: [String]        // "swift" and ["swift", "ios"] both work
-@PickFirst var id: StringOrInt       // CUT — use @Schema(discriminator: .none)
+@PickFirst var id: StringOrInt       // CUT — use @Schema(discriminator: .untagged)
 ```
 
 Borrowed from `serde_with`, which exists because these two shapes account for a startling proportion of real-world API weirdness.
 
-**`@OneOrMany` shipped 2026-09-08. `@PickFirst` was CUT, and cannot be built as spelled** — the macro would need to know `StringOrInt`'s branches and it sees a token. The sound spelling is an untagged union, `@Schema(discriminator: .none)` in §9 below, which *is* pick-first by definition and **shipped 2026-09-09**. `ROADMAP.md` §5.
+**`@OneOrMany` shipped 2026-09-08. `@PickFirst` was CUT, and cannot be built as spelled** — the macro would need to know `StringOrInt`'s branches and it sees a token. The sound spelling is an untagged union, `@Schema(discriminator: .untagged)` in §9 below, which *is* pick-first by definition and **shipped 2026-09-09**. `ROADMAP.md` §5.
 
 ---
 
@@ -1095,7 +1095,7 @@ The macro already has everything needed to emit JSON Schema — the field names,
 
 It emits a **descriptor**, not text: the rule-to-keyword mapping lives once in `AssayCore` rather than once per type in your build, which is why the measured cost is ~5% on top of a rule-carrying type instead of the large number that design was expected to produce.
 
-And it will sometimes describe **more** than the type accepts, never less. Where a rule has no exact JSON Schema 2020-12 keyword — `.trimmed`, `.lowercased`, the date bounds — it becomes prose in `description` rather than an approximate `pattern`, because a schema that is too strict makes a correct client unusable and its author has no way to tell that the schema is at fault. `ROADMAP.md` §11 lists every such case.
+And it will sometimes describe **more** than the type accepts, never less. Where a rule has no exact JSON Schema 2020-12 keyword — `.isTrimmed`, `.isLowercase`, the date bounds — it becomes prose in `description` rather than an approximate `pattern`, because a schema that is too strict makes a correct client unusable and its author has no way to tell that the schema is at fault. `ROADMAP.md` §11 lists every such case.
 
 `Encodable` conformance synthesis moves out of the refusals for the same reason: it is a strictly easier problem than a full encoder, it is what people actually ask for, and the key renaming information needed to do it correctly is already there.
 
@@ -1328,9 +1328,9 @@ enum P: String, Assayable { case low, high; @Unknown case other(String) }
 
 // Unions — built 2026-09-09, encoding 2026-09-10, JSON only. docs/UNIONS.md
 @Schema(discriminator: "type") enum E { case a(A), b(B) }   // tagged
-@Schema(discriminator: .none) enum U { case a(A), b(B) }    // untagged, first match wins
+@Schema(discriminator: .untagged) enum U { case a(A), b(B) }    // untagged, first match wins
 @OneOrMany var tags: [String]                               // built 2026-09-08
-@PickFirst var id: StringOrInt                              // CUT — use discriminator: .none
+@PickFirst var id: StringOrInt                              // CUT — use discriminator: .untagged
 
 // Formats — opt in on the struct; the default is JSON alone
 @Schema                                  // JSON only

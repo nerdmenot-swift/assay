@@ -49,10 +49,10 @@ struct SchemaPost: Equatable {
     var counts: [String: Int]
 }
 
-/// `.trimmed`/`.lowercased`: assertions with no exact JSON Schema keyword.
+/// `.isTrimmed`/`.isLowercase`: assertions with no exact JSON Schema keyword.
 @Schema(describes: true)
 struct SchemaNormalised: Equatable {
-    @Validate(.trimmed, .lowercased, .min(2)) var handle: String
+    @Validate(.isTrimmed, .isLowercase, .min(2)) var handle: String
 }
 
 /// `@Transform` — the only place `.input` and `.output` differ.
@@ -214,10 +214,10 @@ struct JSONSchemaTests {
 struct SchemaIsNotTooStrict {
 
     /// **The property that matters, and a comment in the renderer got it wrong until this
-    /// test ran.** `.trimmed` and `.lowercased` are ASSERTIONS — Assay reports `not_trimmed`,
+    /// test ran.** `.isTrimmed` and `.isLowercase` are ASSERTIONS — Assay reports `not_trimmed`,
     /// it does not trim. They still get no `pattern`, but for a different reason: no character
     /// class reproduces them exactly (`isTrimmed` is space/tab/CR/LF, ECMA-262's `\s` is
-    /// wider; `.lowercased` is full Unicode case folding), and an approximate pattern could be
+    /// wider; `.isLowercase` is full Unicode case folding), and an approximate pattern could be
     /// NARROWER than the real check, which is the direction that must never happen.
     @Test("a rule with no exact keyword becomes prose, not an approximate pattern")
     func inexactRulesBecomeProse() throws {

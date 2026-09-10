@@ -204,8 +204,17 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
     public static func hostname(or message: String? = nil) -> Rule { Rule(.hostname, message: message) }
     public static let ascii = Rule(.ascii)
     public static func ascii(or message: String? = nil) -> Rule { Rule(.ascii, message: message) }
-    public static let trimmed = Rule(.trimmed)
-    public static let lowercased = Rule(.lowercased)
+    /// **An assertion, not a normalisation**: the value must ALREADY be free of leading and
+    /// trailing whitespace, and one that is not reports `not_trimmed`. `@Preprocess(.trim)`
+    /// is the normalisation. Named `.trimmed` until 2026-09-10, which read as the other
+    /// thing — a test caught that once and the rename makes the test unnecessary.
+    public static let isTrimmed = Rule(.trimmed)
+    public static func isTrimmed(or message: String? = nil) -> Rule { Rule(.trimmed, message: message) }
+    /// An assertion: the value must already equal its own lowercase form. Full Unicode case
+    /// folding, so `"straße".lowercased()` is itself and `"STRASSE"` is not.
+    /// `@Preprocess(.lowercase)` is the normalisation.
+    public static let isLowercase = Rule(.lowercased)
+    public static func isLowercase(or message: String? = nil) -> Rule { Rule(.lowercased, message: message) }
 
     public static func prefix(_ s: String, or message: String? = nil) -> Rule {
         Rule(.prefix(s), message: message)
@@ -221,8 +230,11 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
     }
 
     public static let positive = Rule(.positive)
+    public static func positive(or message: String? = nil) -> Rule { Rule(.positive, message: message) }
     public static let negative = Rule(.negative)
+    public static func negative(or message: String? = nil) -> Rule { Rule(.negative, message: message) }
     public static let nonNegative = Rule(.nonNegative)
+    public static func nonNegative(or message: String? = nil) -> Rule { Rule(.nonNegative, message: message) }
     public static func multipleOf(_ n: Int, or message: String? = nil) -> Rule {
         Rule(.multipleOf(Double(n)), message: message)
     }
@@ -230,6 +242,7 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
         Rule(.multipleOf(n), message: message)
     }
     public static let finite = Rule(.finite)
+    public static func finite(or message: String? = nil) -> Rule { Rule(.finite, message: message) }
 
     public static func count(_ r: ClosedRange<Int>, or message: String? = nil) -> Rule {
         Rule(.count(r.lowerBound, r.upperBound), message: message)
@@ -238,6 +251,7 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
         Rule(.count(n, n), message: message)
     }
     public static let unique = Rule(.unique)
+    public static func unique(or message: String? = nil) -> Rule { Rule(.unique, message: message) }
     public static func each(_ rules: Rule..., or message: String? = nil) -> Rule {
         Rule(.each(rules), message: message)
     }

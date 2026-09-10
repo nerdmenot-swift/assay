@@ -41,7 +41,7 @@ enum RuleTypeCheck {
     /// Which declared types each named rule applies to.
     static let stringOnly: Set<String> = [
         "length", "regex", "email", "url", "uuid", "hostname", "ascii",
-        "trimmed", "lowercased", "prefix", "suffix", "contains", "oneOf",
+        "isTrimmed", "isLowercase", "prefix", "suffix", "contains", "oneOf",
     ]
     static let numberOnly: Set<String> = [
         "range", "positive", "negative", "nonNegative", "multipleOf", "finite",

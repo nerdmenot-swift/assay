@@ -97,6 +97,15 @@ func internalCustomMessage(_ code: String) -> String? {
 }
 
 extension Issue {
+    /// `" characters"`, `" character"`, `" items"`, `" item"`, or nothing — the unit a size
+    /// rule carries, agreeing in number with the bound. Found by the printing tests:
+    /// "must be at least 1 characters".
+    func unitSuffix(_ bound: IssueValue) -> String {
+        guard let unit = params["unit"]?.displayString, !unit.isEmpty else { return "" }
+        if bound == .int(1), unit.hasSuffix("s") { return " " + String(unit.dropLast()) }
+        return " " + unit
+    }
+
     /// The English sentence, derived from `code` and `params` on demand.
     ///
     /// Predicate-shaped, so the renderer can write `"\(path) \(message)"`. Match on
@@ -161,14 +170,12 @@ extension Issue {
         // rules so every rendered sentence in the library lives in one reviewable file.
         case .custom("too_small"):
             if let m = params["minimum"] {
-                let unit = params["unit"]?.displayString ?? ""
-                return "must be at least \(m.displayString)\(unit.isEmpty ? "" : " \(unit)")"
+                return "must be at least \(m.displayString)\(unitSuffix(m))"
             }
             return "is too small"
         case .custom("too_large"):
             if let m = params["maximum"] {
-                let unit = params["unit"]?.displayString ?? ""
-                return "must be at most \(m.displayString)\(unit.isEmpty ? "" : " \(unit)")"
+                return "must be at most \(m.displayString)\(unitSuffix(m))"
             }
             return "is too large"
         case .custom("not_in_range"):
@@ -178,7 +185,7 @@ extension Issue {
             return "is out of range"
         case .custom("wrong_length"):
             if let n = params["length"] {
-                return "must be exactly \(n.displayString) characters"
+                return "must be exactly \(n.displayString) character\(n == .int(1) ? "" : "s")"
             }
             return "has the wrong length"
         case .custom("wrong_count"):
@@ -314,4 +321,27 @@ extension Warning {
 extension IssueCode {
     /// The code `@Fallback` warnings carry.
     public static let fallbackApplied = IssueCode.custom("fallback_applied")
+}
+
+// MARK: - Printing
+//
+// What `print(issue)` and `"\(issue)"` show. Added 2026-09-10 by the audit that found the
+// library whose headline is error reporting printed `Issue(code: AssayCore.IssueCode…` —
+// the synthesized reflection dump — anywhere a developer sees a value without asking for
+// it: string interpolation, a failed `#expect`, a log line.
+//
+// The shape is the renderer's own one-line form, `path message`, with no source location:
+// a bare `Issue` has no document to point into. `render(.plain)` on the `Diagnosis` or the
+// `AssayError` is where the carets are.
+
+extension Issue: CustomStringConvertible {
+    public var description: String {
+        path.isEmpty ? message : "\(path.pathDescription) \(message)"
+    }
+}
+
+extension Warning: CustomStringConvertible {
+    public var description: String {
+        path.isEmpty ? message : "\(path.pathDescription) \(message)"
+    }
 }

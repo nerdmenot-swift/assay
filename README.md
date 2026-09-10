@@ -120,6 +120,11 @@ serialise the code for a client and render English into a log from the same valu
 renderers ship: `.terminal` (carets, colour when the terminal supports it), `.plain`, `.json`,
 and `.problemDetails` (RFC 9457).
 
+And you do not have to ask for any of them: `print(error)`, `"\(diagnosis)"`, a failed
+`#expect(throws:)` and `error.localizedDescription` (with `AssayFoundation`) all show the
+plain caret render. A library whose product is the error report must never print
+`AssayError(storage: …)`.
+
 ---
 
 ## Validation

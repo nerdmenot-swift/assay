@@ -267,3 +267,70 @@ struct MessageCoverageTests {
         }
     }
 }
+
+// MARK: - Printing
+//
+// Added 2026-09-10. The audit's first finding: `print(error)` on the library whose headline
+// is error reporting printed `AssayError(storage: Assay.AssayError.Storage)`, and
+// `localizedDescription` printed "The operation couldn't be completed." These pin what a
+// developer sees WITHOUT asking — interpolation, a failed `#expect`, a log line.
+
+@Schema(encodes: true)
+struct PrintTarget {
+    var a: Int
+    @Validate(.min(1)) var name: String
+}
+
+@Suite("Printing — what you see without asking")
+struct PrintingTests {
+
+    @Test("an AssayError interpolates as its plain render")
+    func errorDescription() {
+        do {
+            _ = try PrintTarget.parse(json: #"{"a":"x","name":""}"#, sourceName: "t.json")
+            Issue.record("expected a throw")
+        } catch let e as AssayError {
+            #expect("\(e)" == e.render(.plain))
+            #expect("\(e)".contains("t.json:1:6: error: a must be an integer"))
+            #expect(!"\(e)".contains("storage"))
+            #expect(String(reflecting: e).hasPrefix("AssayError (2 issues in t.json)\n"))
+        } catch {
+            Issue.record("wrong error type: \(error)")
+        }
+    }
+
+    @Test("an Issue prints as path and message, never its reflection")
+    func issueDescription() {
+        let d = PrintTarget.diagnose(json: #"{"a":"x","name":""}"#)
+        #expect("\(d.issues[0])" == "a must be an integer, found \"x\"")
+        #expect("\(d.issues[1])" == "name must be at least 1 character")
+        let top = Issue(code: .malformedDocument)
+        #expect("\(top)" == top.message)
+    }
+
+    @Test("a Warning prints the same way")
+    func warningDescription() {
+        let d = RenderWarnTarget.diagnose(json: #"{"timeout":1,"timeuot":2}"#)
+        #expect(d.warnings.count == 1)
+        #expect("\(d.warnings[0])" == d.warnings[0].message)
+        #expect("\(d.warnings[0])".contains("did you mean \"timeout\""))
+        #expect(!"\(d.warnings[0])".contains("IssueCode"))
+    }
+
+    @Test("a Diagnosis prints its render when invalid, one line when valid")
+    func diagnosisDescription() {
+        let bad = PrintTarget.diagnose(json: #"{"a":"x","name":""}"#)
+        #expect("\(bad)" == bad.render(.plain))
+        #expect(!"\(bad)".contains("SourceBytes"))
+        let good = PrintTarget.diagnose(json: #"{"a":1,"name":"n"}"#)
+        #expect("\(good)" == "valid PrintTarget")
+        let warned = RenderWarnTarget.diagnose(json: #"{"timeout":1,"timeuot":2}"#)
+        #expect("\(warned)" == "valid RenderWarnTarget (1 warning)")
+    }
+
+    @Test("an EncodeDiagnosis prints its render when invalid, one line when valid")
+    func encodeDiagnosisDescription() {
+        let good = PrintTarget(a: 1, name: "n").diagnoseEncodeJSON()
+        #expect("\(good)" == "valid (\(good.bytes.count) bytes)")
+    }
+}

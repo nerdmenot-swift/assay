@@ -223,6 +223,40 @@ extension AssayError {
                         source: storage.source, sourceName: storage.sourceName,
                         style: style)
     }
+
+    /// The document this error was raised against, for a caller that wants to render it
+    /// differently or attach it to a report.
+    public var sourceName: String { storage.sourceName }
+}
+
+// MARK: - Printing
+//
+// `print(error)`, `"\(error)"`, a failed `#expect(throws:)`, a `do/catch` that logs — every
+// place a developer sees an error without asking for it. Until 2026-09-10 all of them showed
+// `AssayError(storage: Assay.AssayError.Storage)`, which is the one output this library must
+// never produce. `description` is the plain caret render; there is nothing to add to it.
+//
+// `LocalizedError` — what `error.localizedDescription` and every Apple-platform error
+// surface reads — needs Foundation, so it lives in `AssayFoundation`.
+
+extension AssayError: CustomStringConvertible, CustomDebugStringConvertible {
+    public var description: String { render(.plain) }
+    public var debugDescription: String {
+        "AssayError (\(issues.count) issue\(issues.count == 1 ? "" : "s") in "
+            + "\(storage.sourceName))\n" + render(.plain)
+    }
+}
+
+extension Diagnosis: CustomStringConvertible {
+    /// The plain render when anything went wrong; a one-line summary when nothing did.
+    /// Never the synthesized dump, which prints the source as an array of bytes.
+    public var description: String {
+        if issues.isEmpty {
+            let w = warnings.count
+            return "valid \(T.self)" + (w == 0 ? "" : " (\(w) warning\(w == 1 ? "" : "s"))")
+        }
+        return render(.plain)
+    }
 }
 
 // MARK: - Encoding
@@ -303,6 +337,16 @@ public struct EncodeDiagnosis: Sendable {
     public func render(_ style: RenderStyle) -> String {
         Renderer.render(issues: issues, warnings: warnings,
                         source: SourceBytes(bytes), sourceName: "<encoded>", style: style)
+    }
+}
+
+extension EncodeDiagnosis: CustomStringConvertible {
+    public var description: String {
+        if issues.isEmpty {
+            let w = warnings.count
+            return "valid (\(bytes.count) bytes)" + (w == 0 ? "" : " (\(w) warning\(w == 1 ? "" : "s"))")
+        }
+        return render(.plain)
     }
 }
 

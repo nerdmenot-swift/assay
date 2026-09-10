@@ -225,3 +225,19 @@ struct MappedFileTests {
         }
     }
 }
+
+@Suite("LocalizedError bridge")
+struct LocalizedErrorTests {
+    /// `localizedDescription` is what an alert, `Result` logging and every Apple-platform
+    /// error surface reads. Without the bridge it says "The operation couldn't be completed."
+    @Test("localizedDescription is the plain render")
+    func localized() {
+        do {
+            _ = try MappedItem.parse(json: #"{"id":"x","name":"n"}"#)
+            Issue.record("expected a throw")
+        } catch {
+            #expect(error.localizedDescription == (error as! AssayError).render(.plain))
+            #expect(!error.localizedDescription.contains("couldn"))
+        }
+    }
+}

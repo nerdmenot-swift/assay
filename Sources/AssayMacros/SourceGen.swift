@@ -150,13 +150,20 @@ extension SchemaMacro {
             // always does, because text is what a date IS on every other path. The
             // missing-column check then covers both shapes.
             let textFallback = textFallsBack(f)
-            let textPull = textFallback
+            // A `Date` also takes a number column — unix seconds or millis as a `Double`,
+            // which is what `@DateFormat(.unixSeconds)` writes — read by the field's own
+            // formats, exactly as a JSON number is.
+            let numberFallback = isDateType(f.decodedType)
+            let textPull = (textFallback
                 ? "\n        let __t\(i): [String]? = __c\(i) == nil ? source.stringColumn(\(nullsKey), \(i)) : nil"
-                : ""
+                : "") + (numberFallback
+                ? "\n        let __d\(i): [Double]? = __c\(i) == nil && __t\(i) == nil ? source.doubleColumn(\(nullsKey), \(i)) : nil"
+                : "")
+            let absentAll = "__c\(i) == nil" + (textFallback ? ", __t\(i) == nil" : "") + (numberFallback ? ", __d\(i) == nil" : "")
             let missing = textFallback && !onMissing.isEmpty
                 ? """
 
-                        if __c\(i) == nil, __t\(i) == nil {
+                        if \(absentAll) {
                             Assay._assayColumnMissing(&sink, path, "\(f.wireKey)", "\(expected)")
                             __columnMissing = true
                         }
@@ -215,12 +222,11 @@ extension SchemaMacro {
         }
 
         var unwraps = ""
-        var args: [String] = []
+        var indexOf: [String: Int] = [:]
         for (i, f) in fields.enumerated() {
             guard isColumnar(f.decodedType) else { continue }
-            if f.isOptional {
-                args.append("\(f.name): __f\(i)")
-            } else {
+            indexOf[f.identifier] = i
+            if !f.isOptional {
                 unwraps += """
                             guard let __v\(i) = __f\(i) else {
                                 Assay._assayRowMissing(&sink, path, "\(f.wireKey)")
@@ -228,9 +234,13 @@ extension SchemaMacro {
                             }
 
                 """
-                args.append("\(f.name): __v\(i)")
             }
         }
+        // The same construction as the tree paths — which is where `@Transform` is applied
+        // (last, after validation). This body built its own argument list until 2026-09-11
+        // and never applied a transform, so a transformed field could not decode from a
+        // column store at all.
+        let args = constructionArgs(fields: fields, ordered: nil, indexOf: indexOf)
 
         // A required column the source lacks means no row can be built. Say so once and
         // stop, rather than running the loop to report `missing` per row under the
@@ -337,6 +347,10 @@ extension SchemaMacro {
             body = """
                             guard let __s\(i) = Assay.RawValue.string(__txt\(i)[__r])._assayDate(&sink, path, "\(key)", \(dateFormatsRef(f, i))) else { continue }
                             __f\(i) = \(t)(timeIntervalSince1970: __s\(i))
+                        } else if let __dbl\(i) = __d\(i), __r < __dbl\(i).count,
+                                  !Assay._assayIsNullAt(__n\(i), __r) {
+                            guard let __s\(i) = Assay.RawValue.double(__dbl\(i)[__r])._assayDate(&sink, path, "\(key)", \(dateFormatsRef(f, i))) else { continue }
+                            __f\(i) = \(t)(timeIntervalSince1970: __s\(i))
 
             """
         } else if t == "Bool" {
@@ -391,6 +405,62 @@ extension SchemaMacro {
         case "String", "Bool", "Double", "Int64": return expr
         case "Float": return "Float(\(expr))"
         default: return "\(type)(exactly: \(expr))"
+        }
+    }
+}
+
+// MARK: - The write side
+
+extension SchemaMacro {
+
+    /// `_assayEncodeRow` — one line per field, in manifest order, into whatever sink the
+    /// caller passes. Behind BOTH `sources: true` and `encodes: true`, so nobody else pays
+    /// the compile time. The inverse of `batchBody`, with none of its presence machinery:
+    /// an optional that is nil is `writeNull`, and everything else is one typed `write`.
+    static func rowEncodeBody(fields: [SchemaField]) -> String {
+        var lines = ""
+        for (i, f) in fields.enumerated() {
+            guard isColumnar(f.decodedType) else { continue }
+            // A @Transform field writes its wire value, through the same inverse the tree
+            // encoders use (`__assayInverse_i`, EncodeGen.swift).
+            let wireType = f.transform?.wireType ?? f.decodedType
+            let value = f.transform != nil
+                ? "Self.__assayInverse_\(i)(\(f.isOptional ? "__o" : "self.\(f.identifier)"))"
+                : (f.isOptional ? "__o" : "self.\(f.identifier)")
+            let write = rowWrite(wireType, value, index: i, field: f)
+            if f.isOptional {
+                lines += """
+                        if let __o = self.\(f.identifier) { \(write) } else { sink.writeNull(\(i)) }
+
+                """
+            } else {
+                lines += "        \(write)\n"
+            }
+        }
+        return """
+        /// Hand every field to `sink`, in manifest order. The write side of the row path.
+        nonisolated public func _assayEncodeRow<__S: Assay.RowSink & ~Copyable>(into sink: inout __S) {
+        \(lines)}
+        """
+    }
+
+    /// The one `write` call for a value of `type`.
+    static func rowWrite(_ type: String, _ v: String, index i: Int, field f: SchemaField) -> String {
+        if isDateType(type) {
+            return "Assay._assayWriteDate(\(v).timeIntervalSince1970, \(dateFormatsRef(f, i)), into: &sink, \(i))"
+        }
+        if isBytes(type) { return "\(v).assayWrite(into: &sink, field: \(i))" }
+        switch type {
+        case "String": return "sink.write(string: \(v), \(i))"
+        case "Bool": return "sink.write(bool: \(v), \(i))"
+        case "Double": return "sink.write(double: \(v), \(i))"
+        case "Float": return "sink.write(double: Double(\(v)), \(i))"
+        case "Int64": return "sink.write(int64: \(v), \(i))"
+        case "Int", "Int32", "UInt", "Int8", "Int16", "UInt8", "UInt16", "UInt32", "UInt64":
+            return "sink.write(int64: Int64(\(v)), \(i))"
+        default:
+            // A consumer's own scalar: `ColumnEncodable`, the inverse of the read side.
+            return "\(v).assayWrite(into: &sink, field: \(i))"
         }
     }
 }

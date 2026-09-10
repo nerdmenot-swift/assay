@@ -486,6 +486,9 @@ public struct SchemaMacro: ExtensionMacro {
                 typeName: typeName, fields: activeS,
                 validation: Self.postDecodeSection(activeS, spans: false),
                 checks: Self.checkCalls(typeName, a.checks, activeS, spans: false, ctx: ctxType))
+            if config.encodes {
+                body += "\n\n" + Self.rowEncodeBody(fields: activeS)
+            }
         }
         if Self.hasValidation(activeS, a.checks) {
             if !body.isEmpty { body += "\n\n" }
@@ -545,6 +548,7 @@ public struct SchemaMacro: ExtensionMacro {
         if config.encodes && formats.raw { out.append("Assay.RawEncodableSchema") }
         if config.encodes && formats.xml { out.append("Assay.XMLEncodableSchema") }
         if config.sources { out.append("Assay.SourceDecodable") }
+        if config.sources && config.encodes { out.append("Assay.RowEncodableSchema") }
         if config.xmlRoot != nil && formats.xml { out.append("Assay.XMLRooted") }
         if config.describes { out.append("Assay.SchemaDescribing") }
         return out

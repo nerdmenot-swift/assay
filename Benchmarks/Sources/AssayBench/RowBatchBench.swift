@@ -174,4 +174,37 @@ func runRowBatchBenchmarks() {
         return c
     }
     row("direct ColumnarSource (the floor)") { BenchRow.batch(from: rows.store).values }
+
+    // The write side: field values OUT of a @Schema value, no tree. A counting sink, so what
+    // is measured is the handoff and not what a real sink does with it.
+    struct CountingSink: RowSink {
+        var ints = 0, doubles = 0, bools = 0, strings = 0, bytes = 0, nulls = 0
+        mutating func write(int64 v: Int64, _ f: Int) { ints &+= Int(truncatingIfNeeded: v) }
+        mutating func write(double v: Double, _ f: Int) { doubles &+= Int(v) }
+        mutating func write(bool v: Bool, _ f: Int) { bools &+= v ? 1 : 0 }
+        mutating func write(string v: String, _ f: Int) { strings &+= v.utf8.count }
+        mutating func write(bytes v: UnsafeRawBufferPointer, _ f: Int) { bytes &+= v.count }
+        mutating func writeNull(_ f: Int) { nulls &+= 1 }
+    }
+    let values = BenchRow.batch(from: rows.store).values
+    print("")
+    print("The write side: field values out of a @Schema value, 200k rows")
+    print(pad("route", 48) + pad("ns/row", 10))
+    var rawBest = Double.infinity, rowBest = Double.infinity
+    for _ in 0..<5 {
+        rawBest = min(rawBest, measure(iterations: 1) {
+            var sink = IssueSink()
+            var acc = 0
+            for v in values { if case .mapping(let m) = v._assayEncodeRaw(into: &sink, at: []) { acc &+= m.count } }
+            precondition(acc == n * 8)
+        })
+        rowBest = min(rowBest, measure(iterations: 1) {
+            var sink = CountingSink()
+            for v in values { v.encodeRow(into: &sink) }
+            // Every counter read, or the optimiser drops the writes it can see are unused.
+            precondition(sink.ints &+ sink.doubles &+ sink.bools &+ sink.strings &+ sink.bytes &+ sink.nulls != Int.min)
+        })
+    }
+    print(pad("_assayEncodeRaw (a RawValue tree per row)", 48) + pad(String(format: "%.1f", rawBest / Double(n)), 10))
+    print(pad("encodeRow into a counting sink", 48) + pad(String(format: "%.1f", rowBest / Double(n)), 10))
 }

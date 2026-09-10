@@ -27,7 +27,7 @@ public import AssayCore
 // `Assayable` is deliberately absent from this list: both `JSONAssayable` and
 // `RawDecodable` refine it, so declaring it here would promise a conformance the expansion
 // does not itself emit.
-@attached(extension, conformances: JSONAssayable, RawDecodable, Validatable, AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema, XMLEncodableSchema, SourceDecodable, XMLRooted, ContextualJSONAssayable, ContextualRawDecodable, ContextualValidatable, ContextualAsyncCheckAssayable, SchemaDescribing, names: arbitrary)
+@attached(extension, conformances: JSONAssayable, RawDecodable, Validatable, AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema, XMLEncodableSchema, SourceDecodable, RowEncodableSchema, XMLRooted, ContextualJSONAssayable, ContextualRawDecodable, ContextualValidatable, ContextualAsyncCheckAssayable, SchemaDescribing, names: arbitrary)
 public macro Schema(
     keys: KeyNamingStyle = .camelCase,
     unknownKeys: UnknownKeys = .ignore,
@@ -55,7 +55,7 @@ public macro Schema(
 /// own `Sendable` checking reports that at the call site, where it is legible.
 @attached(extension, conformances: JSONAssayable, RawDecodable, Validatable,
           AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema,
-          XMLEncodableSchema, SourceDecodable, XMLRooted, ContextualJSONAssayable,
+          XMLEncodableSchema, SourceDecodable, RowEncodableSchema, XMLRooted, ContextualJSONAssayable,
           ContextualRawDecodable, ContextualValidatable, ContextualAsyncCheckAssayable,
           SchemaDescribing, names: arbitrary)
 public macro Schema<C>(

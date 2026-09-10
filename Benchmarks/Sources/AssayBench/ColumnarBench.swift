@@ -30,7 +30,7 @@ import Foundation
 import Assay
 import ForeignSource
 
-@Schema(keys: .snakeCase, formats: .all, sources: true)
+@Schema(keys: .snakeCase, formats: .all, encodes: true, sources: true)
 struct BenchRow: Equatable {
     var id: Int
     var name: String

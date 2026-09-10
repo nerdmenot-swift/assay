@@ -163,8 +163,9 @@ nonisolated public static func _assayBatch<__C: Assay.ColumnarSource & ~Copyable
         }
         let __c4 = Assay._assayFetchColumn(Date.self, from: source, "when", 4)
         let __t4: [String]? = __c4 == nil ? source.stringColumn("when", 4) : nil
+        let __d4: [Double]? = __c4 == nil && __t4 == nil ? source.doubleColumn("when", 4) : nil
         let __n4 = source.nulls("when", 4)
-        if __c4 == nil, __t4 == nil {
+        if __c4 == nil, __t4 == nil, __d4 == nil {
             Assay._assayColumnMissing(&sink, path, "when", "Date")
             __columnMissing = true
         }
@@ -224,6 +225,10 @@ nonisolated public static func _assayBatch<__C: Assay.ColumnarSource & ~Copyable
             } else if let __txt4 = __t4, __r < __txt4.count,
                !Assay._assayIsNullAt(__n4, __r) {
                 guard let __s4 = Assay.RawValue.string(__txt4[__r])._assayDate(&sink, path, "when", Assay.DateFormat.defaultFormats) else { continue }
+                __f4 = Date(timeIntervalSince1970: __s4)
+            } else if let __dbl4 = __d4, __r < __dbl4.count,
+                      !Assay._assayIsNullAt(__n4, __r) {
+                guard let __s4 = Assay.RawValue.double(__dbl4[__r])._assayDate(&sink, path, "when", Assay.DateFormat.defaultFormats) else { continue }
                 __f4 = Date(timeIntervalSince1970: __s4)
             }
 

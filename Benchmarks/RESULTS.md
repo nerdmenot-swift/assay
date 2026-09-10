@@ -175,7 +175,7 @@ Two measured improvements, both traceable to a specific line in the research:
 
 ```sh
 cd Benchmarks && swift run -c release CorpusGen
-cd Benchmarks && swift build -c release && ./.build/release/AssayBench
+cd Benchmarks && swift run -c release AssayBench
 ```
 
 ---

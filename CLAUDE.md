@@ -18,7 +18,7 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 | Corpus generator (the "sixth experiment") | **built** — `Benchmarks/Sources/CorpusGen`, 81 files |
 | Phase-1 decoder + `@Schema` macro | **built** — 196 tests in 25 suites |
 | Falsification condition | **PASSED, 5.44× over Foundation (8.64× float-dense)** — `Benchmarks/RESULTS.md` |
-| Full corpus sweep | **built and run** — 9.17× struct decode (25 files), 6.43× prefix+skip (45), 1.49× generic value model (75) |
+| Full corpus sweep | **built and run** — struct decode / prefix+skip / value model over 25 / 45 / 75 files. **The current numbers live in ONE place: the table at the top of `Benchmarks/RESULTS.md`**, regenerated from `AssayBench`; rows here that quoted a ratio drifted from each other (9.17× and 8.98× for the same arm in two rows), so they now point there |
 | Cross-platform | **three supported platforms, all gating**: macOS, Linux (x86-64 + aarch64) and Windows all run the test suite. Plus iOS build, static Linux (musl, 2 arches) and wasm32 cross-compiles. Android is not a target |
 | Compile-time budget | **measured and gated** — ~80-85 ms/type at 10 fields rule-free (gate 100 ms), ~120-129 ms for a type with a rule on nearly every field (gate 145 ms). Every timing is the **minimum of 3 builds** since 2026-08-30; it was a single build, and the rule-carrying arm flaked twice in one afternoon (177.8 and 147.0 against 145) on unchanged code. Spread on that arm went ~36% → ~8%; the budgets did not move. An `encodes` arm was added 2026-09-10 (reported, not gated, like `arrays`/`paths`/`describes`): **~5% over decode-only** |
 | Value models (`JSON.Value`, `YAML.Node`, `XML.Node`, `RawValue`) | **built** — `docs/VALUE-MODELS.md` |

@@ -1,3 +1,37 @@
+# Current numbers
+
+**One machine, one run: macOS 26.5.2, Apple silicon (arm64), Apple Swift 6.3.3, `-O`, warm,
+minimum of 5 rounds — 2026-09-10, commit `bd1b4f8`.** None of these is a claim about
+another platform (`CLAUDE.md`'s honesty rules); Linux and x86-64 have their own sections
+below. Each row links to the journal entry that explains what it measures and what it does
+not. Regenerate with `swift run -c release AssayBench` and replace this table — the numbers
+are machine-specific by design, so this is pasted, not automated.
+
+| arm | number | against | journal |
+|---|---|---|---|
+| struct decode, full corpus | **8.93×** mean over 25 files (4.92–18.98) | `JSONDecoder` | [three passes](#three-passes-because-one-number-cannot-answer-three-questions) |
+| prefix decode + unknown-key skip | **6.34×** over 45 files | `JSONDecoder` | same |
+| generic value model | **1.51×** over 75 files (0.56–2.25) | `JSONSerialization` | same |
+| falsification arm (`apimodel`, 5 sizes) | **5.27×** mean | `JSONDecoder` | [Phase 1](#phase-1--the-falsification-check) |
+| vs ZippyJSON (simdjson + Codable) | **2.97–3.81×** faster | ZippyJSON, which is 1.76–2.08× over Foundation here | [the owed number](#the-owed-loss-assay-against-yyjson) |
+| vs yyjson, use-case shape | **0.69×** (loses) | yyjson parse + extraction | same |
+| vs yyjson, float-dense | **0.78×** (loses) | same | same |
+| vs yyjson, DOM vs DOM | **0.06×** (loses) | `yyjson_read` | same |
+| YAML node parse | **6.59×** | Yams `compose` | [YAML and XML](#yaml-and-xml-timed-for-the-first-time) |
+| YAML struct decode | **11.05×** | Yams `YAMLDecoder` | same |
+| XML tree parse | **2.37×** (macOS; **0.96×** on Linux) | Foundation `XMLParser` | [XML, made faster](#making-the-xml-parser-faster-by-profiling-rather-than-by-admiring-libxml2) |
+| `Date` fields | **6.07×** | `JSONDecoder` + `.iso8601` | [Dates](#dates-the-unclaimed-win-claimed) |
+| `[String: T]` dictionaries | **7.38×** over 10 rows | `JSONDecoder` | [Dictionaries](#dictionaries-the-stated-worst-case-measured) |
+| encoding, 50 / 200 items | **2.91× / 2.93×** | `JSONEncoder` | `docs/ENCODING.md` |
+| cold start, 60 types | **8.6×** first decode (median); 7.0× steady | `JSONDecoder` | `ColdStartBench.swift` |
+| multi-megabyte documents | **6.78–6.92×**, ~710 MB/s, flat | `JSONDecoder` | `LargeDocBench.swift` |
+| columnar batch fill | **1.26–1.36×** the tree path, ~53 ns/row | Assay's own tree path | [Columnar](#columnar-batch-fill) |
+| `T.validate(_:)` | **76 ns** per value, 1 block | — | [Validating a value](#validating-a-value-you-already-have) |
+| live allocations, `apimodel-8k` struct | gated, **PASS** | absolute thresholds | [Allocations](#allocations) |
+| compile time, 10 fields | **79.0 ms/type** (gate 100) | `Codable`: 4.1× | `docs/COMPILE-TIME.md` |
+
+---
+
 # Phase 1 — the falsification check
 
 **Status: PASSED, decisively. The thesis holds.**

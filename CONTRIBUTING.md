@@ -44,13 +44,22 @@ first step for any non-trivial change is reading the documents the change touche
 ## Running everything
 
 ```sh
-swift test                                        # 250 tests, includes macro tests
+swift test                                        # ~650 tests, includes macro tests
 cd Benchmarks
 swift run -c release CorpusGen                    # regenerate the corpus (deterministic)
 swift run -c release DiffFuzz                     # differentials + fuzz — CI-gated
-swift run -c release AssayBench                   # benchmarks + allocation gate
+swift run -c release AssayBench --list            # the benchmark arms
+swift run -c release AssayBench allocations       # the one arm CI gates on
+swift run -c release AssayBench encode zippy      # any arms you touched, in under a minute
+swift run -c release AssayBench                   # every arm — about eight minutes
 bash ../Experiments/03-compile-time/gate.sh       # compile-time budget
 ```
+
+Run only the arms your change can affect while iterating, and the whole set once before
+you commit a number. Two arms running at once measure each other's contention, so never
+run `AssayBench` and `gate.sh` concurrently; a run contaminated that way was discarded on
+2026-09-10 and the arm selector exists so that nobody has to wait eight minutes to find
+out.
 
 A note on tests: the library's test target deliberately does not import Foundation
 (swift-testing's overlay would raise the deployment floor), which is why

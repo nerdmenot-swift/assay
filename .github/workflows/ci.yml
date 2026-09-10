@@ -221,6 +221,14 @@ jobs:
           B=$(find Corpus/files -name '*.json' | sort | xargs shasum | shasum)
           test "$A" = "$B" || { echo "corpus is not deterministic"; exit 1; }
           echo "deterministic: $A"
+      # The cold-start type set is generated too, by a Python script rather than a Swift
+      # target, and until 2026-09-10 nothing checked that the checked-in file still
+      # matched its generator — the exact drift the corpus job above exists to prevent.
+      - name: ColdStartTypes.swift matches its generator
+        run: |
+          python3 Benchmarks/gen-coldstart.py > /tmp/ColdStartTypes.swift
+          diff -q /tmp/ColdStartTypes.swift Benchmarks/Sources/AssayBench/ColdStartTypes.swift \
+            || { echo "ColdStartTypes.swift is stale — regenerate with gen-coldstart.py"; exit 1; }
 
   # macOS, NOT Linux, and that is a known limitation rather than a preference.
   # DiffFuzz distinguishes an NSNumber holding `true` from one holding `1` with
@@ -271,12 +279,14 @@ jobs:
       - name: Generate the corpus
         working-directory: Benchmarks
         run: swift run -c release CorpusGen
-      - name: Full sweep and allocation thresholds
+      - name: Allocation thresholds
         working-directory: Benchmarks
-        # AssayBench exits nonzero when a live-block threshold is exceeded. It also prints
-        # the timing sweep — collected and published, never gated on. Wall clock on a
-        # hosted runner is noise wearing a number's clothes.
-        run: swift run -c release AssayBench
+        # The one arm this job exists for. It exits nonzero when a live-block threshold is
+        # exceeded. The timing arms are collected and published by benchmark.yml, never
+        # gated on: wall clock on a hosted runner is noise wearing a number's clothes —
+        # and until 2026-09-10 this job ran all of them for eight minutes to reach the one
+        # exit code it wanted.
+        run: swift run -c release AssayBench allocations
 
 # NOT GATED, deliberately:
 #

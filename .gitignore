@@ -1,7 +1,11 @@
 .build/
 .swiftpm/
 *.xcodeproj
-Package.resolved
+# The LIBRARY's resolved file stays out: a library pins nothing for its consumers. The
+# BENCHMARK package's is tracked (Benchmarks/.gitignore un-ignores it): its numbers are
+# quoted against specific Yams, ZippyJSON and swift-syntax versions, and a reproducer six
+# months from now must resolve the same ones.
+/Package.resolved
 .DS_Store
 
 # Generated corpus. Regenerate with:  cd Benchmarks && swift run -c release CorpusGen

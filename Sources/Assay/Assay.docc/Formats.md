@@ -60,6 +60,14 @@ parsing at all. `unsupported_media_type` is its own code so a server can map it 
 is a stated law with a closed exception list, and every document Assay writes is read back
 by an independent parser in CI.
 
+## Rows
+
+A SQL result set, a CSV record, an Excel row: anything that arrives one row at a time goes
+through `RowDecoder<T>` — bind once, feed cells, flush in batches — and decodes at the
+columnar batch's speed with row-indexed diagnostics. `encodeRow(into:)` is the write side:
+one typed call per field into a `RowSink` you provide. Both need `@Schema(sources: true)`;
+the write side also `encodes: true`. See `docs/ROWS.md` in the repository.
+
 ## Large files
 
 `AssayFoundation` adds `parse(mmapped:)`, which maps the file and decodes in place — a

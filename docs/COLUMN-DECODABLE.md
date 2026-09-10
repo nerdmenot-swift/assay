@@ -304,3 +304,14 @@ Postgres driver, a DuckDB binding, an Arrow reader, or a CSV library written by 
 else? `ColumnDecodable` is `stringColumn`/`int64Column` with the type-to-column mapping
 lifted out of the macro and handed to the consumer. Every one of those gets it, at the same
 measured zero cost, and Assay learns none of their type names.
+
+---
+
+## The inverse, 2026-09-11
+
+`ColumnEncodable` — one requirement, `assayWrite(into: &sink, field:)` — is how a consumer's
+own scalar leaves a `@Schema` value on the row path's write side (`docs/ROWS.md` §5). A
+`Timestamp` that decodes from `ColumnBuffer<Int64>` writes `sink.write(int64:)`; Assay learns
+its name no more on the way out than on the way in. Generic over the sink, so it is a
+witness call per custom field per row where the built-in scalars are direct; stated, and
+measured as nothing beside what a real sink does with the value.

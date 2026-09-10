@@ -161,6 +161,11 @@ source, and a reader over a million rows should not be told a million times.
 **No carets.** A columnar source has no byte offsets, so issues carry paths and no location.
 Issues over a batch carry `[i]` for the row.
 
+**Rows, since 2026-09-11.** A row-shaped source — a SQL result set, a CSV — no longer needs
+to choose between a `RawValue` per row and its own transpose: `RowBatch` is the transpose,
+written once, and `RowDecoder<T>` is the streaming driver API over it. `docs/ROWS.md` — it
+is what replaced the row path this document buried, by inverting the direction of the call.
+
 **Keys are the wire keys**, after `keys:` conversion and `@Key` — so a column called
 `first name` or `count (items)` binds to a field with an ordinary Swift name — and
 `@Key(_:or:)` aliases are tried in order when the primary column is absent, with the

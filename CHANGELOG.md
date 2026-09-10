@@ -39,6 +39,15 @@ that distinguish it:
   Yams/libyaml, and Foundation's XMLParser; deterministic fuzzing; live-allocation
   gate; compile-time budget gate (~87 ms per type against a 100 ms ceiling).
 
+- **Rows** (2026-09-11, `docs/ROWS.md`): the generic row-shaped path. `RowBatch` transposes
+  rows from any source — a SQL result set, a CSV — into typed columns and decodes them
+  through the columnar batch (~40 ns/row on the 8-column row against ~70 for a `RawValue`
+  per row; a hand-written transpose is 28); `RowDecoder<T>` streams it in batches with global
+  row indices. Text cells decode into numeric, boolean and `Date` fields under the schema's
+  own coercion policy, by the tree path's rules. `RowSink` + `encodeRow(into:)` hand a value's
+  fields to a sink in manifest order with no tree (1.3 ns/row against 59). `@Check` now runs
+  on the columnar path, `@Transform` is applied there (it was not), and `@AsyncCheck` with
+  `sources: true` is refused at expansion rather than silently skipped.
 - **`@Key(_:or:)` now actually warns which alias matched** (2026-09-10) — `alias_matched`,
   on the JSON, YAML/XML/TOML and columnar paths. Three documents had promised it and no
   code did. The columnar path also honours aliases now: an alias column is tried when

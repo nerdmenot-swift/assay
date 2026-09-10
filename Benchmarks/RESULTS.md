@@ -22,6 +22,8 @@ are machine-specific by design, so this is pasted, not automated.
 | XML tree parse | **2.37×** (macOS; **0.96×** on Linux) | Foundation `XMLParser` | [XML, made faster](#making-the-xml-parser-faster-by-profiling-rather-than-by-admiring-libxml2) |
 | TOML node parse | **1.09×** | toml++ via TOMLKit | [TOML](#toml-a-fourth-tree-decoder-against-c) |
 | TOML struct decode | **1.81×** | TOMLKit `TOMLDecoder` | same |
+| rows in through `RowBatch`, 8 columns | **~40 ns/row** (old route 70; hand transpose 28; floor 11) | a `RawValue` per row | [Rows](#rows-the-transpose-measured-seven-times) |
+| field values out, `encodeRow` | **1.3 ns/row** (tree: 59) | `_assayEncodeRaw` | same |
 | `Date` fields | **6.07×** | `JSONDecoder` + `.iso8601` | [Dates](#dates-the-unclaimed-win-claimed) |
 | `[String: T]` dictionaries | **7.38×** over 10 rows | `JSONDecoder` | [Dictionaries](#dictionaries-the-stated-worst-case-measured) |
 | encoding, 50 / 200 items | **2.91× / 2.93×** | `JSONEncoder` | `docs/ENCODING.md` |
@@ -1576,3 +1578,35 @@ concrete 1.13×) survive, the absolutes do not. The allocation gate could never 
 now, and the gate gained a columnar row for the retained side. `ROADMAP.md` carries the
 record of how a correct report was closed as wrong; the `DiagnosticPathBench.swift` header
 is the corrected version of the claim it used to make.
+
+---
+
+## Rows: the transpose, measured seven times
+
+**2026-09-11.** `docs/ROWS.md`. `RowBatch` is the transpose a row-shaped source would
+otherwise write, and it was rebuilt seven times against a profile before it was committed —
+the table in ROWS.md §2 is the record, and the short version is that three things a Swift
+struct does by default each cost more than the work: dynamic exclusivity on a class's stored
+property (CLAUDE.md rule 3), a borrowed `String` parameter (a retain/release pair per cell),
+and a read-modify-write of a mask through `inout self` (serialised on store forwarding). The
+gate written first — within 1.2× of a hand transpose — was missed at ~1.45× and shipped with
+the number; the remaining ~1.5 ns/cell is state reloaded from an `inout` struct that any
+call-per-cell API pays.
+
+```
+$ swift run -c release AssayBench rowbatch
+
+Row-shaped sources — rows in, structs out (200k rows, 8 columns, 4 of them String)
+     RawValue per row, tree path (the old route)      70.5
+   hand transpose + batch (what a driver writes)      28.0
+                           RowBatch fill + batch      40.4
+   RowDecoder, flush every 4096 (the driver API)      42.3
+                    fill only: RowBatch, 8 cells      26.2
+              fill only: hand transpose, 8 cells      16.9
+          fill only: bare pointer-to-[T] appends      13.4
+               direct ColumnarSource (the floor)      11.0
+
+The write side: field values out of a @Schema value, 200k rows
+       _assayEncodeRaw (a RawValue tree per row)      59.3
+                  encodeRow into a counting sink       1.3
+```

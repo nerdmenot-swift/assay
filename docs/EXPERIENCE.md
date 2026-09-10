@@ -190,10 +190,17 @@ The important part is that **`message` is derived, never stored.** Issues carry 
 
 ```swift
 issue.message                                  // "must be at least 1"
-issue.message(locale: "de_DE")                 // via String(localized:) / stringsdict
+issue.code, issue.params                       // what a translator needs: the code and its parameters
 ```
 
-Note the parameter type: a locale **identifier string**, not a `Locale`. That is a cross-platform decision, and section 13 explains it — briefly, a `Locale` silently degrades to an unlocalised stub on platforms that don't link the internationalisation component, with no compile error and no runtime signal. Taking an identifier makes the caller own the lookup, which is both more portable and consistent with "nothing implicit."
+**`message(locale:)` is not built** (`ROADMAP.md` §15) — this document promised it for some
+time, and an audit on 2026-09-10 found it had never existed. What exists is the seam it was
+going to sit on: every code is named (`IssueCode+Names.swift`), every code's parameters are
+data, and the `.json` renderer emits both, so a consumer localises by branching on `code`
+and formatting `params` — the caller owns the lookup. When it is built it will take a locale
+**identifier string**, not a `Locale`: a `Locale` silently degrades to an unlocalised stub on
+platforms that don't link the internationalisation component, with no compile error and no
+runtime signal (section 13).
 
 Custom checks you write yourself default to a plain literal message, because forcing you to invent a code for a one-off rule would be obnoxious. If you want yours localisable, give it a code:
 

@@ -830,8 +830,9 @@ extension AssayReader {
     /// A match on any format after the first adds a warning naming which one matched —
     /// the same contract as `@Key(_:or:)`, and for the same reason: silent tolerance is
     /// how a payload drifts formats without anyone noticing.
+    @_documentation(visibility: internal)
     @inlinable
-    public mutating func decodeDate(
+    public mutating func _decodeDate(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         _ formats: [DateFormat]
     ) -> Double? {
@@ -852,14 +853,16 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeDateOrNull(
+    public mutating func _decodeDateOrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         _ formats: [DateFormat]
     ) -> Double?? {
         beginValue()
         if scanNull() { return .some(nil) }
-        if let v = decodeDate(&sink, path, key, formats) { return .some(v) }
+        if let v = _decodeDate(&sink, path, key, formats) { return .some(v) }
         return nil
     }
 
@@ -965,8 +968,9 @@ extension RawValue {
     /// The format-neutral projection has already resolved scalars, so a YAML `1691234567`
     /// arrives as `.int` and an XML `<ts>1691234567</ts>` as `.string` — both must reach
     /// `.unixSeconds`, which is why the text parser accepts digit strings.
+    @_documentation(visibility: internal)
     @inlinable
-    public func assayDate(
+    public func _assayDate(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         _ formats: [DateFormat]
     ) -> Double? {

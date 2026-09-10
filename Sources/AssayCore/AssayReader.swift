@@ -32,6 +32,25 @@
 // passed `inout` and never stored, and is exactly why this type is `~Copyable` only. The
 // public API takes bytes and never exposes a pointer, so the seam can still move to
 // `RawSpan` without a source break.
+//
+// TWO SURFACES, ONE TYPE, and the underscore is the line between them (2026-09-10).
+//
+// The UNPREFIXED members are for a decoder written by hand — an `_assay` body for a type
+// the macro cannot express, an `AssayerBacked` conformance, a format module: `beginValue`,
+// `scanString`/`scanInt64`/`scanDouble`/`scanBool`/`scanNull`, `tryConsume`/`expect`,
+// `enterContainer`/`leaveContainer`, `scanKey`/`keyMatches`, `skipValue`, `skipWhitespace`,
+// `reportTypeMismatch`/`reportMalformed`/`report`, `lastValueSpan`, `byteOffset`,
+// `currentByte`/`byte(at:)`, `mark`/`restore`, `matches`/`consume`, `string(from:to:)`,
+// `find`. That is the vocabulary a JSON decoder needs, and it is documented.
+//
+// The `_`-PREFIXED members exist so that GENERATED code can be one line per field —
+// `_decodeIntOrNull` is `beginValue` + `scanInt64` + the null case + the failure report,
+// which the emitter would otherwise spell out per field and pay for in compile time
+// (docs/COMPILE-TIME.md §3). They are public because the expansion compiles in the user's
+// module; they are prefixed and `@_documentation(visibility: internal)` because nobody
+// should reach for them. `@_exported import AssayCore` puts every public name in every
+// user's namespace, and until 2026-09-10 the seventy-seven of these sat in autocomplete
+// beside `parse(json:)`.
 //===----------------------------------------------------------------------===//
 
 /// A borrowed view of the input. Valid only for the duration of the enclosing
@@ -99,12 +118,6 @@ public struct AssayReader: ~Copyable {
     @inlinable @inline(__always)
     public var lastValueSpan: SourceSpan {
         SourceSpan(lo: valueStart, len: cursor - valueStart)
-    }
-
-    @inlinable @inline(__always)
-    func peek(_ offset: Int) -> UInt8 {
-        let i = cursor &+ offset
-        return i < count ? unsafe base[i] : 0
     }
 
     @inlinable @inline(__always)
@@ -220,16 +233,18 @@ public struct AssayReader: ~Copyable {
     /// Read the byte at `offset` bytes past the start of `key`, using `"` as the virtual
     /// byte at `idx == len`. This is what makes `{"jo","joe"}` separable with no length
     /// test, and it is why the confirming compare needs no separate length compare.
+    @_documentation(visibility: internal)
     @inlinable @inline(__always)
-    public func keyByte(_ key: KeyRange, _ offset: Int) -> UInt8 {
+    public func _keyByte(_ key: KeyRange, _ offset: Int) -> UInt8 {
         offset < key.len ? unsafe base[key.lo &+ offset] : 0x22
     }
 
     /// The two-byte unaligned load the window dispatcher indexes with.
+    @_documentation(visibility: internal)
     @inlinable @inline(__always)
-    public func keyWindow(_ key: KeyRange, byteOffset: Int, shift: UInt8) -> UInt8 {
-        let b0 = UInt16(keyByte(key, byteOffset))
-        let b1 = UInt16(keyByte(key, byteOffset &+ 1))
+    public func _keyWindow(_ key: KeyRange, byteOffset: Int, shift: UInt8) -> UInt8 {
+        let b0 = UInt16(_keyByte(key, byteOffset))
+        let b1 = UInt16(_keyByte(key, byteOffset &+ 1))
         let pair = b0 | (b1 << 8)
         return UInt8(truncatingIfNeeded: pair >> UInt16(shift))
     }
@@ -359,11 +374,6 @@ public struct AssayReader: ~Copyable {
             params: ["expected": .string(expected)],
             received: describeCurrentValue(),
             location: SourceSpan(lo: cursor, len: 1)))
-    }
-
-    @inline(never)
-    public mutating func reportMissing(_ sink: inout IssueSink, _ path: [PathComponent]) {
-        sink.add(Issue(code: .missing, path: path))
     }
 
     /// Best-effort rendering of whatever is under the cursor, for `issue.received`.

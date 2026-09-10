@@ -132,7 +132,7 @@ extension SchemaMacro {
         where f.pathSegments == nil && (requiredMask & (1 << UInt64(i))) != 0 {
             missing += """
                     if __presence & \(1 << UInt64(i)) == 0 {
-                        reader.missingRequired(&sink, path, "\(f.wireKey)")
+                        reader._missingRequired(&sink, path, "\(f.wireKey)")
                     }
 
             """
@@ -233,7 +233,7 @@ extension SchemaMacro {
             guard let e = extras else { return "_ = reader.skipValue(&sink)" }
             let value = elementType(stripOptional(e.typeName))
             return """
-            let __uk = reader.keyString(__key)
+            let __uk = reader._keyString(__key)
                                 if let __uv = Assay._assayCollect(
                                     \(value).self,
                                     from: &reader, into: &sink, at: path + [.key(__uk)]) {
@@ -242,14 +242,14 @@ extension SchemaMacro {
             """
         case "warn":
             return """
-            reader.reportUnknownKey(&sink, path, __key,
+            reader._reportUnknownKey(&sink, path, __key,
                                                         known: Self.__assayKnownKeys,
                                                         reject: false)
                                 _ = reader.skipValue(&sink)
             """
         case "reject":
             return """
-            reader.reportUnknownKey(&sink, path, __key,
+            reader._reportUnknownKey(&sink, path, __key,
                                                         known: Self.__assayKnownKeys,
                                                         reject: true)
                                 _ = reader.skipValue(&sink)
@@ -358,7 +358,7 @@ extension SchemaMacro {
         \(pad)            return nil
         \(pad)        }
         \(pad)    }
-        \(pad)} else if reader.consumeNullIfPresent() {
+        \(pad)} else if reader._consumeNullIfPresent() {
         \(pad)    // An explicit null intermediate is absence, same as a missing one: the
         \(pad)    // slots below stay unset and the presence rules decide what that means.
         \(pad)} else {
@@ -401,7 +401,7 @@ extension SchemaMacro {
             """
         }
         return """
-                        let __w = reader.keyWindow(
+                        let __w = reader._keyWindow(
                             __key,
                             byteOffset: \(plan.byteOffset),
                             shift: \(plan.shift))
@@ -508,15 +508,15 @@ extension SchemaMacro {
             if f.fallback != nil {
                 return """
                 \(pad)let __fck\(i) = sink.checkpoint()
-                \(pad)__f\(i) = reader.decodeDate(&sink, path, "\(key)", \(formats))\(wrap)\(spanCapture)
+                \(pad)__f\(i) = reader._decodeDate(&sink, path, "\(key)", \(formats))\(wrap)\(spanCapture)
                 \(pad)if __f\(i) == nil { sink.rollback(to: __fck\(i)) }
                 """
             }
             if f.isOptional {
-                return "\(pad)if let __r = reader.decodeDateOrNull(&sink, path, \"\(key)\", \(formats)) { __f\(i) = __r\(wrap) }"
+                return "\(pad)if let __r = reader._decodeDateOrNull(&sink, path, \"\(key)\", \(formats)) { __f\(i) = __r\(wrap) }"
                     + spanCapture
             }
-            return "\(pad)__f\(i) = reader.decodeDate(&sink, path, \"\(key)\", \(formats))\(wrap)"
+            return "\(pad)__f\(i) = reader._decodeDate(&sink, path, \"\(key)\", \(formats))\(wrap)"
                 + spanCapture
         }
 
@@ -536,7 +536,7 @@ extension SchemaMacro {
             // nil for a failure that has already been reported.
             if f.isOptional && f.coerce {
                 return """
-                \(pad)if reader.consumeNullIfPresent() { __f\(i) = nil } else {
+                \(pad)if reader._consumeNullIfPresent() { __f\(i) = nil } else {
                 \(pad)    __f\(i) = reader.\(call)
                 \(pad)}\(spanCapture)
                 """
@@ -558,7 +558,7 @@ extension SchemaMacro {
             """
             if f.isOptional {
                 return """
-                \(pad)if reader.consumeNullIfPresent() { __f\(i) = nil } else {
+                \(pad)if reader._consumeNullIfPresent() { __f\(i) = nil } else {
                 \(pad)    __f\(i) = \(call)
                 \(pad)}
                 """
@@ -569,10 +569,10 @@ extension SchemaMacro {
         // Nested @Schema type. The outer schema knows where it asked the inner one to
         // look, which is how errors keep the right path.
         return """
-        \(pad)if reader.consumeNullIfPresent() {
+        \(pad)if reader._consumeNullIfPresent() {
         \(pad)    \(f.isOptional
                     ? "__f\(i) = nil"
-                    : "reader.nullNotAllowed(&sink, path, \"\(key)\", \"\(base)\")")
+                    : "reader._nullNotAllowed(&sink, path, \"\(key)\", \"\(base)\")")
         \(pad)} else {
         \(pad)    __f\(i) = \(base)._assay(
         \(pad)        from: &reader, into: &sink, at: path + [.key("\(key)")]\(ctxArg))
@@ -616,7 +616,7 @@ extension SchemaMacro {
 
         let inner: String
         if isDateType(element) {
-            inner = "\(pad)        guard let \(elt) = reader.decodeDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map({ \(element)(timeIntervalSince1970: $0) }) else { break }\n"
+            inner = "\(pad)        guard let \(elt) = reader._decodeDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map({ \(element)(timeIntervalSince1970: $0) }) else { break }\n"
         } else if let call = scalarCall(element, key: key, elementIndex: "\(arr).count") {
             // `arr.count` is the index this element is about to occupy, which is exactly
             // the position a reader needs to be told about.
@@ -669,8 +669,8 @@ extension SchemaMacro {
         \(pad)        }
         \(pad)    }
         \(pad)    \(target) = \(arr)
-        \(pad)} else if reader.consumeNullIfPresent() {
-        \(pad)    \(optional ? "\(target) = nil" : "reader.nullNotAllowed(&sink, path, \"\(key)\", \"array\")")
+        \(pad)} else if reader._consumeNullIfPresent() {
+        \(pad)    \(optional ? "\(target) = nil" : "reader._nullNotAllowed(&sink, path, \"\(key)\", \"array\")")
         \(pad)} else {
         \(pad)\(single)    // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
         \(pad)\(single.isEmpty ? "" : "    ")// whole-value mismatch on a collection reported an issue whose path
@@ -702,7 +702,7 @@ extension SchemaMacro {
 
         let inner: String
         if isDateType(value) {
-            inner = "\(pad)            guard let \(elt) = reader.decodeDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map({ \(value)(timeIntervalSince1970: $0) }) else { break }\n"
+            inner = "\(pad)            guard let \(elt) = reader._decodeDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map({ \(value)(timeIntervalSince1970: $0) }) else { break }\n"
         } else if let call = scalarCall(value, key: key) {
             inner = "\(pad)            guard let \(elt) = reader.\(call) else { break }\n"
         } else if let sub = arrayElement(value) {
@@ -751,7 +751,7 @@ extension SchemaMacro {
         \(pad)                reader.leaveContainer()
         \(pad)                return nil
         \(pad)            }
-        \(inner)\(pad)            \(dict)[reader.keyString(\(kTok))] = \(elt)
+        \(inner)\(pad)            \(dict)[reader._keyString(\(kTok))] = \(elt)
         \(pad)            if reader.tryConsume(0x2C) { continue }
         \(pad)            break
         \(pad)        }
@@ -762,8 +762,8 @@ extension SchemaMacro {
         \(pad)        }
         \(pad)    }
         \(pad)    \(target) = \(dict)
-        \(pad)} else if reader.consumeNullIfPresent() {
-        \(pad)    \(optional ? "\(target) = nil" : "reader.nullNotAllowed(&sink, path, \"\(key)\", \"dictionary\")")
+        \(pad)} else if reader._consumeNullIfPresent() {
+        \(pad)    \(optional ? "\(target) = nil" : "reader._nullNotAllowed(&sink, path, \"\(key)\", \"dictionary\")")
         \(pad)} else {
         \(pad)    // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
         \(pad)    // whole-value mismatch on a collection reported an issue whose path
@@ -789,20 +789,20 @@ extension SchemaMacro {
         let suffix = coerce ? "Coercing" : (orNull ? "OrNull" : "")
         let base: String
         switch type {
-        case "String":  base = "decodeString"
-        case "Int":     base = "decodeInt"
-        case "Int64":   base = "decodeInt64"
-        case "Int32":   base = "decodeInt32"
-        case "Int8":    base = "decodeInt8"
-        case "Int16":   base = "decodeInt16"
-        case "UInt8":   base = "decodeUInt8"
-        case "UInt16":  base = "decodeUInt16"
-        case "UInt32":  base = "decodeUInt32"
-        case "UInt64":  base = "decodeUInt64"
-        case "UInt":    base = "decodeUInt"
-        case "Double":  base = "decodeDouble"
-        case "Float":   base = "decodeFloat"
-        case "Bool":    base = "decodeBool"
+        case "String":  base = "_decodeString"
+        case "Int":     base = "_decodeInt"
+        case "Int64":   base = "_decodeInt64"
+        case "Int32":   base = "_decodeInt32"
+        case "Int8":    base = "_decodeInt8"
+        case "Int16":   base = "_decodeInt16"
+        case "UInt8":   base = "_decodeUInt8"
+        case "UInt16":  base = "_decodeUInt16"
+        case "UInt32":  base = "_decodeUInt32"
+        case "UInt64":  base = "_decodeUInt64"
+        case "UInt":    base = "_decodeUInt"
+        case "Double":  base = "_decodeDouble"
+        case "Float":   base = "_decodeFloat"
+        case "Bool":    base = "_decodeBool"
         default:        return nil
         }
         let idx = elementIndex.map { ", \($0)" } ?? ""

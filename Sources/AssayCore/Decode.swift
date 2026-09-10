@@ -24,8 +24,10 @@
 
 extension AssayReader {
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeString(
+    public mutating func _decodeString(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
         , _ element: Int = -1
     ) -> String? {
@@ -35,8 +37,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeInt(
+    public mutating func _decodeInt(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
         , _ element: Int = -1
     ) -> Int? {
@@ -46,8 +50,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeInt64(
+    public mutating func _decodeInt64(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
         , _ element: Int = -1
     ) -> Int64? {
@@ -57,8 +63,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeInt32(
+    public mutating func _decodeInt32(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
         , _ element: Int = -1
     ) -> Int32? {
@@ -68,8 +76,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeUInt(
+    public mutating func _decodeUInt(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
         , _ element: Int = -1
     ) -> UInt? {
@@ -79,8 +89,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeDouble(
+    public mutating func _decodeDouble(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
         , _ element: Int = -1
     ) -> Double? {
@@ -90,8 +102,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeFloat(
+    public mutating func _decodeFloat(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
         , _ element: Int = -1
     ) -> Float? {
@@ -101,8 +115,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeBool(
+    public mutating func _decodeBool(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
         , _ element: Int = -1
     ) -> Bool? {
@@ -115,8 +131,9 @@ extension AssayReader {
     /// `null` is *presence with a null value*, which for an optional field means nil and
     /// for a required field is a type mismatch. Kept distinct from absence on purpose —
     /// conflating the two is the single costliest ambiguity in `Codable`.
+    @_documentation(visibility: internal)
     @inlinable @inline(__always)
-    public mutating func consumeNullIfPresent() -> Bool {
+    public mutating func _consumeNullIfPresent() -> Bool {
         scanNull()
     }
 
@@ -157,8 +174,9 @@ extension AssayReader {
 
     /// Reported once per missing required field, from the presence bitmask, after the
     /// object closes.
+    @_documentation(visibility: internal)
     @inline(never)
-    public mutating func missingRequired(
+    public mutating func _missingRequired(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) {
         sink.add(Issue(code: .missing, path: path + [.key(String(describing: key))]))
@@ -169,7 +187,7 @@ extension AssayReader {
 // Null-aware variants, for optional fields.
 //
 // These exist for a COMPILE-TIME reason, not a runtime one. The macro previously wrapped
-// every field in `if reader.consumeNullIfPresent() { ... } else { ... }`, which doubled
+// every field in `if reader._consumeNullIfPresent() { ... } else { ... }`, which doubled
 // the generated statement count per field — and measurement showed per-field body size,
 // not plugin round-trips, is what dominates @Schema's compile cost (~9ms per field
 // against ~9ms fixed per type). Folding the null case in here makes generated per-field
@@ -182,8 +200,10 @@ extension AssayReader {
 
 extension AssayReader {
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeStringOrNull(
+    public mutating func _decodeStringOrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> String?? {
         beginValue()
@@ -193,8 +213,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeIntOrNull(
+    public mutating func _decodeIntOrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Int?? {
         beginValue()
@@ -204,8 +226,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeInt64OrNull(
+    public mutating func _decodeInt64OrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Int64?? {
         beginValue()
@@ -215,8 +239,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeInt32OrNull(
+    public mutating func _decodeInt32OrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Int32?? {
         beginValue()
@@ -226,8 +252,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeUIntOrNull(
+    public mutating func _decodeUIntOrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> UInt?? {
         beginValue()
@@ -237,8 +265,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeDoubleOrNull(
+    public mutating func _decodeDoubleOrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Double?? {
         beginValue()
@@ -248,8 +278,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeFloatOrNull(
+    public mutating func _decodeFloatOrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Float?? {
         beginValue()
@@ -259,8 +291,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeBoolOrNull(
+    public mutating func _decodeBoolOrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Bool?? {
         beginValue()
@@ -271,8 +305,9 @@ extension AssayReader {
     }
 
     /// Required-field null handling: an explicit null where a value is required.
+    @_documentation(visibility: internal)
     @inline(never)
-    public mutating func nullNotAllowed(
+    public mutating func _nullNotAllowed(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString, _ expected: String
     ) {
         sink.add(Issue(
@@ -298,8 +333,10 @@ extension AssayReader {
 
 extension AssayReader {
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeIntCoercing(
+    public mutating func _decodeIntCoercing(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Int? {
         beginValue()
@@ -310,18 +347,22 @@ extension AssayReader {
         return nil
     }
 
-    @inlinable
-    public mutating func decodeInt64Coercing(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
-    ) -> Int64? {
-        return decodeIntCoercing(&sink, path, key).map(Int64.init)
-    }
+    @_documentation(visibility: internal)
 
     @inlinable
-    public mutating func decodeInt32Coercing(
+    public mutating func _decodeInt64Coercing(
+        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+    ) -> Int64? {
+        return _decodeIntCoercing(&sink, path, key).map(Int64.init)
+    }
+
+    @_documentation(visibility: internal)
+
+    @inlinable
+    public mutating func _decodeInt32Coercing(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Int32? {
-        guard let v = decodeIntCoercing(&sink, path, key) else { return nil }
+        guard let v = _decodeIntCoercing(&sink, path, key) else { return nil }
         guard let n = Int32(exactly: v) else {
             overflowed(&sink, path, key, v)
             return nil
@@ -329,11 +370,13 @@ extension AssayReader {
         return n
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeUIntCoercing(
+    public mutating func _decodeUIntCoercing(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> UInt? {
-        guard let v = decodeIntCoercing(&sink, path, key) else { return nil }
+        guard let v = _decodeIntCoercing(&sink, path, key) else { return nil }
         guard let n = UInt(exactly: v) else {
             overflowed(&sink, path, key, v)
             return nil
@@ -358,8 +401,10 @@ extension AssayReader {
             location: lastValueSpan))
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeDoubleCoercing(
+    public mutating func _decodeDoubleCoercing(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Double? {
         beginValue()
@@ -369,16 +414,20 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeFloatCoercing(
+    public mutating func _decodeFloatCoercing(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Float? {
         beginValue()
-        return decodeDoubleCoercing(&sink, path, key).map(Float.init)
+        return _decodeDoubleCoercing(&sink, path, key).map(Float.init)
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeBoolCoercing(
+    public mutating func _decodeBoolCoercing(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Bool? {
         beginValue()
@@ -400,8 +449,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeStringCoercing(
+    public mutating func _decodeStringCoercing(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> String? {
         beginValue()
@@ -435,8 +486,10 @@ extension AssayReader {
 
 extension AssayReader {
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeInt8(
+    public mutating func _decodeInt8(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
         , _ element: Int = -1
     ) -> Int8? {
@@ -446,8 +499,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeInt8OrNull(
+    public mutating func _decodeInt8OrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Int8?? {
         beginValue()
@@ -457,11 +512,13 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeInt8Coercing(
+    public mutating func _decodeInt8Coercing(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Int8? {
-        guard let v = decodeIntCoercing(&sink, path, key) else { return nil }
+        guard let v = _decodeIntCoercing(&sink, path, key) else { return nil }
         guard let n = Int8(exactly: v) else {
             overflowed(&sink, path, key, v)
             return nil
@@ -469,8 +526,10 @@ extension AssayReader {
         return n
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeInt16(
+    public mutating func _decodeInt16(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
         , _ element: Int = -1
     ) -> Int16? {
@@ -480,8 +539,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeInt16OrNull(
+    public mutating func _decodeInt16OrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Int16?? {
         beginValue()
@@ -491,11 +552,13 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeInt16Coercing(
+    public mutating func _decodeInt16Coercing(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> Int16? {
-        guard let v = decodeIntCoercing(&sink, path, key) else { return nil }
+        guard let v = _decodeIntCoercing(&sink, path, key) else { return nil }
         guard let n = Int16(exactly: v) else {
             overflowed(&sink, path, key, v)
             return nil
@@ -503,8 +566,10 @@ extension AssayReader {
         return n
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeUInt8(
+    public mutating func _decodeUInt8(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
         , _ element: Int = -1
     ) -> UInt8? {
@@ -514,8 +579,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeUInt8OrNull(
+    public mutating func _decodeUInt8OrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> UInt8?? {
         beginValue()
@@ -525,11 +592,13 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeUInt8Coercing(
+    public mutating func _decodeUInt8Coercing(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> UInt8? {
-        guard let v = decodeIntCoercing(&sink, path, key) else { return nil }
+        guard let v = _decodeIntCoercing(&sink, path, key) else { return nil }
         guard let n = UInt8(exactly: v) else {
             overflowed(&sink, path, key, v)
             return nil
@@ -537,8 +606,10 @@ extension AssayReader {
         return n
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeUInt16(
+    public mutating func _decodeUInt16(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
         , _ element: Int = -1
     ) -> UInt16? {
@@ -548,8 +619,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeUInt16OrNull(
+    public mutating func _decodeUInt16OrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> UInt16?? {
         beginValue()
@@ -559,11 +632,13 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeUInt16Coercing(
+    public mutating func _decodeUInt16Coercing(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> UInt16? {
-        guard let v = decodeIntCoercing(&sink, path, key) else { return nil }
+        guard let v = _decodeIntCoercing(&sink, path, key) else { return nil }
         guard let n = UInt16(exactly: v) else {
             overflowed(&sink, path, key, v)
             return nil
@@ -571,8 +646,10 @@ extension AssayReader {
         return n
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeUInt32(
+    public mutating func _decodeUInt32(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
         , _ element: Int = -1
     ) -> UInt32? {
@@ -582,8 +659,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeUInt32OrNull(
+    public mutating func _decodeUInt32OrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> UInt32?? {
         beginValue()
@@ -593,11 +672,13 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeUInt32Coercing(
+    public mutating func _decodeUInt32Coercing(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> UInt32? {
-        guard let v = decodeIntCoercing(&sink, path, key) else { return nil }
+        guard let v = _decodeIntCoercing(&sink, path, key) else { return nil }
         guard let n = UInt32(exactly: v) else {
             overflowed(&sink, path, key, v)
             return nil
@@ -605,8 +686,10 @@ extension AssayReader {
         return n
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeUInt64(
+    public mutating func _decodeUInt64(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
         , _ element: Int = -1
     ) -> UInt64? {
@@ -616,8 +699,10 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeUInt64OrNull(
+    public mutating func _decodeUInt64OrNull(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> UInt64?? {
         beginValue()
@@ -627,11 +712,13 @@ extension AssayReader {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public mutating func decodeUInt64Coercing(
+    public mutating func _decodeUInt64Coercing(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) -> UInt64? {
-        guard let v = decodeIntCoercing(&sink, path, key) else { return nil }
+        guard let v = _decodeIntCoercing(&sink, path, key) else { return nil }
         guard let n = UInt64(exactly: v) else {
             overflowed(&sink, path, key, v)
             return nil

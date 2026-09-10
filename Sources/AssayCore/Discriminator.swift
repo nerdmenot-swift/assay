@@ -31,8 +31,9 @@ extension AssayReader {
     /// **Depth is charged and released here**, so a document that nests unions to exhaustion
     /// is refused by `maxDepth` during the scan rather than during the branch decode, where
     /// the error would name the branch and mislead.
+    @_documentation(visibility: internal)
     @inlinable
-    public mutating func scanDiscriminator(
+    public mutating func _scanDiscriminator(
         _ sink: inout IssueSink, _ key: StaticString, _ path: [PathComponent]
     ) -> String? {
         guard tryConsume(0x7B) else {
@@ -43,7 +44,7 @@ extension AssayReader {
         defer { leaveContainer() }
 
         if tryConsume(0x7D) {
-            missingRequired(&sink, path, key)
+            _missingRequired(&sink, path, key)
             return nil
         }
         while true {
@@ -69,7 +70,7 @@ extension AssayReader {
             break
         }
         // Ran off the end of the object without finding it.
-        missingRequired(&sink, path, key)
+        _missingRequired(&sink, path, key)
         return nil
     }
 
@@ -79,8 +80,9 @@ extension AssayReader {
     /// `"pageview"` where the schema says `"page_view"` is the overwhelmingly common way this
     /// fails, and answering it with a bare list is a worse error than answering it with a
     /// suggestion.
+    @_documentation(visibility: internal)
     @inline(never)
-    public mutating func unknownVariant(
+    public mutating func _unknownVariant(
         _ sink: inout IssueSink, _ path: [PathComponent],
         _ key: StaticString, _ received: String, _ known: [String]
     ) {
@@ -90,7 +92,7 @@ extension AssayReader {
         ]
         // The same Damerau helper unknown keys use, and the same `didYouMean` param name, so
         // the renderers and any consumer matching on params need no new case.
-        if let suggestion = Self.didYouMean(received, in: known) {
+        if let suggestion = Self._didYouMean(received, in: known) {
             params["didYouMean"] = .string(suggestion)
         }
         sink.add(Issue(
@@ -111,8 +113,9 @@ extension AssayReader {
     /// rather than in the generated body because the budget is **global across one decode**:
     /// the exponential is nested unions, and a per-union counter cannot see the nesting it is
     /// meant to bound.
+    @_documentation(visibility: internal)
     @inlinable
-    public mutating func chargeUnionAttempt(
+    public mutating func _chargeUnionAttempt(
         _ sink: inout IssueSink, _ path: [PathComponent]
     ) -> Bool {
         unionAttempts &+= 1
@@ -138,8 +141,9 @@ extension AssayReader {
     /// `docs/UNIONS.md` §2.2. Reporting *every* branch is the wall of noise a discriminator
     /// exists to avoid; reporting none leaves the author nothing to fix. Naming the guess as a
     /// guess is what makes the middle answer honest.
+    @_documentation(visibility: internal)
     @inline(never)
-    public mutating func noVariantMatched(
+    public mutating func _noVariantMatched(
         _ sink: inout IssueSink, _ path: [PathComponent],
         _ typeName: StaticString, _ closest: String, _ known: [String]
     ) {

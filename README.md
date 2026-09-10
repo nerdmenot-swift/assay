@@ -115,8 +115,8 @@ An `Issue` is a code plus parameters, never a rendered string:
 Issue(code: .tooSmall, path: [.key("replicas")], params: ["min": .int(1)])
 ```
 
-`.message` is derived on demand, and `message(locale:)` takes an identifier — so an API can
-serialise the code for a client and render English into a log from the same value. Four
+`.message` is derived on demand, and every code has a name and documented parameters — so an
+API can serialise the code for a client and render English into a log from the same value. Four
 renderers ship: `.terminal` (carets, colour when the terminal supports it), `.plain`, `.json`,
 and `.problemDetails` (RFC 9457).
 

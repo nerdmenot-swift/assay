@@ -381,7 +381,7 @@ all in `UNIONS.md` §4:
   to put the tag. `@Schema(encodes: true)` now emits `_assayEncodeMembers` plus a three-line
   `_assayEncode` wrapper, which is a constant per type and not per field. The alternative,
   popping the variant's closing brace back off the writer's buffer and appending the tag, was
-  free at compile time and rejected: it puts the tag last, and `scanDiscriminator` would then
+  free at compile time and rejected: it puts the tag last, and `_scanDiscriminator` would then
   pre-scan every key of every document this library wrote. Measured on both sides: **under
   half a millisecond per type, and not growing with fields.** The same run finally measured
   `encodes: true` itself — **~5%**, against a stated justification that said it would roughly
@@ -754,6 +754,25 @@ array was there) nor a type mismatch (the elements are the right type). Half-bui
 would mean shipping a path spelling whose failure mode had no defined report.
 
 Until then: declare the array and take the element in Swift, or use a nested `@Schema` type.
+
+---
+
+## 15. `message(locale:)`
+
+**Status: not built, and until 2026-09-10 three documents said it was.** `EXPERIENCE.md`
+§3, `README.md` and `CLAUDE.md` all showed `issue.message(locale: "de_DE")`; no such
+function has ever existed. Found by the audit, which set out to test it.
+
+What exists is the seam: every code is a named constant with documented parameters
+(`Sources/AssayCore/IssueCode+Names.swift`), and the `.json` renderer emits both, so a
+consumer localises today by branching on `code` and formatting `params`. What is deferred is
+the library-side catalogue — a `stringsdict`-backed lookup belongs in `AssayFoundation`, and
+nobody has asked for a translation yet, so building the table would be designing for an
+imagined user. The settled parts of the design stand: an identifier `String`, not a `Locale`
+(`EXPERIENCE.md` §13), and English derived from `code` + `params` as the fallback.
+
+A stub that took the parameter and returned English was considered and refused: it is the
+"accepted and ignored" shape `SchemaRefusals.swift` exists to remove.
 
 ---
 

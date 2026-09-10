@@ -112,7 +112,7 @@ extension SchemaMacro {
         where f.pathSegments == nil && (requiredMask & (1 << UInt64(i))) != 0 {
             missing += """
                     if __presence & \(1 << UInt64(i)) == 0 {
-                        Assay.RawValue.missing(&sink, path, "\(f.wireKey)")
+                        Assay.RawValue._missing(&sink, path, "\(f.wireKey)")
                     }
 
             """
@@ -134,7 +134,7 @@ extension SchemaMacro {
             at path: [Assay.PathComponent]\(ctxParam)
         ) -> \(typeName)? {
             guard case .mapping(let __members) = raw else {
-                Assay.RawValue.notAnObject(&sink, path, raw)
+                Assay.RawValue._notAnObject(&sink, path, raw)
                 return nil
             }
             // See the note in the JSON body: local validity, not global.
@@ -172,9 +172,9 @@ extension SchemaMacro {
                 ? "__extras[__k] = __v"
                 : "break"
         case "warn":
-            return "Assay.RawValue.unknownKey(&sink, path, __k, known: Self.__assayKnownKeys, reject: false)"
+            return "Assay.RawValue._unknownKey(&sink, path, __k, known: Self.__assayKnownKeys, reject: false)"
         case "reject":
-            return "Assay.RawValue.unknownKey(&sink, path, __k, known: Self.__assayKnownKeys, reject: true)"
+            return "Assay.RawValue._unknownKey(&sink, path, __k, known: Self.__assayKnownKeys, reject: true)"
         default:
             return "break"
         }
@@ -196,14 +196,14 @@ extension SchemaMacro {
             if f.fallback != nil {
                 return """
                 let __fck\(i) = sink.checkpoint()
-                                if !__v.isNull { __f\(i) = __v.assayDate(&sink, path, "\(key)", \(formats))\(wrap) }
+                                if !__v.isNull { __f\(i) = __v._assayDate(&sink, path, "\(key)", \(formats))\(wrap) }
                                 if __f\(i) == nil { sink.rollback(to: __fck\(i)) }
                 """
             }
             if f.isOptional {
-                return "if !__v.isNull { __f\(i) = __v.assayDate(&sink, path, \"\(key)\", \(formats))\(wrap) }"
+                return "if !__v.isNull { __f\(i) = __v._assayDate(&sink, path, \"\(key)\", \(formats))\(wrap) }"
             }
-            return "__f\(i) = __v.assayDate(&sink, path, \"\(key)\", \(formats))\(wrap)"
+            return "__f\(i) = __v._assayDate(&sink, path, \"\(key)\", \(formats))\(wrap)"
         }
 
         let spanRef = f.needsSpan ? "__sp\(i)" : nil
@@ -259,7 +259,7 @@ extension SchemaMacro {
                             } else if __v.isNull {
                                 \(f.isOptional
                                     ? "__f\(i) = nil"
-                                    : "Assay.RawValue.mismatchPublic(&sink, path, \"\(key)\", \"array\", __v)")
+                                    : "Assay.RawValue._mismatchPublic(&sink, path, \"\(key)\", \"array\", __v)")
                             } else {
                                 // One repeated sibling. Append, so `<tag>a</tag><tag>b</tag>`
                                 // accumulates across calls instead of the last one winning.
@@ -280,7 +280,7 @@ extension SchemaMacro {
                             } else if __v.isNull {
                                 \(f.isOptional
                                     ? "__f\(i) = nil"
-                                    : "Assay.RawValue.mismatchPublic(&sink, path, \"\(key)\", \"object\", __v)")
+                                    : "Assay.RawValue._mismatchPublic(&sink, path, \"\(key)\", \"object\", __v)")
                             }
             """
         }
@@ -303,7 +303,7 @@ extension SchemaMacro {
         if __v.isNull {
                             \(f.isOptional
                                 ? "__f\(i) = nil"
-                                : "Assay.RawValue.mismatchPublic(&sink, path, \"\(key)\", \"\(base)\", __v)")
+                                : "Assay.RawValue._mismatchPublic(&sink, path, \"\(key)\", \"\(base)\", __v)")
                         } else {
                             __f\(i) = \(base)._assay(from: __v, into: &sink,
                                                      at: path + [.key("\(key)")]\(ctxArg))
@@ -343,7 +343,7 @@ extension SchemaMacro {
             """.trimmingWhitespace()
         }
         if isDateType(type) {
-            return "\(v).assayDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map { \(type)(timeIntervalSince1970: $0) }"
+            return "\(v)._assayDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map { \(type)(timeIntervalSince1970: $0) }"
         }
         if let call = rawScalarCall(type, key: key, coerce: coerce) {
             return "\(v).\(call)"
@@ -365,20 +365,20 @@ extension SchemaMacro {
     ) -> String? {
         let c = (coerce ? ", coerce: true" : "") + (span.map { ", at: \($0)" } ?? "")
         switch type {
-        case "String":  return "assayString(&sink, path, \"\(key)\"\(c))"
-        case "Int":     return "assayInt(&sink, path, \"\(key)\"\(c))"
-        case "Int64":   return "assayInt64(&sink, path, \"\(key)\"\(c))"
-        case "Int32":   return "assayInt32(&sink, path, \"\(key)\"\(c))"
-        case "Int8":    return "assayInt8(&sink, path, \"\(key)\"\(c))"
-        case "Int16":   return "assayInt16(&sink, path, \"\(key)\"\(c))"
-        case "UInt8":   return "assayUInt8(&sink, path, \"\(key)\"\(c))"
-        case "UInt16":  return "assayUInt16(&sink, path, \"\(key)\"\(c))"
-        case "UInt32":  return "assayUInt32(&sink, path, \"\(key)\"\(c))"
-        case "UInt64":  return "assayUInt64(&sink, path, \"\(key)\"\(c))"
-        case "UInt":    return "assayUInt(&sink, path, \"\(key)\"\(c))"
-        case "Double":  return "assayDouble(&sink, path, \"\(key)\"\(c))"
-        case "Float":   return "assayFloat(&sink, path, \"\(key)\"\(c))"
-        case "Bool":    return "assayBool(&sink, path, \"\(key)\"\(c))"
+        case "String":  return "_assayString(&sink, path, \"\(key)\"\(c))"
+        case "Int":     return "_assayInt(&sink, path, \"\(key)\"\(c))"
+        case "Int64":   return "_assayInt64(&sink, path, \"\(key)\"\(c))"
+        case "Int32":   return "_assayInt32(&sink, path, \"\(key)\"\(c))"
+        case "Int8":    return "_assayInt8(&sink, path, \"\(key)\"\(c))"
+        case "Int16":   return "_assayInt16(&sink, path, \"\(key)\"\(c))"
+        case "UInt8":   return "_assayUInt8(&sink, path, \"\(key)\"\(c))"
+        case "UInt16":  return "_assayUInt16(&sink, path, \"\(key)\"\(c))"
+        case "UInt32":  return "_assayUInt32(&sink, path, \"\(key)\"\(c))"
+        case "UInt64":  return "_assayUInt64(&sink, path, \"\(key)\"\(c))"
+        case "UInt":    return "_assayUInt(&sink, path, \"\(key)\"\(c))"
+        case "Double":  return "_assayDouble(&sink, path, \"\(key)\"\(c))"
+        case "Float":   return "_assayFloat(&sink, path, \"\(key)\"\(c))"
+        case "Bool":    return "_assayBool(&sink, path, \"\(key)\"\(c))"
         default:        return nil
         }
     }
@@ -453,7 +453,7 @@ extension SchemaMacro {
         \(deeper)\(pad)    } else if \(v).isNull {
         \(pad)        // An explicit null intermediate is absence, as on the JSON path.
         \(pad)    } else {
-        \(pad)        Assay.RawValue.mismatchPublic(&sink, \(pathExpr), "\(segment)", "object", \(v))
+        \(pad)        Assay.RawValue._mismatchPublic(&sink, \(pathExpr), "\(segment)", "object", \(v))
         \(pad)    }
         \(pad)}
 
@@ -484,7 +484,7 @@ extension SchemaMacro {
         var inner = ""
         for (seg, i) in n.leaves where PathTree.isRequired(fields[i]) {
             inner += "\(pad)    if __presence & \(1 << UInt64(i)) == 0 {\n"
-                + "\(pad)        Assay.RawValue.missing(&sink, \(here), \"\(seg)\")\n"
+                + "\(pad)        Assay.RawValue._missing(&sink, \(here), \"\(seg)\")\n"
                 + "\(pad)    }\n"
         }
         for (seg, child) in n.children {
@@ -495,7 +495,7 @@ extension SchemaMacro {
 
         if PathTree.requiresAnything(n, fields) {
             return "\(pad)if __gpresence & \(1 << UInt64(n.bit)) == 0 {\n"
-                + "\(pad)    Assay.RawValue.missing(&sink, \(parentPath), \"\(segment)\")\n"
+                + "\(pad)    Assay.RawValue._missing(&sink, \(parentPath), \"\(segment)\")\n"
                 + "\(pad)} else {\n" + inner + "\(pad)}\n"
         }
         return "\(pad)if __gpresence & \(1 << UInt64(n.bit)) != 0 {\n" + inner + "\(pad)}\n"

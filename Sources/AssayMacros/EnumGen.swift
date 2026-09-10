@@ -128,14 +128,6 @@ extension SchemaMacro {
         let known = cases.filter { !$0.isUnknown }
         var body = ""
 
-        // The wire names, for the error message on a value that is neither known nor
-        // capturable, and for did-you-mean.
-        body += """
-        nonisolated static let __assayCaseNames: [String] = [\(known.map { "\"\($0.wireName)\"" }.joined(separator: ", "))]
-
-
-        """
-
         // Length-bucketed matching. Never a String switch (CLAUDE.md constraint 1).
         var byLength: [Int: [EnumCaseInfo]] = [:]
         for c in known { byLength[c.wireName.utf8.count, default: []].append(c) }

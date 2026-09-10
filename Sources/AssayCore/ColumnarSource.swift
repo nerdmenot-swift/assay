@@ -142,7 +142,8 @@ public struct BoundPlan: Sendable {
     /// Whether every required field was found. A stream binds once, so this is the natural
     /// place to fail fast — before decoding a million rows that will each report the same
     /// missing column.
-    public func missingRequired(in manifest: FieldManifest) -> [String] {
+    @_documentation(visibility: internal)
+    public func _missingRequired(in manifest: FieldManifest) -> [String] {
         var out: [String] = []
         for (i, f) in manifest.fields.enumerated()
         where f.isRequired && self[i] == BoundPlan.absent {

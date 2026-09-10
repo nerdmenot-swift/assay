@@ -233,7 +233,7 @@ extension SchemaMacro {
             // The whole reader state, not just the cursor: the scan enters a container and a
             // malformed document can leave that unbalanced. docs/UNIONS.md §1.
             let __mark = reader.mark
-            guard let __tag = reader.scanDiscriminator(&sink, "\(tag)", path) else {
+            guard let __tag = reader._scanDiscriminator(&sink, "\(tag)", path) else {
                 // RESYNCHRONISE, or the caller reports a second issue this document does not
                 // deserve. A failed pre-scan leaves the cursor part-way through the value; the
                 // top-level entry point then finds bytes remaining and adds `trailingContent`,
@@ -248,7 +248,7 @@ extension SchemaMacro {
 
         \(arms)    // The tag was read and names nothing this enum declares. One issue, with a
             // did-you-mean — not a branch's issues, because no branch was chosen.
-            reader.unknownVariant(&sink, path, "\(tag)", __tag, Self.__assayVariants)
+            reader._unknownVariant(&sink, path, "\(tag)", __tag, Self.__assayVariants)
             _ = reader.skipValue(&sink)
             return nil
         }
@@ -301,7 +301,7 @@ extension SchemaMacro {
                 """
             }
             return """
-            \(indent)guard reader.chargeUnionAttempt(&sink, path) else { return nil }
+            \(indent)guard reader._chargeUnionAttempt(&sink, path) else { return nil }
             \(indent)if let __v = \(decode) {
             \(indent)    return .\(c.identifier)(__v)
             \(indent)}
@@ -341,7 +341,7 @@ extension SchemaMacro {
             // branch replayed so its detail follows it. docs/UNIONS.md §2.2.
             reader.restore(__mark)
             if !__verbose { sink.rollback(to: __ck) }
-            reader.noVariantMatched(&sink, path, "\(typeName)", __closest,
+            reader._noVariantMatched(&sink, path, "\(typeName)", __closest,
                                     Self.__assayVariants)
             if !__verbose {
                 reader.restore(__mark)

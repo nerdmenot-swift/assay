@@ -178,7 +178,7 @@ The alternative was byte surgery: let the variant write `{...}`, pop the closing
 off the writer's buffer and append the tag. That costs nothing at compile time and puts the
 tag **last**. It was rejected twice over — it makes the output depend on reaching into bytes
 already emitted, and tag-last makes every round trip pay a full pre-scan, since
-`scanDiscriminator` reads keys until it finds the tag. The split costs one constant wrapper
+`_scanDiscriminator` reads keys until it finds the tag. The split costs one constant wrapper
 per encoding type, and that was measured rather than asserted: 82.3 and 82.2 ms/type against
 82.0 unsplit at 10 fields, and 157.6 and 156.7 against 160.0 at 20 — the split arm *faster*
 at 20, which can only be noise. Under half a millisecond per type, not growing with fields.

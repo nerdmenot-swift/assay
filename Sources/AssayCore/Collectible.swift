@@ -73,8 +73,9 @@ extension AssayReader {
     /// unavoidable: an unknown key has no compile-time literal to compare against, so
     /// there is nothing to match it to. It happens only on the `.collect`, `.warn` and
     /// `.reject` paths — never on `.ignore`, which is the default and stays allocation-free.
+    @_documentation(visibility: internal)
     @inlinable
-    public func keyString(_ key: KeyRange) -> String {
+    public func _keyString(_ key: KeyRange) -> String {
         unsafe String(unsafeUninitializedCapacity: key.len) { buffer in
             unsafe buffer.baseAddress!.update(from: base + key.lo, count: key.len)
             return key.len
@@ -85,17 +86,18 @@ extension AssayReader {
     ///
     /// Cold: only reached for keys the schema did not declare, and never on the default
     /// `.ignore` policy.
+    @_documentation(visibility: internal)
     @inline(never)
-    public mutating func reportUnknownKey(
+    public mutating func _reportUnknownKey(
         _ sink: inout IssueSink,
         _ path: [PathComponent],
         _ key: KeyRange,
         known: [String],
         reject: Bool
     ) {
-        let name = keyString(key)
+        let name = _keyString(key)
         var params: [String: IssueValue] = [:]
-        if let suggestion = Self.didYouMean(name, in: known) {
+        if let suggestion = Self._didYouMean(name, in: known) {
             params["didYouMean"] = .string(suggestion)
         }
         params["received"] = .string(name)
@@ -114,7 +116,8 @@ extension AssayReader {
     /// Bounded rather than exhaustive: the threshold scales with length (1 edit for short
     /// keys, 2 for longer), so `tiemout` suggests `timeout` and `xyzzy` suggests nothing.
     /// A suggestion that is wrong is worse than no suggestion.
-    public static func didYouMean(_ name: String, in known: [String]) -> String? {
+    @_documentation(visibility: internal)
+    public static func _didYouMean(_ name: String, in known: [String]) -> String? {
         guard !known.isEmpty else { return nil }
         let threshold = name.count <= 4 ? 1 : 2
         var best: (key: String, distance: Int)?

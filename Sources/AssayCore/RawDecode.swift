@@ -34,8 +34,10 @@ extension RawValue {
 
     // MARK: Scalars
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public func assayString(
+    public func _assayString(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> String? {
@@ -52,118 +54,140 @@ extension RawValue {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public func assayInt(
+    public func _assayInt(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Int? {
         if case .int(let i) = self, let n = Int(exactly: i) { return n }
-        if coerce, let n = coercedInt() { return n }
+        if coerce, let n = _coercedInt() { return n }
         Self.mismatch(&sink, path, key, "integer", self, span)
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public func assayInt64(
+    public func _assayInt64(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Int64? {
         if case .int(let i) = self { return i }
-        if coerce, let n = coercedInt() { return Int64(n) }
+        if coerce, let n = _coercedInt() { return Int64(n) }
         Self.mismatch(&sink, path, key, "integer", self, span)
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public func assayInt32(
+    public func _assayInt32(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Int32? {
         if case .int(let i) = self, let n = Int32(exactly: i) { return n }
-        if coerce, let n = coercedInt(), let v = Int32(exactly: n) { return v }
+        if coerce, let n = _coercedInt(), let v = Int32(exactly: n) { return v }
         Self.mismatch(&sink, path, key, "integer", self, span)
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public func assayUInt(
+    public func _assayUInt(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> UInt? {
         if case .int(let i) = self, let n = UInt(exactly: i) { return n }
-        if coerce, let n = coercedInt(), let v = UInt(exactly: n) { return v }
+        if coerce, let n = _coercedInt(), let v = UInt(exactly: n) { return v }
         Self.mismatch(&sink, path, key, "unsigned integer", self, span)
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public func assayInt8(
+    public func _assayInt8(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Int8? {
         if case .int(let i) = self, let n = Int8(exactly: i) { return n }
-        if coerce, let n = coercedInt(), let v = Int8(exactly: n) { return v }
+        if coerce, let n = _coercedInt(), let v = Int8(exactly: n) { return v }
         Self.mismatch(&sink, path, key, "integer", self, span)
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public func assayInt16(
+    public func _assayInt16(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Int16? {
         if case .int(let i) = self, let n = Int16(exactly: i) { return n }
-        if coerce, let n = coercedInt(), let v = Int16(exactly: n) { return v }
+        if coerce, let n = _coercedInt(), let v = Int16(exactly: n) { return v }
         Self.mismatch(&sink, path, key, "integer", self, span)
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public func assayUInt8(
+    public func _assayUInt8(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> UInt8? {
         if case .int(let i) = self, let n = UInt8(exactly: i) { return n }
-        if coerce, let n = coercedInt(), let v = UInt8(exactly: n) { return v }
+        if coerce, let n = _coercedInt(), let v = UInt8(exactly: n) { return v }
         Self.mismatch(&sink, path, key, "unsigned integer", self, span)
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public func assayUInt16(
+    public func _assayUInt16(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> UInt16? {
         if case .int(let i) = self, let n = UInt16(exactly: i) { return n }
-        if coerce, let n = coercedInt(), let v = UInt16(exactly: n) { return v }
+        if coerce, let n = _coercedInt(), let v = UInt16(exactly: n) { return v }
         Self.mismatch(&sink, path, key, "unsigned integer", self, span)
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public func assayUInt32(
+    public func _assayUInt32(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> UInt32? {
         if case .int(let i) = self, let n = UInt32(exactly: i) { return n }
-        if coerce, let n = coercedInt(), let v = UInt32(exactly: n) { return v }
+        if coerce, let n = _coercedInt(), let v = UInt32(exactly: n) { return v }
         Self.mismatch(&sink, path, key, "unsigned integer", self, span)
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public func assayUInt64(
+    public func _assayUInt64(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> UInt64? {
         if case .int(let i) = self, let n = UInt64(exactly: i) { return n }
-        if coerce, let n = coercedInt(), let v = UInt64(exactly: n) { return v }
+        if coerce, let n = _coercedInt(), let v = UInt64(exactly: n) { return v }
         Self.mismatch(&sink, path, key, "unsigned integer", self, span)
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public func assayDouble(
+    public func _assayDouble(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Double? {
@@ -177,16 +201,20 @@ extension RawValue {
         return nil
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public func assayFloat(
+    public func _assayFloat(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Float? {
-        assayDouble(&sink, path, key, coerce: coerce, at: span).map(Float.init)
+        _assayDouble(&sink, path, key, coerce: coerce, at: span).map(Float.init)
     }
 
+    @_documentation(visibility: internal)
+
     @inlinable
-    public func assayBool(
+    public func _assayBool(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Bool? {
@@ -217,8 +245,9 @@ extension RawValue {
     ///
     /// Nothing here consults a locale, which is what makes it behave identically on Linux
     /// and on a Mac.
+    @_documentation(visibility: internal)
     @inlinable
-    public func coercedInt() -> Int? {
+    public func _coercedInt() -> Int? {
         switch self {
         case .string(let s):
             return Int(s)                                    // rejects "8080.5" outright
@@ -260,15 +289,19 @@ extension RawValue {
         }
     }
 
+    @_documentation(visibility: internal)
+
     @inline(never)
-    public static func missing(
+    public static func _missing(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
     ) {
         sink.add(Issue(code: .missing, path: path + [.key(String(describing: key))]))
     }
 
+    @_documentation(visibility: internal)
+
     @inline(never)
-    public static func notAnObject(
+    public static func _notAnObject(
         _ sink: inout IssueSink, _ path: [PathComponent], _ found: RawValue
     ) {
         sink.add(Issue(code: .typeMismatch, path: path,
@@ -277,13 +310,14 @@ extension RawValue {
     }
 
     /// Report an unknown key found while decoding a mapping, with a did-you-mean.
+    @_documentation(visibility: internal)
     @inline(never)
-    public static func unknownKey(
+    public static func _unknownKey(
         _ sink: inout IssueSink, _ path: [PathComponent], _ name: String,
         known: [String], reject: Bool
     ) {
         var params: [String: IssueValue] = [:]
-        if let suggestion = AssayReader.didYouMean(name, in: known) {
+        if let suggestion = AssayReader._didYouMean(name, in: known) {
             params["didYouMean"] = .string(suggestion)
         }
         params["received"] = .string(name)
@@ -331,8 +365,9 @@ extension RawValue {
     }
 
     /// Public spelling of `mismatch`, for generated code.
+    @_documentation(visibility: internal)
     @inline(never)
-    public static func mismatchPublic(
+    public static func _mismatchPublic(
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
         _ expected: String, _ found: RawValue, _ span: SourceSpan? = nil
     ) {

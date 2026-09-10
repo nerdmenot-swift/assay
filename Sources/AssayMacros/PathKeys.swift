@@ -156,7 +156,7 @@ enum PathTree {
         var inner = ""
         for (seg, i) in n.leaves where isRequired(fields[i]) {
             inner += "\(pad)    if __presence & \(1 << UInt64(i)) == 0 {\n"
-                + "\(pad)        reader.missingRequired(&sink, \(here), \"\(seg)\")\n"
+                + "\(pad)        reader._missingRequired(&sink, \(here), \"\(seg)\")\n"
                 + "\(pad)    }\n"
         }
         // Recursion emits the child's own "is it here?" test, so there is nothing to wrap
@@ -172,7 +172,7 @@ enum PathTree {
         // difference between "profile is missing" and the false "profile.display_name is".
         if requiresAnything(n, fields) {
             return "\(pad)if __gpresence & \(1 << UInt64(n.bit)) == 0 {\n"
-                + "\(pad)    reader.missingRequired(&sink, \(parentPath), \"\(segment)\")\n"
+                + "\(pad)    reader._missingRequired(&sink, \(parentPath), \"\(segment)\")\n"
                 + "\(pad)} else {\n" + inner + "\(pad)}\n"
         }
         return "\(pad)if __gpresence & \(1 << UInt64(n.bit)) != 0 {\n" + inner + "\(pad)}\n"
@@ -193,8 +193,4 @@ enum PathTree {
             || n.children.contains { requiresAnything($0.node, fields) }
     }
 
-    /// Every wire key a path group occupies at the top level, for the duplicate-key check:
-    /// `@Key(path: "profile.x")` and a plain `var profile: P` collide, and the collision is
-    /// real — one arm cannot both descend and decode a value.
-    static func topLevelKeys(_ groups: [PathGroup]) -> [String] { groups.map(\.segment) }
 }

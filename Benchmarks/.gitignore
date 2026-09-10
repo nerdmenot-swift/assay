@@ -1,0 +1,3 @@
+# Tracked here, unlike the library's: the numbers in RESULTS.md are quoted against
+# specific Yams, ZippyJSON and swift-syntax versions.
+!Package.resolved

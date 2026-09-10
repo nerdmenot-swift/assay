@@ -34,7 +34,7 @@ extension JSONAssayable where Self: RawRepresentable, RawValue == String {
             return nil
         }
         guard let v = Self(rawValue: s) else {
-            unknownVariant(&sink, path, received: s, options: nil,
+            _unknownVariant(&sink, path, received: s, options: nil,
                            span: reader.lastValueSpan)
             return nil
         }
@@ -54,7 +54,7 @@ extension JSONAssayable where Self: RawRepresentable & CaseIterable, RawValue ==
             return nil
         }
         guard let v = Self(rawValue: s) else {
-            unknownVariant(&sink, path, received: s,
+            _unknownVariant(&sink, path, received: s,
                            options: allCases.map(\.rawValue),
                            span: reader.lastValueSpan)
             return nil
@@ -74,7 +74,7 @@ extension RawDecodable where Self: RawRepresentable, RawValue == String {
             return nil
         }
         guard let v = Self(rawValue: s) else {
-            unknownVariant(&sink, path, received: s, options: nil, span: nil)
+            _unknownVariant(&sink, path, received: s, options: nil, span: nil)
             return nil
         }
         return v
@@ -92,7 +92,7 @@ extension RawDecodable where Self: RawRepresentable & CaseIterable, RawValue == 
             return nil
         }
         guard let v = Self(rawValue: s) else {
-            unknownVariant(&sink, path, received: s,
+            _unknownVariant(&sink, path, received: s,
                            options: allCases.map(\.rawValue), span: nil)
             return nil
         }
@@ -114,7 +114,7 @@ extension JSONAssayable where Self: RawRepresentable, RawValue == Int {
             return nil
         }
         guard let v = Self(rawValue: n) else {
-            unknownVariant(&sink, path, received: String(n), options: nil,
+            _unknownVariant(&sink, path, received: String(n), options: nil,
                            span: reader.lastValueSpan)
             return nil
         }
@@ -133,7 +133,7 @@ extension RawDecodable where Self: RawRepresentable, RawValue == Int {
             return nil
         }
         guard let v = Self(rawValue: n) else {
-            unknownVariant(&sink, path, received: String(n), options: nil, span: nil)
+            _unknownVariant(&sink, path, received: String(n), options: nil, span: nil)
             return nil
         }
         return v
@@ -143,7 +143,7 @@ extension RawDecodable where Self: RawRepresentable, RawValue == Int {
 /// Cold. The `unknown_variant` issue, with the case list and a did-you-mean when one is
 /// close — the same bounded edit distance the unknown-key path uses.
 @inline(never)
-private func unknownVariant(
+private func _unknownVariant(
     _ sink: inout IssueSink,
     _ path: [PathComponent],
     received: String,
@@ -153,7 +153,7 @@ private func unknownVariant(
     var params: [String: IssueValue] = [:]
     if let options {
         params["options"] = .string(options.map { "\"\($0)\"" }.joined(separator: ", "))
-        if let hint = AssayReader.didYouMean(received, in: options) {
+        if let hint = AssayReader._didYouMean(received, in: options) {
             params["didYouMean"] = .string(hint)
         }
     }

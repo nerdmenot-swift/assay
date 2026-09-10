@@ -29,7 +29,10 @@ struct ConcurrencyStress {
                     switch i % 4 {
                     case 0:
                         let d = ConcDoc.diagnose(json: good)
-                        return d.isValid && d.value?.count == 5 && d.warnings.count == 1
+                        // `@Extras` implies `.collect` (2026-09-10): the unknown key lands
+                        // in the sink rather than in a warning.
+                        return d.isValid && d.value?.count == 5 && d.warnings.isEmpty
+                            && d.value?.rest["extra"] == .int(9)
                     case 1:
                         let d = ConcDoc.diagnose(json: bad)
                         // Two rule violations; @Fallback swallows the bad score.

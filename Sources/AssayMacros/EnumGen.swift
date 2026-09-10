@@ -45,13 +45,14 @@ extension SchemaMacro {
     static func enumExpansion(
         of node: AttributeSyntax,
         enumDecl: EnumDeclSyntax,
+        config: SchemaConfig,
         typeName: String,
         in context: some MacroExpansionContext
     ) -> [ExtensionDeclSyntax] {
 
-        let keyStyle = Self.keyStyle(from: node)
-        let formats = Self.formats(from: node)
-        let wantsEncoding = Self.encodes(from: node)
+        let keyStyle = config.keyStyle
+        let formats = config.formats
+        let wantsEncoding = config.encodes
 
         var cases: [EnumCaseInfo] = []
         var bad = false

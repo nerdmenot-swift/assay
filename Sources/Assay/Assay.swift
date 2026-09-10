@@ -520,8 +520,10 @@ public macro Key(_ name: String, or aliases: String...) =
 ///     @Key(path: "profile.display_name") var displayName: String
 ///
 /// A separate overload rather than a defaulted `path:` on the declaration above, so that
-/// `@Key("id")` resolves to exactly the declaration it always did and `@Key(path:)` cannot be
-/// combined with a positional name — one field has one wire location.
+/// `@Key("id")` resolves to exactly the declaration it always did. Writing both on one
+/// property is refused at expansion — one field has one wire location. (Until 2026-09-10
+/// it was accepted and whichever came last won, silently; this comment said "cannot be
+/// combined" while the macro let it be.)
 ///
 /// Dot-separated keys only. An index segment (`meta.tags[0]`) is refused at expansion with a
 /// diagnostic naming the alternative: indexing an array is a different operation from walking
@@ -616,7 +618,9 @@ public macro DateFormat(_ formats: AssayCore.DateFormat...) =
 /// configured elsewhere. The rules are deliberately boring — `"8080"` becomes 8080,
 /// `"8080.5"` is an **error** rather than a truncation, `1.0` converts and `1.5` does not,
 /// and nothing consults a locale, which is what makes it behave identically on Linux and
-/// on a Mac.
+/// on a Mac. On a `String` the conversion runs the other way: `@Coerce var host: String`
+/// accepts `8080` as `"8080"`, which is what an XML document — where every leaf is text —
+/// needs in reverse when a JSON producer sends the number.
 ///
 /// `@Schema(coerceScalars: true)` applies the same thing to every field, which is what a
 /// format with no types at all needs — XML has no numbers and no booleans, so every leaf
@@ -683,6 +687,11 @@ public macro Transform<In, Out>(_ transform: (In) -> Out) =
 /// warning. The fallback value is trusted without re-validation — silently swallowing
 /// bad data is the point, and the warning (visible through `diagnose`, discarded by
 /// `parse`) is how you find out it happened.
+///
+/// On an optional property (`@Fallback(1) var a: Int?`) the fallback fires on absence,
+/// on `null` and on an invalid value alike, so the property is never `nil` after a decode
+/// — the `?` is then only a statement about the Swift type, not about the wire. If absence
+/// should mean `nil`, drop the attribute; an optional already tolerates absence.
 @attached(peer)
 public macro Fallback<T>(_ value: T) =
     #externalMacro(module: "AssayMacros", type: "FallbackMacro")

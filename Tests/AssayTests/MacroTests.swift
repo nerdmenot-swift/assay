@@ -272,3 +272,90 @@ func expandWrapsForTesting(
     let diags = context.diagnostics.map(\.message).filter { seen.insert($0).inserted }
     return (text, diags)
 }
+
+// MARK: - The refusal table
+//
+// `Sources/AssayMacros/SchemaRefusals.swift`, 2026-09-10. Every case below expanded with
+// no diagnostic before that file existed, and then did less than it said — the audit
+// compiled and ran each one to be sure. The principle is stated in three places; this is
+// the suite that holds the macro to it.
+
+@Suite("Refusals — accepted-and-ignored is worse than refused")
+struct RefusalTests {
+
+    private func diags(_ src: String) -> [String] { expandSchemaForTesting(src).diagnostics }
+
+    @Test("@XML(root:) without an XML format")
+    func xmlRootWithoutXML() {
+        let d = diags(#"@Schema @XML(root: "book") struct S { var a: Int }"#)
+        #expect(d.contains { $0.contains("does not decode XML") }, "got \(d)")
+    }
+
+    @Test("@XML placement without an XML format")
+    func xmlPlacementWithoutXML() {
+        let d = diags("@Schema struct S { @XML(.attribute) var a: Int }")
+        #expect(d.contains { $0.contains("does not decode XML") }, "got \(d)")
+    }
+
+    @Test("@XML in both forms is fine once the format is declared")
+    func xmlWithFormat() {
+        let d = diags(#"@Schema(formats: .xml) @XML(root: "b") struct S { @XML(.attribute) var a: Int }"#)
+        #expect(d.isEmpty, "got \(d)")
+    }
+
+    /// The sink is the declaration of intent, so it implies `.collect` rather than being
+    /// refused — the expansion must carry the collecting arm.
+    @Test("@Extras implies unknownKeys: .collect")
+    func extrasImpliesCollect() {
+        let (exp, d) = expandSchemaForTesting(
+            "@Schema struct S { var a: Int; @Extras var rest: [String: RawValue] }")
+        #expect(d.isEmpty, "got \(d)")
+        #expect(exp.contains("__extras[__uk] = __uv"), "expansion does not collect")
+        let (warn, d2) = expandSchemaForTesting(
+            "@Schema(unknownKeys: .warn) struct S { var a: Int; @Extras var rest: [String: RawValue] }")
+        #expect(d2.isEmpty)
+        #expect(warn.contains("__extras[__uk] = __uv"))
+    }
+
+    @Test("@Extras with unknownKeys: .reject is contradictory")
+    func extrasWithReject() {
+        let d = diags("@Schema(unknownKeys: .reject) struct S { var a: Int; @Extras var r: [String: RawValue] }")
+        #expect(d.contains { $0.contains("both cannot hold") }, "got \(d)")
+    }
+
+    @Test("@Key and @Key(path:) on one property")
+    func keyAndPath() {
+        let d = diags(#"@Schema struct S { @Key("x") @Key(path: "a.b") var a: Int }"#)
+        #expect(d.contains { $0.contains("one wire location") }, "got \(d)")
+    }
+
+    @Test("@Ignore beside an attribute that would never run")
+    func ignoreWithValidate() {
+        let d = diags("@Schema struct S { var b: Int; @Ignore @Validate(.min(1)) var a: Int = 0 }")
+        #expect(d.contains { $0.contains("@Validate would never run") }, "got \(d)")
+        let plain = diags("@Schema struct S { var b: Int; @Ignore var a: Int = 0 }")
+        #expect(plain.isEmpty, "a plain @Ignore is fine: \(plain)")
+    }
+
+    @Test("@OneOrMany on a non-array")
+    func oneOrManyScalar() {
+        let d = diags("@Schema struct S { @OneOrMany var a: Int }")
+        #expect(d.contains { $0.contains("is not an array") }, "got \(d)")
+    }
+
+    /// Was a type error INSIDE the expansion: "cannot convert value of type 'Int' to
+    /// expected argument type 'String'" at `macro expansion @Schema:71`.
+    @Test("@Preprocess on a non-String")
+    func preprocessOnInt() {
+        let d = diags("@Schema struct S { @Preprocess(.trim) var a: Int }")
+        #expect(d.contains { $0.contains("is not one") }, "got \(d)")
+        let ok = diags("@Schema struct S { @Preprocess(.trim) var a: String? }")
+        #expect(ok.isEmpty, "an optional String is a String: \(ok)")
+    }
+
+    @Test("an empty @Schema struct")
+    func emptyStruct() {
+        let d = diags("@Schema struct S { }")
+        #expect(d.contains { $0.contains("no stored properties") }, "got \(d)")
+    }
+}

@@ -91,6 +91,9 @@ struct SchemaField {
 }
 
 enum SchemaError: Error, CustomStringConvertible {
+    /// A property was refused by `SchemaRefusals.property`, which has already diagnosed
+    /// it. Thrown so `fields(from:)` can stop; caught in `analyse` and never surfaced.
+    case refused
     case notAStruct
     case needsTypeAnnotation(String)
     case letWithInitializer(String)
@@ -102,6 +105,8 @@ enum SchemaError: Error, CustomStringConvertible {
 
     var description: String {
         switch self {
+        case .refused:
+            return "refused"
         case .notAStruct:
             return "@Schema can be applied to a struct, or to an enum with an @Unknown case"
         case .needsTypeAnnotation(let n):
@@ -147,20 +152,20 @@ public struct SchemaMacro: ExtensionMacro {
         conformingTo protocols: [TypeSyntax],
         in context: some MacroExpansionContext
     ) throws -> [ExtensionDeclSyntax] {
+        let config = SchemaConfig(node: node, declaration: declaration)
+        let typeName = type.trimmedDescription
 
         // An enum takes a different path entirely: it decodes as a scalar, not a
-        // mapping, and the only reason it needs a macro at all is @Unknown.
+        // mapping, and the only reason it needs a macro at all is @Unknown. A union and a
+        // closed string enum are both `@Schema enum`, and `discriminator:` is what tells
+        // them apart — a union's cases carry payloads, which the closed-enum path refuses.
         if let enumDecl = declaration.as(EnumDeclSyntax.self) {
-            // A union and a closed string enum are both `@Schema enum`, and `discriminator:`
-            // is what tells them apart — a union's cases carry payloads, which the closed-enum
-            // path refuses outright.
-            if let tag = Self.discriminator(from: node) {
-                return Self.unionExpansion(of: node, enumDecl: enumDecl,
-                                           typeName: type.trimmedDescription, tag: tag,
-                                           in: context)
+            if let tag = config.discriminator {
+                return Self.unionExpansion(of: node, enumDecl: enumDecl, config: config,
+                                           typeName: typeName, tag: tag, in: context)
             }
-            return Self.enumExpansion(of: node, enumDecl: enumDecl,
-                                      typeName: type.trimmedDescription, in: context)
+            return Self.enumExpansion(of: node, enumDecl: enumDecl, config: config,
+                                      typeName: typeName, in: context)
         }
         guard let structDecl = declaration.as(StructDeclSyntax.self) else {
             context.diagnose(Diagnostic(
@@ -169,8 +174,58 @@ public struct SchemaMacro: ExtensionMacro {
             return []
         }
 
-        let keyStyle = Self.keyStyle(from: node)
-        let typeName = type.trimmedDescription
+        // Three steps, each of which returns nil having diagnosed: what the declaration
+        // SAYS (analysis), whether that can mean what it says (refusals), and the code
+        // for it (emission). Until 2026-09-10 all three were one 356-line function, and
+        // that is where an option got accepted and ignored — `SchemaRefusals.swift`.
+        guard let analysis = try Self.analyse(structDecl, config: config,
+                                              typeName: typeName, node: node,
+                                              context: context) else { return [] }
+        guard SchemaRefusals.type(config: config, fields: analysis.fields,
+                                  extras: analysis.extras, typeName: typeName,
+                                  node: node, context: context) else { return [] }
+        guard let body = Self.emit(analysis, config: config, typeName: typeName,
+                                   node: node, context: context) else { return [] }
+
+        let ext = try ExtensionDeclSyntax(
+            "extension \(raw: typeName): \(raw: Self.conformances(analysis, config: config).joined(separator: ", "))") {
+            DeclSyntax(stringLiteral: body)
+        }
+        return [ext]
+    }
+
+    // MARK: - Analysis
+
+    /// What a struct declares, resolved: its fields (with `@Inline` flattened), the
+    /// `@Extras` sink, the path groups, the check members, and the dispatch plan.
+    struct Analysis {
+        var fields: [SchemaField]
+        var extras: SchemaField?
+        /// Decodable fields — not ignored, not the sink — with `coerceScalars` and the
+        /// span requirement applied.
+        var active: [SchemaField]
+        /// Declaration order, including @Extras, so the memberwise initializer's
+        /// arguments are emitted in the order Swift synthesised them.
+        var ordered: [SchemaField]
+        var pathGroups: [PathGroup]
+        var checks: [CheckDecl]
+        var plan: WindowPlan?
+        /// The unknown-key policy the bodies are emitted against. `@Extras` implies
+        /// `.collect` — `SchemaConfig.effectiveUnknownKeys`.
+        var policy: String
+    }
+
+    static func analyse(
+        _ structDecl: StructDeclSyntax,
+        config: SchemaConfig,
+        typeName: String,
+        node: AttributeSyntax,
+        context: some MacroExpansionContext
+    ) throws -> Analysis? {
+        func refuse(_ message: String, at syntax: Syntax = Syntax(node)) -> Analysis? {
+            context.diagnose(Diagnostic(node: syntax, message: SimpleDiagnostic(message)))
+            return nil
+        }
 
         // Nested type declarations, by name. `@Inline` reads members out of these -- which
         // is the whole reason it requires the type to be nested. See the macro's doc comment.
@@ -182,36 +237,40 @@ public struct SchemaMacro: ExtensionMacro {
         }
 
         var fields: [SchemaField] = []
+        // `fields(from:)` throws `.refused` after diagnosing a property that cannot mean
+        // what it says (`SchemaRefusals.property`); the diagnostic is already on the
+        // property, so the only thing to do here is stop.
+        do {
         for member in structDecl.memberBlock.members {
             guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
             let isInline = varDecl.attributes.compactMap { $0.as(AttributeSyntax.self) }
                 .contains { $0.attributeName.trimmedDescription == "Inline" }
-            for f in try Self.fields(from: varDecl, keyStyle: keyStyle, context: context) {
+            for f in try Self.fields(from: varDecl, keyStyle: config.keyStyle, context: context) {
                 guard isInline else { fields.append(f); continue }
 
                 let base = Self.stripOptional(f.typeName)
                 guard let nested = nestedTypes[base] else {
-                    context.diagnose(Diagnostic(node: Syntax(varDecl), message: SimpleDiagnostic(
+                    return refuse(
                         "@Inline requires '\(base)' to be declared inside '\(typeName)'. A "
                         + "macro receives only the syntax of the declaration it is attached "
                         + "to, so it cannot see another type's members -- in any module, "
                         + "including this one -- and a key collision between the two could "
-                        + "not be detected. Nest the type, or declare its fields directly.")))
-                    return []
+                        + "not be detected. Nest the type, or declare its fields directly.",
+                        at: Syntax(varDecl))
                 }
                 guard !f.isOptional else {
-                    context.diagnose(Diagnostic(node: Syntax(varDecl), message: SimpleDiagnostic(
+                    return refuse(
                         "@Inline cannot be optional. Its keys are read from this level, so "
                         + "'all absent' and 'some absent' are indistinguishable and there is "
-                        + "no honest answer for which one means nil.")))
-                    return []
+                        + "no honest answer for which one means nil.",
+                        at: Syntax(varDecl))
                 }
                 // Flatten. The nested fields keep their own `@Key` renames and rules; only
                 // their namespace changes, which is what makes collision detection fall out
                 // of the duplicate-key check that already runs below.
                 for nestedMember in nested.memberBlock.members {
                     guard let nv = nestedMember.decl.as(VariableDeclSyntax.self) else { continue }
-                    for var inner in try Self.fields(from: nv, keyStyle: keyStyle,
+                    for var inner in try Self.fields(from: nv, keyStyle: config.keyStyle,
                                                      context: context) {
                         inner.inlineOwner = (f.identifier, base)
                         fields.append(inner)
@@ -219,57 +278,38 @@ public struct SchemaMacro: ExtensionMacro {
                 }
             }
         }
-
-        let policy = Self.unknownKeys(from: node)
-        let wantsEncoding = Self.encodes(from: node)
-        let wantsSources = Self.sources(from: node)
-        let xmlRootName = Self.xmlRoot(from: declaration)
-        let coerceAll = Self.coerceScalars(from: node)
-        let formats = Self.formats(from: node)
-        let ctxType = Self.contextType(from: node)
-        let wantsDescribe = Self.describes(from: node)
+        } catch SchemaError.refused {
+            return nil
+        }
 
         // @Extras is a sink, not a field: it never enters the dispatch table, the
         // candidate key set, or the presence mask — but it is still passed to the
         // memberwise initializer.
         let extrasFields = fields.filter { $0.isExtras }
         guard extrasFields.count <= 1 else {
-            context.diagnose(Diagnostic(node: Syntax(node),
-                message: SimpleDiagnostic(SchemaError.multipleExtras.description)))
-            return []
+            return refuse(SchemaError.multipleExtras.description)
         }
         let extras = extrasFields.first
         if let e = extras, !e.typeName.hasPrefix("[String:") && !e.typeName.hasPrefix("[String :") {
-            context.diagnose(Diagnostic(node: Syntax(node),
-                message: SimpleDiagnostic(SchemaError.extrasWrongType(e.typeName).description)))
-            return []
+            return refuse(SchemaError.extrasWrongType(e.typeName).description)
         }
+        let policy = config.effectiveUnknownKeys(hasExtras: extras != nil)
         if policy == "collect" && extras == nil {
-            context.diagnose(Diagnostic(node: Syntax(node),
-                message: SimpleDiagnostic(SchemaError.collectWithoutExtras.description)))
-            return []
+            return refuse(SchemaError.collectWithoutExtras.description)
         }
 
         let active = fields.filter { !$0.isIgnored && !$0.isExtras }
-        guard !active.isEmpty || extras != nil else { return [] }
 
         // JSON object keys are strings; a dictionary field keyed by anything else would
         // fail inside generated code, pointing at nothing the user wrote.
         for f in active {
             if let bad = Self.firstNonStringDictKey(Self.stripOptional(f.typeName)) {
-                context.diagnose(Diagnostic(
-                    node: Syntax(node),
-                    message: SimpleDiagnostic(
-                        "dictionary fields must be keyed by String — object keys are "
-                        + "strings in every wire format; '\(f.identifier)' declares '\(bad)'")))
-                return []
+                return refuse("dictionary fields must be keyed by String — object keys are "
+                    + "strings in every wire format; '\(f.identifier)' declares '\(bad)'")
             }
         }
         guard active.count <= 64 else {
-            context.diagnose(Diagnostic(
-                node: Syntax(node),
-                message: SimpleDiagnostic(SchemaError.tooManyFields(active.count).description)))
-            return []
+            return refuse(SchemaError.tooManyFields(active.count).description)
         }
 
         // Every alias is flattened into the candidate set before the window search, so an
@@ -285,10 +325,7 @@ public struct SchemaMacro: ExtensionMacro {
         for f in active where f.pathSegments == nil {
             for key in [f.wireKey] + f.aliases {
                 if !seenKeys.insert(key).inserted {
-                    context.diagnose(Diagnostic(
-                        node: Syntax(node),
-                        message: SimpleDiagnostic(SchemaError.duplicateKey(key).description)))
-                    return []
+                    return refuse(SchemaError.duplicateKey(key).description)
                 }
                 candidates.append(Candidate(wireKey: key, fieldIndex: entryIndex))
             }
@@ -299,24 +336,19 @@ public struct SchemaMacro: ExtensionMacro {
             // bookkeeping one: one arm cannot both descend into an object and decode a
             // value. Caught by the same check, so the diagnostic is the one people know.
             if !seenKeys.insert(g.segment).inserted {
-                context.diagnose(Diagnostic(
-                    node: Syntax(node),
-                    message: SimpleDiagnostic(SchemaError.duplicateKey(g.segment).description)))
-                return []
+                return refuse(SchemaError.duplicateKey(g.segment).description)
             }
             candidates.append(Candidate(wireKey: g.segment, fieldIndex: entryIndex))
             entryIndex += 1
         }
 
-        let plan = formats.json
+        let plan = config.formats.json
             ? WindowSearch.search(candidates, fieldCount: entryIndex)
             : nil
-        // Declaration order, including @Extras, so the memberwise initializer's arguments
-        // are emitted in the order Swift synthesised them.
         let ordered = fields.filter { !$0.isIgnored }
         // `coerceScalars` on the type is the same switch as `@Coerce` on every field.
         let activeC = active.map { f -> SchemaField in
-            var g = f; g.coerce = f.coerce || coerceAll; return g
+            var g = f; g.coerce = f.coerce || config.coerceScalars; return g
         }
 
         // @Check / @AsyncCheck members, and span requirements they add.
@@ -329,8 +361,33 @@ public struct SchemaMacro: ExtensionMacro {
         }
 
         guard Self.checkValidations(activeS, node: node, context: context) else {
-            return []
+            return nil
         }
+
+        return Analysis(fields: fields, extras: extras, active: activeS, ordered: ordered,
+                        pathGroups: pathGroups, checks: checkDecls, plan: plan,
+                        policy: policy)
+    }
+
+    // MARK: - Emission
+
+    /// Report every message and say whether there were none. The four opt-in bodies each
+    /// have a pre-flight diagnostic list; this is the one place it is walked.
+    static func refuse(_ messages: [String], node: AttributeSyntax,
+                       context: some MacroExpansionContext) -> Bool {
+        for message in messages {
+            context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(message)))
+        }
+        return messages.isEmpty
+    }
+
+    static func emit(
+        _ a: Analysis, config: SchemaConfig, typeName: String,
+        node: AttributeSyntax, context: some MacroExpansionContext
+    ) -> String? {
+        let activeS = a.active
+        let ctxType = config.context
+        let formats = config.formats
 
         // Spelled out rather than left to associated-type inference. Inference across a
         // protocol refinement stops working the moment a type conforms to two of the
@@ -344,16 +401,16 @@ public struct SchemaMacro: ExtensionMacro {
         body += Self.dateFormatArrays(activeS)
         body += Self.preprocessArrays(activeS)
         body += Self.transformClosures(activeS)
-        if checkDecls.contains(where: { $0.fieldIdentifier == nil }) || !checkDecls.filter(\.isAsync).isEmpty {
+        if a.checks.contains(where: { $0.fieldIdentifier == nil }) || !a.checks.filter(\.isAsync).isEmpty {
             body += Self.fieldNameTable(typeName, activeS)
         }
         if formats.json {
-            body += Self.decodeBody(typeName: typeName, fields: activeS, plan: plan,
-                                    extras: extras, policy: policy, ordered: ordered,
+            body += Self.decodeBody(typeName: typeName, fields: activeS, plan: a.plan,
+                                    extras: a.extras, policy: a.policy, ordered: a.ordered,
                                     validation: Self.postDecodeSection(activeS, spans: true),
-                                    checks: Self.checkCalls(typeName, checkDecls, activeS,
+                                    checks: Self.checkCalls(typeName, a.checks, activeS,
                                                             spans: true, ctx: ctxType),
-                                    groups: pathGroups, ctx: ctxType)
+                                    groups: a.pathGroups, ctx: ctxType)
         }
         if formats.raw {
             if !body.isEmpty { body += "\n\n" }
@@ -362,78 +419,70 @@ public struct SchemaMacro: ExtensionMacro {
             // producer that tracks no offsets leaves them nil, and a nil span renders the
             // same span-less issue it always did.
             body += Self.rawDecodeBody(typeName: typeName, fields: activeS,
-                                       extras: extras, policy: policy, ordered: ordered,
+                                       extras: a.extras, policy: a.policy, ordered: a.ordered,
                                        emitKnownKeys: !formats.json,
                                        validation: Self.postDecodeSection(activeS, spans: true),
-                                       checks: Self.checkCalls(typeName, checkDecls, activeS,
+                                       checks: Self.checkCalls(typeName, a.checks, activeS,
                                                                spans: true, ctx: ctxType),
-                                       groups: pathGroups, ctx: ctxType)
+                                       groups: a.pathGroups, ctx: ctxType)
         }
-        if wantsEncoding {
-            for message in Self.encodeDiagnostics(activeS) {
-                context.diagnose(Diagnostic(node: Syntax(node),
-                                            message: SimpleDiagnostic(message)))
+        if config.encodes {
+            guard Self.refuse(Self.encodeDiagnostics(activeS), node: node, context: context) else {
+                return nil
             }
-            guard Self.encodeDiagnostics(activeS).isEmpty else { return [] }
             body += "\n\n" + Self.inverseClosures(activeS)
-            body += Self.declaredKeys(activeS, extras, groups: pathGroups)
+            body += Self.declaredKeys(activeS, a.extras, groups: a.pathGroups)
             if formats.json {
-                body += Self.encodeBody(typeName: typeName, fields: activeS, extras: extras,
-                                        groups: pathGroups)
+                body += Self.encodeBody(typeName: typeName, fields: activeS, extras: a.extras,
+                                        groups: a.pathGroups)
             }
             if formats.raw {
                 if formats.json { body += "\n\n" }
                 body += Self.rawEncodeBody(typeName: typeName, fields: activeS,
-                                           extras: extras, groups: pathGroups)
+                                           extras: a.extras, groups: a.pathGroups)
             }
             if formats.xml {
-                for message in Self.xmlDiagnostics(activeS) {
-                    context.diagnose(Diagnostic(node: Syntax(node),
-                                                message: SimpleDiagnostic(message)))
+                guard Self.refuse(Self.xmlDiagnostics(activeS), node: node, context: context) else {
+                    return nil
                 }
-                guard Self.xmlDiagnostics(activeS).isEmpty else { return [] }
                 body += "\n\n" + Self.xmlEncodeBody(typeName: typeName, fields: activeS,
-                                                     extras: extras, root: xmlRootName)
+                                                     extras: a.extras, root: config.xmlRoot)
             }
         }
         // The decode-side half of `@XML(root:)`. Emitted only when the attribute is present,
         // so an unannotated type carries nothing and checks nothing — a root element is very
         // often a wrapper the schema does not model, and rejecting one nobody declared would
         // refuse documents that are fine.
-        if let r = xmlRootName, formats.xml {
+        if let r = config.xmlRoot, formats.xml {
             if !body.isEmpty { body += "\n\n" }
             body += """
             nonisolated public static var _assayXMLExpectedRoot: String? { "\(r)" }
             """
         }
 
-        if wantsSources {
-            for message in Self.sourceDiagnostics(activeS) {
-                context.diagnose(Diagnostic(node: Syntax(node),
-                                            message: SimpleDiagnostic(message)))
+        if config.sources {
+            guard Self.refuse(Self.sourceDiagnostics(activeS), node: node, context: context) else {
+                return nil
             }
-            guard Self.sourceDiagnostics(activeS).isEmpty else { return [] }
             body += "\n\n" + Self.manifestBody(typeName: typeName, fields: activeS)
             body += "\n\n" + Self.batchBody(
                 typeName: typeName, fields: activeS,
                 validation: Self.postDecodeSection(activeS, spans: false))
         }
-        if Self.hasValidation(activeS, checkDecls) {
+        if Self.hasValidation(activeS, a.checks) {
             if !body.isEmpty { body += "\n\n" }
             body += Self.validateBody(typeName: typeName, fields: activeS,
-                                      checks: checkDecls, ctx: ctxType)
+                                      checks: a.checks, ctx: ctxType)
         }
-        if wantsDescribe {
-            for message in Self.describeDiagnostics(activeS) {
-                context.diagnose(Diagnostic(node: Syntax(node),
-                                            message: SimpleDiagnostic(message)))
+        if config.describes {
+            guard Self.refuse(Self.describeDiagnostics(activeS), node: node, context: context) else {
+                return nil
             }
-            guard Self.describeDiagnostics(activeS).isEmpty else { return [] }
             if !body.isEmpty { body += "\n\n" }
             body += Self.describeBody(typeName: typeName, fields: activeS,
-                                      policy: policy, groups: pathGroups)
+                                      policy: a.policy, groups: a.pathGroups)
         }
-        body += Self.asyncCheckRunner(typeName, checkDecls, ctx: ctxType)
+        body += Self.asyncCheckRunner(typeName, a.checks, ctx: ctxType)
 
         // A type that would expand to NOTHING AT ALL is always a mistake, and it is the
         // only reason `formats: []` needs guarding — said here, where the diagnostic can
@@ -442,189 +491,45 @@ public struct SchemaMacro: ExtensionMacro {
         // Every way of generating a body has to be listed, and `sources` belongs in that
         // list: `@Schema(formats: [], sources: true)` emits `_assayManifest` and
         // `_assayBatch`, so refusing it told the truth about `formats: []` and a falsehood
-        // about the declaration in front of it. That mattered more than a missing clause
-        // usually does, because there was no other correct spelling. A columnar-only type
-        // carrying a consumer's own scalar cannot say `formats: .json` either — the JSON
-        // byte path calls `T._assay(from: AssayReader…)`, which is not a public protocol
-        // requirement — so the only thing that compiled was `formats: .yaml, sources: true`
-        // plus a `RawDecodable` conformance per custom type that would never be called, to
-        // obtain a columnar decoder. That workaround would have ended up in real code.
-        //
-        // It is also the argument `ROADMAP.md` §1 already makes for `encodes:` being
-        // opt-in: a decode-only type must not pay for an encoder it never calls. A
-        // columnar-only type not paying for a JSON decoder it never calls is the same
-        // claim, and the guard was inconsistent with the design around it.
-        if !formats.json, !formats.raw, !formats.xml, !wantsEncoding, !wantsSources,
-           !Self.hasValidation(activeS, checkDecls) {
-            context.diagnose(Diagnostic(
-                node: Syntax(node),
-                message: SimpleDiagnostic(
-                    "@Schema(formats: []) emits no decode body, and this type declares no "
-                    + "@Validate, no @Check, no `encodes: true` and no `sources: true`, so "
-                    + "the macro would generate nothing. Add a rule if you want "
-                    + "`\(typeName).validate(_:)`, `sources: true` to decode from a column "
-                    + "store, or remove `formats: []` to decode JSON.")))
-            return []
+        // about the declaration in front of it. A columnar-only type carrying a consumer's
+        // own scalar cannot say `formats: .json` either — the JSON byte path calls
+        // `T._assay(from: AssayReader…)`, which is not a public protocol requirement.
+        if !formats.json, !formats.raw, !formats.xml, !config.encodes, !config.sources,
+           !Self.hasValidation(activeS, a.checks) {
+            _ = Self.refuse([
+                "@Schema(formats: []) emits no decode body, and this type declares no "
+                + "@Validate, no @Check, no `encodes: true` and no `sources: true`, so "
+                + "the macro would generate nothing. Add a rule if you want "
+                + "`\(typeName).validate(_:)`, `sources: true` to decode from a column "
+                + "store, or remove `formats: []` to decode JSON."], node: node, context: context)
+            return nil
         }
+        return body
+    }
 
-        var conformances: [String] = []
+    static func conformances(_ a: Analysis, config: SchemaConfig) -> [String] {
+        let ctx = config.isContextual
+        let formats = config.formats
+        var out: [String] = []
         if formats.json {
-            conformances.append(ctxType.isEmpty
-                ? "Assay.JSONAssayable" : "Assay.ContextualJSONAssayable")
+            out.append(ctx ? "Assay.ContextualJSONAssayable" : "Assay.JSONAssayable")
         }
         if formats.raw {
-            conformances.append(ctxType.isEmpty
-                ? "Assay.RawDecodable" : "Assay.ContextualRawDecodable")
+            out.append(ctx ? "Assay.ContextualRawDecodable" : "Assay.RawDecodable")
         }
-        if Self.hasValidation(activeS, checkDecls) {
-            conformances.append(ctxType.isEmpty
-                ? "Assay.Validatable" : "Assay.ContextualValidatable")
+        if Self.hasValidation(a.active, a.checks) {
+            out.append(ctx ? "Assay.ContextualValidatable" : "Assay.Validatable")
         }
-        if checkDecls.contains(where: \.isAsync) {
-            conformances.append(ctxType.isEmpty
-                ? "Assay.AsyncCheckAssayable" : "Assay.ContextualAsyncCheckAssayable")
+        if a.checks.contains(where: \.isAsync) {
+            out.append(ctx ? "Assay.ContextualAsyncCheckAssayable" : "Assay.AsyncCheckAssayable")
         }
-        if wantsEncoding && formats.json { conformances.append("Assay.JSONEncodableSchema") }
-        if wantsEncoding && formats.raw { conformances.append("Assay.RawEncodableSchema") }
-        if wantsEncoding && formats.xml { conformances.append("Assay.XMLEncodableSchema") }
-        if wantsSources { conformances.append("Assay.SourceDecodable") }
-        if xmlRootName != nil && formats.xml { conformances.append("Assay.XMLRooted") }
-        if wantsDescribe { conformances.append("Assay.SchemaDescribing") }
-
-        let ext = try ExtensionDeclSyntax(
-            "extension \(raw: typeName): \(raw: conformances.joined(separator: ", "))") {
-            DeclSyntax(stringLiteral: body)
-        }
-        return [ext]
-    }
-
-    // MARK: Attribute parsing
-
-    /// `@Schema(coerceScalars: true)` — for formats that have no types at all. XML is the
-    /// motivating case: every leaf is text, so a schema with an `Int` field cannot decode
-    /// from XML without it.
-    static func coerceScalars(from node: AttributeSyntax) -> Bool {
-        guard let args = node.arguments?.as(LabeledExprListSyntax.self) else { return false }
-        for arg in args where arg.label?.text == "coerceScalars" {
-            return arg.expression.trimmedDescription == "true"
-        }
-        return false
-    }
-
-    /// Which decode bodies to emit. Opt-in, defaulting to JSON only, because generated
-    /// code is not free — docs/COMPILE-TIME.md §4.5.
-    static func formats(from node: AttributeSyntax) -> (json: Bool, raw: Bool, xml: Bool) {
-        guard let args = node.arguments?.as(LabeledExprListSyntax.self) else {
-            return (true, false, false)
-        }
-        for arg in args where arg.label?.text == "formats" {
-            var names: [String] = []
-            if let array = arg.expression.as(ArrayExprSyntax.self) {
-                for element in array.elements {
-                    var t = element.expression.trimmedDescription
-                    while t.hasPrefix(".") { t.removeFirst() }
-                    names.append(t)
-                }
-            } else {
-                var t = arg.expression.trimmedDescription
-                while t.hasPrefix(".") { t.removeFirst() }
-                names.append(t)
-            }
-            if names.contains("all") { return (true, true, true) }
-            // `formats: []` means NO decode body, and it is a real configuration rather
-            // than a mistake to correct. A type decoded by something else — a Parquet or
-            // CSV reader that knows its own layout — still wants `@Validate` rules and
-            // `T.validate(_:)`, and making it carry a JSON decoder it will never call costs
-            // it the full per-field expansion (docs/VALIDATE.md §4). The case where this
-            // really would produce nothing useful is caught at expansion instead, where the
-            // diagnostic can say so.
-            if names.isEmpty { return (false, false, false) }
-            let json = names.contains("json")
-            let raw = names.contains("yaml") || names.contains("xml")
-            // An unrecognised name falls back rather than silently emitting nothing.
-            return (json || !raw, raw, names.contains("xml"))
-        }
-        return (true, false, false)
-    }
-
-    /// `@Schema(encodes: true)`. Opt-in for a compile-time reason, not a taste one:
-    /// generated body size dominates expansion cost, so a type that only decodes must not
-    /// pay for an encoder it never calls.
-    static func encodes(from node: AttributeSyntax) -> Bool {
-        guard let args = node.arguments?.as(LabeledExprListSyntax.self) else { return false }
-        for arg in args where arg.label?.text == "encodes" {
-            return arg.expression.trimmedDescription == "true"
-        }
-        return false
-    }
-
-    /// `@XML(root: "book")` on the TYPE, or nil when unannotated.
-    ///
-    /// Read from the declaration's own attribute list rather than from `@Schema`'s
-    /// arguments, because that is where the specified spelling puts it. The peer macro
-    /// itself expands to nothing — it exists so the attribute is legal and so this can find
-    /// it, exactly like `@XML(_ placement:)` on a var.
-    static func xmlRoot(from decl: some DeclGroupSyntax) -> String? {
-        for attr in decl.attributes.compactMap({ $0.as(AttributeSyntax.self) })
-        where attr.attributeName.trimmedDescription == "XML" {
-            guard let args = attr.arguments?.as(LabeledExprListSyntax.self),
-                  let first = args.first, first.label?.text == "root",
-                  let lit = first.expression.as(StringLiteralExprSyntax.self) else { continue }
-            return lit.segments.trimmedDescription
-        }
-        return nil
-    }
-
-    /// `@Schema(context: AppContext.self)` — EXPERIENCE.md §10.
-    ///
-    /// Returns the context type's NAME, or `""` for the overwhelming majority of types that
-    /// declare none. `""` rather than `nil` because every consumer interpolates it into
-    /// generated text, and `""` is the identity there: a context-free type must expand to
-    /// BYTE-IDENTICAL code to what it expanded to before this feature existed.
-    ///
-    /// The macro reads a token. It cannot check that `AppContext` is a type, is `Sendable`,
-    /// or has the members the checks call — the type checker does all three at the use site,
-    /// which is also where the error is legible.
-    static func contextType(from node: AttributeSyntax) -> String {
-        guard let args = node.arguments?.as(LabeledExprListSyntax.self) else { return "" }
-        for arg in args where arg.label?.text == "context" {
-            var t = arg.expression.trimmedDescription
-            if t.hasSuffix(".self") { t.removeLast(5) }
-            return t
-        }
-        return ""
-    }
-
-    /// `@Schema(sources: true)` — the KeyedSource decode body. Opt-in like every other
-    /// body: generated size dominates expansion cost.
-    static func sources(from node: AttributeSyntax) -> Bool {
-        guard let args = node.arguments?.as(LabeledExprListSyntax.self) else { return false }
-        for arg in args where arg.label?.text == "sources" {
-            return arg.expression.trimmedDescription == "true"
-        }
-        return false
-    }
-
-    static func unknownKeys(from node: AttributeSyntax) -> String {
-        guard let args = node.arguments?.as(LabeledExprListSyntax.self) else { return "ignore" }
-        for arg in args where arg.label?.text == "unknownKeys" {
-            var text = arg.expression.trimmedDescription
-            while text.hasPrefix(".") { text.removeFirst() }
-            if ["ignore", "warn", "reject", "collect"].contains(text) { return text }
-        }
-        return "ignore"
-    }
-
-    static func keyStyle(from node: AttributeSyntax) -> KeyStyle {
-        guard let args = node.arguments?.as(LabeledExprListSyntax.self) else { return .camelCase }
-        for arg in args where arg.label?.text == "keys" {
-            // `.snakeCase` arrives as a member-access expression; drop the leading dot.
-            // No Foundation in the macro target, so no `trimmingCharacters`.
-            var text = arg.expression.trimmedDescription
-            while text.hasPrefix(".") { text.removeFirst() }
-            if let s = KeyStyle(rawValue: text) { return s }
-        }
-        return .camelCase
+        if config.encodes && formats.json { out.append("Assay.JSONEncodableSchema") }
+        if config.encodes && formats.raw { out.append("Assay.RawEncodableSchema") }
+        if config.encodes && formats.xml { out.append("Assay.XMLEncodableSchema") }
+        if config.sources { out.append("Assay.SourceDecodable") }
+        if config.xmlRoot != nil && formats.xml { out.append("Assay.XMLRooted") }
+        if config.describes { out.append("Assay.SchemaDescribing") }
+        return out
     }
 
     // MARK: Member analysis
@@ -665,6 +570,12 @@ public struct SchemaMacro: ExtensionMacro {
 
         let attrs = varDecl.attributes.compactMap { $0.as(AttributeSyntax.self) }
         let attrNames = Set(attrs.map { $0.attributeName.trimmedDescription })
+        if let annotated = binding.typeAnnotation?.type.trimmedDescription {
+            guard SchemaRefusals.property(attrs: attrs, typeName: annotated,
+                                          varDecl: varDecl, context: context) else {
+                throw SchemaError.refused
+            }
+        }
         if attrNames.contains("Ignore") { return nil }
         let isExtras = attrNames.contains("Extras")
         let coerce = attrNames.contains("Coerce")

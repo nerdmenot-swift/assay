@@ -55,35 +55,17 @@ struct UnionCase {
 
 extension SchemaMacro {
 
-    /// `@Schema(discriminator:)`, or nil when the type is not a union.
-    ///
-    /// Returns the tag key for the tagged form, and `""` for `.untagged` — distinguished from
-    /// "no discriminator at all" by the outer Optional, because those are three states and
-    /// two of them must not be confused.
-    static func discriminator(from node: AttributeSyntax) -> String?? {
-        guard let args = node.arguments?.as(LabeledExprListSyntax.self) else { return nil }
-        for arg in args where arg.label?.text == "discriminator" {
-            if let lit = arg.expression.as(StringLiteralExprSyntax.self) {
-                return .some(lit.segments.description)
-            }
-            // `.untagged`. Any non-literal expression: the macro sees a token, and the only
-            // other value the type admits is this one. The return type is doubly-optional
-            // rather than a plain `String?` because "absent" and "untagged" must not merge.
-            return .some(nil)
-        }
-        return nil
-    }
-
     static func unionExpansion(
         of node: AttributeSyntax,
         enumDecl: EnumDeclSyntax,
+        config: SchemaConfig,
         typeName: String,
         tag: String?,
         in context: some MacroExpansionContext
     ) -> [ExtensionDeclSyntax] {
 
-        let keyStyle = Self.keyStyle(from: node)
-        let formats = Self.formats(from: node)
+        let keyStyle = config.keyStyle
+        let formats = config.formats
 
         let untagged = (tag == nil || tag!.isEmpty)
 
@@ -180,14 +162,14 @@ extension SchemaMacro {
         // stay NON-contextual — `parse(json:)` still resolves, no error anywhere, and the
         // context silently never reaches a check. That is the same shape as the `@XML(root:)`
         // trap: it compiles and checks nothing.
-        if Self.sources(from: node) {
+        if config.sources {
             context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
                 "@Schema(sources: true) is for a column-first source, which hands over whole "
                 + "columns of one record shape. A union is a choice between shapes and has no "
                 + "field manifest to bind; put `sources: true` on the variant types.")))
             return []
         }
-        if Self.describes(from: node) {
+        if config.describes {
             context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
                 "@Schema(describes: true) is not built for unions — a JSON Schema `oneOf` "
                 + "with a discriminator is its own design question, and describing a union "
@@ -196,7 +178,7 @@ extension SchemaMacro {
                 + "works today.")))
             return []
         }
-        if !Self.contextType(from: node).isEmpty {
+        if config.isContextual {
             context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
                 "@Schema(context:) is not built for unions. Accepting it would leave the type "
                 + "non-contextual with no error anywhere — `parse(json:)` would still resolve "
@@ -205,7 +187,7 @@ extension SchemaMacro {
             return []
         }
 
-        let wantsEncoding = Self.encodes(from: node)
+        let wantsEncoding = config.encodes
 
         var body = untagged
             ? untaggedBody(typeName: typeName, cases: cases)

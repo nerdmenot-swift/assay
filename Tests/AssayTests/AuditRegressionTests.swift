@@ -43,7 +43,7 @@ struct AuditRegressionTests {
         var sink = IssueSink()
         _ = YAML.decodeAll(Array(bomb(levels: 6, fanout: 9).utf8), into: &sink,
                            limits: .default)
-        #expect(sink.issues.contains { $0.code == .custom("yaml_expansion_limit") },
+        #expect(sink.issues.contains { $0.code == .yamlExpansionLimit },
                 "a 9^6 alias bomb must be refused")
 
         // The bound must not be so eager that ordinary aliasing breaks. 9^3 ≈ 15k nodes

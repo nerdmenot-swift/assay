@@ -46,7 +46,7 @@ func __assayCheckXMLRoot(
               let expected = rooted._assayXMLExpectedRoot else { return }
         let actual = doc.root.name.local
         guard actual != expected else { return }
-        sink.add(Issue(code: .custom("xml_root_mismatch"),
+        sink.add(Issue(code: .xmlRootMismatch,
                        path: [],
                        params: ["expected": .string(expected)],
                        received: actual))

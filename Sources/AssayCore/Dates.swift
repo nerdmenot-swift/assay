@@ -921,7 +921,7 @@ extension AssayReader {
         _ formats: [DateFormat], received: String, failure: DateParseFailure, caretAt: Int
     ) {
         sink.add(Issue(
-            code: .custom("invalid_date"),
+            code: .invalidDate,
             path: path + [.key(String(describing: key))],
             params: [
                 "expected": .string(formats.map(\.displayName).joined(separator: ", or ")),
@@ -939,7 +939,7 @@ extension AssayReader {
         matched: DateFormat, primary: DateFormat
     ) {
         sink.add(warning: Warning(
-            code: .custom("date_format_fallback"),
+            code: .dateFormatFallback,
             path: path + [.key(String(describing: key))],
             params: [
                 "matched": .string(matched.displayName),
@@ -1035,7 +1035,7 @@ extension RawValue {
         _ formats: [DateFormat], received: String, failure: DateParseFailure
     ) {
         sink.add(Issue(
-            code: .custom("invalid_date"),
+            code: .invalidDate,
             path: path + [.key(String(describing: key))],
             params: [
                 "expected": .string(formats.map(\.displayName).joined(separator: ", or ")),
@@ -1052,7 +1052,7 @@ extension RawValue {
         matched: DateFormat, primary: DateFormat
     ) {
         sink.add(warning: Warning(
-            code: .custom("date_format_fallback"),
+            code: .dateFormatFallback,
             path: path + [.key(String(describing: key))],
             params: [
                 "matched": .string(matched.displayName),

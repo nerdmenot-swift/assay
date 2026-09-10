@@ -127,7 +127,7 @@ struct NegotiationTests {
         let d = Body.diagnose(body: bomb, contentType: "application/xml", accepting: [.json])
         #expect(!d.isValid)
         #expect(d.issues.count == 1, "exactly one issue, from negotiation: \(d.issues.map(\.code))")
-        #expect(d.issues.first?.code == .custom("unsupported_media_type"))
+        #expect(d.issues.first?.code == .unsupportedMediaType)
         #expect(d.issues.first?.received == "application/xml")
     }
 
@@ -136,7 +136,7 @@ struct NegotiationTests {
     @Test("unsupported media type is its own code, not a parse error")
     func distinctCode() {
         let d = Body.diagnose(body: Self.json, contentType: "text/csv", accepting: [.json])
-        #expect(d.issues.first?.code == .custom("unsupported_media_type"))
+        #expect(d.issues.first?.code == .unsupportedMediaType)
         #expect(d.issues.first?.code != .malformedDocument)
     }
 
@@ -146,7 +146,7 @@ struct NegotiationTests {
     func neverSniffs(_ header: String?) {
         let d = Body.diagnose(body: Self.json, contentType: header, accepting: [.json])
         #expect(!d.isValid, "for \(String(describing: header))")
-        #expect(d.issues.first?.code == .custom("missing_content_type"))
+        #expect(d.issues.first?.code == .missingContentType)
     }
 
     @Test("an unreadable charset is refused rather than reinterpreted")
@@ -154,7 +154,7 @@ struct NegotiationTests {
         let d = Body.diagnose(body: Self.json,
                               contentType: "application/json; charset=iso-8859-1",
                               accepting: [.json])
-        #expect(d.issues.first?.code == .custom("unreadable_charset"))
+        #expect(d.issues.first?.code == .unreadableCharset)
         #expect(d.issues.first?.received == "iso-8859-1")
     }
 
@@ -173,7 +173,7 @@ struct NegotiationTests {
         let d = Body.diagnose(body: Array("{not json".utf8),
                               contentType: "application/json", accepting: [.json])
         #expect(!d.isValid)
-        #expect(d.issues.first?.code != .custom("unsupported_media_type"))
+        #expect(d.issues.first?.code != .unsupportedMediaType)
     }
 
     /// Order in `accepting:` decides ties. Nothing today matches two formats, but the rule

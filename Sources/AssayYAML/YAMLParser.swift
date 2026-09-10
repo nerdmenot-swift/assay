@@ -47,11 +47,11 @@ extension YAML {
     ) throws(YAMLParseError) -> Node {
         let docs = try parseAll(bytes, limits: limits)
         guard let first = docs.first else {
-            throw YAMLParseError(issues: [Issue(code: .custom("yaml_empty_stream"))])
+            throw YAMLParseError(issues: [Issue(code: .yamlEmptyStream)])
         }
         guard docs.count == 1 else {
             throw YAMLParseError(issues: [Issue(
-                code: .custom("yaml_multiple_documents"),
+                code: .yamlMultipleDocuments,
                 params: ["count": .int(docs.count)])])
         }
         return first
@@ -139,7 +139,7 @@ extension YAML {
         ) -> Bool {
             nodeBudget -= n
             guard nodeBudget > 0 else {
-                r.report(&sink, .custom("yaml_expansion_limit"))
+                r.report(&sink, .yamlExpansionLimit)
                 return false
             }
             return true
@@ -301,12 +301,12 @@ extension YAML {
                 // DISCARDING the `&q` (the early return below skips the recording), so a
                 // later `*q` failed with "undefined alias" and named the wrong problem.
                 guard anchor == nil else {
-                    r.report(&sink, .custom("yaml_anchor_on_alias"))
+                    r.report(&sink, .yamlAnchorOnAlias)
                     return nil
                 }
                 r.advanceBy(1)
                 guard let name = scanToken(&r), let target = anchors[name] else {
-                    r.report(&sink, .custom("yaml_undefined_alias"))
+                    r.report(&sink, .yamlUndefinedAlias)
                     return nil
                 }
                 guard chargeNode(anchorCost[name] ?? 1, r: &r, sink: &sink) else { return nil }
@@ -482,7 +482,7 @@ extension YAML {
                     key = k
                     skipBlanksAndComments(&r)
                     guard r.currentByte == UInt8(ascii: ":") else {
-                        r.report(&sink, .custom("yaml_expected_value_indicator"))
+                        r.report(&sink, .yamlExpectedValueIndicator)
                         return nil
                     }
                     r.advanceBy(1)
@@ -490,7 +490,7 @@ extension YAML {
                     guard let k = parseKeyScalar(&r, &sink, depth: depth) else { return nil }
                     key = k
                     guard r.currentByte == UInt8(ascii: ":") else {
-                        r.report(&sink, .custom("yaml_expected_colon"))
+                        r.report(&sink, .yamlExpectedColon)
                         return nil
                     }
                     r.advanceBy(1)
@@ -592,7 +592,7 @@ extension YAML {
             while true {
                 skipBlanksAndComments(&r)
                 guard let c = r.currentByte else {
-                    r.report(&sink, .custom("yaml_unterminated_flow_sequence"))
+                    r.report(&sink, .yamlUnterminatedFlowSequence)
                     return nil
                 }
                 if c == UInt8(ascii: "]") { r.advanceBy(1); break }
@@ -605,7 +605,7 @@ extension YAML {
                 let before = r.byteOffset
                 guard let item = parseFlowNode(&r, &sink, depth: depth + 1) else { return nil }
                 guard r.byteOffset > before else {
-                    r.report(&sink, .custom("yaml_unexpected_in_flow"))
+                    r.report(&sink, .yamlUnexpectedInFlow)
                     return nil
                 }
                 items.append(item)
@@ -617,10 +617,10 @@ extension YAML {
                 case UInt8(ascii: ","): r.advanceBy(1)
                 case UInt8(ascii: "]"): r.advanceBy(1); return .sequence(items)
                 case nil:
-                    r.report(&sink, .custom("yaml_unterminated_flow_sequence"))
+                    r.report(&sink, .yamlUnterminatedFlowSequence)
                     return nil
                 default:
-                    r.report(&sink, .custom("yaml_unexpected_in_flow"))
+                    r.report(&sink, .yamlUnexpectedInFlow)
                     return nil
                 }
             }
@@ -639,7 +639,7 @@ extension YAML {
             while true {
                 skipBlanksAndComments(&r)
                 guard let c = r.currentByte else {
-                    r.report(&sink, .custom("yaml_unterminated_flow_mapping"))
+                    r.report(&sink, .yamlUnterminatedFlowMapping)
                     return nil
                 }
                 if c == UInt8(ascii: "}") { r.advanceBy(1); break }
@@ -647,12 +647,12 @@ extension YAML {
                 let keyStart = r.byteOffset
                 guard let key = parseFlowNode(&r, &sink, depth: depth + 1) else { return nil }
                 guard r.byteOffset > keyStart else {
-                    r.report(&sink, .custom("yaml_unexpected_in_flow"))
+                    r.report(&sink, .yamlUnexpectedInFlow)
                     return nil
                 }
                 skipBlanksAndComments(&r)
                 guard r.currentByte == UInt8(ascii: ":") else {
-                    r.report(&sink, .custom("yaml_expected_colon"))
+                    r.report(&sink, .yamlExpectedColon)
                     return nil
                 }
                 r.advanceBy(1)
@@ -675,10 +675,10 @@ extension YAML {
                     for source in mergeSources { mergeInto(&pairs, from: source) }
                     return .mapping(pairs)
                 case nil:
-                    r.report(&sink, .custom("yaml_unterminated_flow_mapping"))
+                    r.report(&sink, .yamlUnterminatedFlowMapping)
                     return nil
                 default:
-                    r.report(&sink, .custom("yaml_unexpected_in_flow"))
+                    r.report(&sink, .yamlUnexpectedInFlow)
                     return nil
                 }
             }
@@ -731,7 +731,7 @@ extension YAML {
                 if r.currentByte == UInt8(ascii: "*") {
                     r.advanceBy(1)
                     guard let name = scanToken(&r), let target = anchors[name] else {
-                        r.report(&sink, .custom("yaml_undefined_alias"))
+                        r.report(&sink, .yamlUndefinedAlias)
                         return nil
                     }
                     guard chargeNode(anchorCost[name] ?? 1, r: &r, sink: &sink) else {
@@ -758,7 +758,7 @@ extension YAML {
             // existed, silently discarding the `&q` so a later `*q` failed with "undefined
             // alias" and named the wrong problem; `parseNode` now refuses it too.
             if r.currentByte == UInt8(ascii: "*") {
-                r.report(&sink, .custom("yaml_anchor_on_alias"))
+                r.report(&sink, .yamlAnchorOnAlias)
                 return nil
             }
 
@@ -965,7 +965,7 @@ extension YAML {
                 r.advanceBy(1)
             }
             guard r.currentByte == quote else {
-                r.report(&sink, .custom("yaml_unterminated_quoted_scalar"))
+                r.report(&sink, .yamlUnterminatedQuotedScalar)
                 return nil
             }
             let raw = r.string(from: start, to: r.byteOffset)
@@ -1019,12 +1019,12 @@ extension YAML {
                         hex.append(raw[i]); i = raw.index(after: i); n += 1
                     }
                     guard let v = UInt32(hex, radix: 16), let s = Unicode.Scalar(v) else {
-                        r.report(&sink, .custom("yaml_bad_escape"))
+                        r.report(&sink, .yamlBadEscape)
                         return nil
                     }
                     out.unicodeScalars.append(s)
                 default:
-                    r.report(&sink, .custom("yaml_bad_escape"))
+                    r.report(&sink, .yamlBadEscape)
                     return nil
                 }
             }

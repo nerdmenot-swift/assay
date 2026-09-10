@@ -477,7 +477,7 @@ struct ColumnDecodableTests {
         var store = Self.store(rows: 100)
         store.ints["at"] = nil
         _ = Sample._assayBatch(from: store, into: &sink, at: [])
-        let missing = sink.issues.filter { $0.code == .custom("missing_column") }
+        let missing = sink.issues.filter { $0.code == .missingColumn }
         #expect(missing.count == 1)
         #expect(missing.first?.params["expected"] == .string("Instant"),
                 "the declared type, not the manifest kind's spelling")
@@ -595,7 +595,7 @@ struct ColumnarTests {
         var s = Self.store(rows: 1_000)
         s.strings["name"] = nil
         let (values, issues, _) = Row.batch(from: s)
-        #expect(issues.filter { $0.code == .custom("missing_column") }.count == 1,
+        #expect(issues.filter { $0.code == .missingColumn }.count == 1,
                 "once, not a thousand times")
         #expect(issues.first?.message.contains("not a column") == true)
         #expect(values.isEmpty, "no row can be built without a required field")

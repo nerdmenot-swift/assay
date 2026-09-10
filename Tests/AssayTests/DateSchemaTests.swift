@@ -88,8 +88,8 @@ struct DateSchemaTests {
         """.utf8))
         let e = try d.get()
         #expect(e.updatedAt == Date(timeIntervalSince1970: 1_754_481_600))
-        #expect(d.warnings.contains { $0.code == .custom("date_format_fallback") })
-        let w = d.warnings.first { $0.code == .custom("date_format_fallback") }
+        #expect(d.warnings.contains { $0.code == .dateFormatFallback })
+        let w = d.warnings.first { $0.code == .dateFormatFallback }
         #expect(w?.params["matched"]?.displayString.contains("milliseconds") == true)
         #expect(w?.params["primary"]?.displayString.contains("ISO-8601") == true)
     }
@@ -103,7 +103,7 @@ struct DateSchemaTests {
          "updated_at": "2026-08-06T12:00:00Z"}
         """.utf8))
         #expect(!d.isValid)
-        let issue = d.issues.first { $0.code == .custom("invalid_date") }
+        let issue = d.issues.first { $0.code == .invalidDate }
         #expect(issue != nil)
         #expect(issue?.received == "2026-02-30T00:00:00Z")
         #expect(issue?.params["reason"]?.displayString.contains("day 30 is out of range") == true)
@@ -121,7 +121,7 @@ struct DateSchemaTests {
          "recorded_at": 1754481600,
          "updated_at": "yesterday"}
         """.utf8))
-        let issue = d.issues.first { $0.code == .custom("invalid_date") }
+        let issue = d.issues.first { $0.code == .invalidDate }
         #expect(issue?.params["expected"]?.displayString
                 == "ISO-8601 date, or unix timestamp (milliseconds)")
     }
@@ -153,10 +153,10 @@ struct DateSchemaTests {
         {"opens": "2031-01-01T00:00:00Z", "closes": "2019-06-01T00:00:00Z"}
         """.utf8))
         #expect(!d.isValid)
-        let late = d.issues.first { $0.code == .custom("date_not_before") }
+        let late = d.issues.first { $0.code == .dateNotBefore }
         #expect(late?.message == "must be before 2030-01-01T00:00:00Z")
         #expect(late?.received == "2031-01-01T00:00:00Z")     // rendered as a date
-        let outside = d.issues.first { $0.code == .custom("date_not_between") }
+        let outside = d.issues.first { $0.code == .dateNotBetween }
         #expect(outside?.message == "must be between 2020-01-01 and 2030-01-01")
     }
 
@@ -180,7 +180,7 @@ struct DateSchemaTests {
         var sink = IssueSink()
         _assayValidate(0.0, [.before("not-a-date")], override: nil, field: "f",
                        at: nil, path: [], &sink)
-        #expect(sink.issues.first?.code == .custom("invalid_rule_date"))
+        #expect(sink.issues.first?.code == .invalidRuleDate)
         #expect(sink.issues.first?.message.contains("not-a-date") == true)
     }
 }

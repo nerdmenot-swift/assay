@@ -164,7 +164,7 @@ struct UnionErrors {
     func unknownVariant() {
         let d = UnionEvent.diagnose(json: #"{"type":"pageview","url":"/"}"#)
         #expect(d.issues.count == 1)
-        #expect(d.issues.first?.code == .custom("union_unknown_variant"))
+        #expect(d.issues.first?.code == .unionUnknownVariant)
         #expect(d.issues.first?.params["didYouMean"] == .string("page_view"),
                 "got \(String(describing: d.issues.first?.params))")
         #expect(d.issues.first?.params["known"] == .string("click, page_view"))
@@ -173,7 +173,7 @@ struct UnionErrors {
     @Test("a tag that resembles nothing gets no suggestion rather than a wrong one")
     func noSuggestion() {
         let d = UnionEvent.diagnose(json: #"{"type":"zzzzzzz"}"#)
-        #expect(d.issues.first?.code == .custom("union_unknown_variant"))
+        #expect(d.issues.first?.code == .unionUnknownVariant)
         #expect(d.issues.first?.params["didYouMean"] == nil)
     }
 
@@ -215,7 +215,7 @@ struct UnionErrors {
             """#)
         // One issue about the variant; `id` still decoded, so no second issue about it.
         #expect(d.issues.count == 1, "\(d.issues.map { "\($0.code)" })")
-        #expect(d.issues.first?.code == .custom("union_unknown_variant"))
+        #expect(d.issues.first?.code == .unionUnknownVariant)
     }
 }
 
@@ -399,7 +399,7 @@ struct UntaggedUnionErrors {
         let d = Figure.diagnose(json: #"{"x":1,"y":"nope"}"#)
         #expect(!d.isValid)
 
-        let summary = d.issues.first { $0.code == .custom("union_no_variant_matched") }
+        let summary = d.issues.first { $0.code == .unionNoVariantMatched }
         #expect(summary != nil, "\(d.issues.map { "\($0.code)" })")
         #expect(summary?.params["closest"] == .string("point"),
                 "got \(String(describing: summary?.params["closest"]))")
@@ -415,7 +415,7 @@ struct UntaggedUnionErrors {
     @Test("the summary names the type and every variant")
     func summaryNamesEverything() {
         let d = StringOrNumber.diagnose(json: #"{"a":1}"#)
-        let summary = d.issues.first { $0.code == .custom("union_no_variant_matched") }
+        let summary = d.issues.first { $0.code == .unionNoVariantMatched }
         #expect(summary?.params["type"] == .string("StringOrNumber"))
         #expect(summary?.params["variants"] == .string("text, number"))
     }
@@ -464,7 +464,7 @@ struct UntaggedUnionBudget {
         let doc = #"{"figures":[{"z":1},{"z":1},{"z":1}]}"#
         let d = FigureMany.diagnose(json: doc, limits: limits)
         #expect(!d.isValid)
-        #expect(d.issues.contains { $0.code == .custom("union_budget_exhausted") },
+        #expect(d.issues.contains { $0.code == .unionBudgetExhausted },
                 "\(d.issues.map { "\($0.code)" })")
     }
 
@@ -477,7 +477,7 @@ struct UntaggedUnionBudget {
         // replay. If any of those refunded the counter, one attempt would never be exceeded.
         let doc = #"{"figures":[{"z":1}]}"#
         let d = FigureMany.diagnose(json: doc, limits: limits)
-        #expect(d.issues.contains { $0.code == .custom("union_budget_exhausted") },
+        #expect(d.issues.contains { $0.code == .unionBudgetExhausted },
                 "\(d.issues.map { "\($0.code)" })")
     }
 

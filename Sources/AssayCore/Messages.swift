@@ -301,6 +301,78 @@ extension Issue {
             }
             return "the rule's date bound is not a valid ISO-8601 date"
 
+        // Unions. docs/UNIONS.md §2. Found rendering as their identifiers on 2026-09-10,
+        // the day the message-coverage test started reading the names file instead of a
+        // hand-kept list.
+        case .custom("union_unknown_variant"):
+            let known = params["known"]?.displayString ?? ""
+            var m = known.isEmpty ? "names an unknown variant" : "must be one of \(known)"
+            if let r = received { m += ", found \(r)" }
+            if let d = params["didYouMean"]?.displayString { m += "; did you mean \"\(d)\"?" }
+            return m
+        case .custom("union_no_variant_matched"):
+            let type = params["type"]?.displayString ?? "the union"
+            let variants = params["variants"]?.displayString ?? ""
+            var m = "did not match any variant of \(type)"
+            if !variants.isEmpty { m += " (\(variants))" }
+            if let c = params["closest"]?.displayString, !c.isEmpty {
+                m += "; closest was \(c), whose issues follow"
+            }
+            return m
+        case .custom("union_budget_exhausted"):
+            if let n = params["maxUnionAttempts"] {
+                return "union backtracking exceeded \(n.displayString) attempts (Limits.maxUnionAttempts)"
+            }
+            return "union backtracking budget exhausted"
+
+        // Content negotiation. WireFormat.swift.
+        case .custom("missing_content_type"):
+            if let r = params["reason"]?.displayString { return "Content-Type \(r)" }
+            return "Content-Type is missing or unparseable"
+        case .custom("unsupported_media_type"):
+            if let r = received { return "media type \(r) is not in the accepted list" }
+            return "media type is not in the accepted list"
+        case .custom("unreadable_charset"):
+            var m = "charset"
+            if let c = params["charset"]?.displayString { m += " \(c)" }
+            m += " cannot be read without transcoding"
+            if let r = params["reason"]?.displayString { m += " — \(r)" }
+            return m
+
+        // Property lists, both flavours. Every one carries the parser's own `reason`.
+        case .custom("plist_bad_root"), .custom("plist_bad_value"), .custom("plist_bad_marker"),
+             .custom("plist_unpaired_key"), .custom("plist_bad_date"), .custom("plist_bad_real"),
+             .custom("plist_bad_string"), .custom("plist_bad_magic"), .custom("plist_bad_trailer"),
+             .custom("plist_bad_offset"), .custom("plist_bad_reference"), .custom("plist_truncated"),
+             .custom("plist_int_too_wide"), .custom("plist_int_out_of_range"),
+             .custom("plist_unrepresentable_key"):
+            if let r = params["reason"]?.displayString { return "property list: \(r)" }
+            return "property list is malformed"
+        case .custom("plist_cycle"):
+            if let r = params["reason"]?.displayString { return "property list: \(r)" }
+            return "property list contains a reference cycle"
+        case .custom("plist_amplification"):
+            if let r = params["reason"]?.displayString { return "property list: \(r)" }
+            return "property list expands past the node budget"
+        case .custom("plist_too_deep"):
+            if let d = params["maxDepth"] {
+                return "property list nests deeper than \(d.displayString) levels (Limits.maxDepth)"
+            }
+            return "property list nests too deeply"
+
+        // The rest.
+        case .custom("assayer_conversion_failed"):
+            return "the value was accepted by the schema but refused by its conversion"
+        case .custom("xml_recursive_entity"):
+            if let e = params["entity"]?.displayString { return "entity &\(e); refers to itself" }
+            return "an entity refers to itself"
+        case .custom("xml_root_mismatch"):
+            let expected = params["expected"]?.displayString ?? ""
+            if let r = received { return "root element must be <\(expected)>, found <\(r)>" }
+            return "root element must be <\(expected)>"
+        case .custom("yaml_anchor_on_alias"):
+            return "an anchor cannot be placed on an alias (`&a *b`); an alias refers to an anchored node and is not a node of its own"
+
         case .custom(let s):
             // An internal code renders as a sentence; otherwise — the EXPERIENCE.md §3
             // case — a one-off custom check whose string IS the message.
@@ -318,10 +390,6 @@ extension Warning {
 }
 
 // The @Fallback warning. Kept here with every other rendered sentence.
-extension IssueCode {
-    /// The code `@Fallback` warnings carry.
-    public static let fallbackApplied = IssueCode.custom("fallback_applied")
-}
 
 // MARK: - Printing
 //

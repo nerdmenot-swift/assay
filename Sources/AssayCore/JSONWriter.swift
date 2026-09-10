@@ -318,7 +318,7 @@ public struct JSONWriter: ~Copyable {
         _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString, _ v: Double
     ) {
         sink.add(Issue(
-            code: .custom("unrepresentable_value"),
+            code: .unrepresentableValue,
             path: path + [.key(String(describing: key))],
             params: ["format": .string("JSON")],
             received: v.isNaN ? "NaN" : (v > 0 ? "Infinity" : "-Infinity")))
@@ -405,14 +405,6 @@ public struct JSONWriter: ~Copyable {
 
 // MARK: - Encode-side issue codes
 
-extension IssueCode {
-    /// A value with no spelling in the target format — `Double.nan` in JSON, and the
-    /// motivating case for encoding having an error channel at all.
-    public static let unrepresentableValue = IssueCode.custom("unrepresentable_value")
-    /// An `@Extras` key that collides with a declared field's wire key. Writing both would
-    /// produce a duplicate key; silently dropping one would lose data.
-    public static let extrasKeyCollision = IssueCode.custom("extras_key_collision")
-}
 
 
 // MARK: - The RawValue encode seam
@@ -449,7 +441,3 @@ public func _assayUnknownNotEncodable(
         received: value))
 }
 
-extension IssueCode {
-    /// An unrecognised enum variant reached the encoder without opting into round-tripping.
-    public static let unknownNotEncodable = IssueCode.custom("unknown_not_encodable")
-}

@@ -83,9 +83,9 @@ struct ValidateTests {
         #expect(d.isValid == false)
         // All the errors, one pass: min(username) + regex(username), email, password, age, count.
         #expect(d.issues.count == 6)
-        #expect(d.issues.contains { $0.code == .custom("invalid_email") })
-        #expect(d.issues.contains { $0.code == .custom("not_in_range") })
-        #expect(d.issues.contains { $0.code == .custom("wrong_count") })
+        #expect(d.issues.contains { $0.code == .invalidEmail })
+        #expect(d.issues.contains { $0.code == .notInRange })
+        #expect(d.issues.contains { $0.code == .wrongCount })
     }
 
     @Test("decode errors and rule violations collect in the same pass")
@@ -96,7 +96,7 @@ struct ValidateTests {
         """#)
         #expect(d.isValid == false)
         #expect(d.issues.contains { $0.code == .typeMismatch })          // password
-        #expect(d.issues.contains { $0.code == .custom("invalid_email") })
+        #expect(d.issues.contains { $0.code == .invalidEmail })
     }
 
     @Test("the flagship: a caret under a value that parsed fine and validated badly")
@@ -134,7 +134,7 @@ struct ValidateTests {
         let issue = d.issues.first { $0.path.pathDescription == "password" }
         #expect(issue?.message == "must be at least 12 characters")
         // The code and params survive underneath the override — clients still branch.
-        #expect(issue?.code == .custom("too_small"))
+        #expect(issue?.code == .tooSmall)
         #expect(issue?.params["minimum"] == .int(12))
     }
 
@@ -166,10 +166,10 @@ struct ValidateTests {
         {"id":"not-a-uuid","link":"no scheme here","host":"-bad-.example","code":"café"}
         """#)
         #expect(bad.issues.count == 4)
-        #expect(bad.issues.contains { $0.code == .custom("invalid_uuid") })
-        #expect(bad.issues.contains { $0.code == .custom("invalid_url") })
-        #expect(bad.issues.contains { $0.code == .custom("invalid_hostname") })
-        #expect(bad.issues.contains { $0.code == .custom("not_ascii") })
+        #expect(bad.issues.contains { $0.code == .invalidUuid })
+        #expect(bad.issues.contains { $0.code == .invalidUrl })
+        #expect(bad.issues.contains { $0.code == .invalidHostname })
+        #expect(bad.issues.contains { $0.code == .notAscii })
     }
 
     @Test("email validation without a regex engine")
@@ -197,9 +197,9 @@ struct ValidateTests {
     func numbers() {
         let d = Numbers2.diagnose(json: #"{"count":0,"offset":-1,"step":7,"ratio":1.5}"#)
         #expect(d.issues.count == 3)
-        #expect(d.issues.contains { $0.code == .custom("not_positive") })
-        #expect(d.issues.contains { $0.code == .custom("negative") })
-        #expect(d.issues.contains { $0.code == .custom("not_multiple") })
+        #expect(d.issues.contains { $0.code == .notPositive })
+        #expect(d.issues.contains { $0.code == .negative })
+        #expect(d.issues.contains { $0.code == .notMultiple })
         _ = Numbers2.diagnose(json: #"{"count":5,"offset":0,"step":10,"ratio":0.5}"#)
     }
 
@@ -207,14 +207,14 @@ struct ValidateTests {
     func collections() {
         let d = Collections2.diagnose(json: #"{"tags":["a","b","a"],"items":[]}"#)
         #expect(d.issues.count == 2)
-        #expect(d.issues.contains { $0.code == .custom("not_unique") })
-        #expect(d.issues.contains { $0.code == .custom("empty") })
+        #expect(d.issues.contains { $0.code == .notUnique })
+        #expect(d.issues.contains { $0.code == .empty })
 
         let e = Signup.diagnose(json: #"""
         {"username":"ada_l","email":"a@example.com","password":"long-enough-pass",
          "age":36,"recipients":["ok@example.com","nope"]}
         """#)
-        let bad = e.issues.first { $0.code == .custom("invalid_email") }
+        let bad = e.issues.first { $0.code == .invalidEmail }
         #expect(bad?.path.pathDescription == "recipients[1]")
     }
 
@@ -228,7 +228,7 @@ struct ValidateTests {
 
         // A default that VIOLATES its own rule is caught — "absent is 3, still validated".
         let d = OptionalValidated.diagnose(json: #"{"retries":0}"#)
-        #expect(d.issues.contains { $0.code == .custom("too_small") })
+        #expect(d.issues.contains { $0.code == .tooSmall })
     }
 
     @Test("validation runs identically through the YAML path")
@@ -239,8 +239,8 @@ struct ValidateTests {
         image: docker.io/api
         """)
         #expect(d.isValid == false)
-        #expect(d.issues.contains { $0.code == .custom("too_small") })
-        #expect(d.issues.contains { $0.code == .custom("missing_prefix") })
+        #expect(d.issues.contains { $0.code == .tooSmall })
+        #expect(d.issues.contains { $0.code == .missingPrefix })
     }
 
     @Test("problemDetails carries validation codes and params for API clients")

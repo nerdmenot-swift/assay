@@ -115,8 +115,8 @@ struct XMLParserTests {
         // The entity is undeclared as far as expansion is concerned, so it errors rather
         // than silently passing raw text through.
         #expect(doc == nil || !sink.isValid)
-        #expect(sink.warnings.contains { $0.code == .custom("xml_external_entity_ignored") }
-                || sink.issues.contains { $0.code == .custom("xml_undeclared_entity") })
+        #expect(sink.warnings.contains { $0.code == .xmlExternalEntityIgnored }
+                || sink.issues.contains { $0.code == .xmlUndeclaredEntity })
     }
 
     @Test("SECURITY: billion laughs is capped")
@@ -327,7 +327,7 @@ struct YAMLParserTests {
         for text in ["[&p 1, &q *p]", "p: &p 1\nq: &q *p\n"] {
             var sink = IssueSink()
             _ = YAML.decodeAll(Array(text.utf8), into: &sink, limits: .default)
-            #expect(sink.issues.contains { $0.code == .custom("yaml_anchor_on_alias") },
+            #expect(sink.issues.contains { $0.code == .yamlAnchorOnAlias },
                     "for: \(text) — got \(sink.issues.map(\.code))")
         }
     }

@@ -158,7 +158,7 @@ private func unknownVariant(
         }
     }
     sink.add(Issue(
-        code: .custom("unknown_variant"),
+        code: .unknownVariant,
         path: path,
         params: params,
         received: received,

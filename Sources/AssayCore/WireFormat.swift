@@ -72,14 +72,14 @@ extension NegotiationFailure {
     public var issue: Issue {
         switch self {
         case .missingContentType:
-            return Issue(code: .custom("missing_content_type"), path: [],
+            return Issue(code: .missingContentType, path: [],
                          params: ["reason": .string(
                              "no Content-Type, and the format is never guessed from the bytes")])
         case .unsupportedMediaType(let m):
-            return Issue(code: .custom("unsupported_media_type"), path: [],
+            return Issue(code: .unsupportedMediaType, path: [],
                          params: ["received": .string(m)], received: m)
         case .unreadableCharset(let c):
-            return Issue(code: .custom("unreadable_charset"), path: [],
+            return Issue(code: .unreadableCharset, path: [],
                          params: ["charset": .string(c),
                                   "reason": .string("only UTF-8 and US-ASCII are read; "
                                                     + "this library does not transcode")],

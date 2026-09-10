@@ -32,71 +32,71 @@ extension Rule {
         switch kind {
         case .min(let n):
             if FormatValidators.characterCount(v) < Int(n) {
-                emit(&sink, "too_small", field, span, path, override,
+                emit(&sink, .tooSmall, field, span, path, override,
                      ["minimum": .int(Int(n)), "unit": .string("characters")], v)
             }
         case .max(let n):
             if FormatValidators.characterCount(v) > Int(n) {
-                emit(&sink, "too_large", field, span, path, override,
+                emit(&sink, .tooLarge, field, span, path, override,
                      ["maximum": .int(Int(n)), "unit": .string("characters")], v)
             }
         case .length(let n):
             if FormatValidators.characterCount(v) != n {
-                emit(&sink, "wrong_length", field, span, path, override,
+                emit(&sink, .wrongLength, field, span, path, override,
                      ["length": .int(n)], v)
             }
         case .notEmpty:
             if v.isEmpty {
-                emit(&sink, "empty", field, span, path, override, [:], v)
+                emit(&sink, .empty, field, span, path, override, [:], v)
             }
         case .regex(let pattern):
             applyRegex(pattern, to: v, override, field, span, path, &sink)
         case .email:
             if !FormatValidators.isEmail(v) {
-                emit(&sink, "invalid_email", field, span, path, override, [:], v)
+                emit(&sink, .invalidEmail, field, span, path, override, [:], v)
             }
         case .url:
             if !FormatValidators.isURL(v) {
-                emit(&sink, "invalid_url", field, span, path, override, [:], v)
+                emit(&sink, .invalidUrl, field, span, path, override, [:], v)
             }
         case .uuid:
             if !FormatValidators.isUUID(v) {
-                emit(&sink, "invalid_uuid", field, span, path, override, [:], v)
+                emit(&sink, .invalidUuid, field, span, path, override, [:], v)
             }
         case .hostname:
             if !FormatValidators.isHostname(v) {
-                emit(&sink, "invalid_hostname", field, span, path, override, [:], v)
+                emit(&sink, .invalidHostname, field, span, path, override, [:], v)
             }
         case .ascii:
             if !FormatValidators.isASCII(v) {
-                emit(&sink, "not_ascii", field, span, path, override, [:], v)
+                emit(&sink, .notAscii, field, span, path, override, [:], v)
             }
         case .trimmed:
             if !FormatValidators.isTrimmed(v) {
-                emit(&sink, "not_trimmed", field, span, path, override, [:], v)
+                emit(&sink, .notTrimmed, field, span, path, override, [:], v)
             }
         case .lowercased:
             if v != v.lowercased() {
-                emit(&sink, "not_lowercased", field, span, path, override, [:], v)
+                emit(&sink, .notLowercased, field, span, path, override, [:], v)
             }
         case .prefix(let p):
             if !v.hasPrefix(p) {
-                emit(&sink, "missing_prefix", field, span, path, override,
+                emit(&sink, .missingPrefix, field, span, path, override,
                      ["prefix": .string(p)], v)
             }
         case .suffix(let sfx):
             if !v.hasSuffix(sfx) {
-                emit(&sink, "missing_suffix", field, span, path, override,
+                emit(&sink, .missingSuffix, field, span, path, override,
                      ["suffix": .string(sfx)], v)
             }
         case .contains(let sub):
             if !FormatValidators.containsSubstring(v, sub) {
-                emit(&sink, "missing_substring", field, span, path, override,
+                emit(&sink, .missingSubstring, field, span, path, override,
                      ["substring": .string(sub)], v)
             }
         case .oneOf(let options):
             if !options.contains(v) {
-                emit(&sink, "not_one_of", field, span, path, override,
+                emit(&sink, .notOneOf, field, span, path, override,
                      ["options": .string(options.map { "\"\($0)\"" }.joined(separator: ", "))],
                      v)
             }
@@ -125,22 +125,22 @@ extension Rule {
         // instead of per value — same three codes, same params, same messages. Only the
         // compilation moved.
         if p.invalid {
-            emit(&sink, "invalid_regex_pattern", field, span, path, override,
+            emit(&sink, .invalidRegexPattern, field, span, path, override,
                  ["pattern": .string(p.pattern)], v)
             return
         }
         if #available(macOS 13, iOS 16, tvOS 16, watchOS 9, *) {
             guard let regex = p.compiled as? Regex<AnyRegexOutput> else {
-                emit(&sink, "regex_unavailable", field, span, path, override,
+                emit(&sink, .regexUnavailable, field, span, path, override,
                      ["pattern": .string(p.pattern)], v)
                 return
             }
             if (try? regex.firstMatch(in: v)) == nil {
-                emit(&sink, "pattern_mismatch", field, span, path, override,
+                emit(&sink, .patternMismatch, field, span, path, override,
                      ["pattern": .string(p.pattern)], v)
             }
         } else {
-            emit(&sink, "regex_unavailable", field, span, path, override,
+            emit(&sink, .regexUnavailable, field, span, path, override,
                  ["pattern": .string(p.pattern)], v)
         }
     }
@@ -155,44 +155,44 @@ extension Rule {
         switch kind {
         case .min(let n):
             if v < n {
-                emit(&sink, "too_small", field, span, path, override,
+                emit(&sink, .tooSmall, field, span, path, override,
                      ["minimum": numberParam(n, isInteger)], display(v, isInteger))
             }
         case .max(let n):
             if v > n {
-                emit(&sink, "too_large", field, span, path, override,
+                emit(&sink, .tooLarge, field, span, path, override,
                      ["maximum": numberParam(n, isInteger)], display(v, isInteger))
             }
         case .range(let lo, let hi):
             if v < lo || v > hi {
-                emit(&sink, "not_in_range", field, span, path, override,
+                emit(&sink, .notInRange, field, span, path, override,
                      ["minimum": numberParam(lo, isInteger),
                       "maximum": numberParam(hi, isInteger)], display(v, isInteger))
             }
         case .positive:
             if !(v > 0) {
-                emit(&sink, "not_positive", field, span, path, override, [:],
+                emit(&sink, .notPositive, field, span, path, override, [:],
                      display(v, isInteger))
             }
         case .negative:
             if !(v < 0) {
-                emit(&sink, "not_negative", field, span, path, override, [:],
+                emit(&sink, .notNegative, field, span, path, override, [:],
                      display(v, isInteger))
             }
         case .nonNegative:
             if v < 0 {
-                emit(&sink, "negative", field, span, path, override, [:],
+                emit(&sink, .negative, field, span, path, override, [:],
                      display(v, isInteger))
             }
         case .multipleOf(let m):
             let remainder = v.truncatingRemainder(dividingBy: m)
             if abs(remainder) > 1e-9 && abs(abs(remainder) - abs(m)) > 1e-9 {
-                emit(&sink, "not_multiple", field, span, path, override,
+                emit(&sink, .notMultiple, field, span, path, override,
                      ["multipleOf": numberParam(m, isInteger)], display(v, isInteger))
             }
         case .finite:
             if !v.isFinite {
-                emit(&sink, "not_finite", field, span, path, override, [:], String(v))
+                emit(&sink, .notFinite, field, span, path, override, [:], String(v))
             }
 
         // Dates reach this overload as epoch seconds (the generated code passes
@@ -200,22 +200,22 @@ extension Rule {
         // violation reads as a date, never as 1786363800.0.
         case .before(let bound, let display):
             if !(v < bound) {
-                emit(&sink, "date_not_before", field, span, path, override,
+                emit(&sink, .dateNotBefore, field, span, path, override,
                      ["bound": .string(display)], formatEpochISO(v))
             }
         case .after(let bound, let display):
             if !(v > bound) {
-                emit(&sink, "date_not_after", field, span, path, override,
+                emit(&sink, .dateNotAfter, field, span, path, override,
                      ["bound": .string(display)], formatEpochISO(v))
             }
         case .betweenDates(let lo, let hi, let displayLo, let displayHi):
             if v < lo || v > hi {
-                emit(&sink, "date_not_between", field, span, path, override,
+                emit(&sink, .dateNotBetween, field, span, path, override,
                      ["minimum": .string(displayLo), "maximum": .string(displayHi)],
                      formatEpochISO(v))
             }
         case .invalidRuleDate(let bound):
-            emit(&sink, "invalid_rule_date", field, span, path, override,
+            emit(&sink, .invalidRuleDate, field, span, path, override,
                  ["bound": .string(bound)], nil)
 
         case .all(let rules):
@@ -248,22 +248,22 @@ extension Rule {
         switch kind {
         case .min(let n):
             if count < Int(n) {
-                emit(&sink, "too_small", field, span, path, override,
+                emit(&sink, .tooSmall, field, span, path, override,
                      ["minimum": .int(Int(n)), "unit": .string("items")], "\(count) items")
             }
         case .max(let n):
             if count > Int(n) {
-                emit(&sink, "too_large", field, span, path, override,
+                emit(&sink, .tooLarge, field, span, path, override,
                      ["maximum": .int(Int(n)), "unit": .string("items")], "\(count) items")
             }
         case .count(let lo, let hi):
             if count < lo || count > hi {
-                emit(&sink, "wrong_count", field, span, path, override,
+                emit(&sink, .wrongCount, field, span, path, override,
                      ["minimum": .int(lo), "maximum": .int(hi)], "\(count) items")
             }
         case .notEmpty:
             if count == 0 {
-                emit(&sink, "empty", field, span, path, override, [:], "0 items")
+                emit(&sink, .empty, field, span, path, override, [:], "0 items")
             }
         case .all(let rules):
             for r in rules {
@@ -292,7 +292,7 @@ extension Rule {
     /// beats the derived sentence — the precedence EXPERIENCE.md §5 specifies.
     @usableFromInline
     func emit(
-        _ sink: inout IssueSink, _ code: String, _ field: StaticString,
+        _ sink: inout IssueSink, _ code: IssueCode, _ field: StaticString,
         _ span: SourceSpan?, _ path: [PathComponent], _ override: String?,
         _ params: [String: IssueValue], _ received: String?
     ) {
@@ -304,7 +304,7 @@ extension Rule {
         // field and index; an empty key would render as "recipients[1]." with a bare dot.
         let name = String(describing: field)
         sink.add(Issue(
-            code: .custom(code),
+            code: code,
             path: name.isEmpty ? path : path + [.key(name)],
             params: params,
             received: received,
@@ -370,7 +370,7 @@ public func _assayValidate(
             }
         } else if r.isUnique {
             if Set(v).count != v.count {
-                r.emit(&sink, "not_unique", field, span, path, override, [:], nil)
+                r.emit(&sink, .notUnique, field, span, path, override, [:], nil)
             }
         } else {
             r.applyCollectionCount(v.count, override, field, span, path, &sink)
@@ -394,7 +394,7 @@ public func _assayValidate(
             }
         } else if r.isUnique {
             if Set(v).count != v.count {
-                r.emit(&sink, "not_unique", field, span, path, override, [:], nil)
+                r.emit(&sink, .notUnique, field, span, path, override, [:], nil)
             }
         } else {
             r.applyCollectionCount(v.count, override, field, span, path, &sink)
@@ -430,7 +430,7 @@ public func _assayValidate(
             }
         } else if r.isUnique {
             if Set(v).count != v.count {
-                r.emit(&sink, "not_unique", field, span, path, override, [:], nil)
+                r.emit(&sink, .notUnique, field, span, path, override, [:], nil)
             }
         } else {
             r.applyCollectionCount(v.count, override, field, span, path, &sink)

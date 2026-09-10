@@ -94,7 +94,7 @@ extension AssayReader {
             params["didYouMean"] = .string(suggestion)
         }
         sink.add(Issue(
-            code: .custom("union_unknown_variant"),
+            code: .unionUnknownVariant,
             path: path + [.key(String(describing: key))],
             params: params,
             received: received))
@@ -127,7 +127,7 @@ extension AssayReader {
     @usableFromInline
     mutating func reportUnionBudget(_ sink: inout IssueSink, _ path: [PathComponent]) {
         sink.add(Issue(
-            code: .custom("union_budget_exhausted"),
+            code: .unionBudgetExhausted,
             path: path,
             params: ["maxUnionAttempts": .int(limits.maxUnionAttempts)]))
     }
@@ -144,7 +144,7 @@ extension AssayReader {
         _ typeName: StaticString, _ closest: String, _ known: [String]
     ) {
         sink.add(Issue(
-            code: .custom("union_no_variant_matched"),
+            code: .unionNoVariantMatched,
             path: path,
             params: [
                 "type": .string(String(describing: typeName)),

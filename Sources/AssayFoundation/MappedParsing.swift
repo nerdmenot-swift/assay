@@ -51,7 +51,7 @@ extension JSONAssayable {
         } catch {
             var sink = IssueSink(limits: limits)
             sink.add(Issue(
-                code: .custom("cannot_map_file"),
+                code: .cannotMapFile,
                 params: ["path": .string(url.path),
                          "reason": .string(String(describing: error))]))
             return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
@@ -99,7 +99,7 @@ extension JSONAssayable {
         } catch {
             var sink = IssueSink(limits: limits)
             sink.add(Issue(
-                code: .custom("cannot_map_file"),
+                code: .cannotMapFile,
                 params: ["path": .string(path),
                          "reason": .string(String(describing: error))]))
             return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,

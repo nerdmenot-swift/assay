@@ -33,7 +33,7 @@ struct XMLRootTests {
     func mismatch() {
         let d = RootedBook.diagnose(xml: "<magazine><title>T</title></magazine>")
         #expect(!d.isValid)
-        let issue = d.issues.first { $0.code == .custom("xml_root_mismatch") }
+        let issue = d.issues.first { $0.code == .xmlRootMismatch }
         #expect(issue != nil, "got \(d.issues.map(\.code))")
         #expect(issue?.params["expected"] == .string("book"))
         #expect(issue?.received == "magazine")

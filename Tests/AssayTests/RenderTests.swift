@@ -3,6 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 import Testing
+import Foundation
 import Assay
 import AssayCore
 
@@ -196,10 +197,10 @@ struct RenderTests {
         #expect(Issue(code: .custom("must be a company address")).message
                 == "must be a company address")
         // Internal codes render as sentences, not identifiers.
-        #expect(Issue(code: .custom("yaml_undefined_alias")).message
+        #expect(Issue(code: .yamlUndefinedAlias).message
                 == "alias refers to an undefined anchor")
         // An explicit message param wins over everything.
-        #expect(Issue(code: .custom("too_small"),
+        #expect(Issue(code: .tooSmall,
                       params: ["message": .string("way too short"),
                                "minimum": .int(12)]).message
                 == "way too short")
@@ -217,39 +218,36 @@ struct RenderTests {
 @Suite("Message coverage")
 struct MessageCoverageTests {
 
-    /// Every code the library can emit, gathered by hand from the emit sites. A code with
-    /// no derived message renders as its own identifier — `yaml_unexpected_in_flow`
-    /// instead of a sentence — which is a rendering bug that ships silently and reads as
-    /// contempt for whoever hit it. This caught exactly that after the fuzz fix added a
-    /// new code and not its message.
-    static let allCustomCodes = [
-        // Validation rules
-        "too_small", "too_large", "wrong_length", "empty", "not_in_range", "not_positive",
-        "not_negative", "negative", "not_multiple", "not_finite", "wrong_count",
-        "not_unique", "not_one_of", "pattern_mismatch", "invalid_regex_pattern",
-        "regex_unavailable", "invalid_email", "invalid_url", "invalid_uuid",
-        "invalid_hostname", "not_ascii", "not_trimmed", "not_lowercased",
-        "missing_prefix", "missing_suffix", "missing_substring",
-        // Enums, salvage, IO
-        "unknown_variant", "fallback_applied", "cannot_map_file",
-        // Dates
-        "invalid_date", "date_format_fallback", "date_not_before", "date_not_after",
-        "date_not_between", "invalid_rule_date",
-        // Encoding
-        "unrepresentable_value", "extras_key_collision", "unknown_not_encodable",
-        "missing_column",
-        // YAML
-        "yaml_empty_stream", "yaml_multiple_documents", "yaml_undefined_alias",
-        "yaml_expansion_limit", "yaml_expected_colon", "yaml_expected_value_indicator",
-        "yaml_unterminated_flow_sequence", "yaml_unterminated_flow_mapping",
-        "yaml_unexpected_in_flow", "yaml_unterminated_quoted_scalar", "yaml_bad_escape",
-        "yaml_unrepresentable_key",
-        // XML
-        "xml_unterminated_doctype", "xml_external_dtd_ignored",
-        "xml_external_entity_ignored",
-    ]
+    /// Every code the library can raise, read from the one file that names them all
+    /// (`Sources/AssayCore/IssueCode+Names.swift`) rather than from a list kept by hand.
+    /// The hand-kept list this replaced covered 55 of 85 codes and its "completeness" test
+    /// checked only that the list agreed with itself.
+    ///
+    /// A code with no derived message renders as its own identifier —
+    /// `yaml_unexpected_in_flow` instead of a sentence — which is a rendering bug that
+    /// ships silently and reads as contempt for whoever hit it.
+    static let allCustomCodes: [String] = {
+        let names = #filePath.split(separator: "/").dropLast(3).joined(separator: "/")
+            + "/Sources/AssayCore/IssueCode+Names.swift"
+        guard let text = try? String(contentsOfFile: "/" + names, encoding: .utf8) else {
+            return ["<could not read IssueCode+Names.swift>"]
+        }
+        var out: [String] = []
+        for line in text.split(separator: "\n") {
+            guard let open = line.range(of: "IssueCode.custom(\""),
+                  let close = line[open.upperBound...].firstIndex(of: "\"") else { continue }
+            out.append(String(line[open.upperBound..<close]))
+        }
+        return out
+    }()
 
-    @Test("every emitted code derives a human sentence, not its own identifier",
+    @Test("the names file was found and is not tiny")
+    func namesFileRead() {
+        #expect(MessageCoverageTests.allCustomCodes.count >= 80,
+                "got \(MessageCoverageTests.allCustomCodes.count)")
+    }
+
+    @Test("every named code derives a human sentence, not its own identifier",
           arguments: MessageCoverageTests.allCustomCodes)
     func codeHasMessage(_ code: String) {
         let issue = Issue(code: .custom(code), path: [])
@@ -257,14 +255,31 @@ struct MessageCoverageTests {
         #expect(issue.message.isEmpty == false)
     }
 
-    @Test("the emit sites in Sources are all covered by the list above")
-    func listIsComplete() {
-        // A guard against the list drifting from reality: every code in it must be one
-        // the message tables know. The reverse direction (a new emit site with no entry
-        // here) is checked by the audit in the commit that introduced this suite.
-        for code in MessageCoverageTests.allCustomCodes {
-            #expect(Issue(code: .custom(code), path: []).message != code)
+    /// The reverse direction: a `.custom("…")` raised anywhere in `Sources/` that has no
+    /// name. Raise sites use the statics, so a literal outside the names file and the
+    /// message table is a code nobody can match on by name.
+    @Test("no raise site uses a string literal the names file does not know")
+    func noAnonymousCodes() throws {
+        let root = "/" + #filePath.split(separator: "/").dropLast(3).joined(separator: "/")
+        let fm = FileManager.default
+        var offenders: [String] = []
+        let e = try #require(fm.enumerator(atPath: root + "/Sources"))
+        for case let rel as String in e where rel.hasSuffix(".swift") {
+            // The macro target emits SOURCE TEXT; its one `.custom("Instant")` is a
+            // `ColumnMetadata` unit, not an issue code.
+            if rel.hasSuffix("IssueCode+Names.swift") || rel.hasSuffix("Messages.swift")
+                || rel.hasPrefix("AssayMacros/") { continue }
+            let text = try String(contentsOfFile: root + "/Sources/" + rel, encoding: .utf8)
+            var search = text[...]
+            while let r = search.range(of: ".custom(\"") {
+                let rest = search[r.upperBound...]
+                if let q = rest.firstIndex(of: "\"") {
+                    offenders.append("\(rel): \(rest[..<q])")
+                }
+                search = rest
+            }
         }
+        #expect(offenders.isEmpty, "\(offenders)")
     }
 }
 

@@ -220,14 +220,14 @@ struct MultiFormatTests {
         ssl_required: false
         """)
         #expect(d.isValid == false)
-        #expect(d.issues.contains { $0.code == .custom("yaml_multiple_documents") })
+        #expect(d.issues.contains { $0.code == .yamlMultipleDocuments })
     }
 
     @Test("a YAML non-string mapping key is reported, not coerced")
     func yamlUnrepresentableKey() {
         let d = DatabaseConfig.diagnose(yaml: "? [1,2]\n: x\n")
         #expect(d.isValid == false)
-        #expect(d.issues.contains { $0.code == .custom("yaml_unrepresentable_key") })
+        #expect(d.issues.contains { $0.code == .yamlUnrepresentableKey })
     }
 
     @Test("malformed input in each format reports rather than trapping")

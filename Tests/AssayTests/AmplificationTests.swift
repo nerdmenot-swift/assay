@@ -343,7 +343,7 @@ struct XMLEntityTests {
             var sink = IssueSink()
             let d = XML.decode(Array(doc.utf8), into: &sink)
             #expect(d == nil || !sink.isValid, "recursion must not be accepted")
-            #expect(sink.issues.contains { $0.code == .custom("xml_recursive_entity") })
+            #expect(sink.issues.contains { $0.code == .xmlRecursiveEntity })
         }
     }
 
@@ -362,7 +362,7 @@ struct XMLEntityTests {
         var sink = IssueSink()
         let d = XML.decode(Array(doc.utf8), into: &sink)
         #expect(d == nil || !sink.isValid)
-        #expect(sink.issues.contains { $0.code == .custom("xml_entity_expansion_limit") })
+        #expect(sink.issues.contains { $0.code == .xmlEntityExpansionLimit })
     }
 
     /// The floor, so a small document may still use entities the way documents do.

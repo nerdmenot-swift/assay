@@ -154,7 +154,7 @@ struct MappedFileTests {
             #expect(d.isValid == false)
             // mmap rejects a zero-length mapping; MappedFile handles that rather than
             // surfacing EINVAL as a file error.
-            #expect(!d.issues.contains { $0.code == .custom("cannot_map_file") })
+            #expect(!d.issues.contains { $0.code == .cannotMapFile })
         }
     }
 
@@ -162,7 +162,7 @@ struct MappedFileTests {
     func missingFile() {
         let d = MappedDoc.diagnose(mmappedPath: "/nonexistent/assay/nope.json")
         #expect(d.isValid == false)
-        #expect(d.issues.contains { $0.code == .custom("cannot_map_file") })
+        #expect(d.issues.contains { $0.code == .cannotMapFile })
     }
 
     @Test("invalid UTF-8 in a mapped file is caught by the same whole-buffer pass")

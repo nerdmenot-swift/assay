@@ -84,7 +84,7 @@ struct AssayerBackedTests {
 
         let bad = EvenHolder.diagnose(json: Array(#"{"n": 5}"#.utf8))
         #expect(!bad.isValid)
-        #expect(bad.issues.contains { $0.code == .custom("assayer_conversion_failed") },
+        #expect(bad.issues.contains { $0.code == .assayerConversionFailed },
                 "\(bad.issues.map(\.code))")
     }
 

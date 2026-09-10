@@ -168,7 +168,7 @@ struct XMLPlistTests {
         let v = Plist.decode(Array("<dict><key>d</key><data>not!base64</data></dict>".utf8),
                              into: &sink)
         #expect(v == nil)
-        #expect(sink.issues.contains { $0.code == .custom("plist_bad_value") })
+        #expect(sink.issues.contains { $0.code == .plistBadValue })
     }
 
     /// Foundation is lenient about this. Being lenient about which value belongs to which key
@@ -178,7 +178,7 @@ struct XMLPlistTests {
         var sink = IssueSink(limits: .default)
         let v = Plist.decode(Array("<dict><key>a</key></dict>".utf8), into: &sink)
         #expect(v == nil)
-        #expect(sink.issues.contains { $0.code == .custom("plist_unpaired_key") })
+        #expect(sink.issues.contains { $0.code == .plistUnpairedKey })
     }
 
     @Test("a value with no <key> before it is a malformed document")
@@ -186,7 +186,7 @@ struct XMLPlistTests {
         var sink = IssueSink(limits: .default)
         let v = Plist.decode(Array("<dict><string>x</string></dict>".utf8), into: &sink)
         #expect(v == nil)
-        #expect(sink.issues.contains { $0.code == .custom("plist_unpaired_key") })
+        #expect(sink.issues.contains { $0.code == .plistUnpairedKey })
     }
 
     /// A number read as a different number is the one failure a decoder must never have.
@@ -197,7 +197,7 @@ struct XMLPlistTests {
             "<dict><key>n</key><integer>99999999999999999999</integer></dict>".utf8),
             into: &sink)
         #expect(v == nil)
-        #expect(sink.issues.contains { $0.code == .custom("plist_int_out_of_range") })
+        #expect(sink.issues.contains { $0.code == .plistIntOutOfRange })
     }
 
     @Test("an element that is not a plist type is named in the issue")
@@ -205,7 +205,7 @@ struct XMLPlistTests {
         var sink = IssueSink(limits: .default)
         let v = Plist.decode(Array("<dict><key>a</key><widget/></dict>".utf8), into: &sink)
         #expect(v == nil)
-        #expect(sink.issues.contains { $0.code == .custom("plist_bad_marker") })
+        #expect(sink.issues.contains { $0.code == .plistBadMarker })
     }
 }
 
@@ -270,7 +270,7 @@ struct BinaryPlistTests {
         let top = b.add(BPlistBuilder.array([99]))
         var sink = IssueSink(limits: .default)
         #expect(Plist.decode(b.finish(top: top), into: &sink) == nil)
-        #expect(sink.issues.contains { $0.code == .custom("plist_bad_reference") })
+        #expect(sink.issues.contains { $0.code == .plistBadReference })
     }
 
     @Test("a UTF-16 string decodes, and an unpaired surrogate does not")
@@ -285,7 +285,7 @@ struct BinaryPlistTests {
         let bad = c.add([0x61, 0xD8, 0x00])          // a lone high surrogate
         var sink2 = IssueSink(limits: .default)
         #expect(Plist.decode(c.finish(top: bad), into: &sink2) == nil)
-        #expect(sink2.issues.contains { $0.code == .custom("plist_bad_string") })
+        #expect(sink2.issues.contains { $0.code == .plistBadString })
     }
 
     @Test("<data> becomes base64 in the binary flavour too, so the flavours agree")
@@ -315,7 +315,7 @@ struct BinaryPlistTests {
         let top = b.add([0xD1, UInt8(k), UInt8(v)])
         var sink = IssueSink(limits: .default)
         #expect(Plist.decode(b.finish(top: top), into: &sink) == nil)
-        #expect(sink.issues.contains { $0.code == .custom("plist_unrepresentable_key") })
+        #expect(sink.issues.contains { $0.code == .plistUnrepresentableKey })
     }
 }
 
@@ -330,7 +330,7 @@ struct PlistAmplification {
         let top = b.add(BPlistBuilder.array([0]))    // object 0 is itself
         var sink = IssueSink(limits: .default)
         #expect(Plist.decode(b.finish(top: top), into: &sink) == nil)
-        #expect(sink.issues.contains { $0.code == .custom("plist_cycle") })
+        #expect(sink.issues.contains { $0.code == .plistCycle })
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -340,7 +340,7 @@ struct PlistAmplification {
         _ = b.add(BPlistBuilder.array([0]))          // 1 -> 0
         var sink = IssueSink(limits: .default)
         #expect(Plist.decode(b.finish(top: 0), into: &sink) == nil)
-        #expect(sink.issues.contains { $0.code == .custom("plist_cycle") })
+        #expect(sink.issues.contains { $0.code == .plistCycle })
     }
 
     /// **The billion-laughs shape, in plist.** Ten arrays, each holding many references to the
@@ -362,7 +362,7 @@ struct PlistAmplification {
 
         var sink = IssueSink(limits: .default)
         #expect(Plist.decode(doc, into: &sink) == nil)
-        #expect(sink.issues.contains { $0.code == .custom("plist_amplification") },
+        #expect(sink.issues.contains { $0.code == .plistAmplification },
                 "got \(sink.issues.map(\.code))")
     }
 
@@ -392,7 +392,7 @@ struct PlistAmplification {
         // truncate them into a document that is malformed for the wrong reason.
         #expect(Plist.decode(b.finish(top: previous, offsetSize: 2), into: &sink) == nil)
         #expect(sink.issues.contains {
-            $0.code == .custom("plist_too_deep") || $0.code == .custom("plist_amplification")
+            $0.code == .plistTooDeep || $0.code == .plistAmplification
         })
     }
 
@@ -406,7 +406,7 @@ struct PlistAmplification {
         doc[doc.count - 32 + 6] = 0
         var sink = IssueSink(limits: .default)
         #expect(Plist.decode(doc, into: &sink) == nil)
-        #expect(sink.issues.contains { $0.code == .custom("plist_bad_trailer") })
+        #expect(sink.issues.contains { $0.code == .plistBadTrailer })
     }
 
     @Test

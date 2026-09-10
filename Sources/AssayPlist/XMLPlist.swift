@@ -60,7 +60,7 @@ enum XMLPlist {
                 return nil
             }
             guard children.count == 1 else {
-                sink.add(Issue(code: .custom("plist_bad_root"), params: ["reason": .string(
+                sink.add(Issue(code: .plistBadRoot, params: ["reason": .string(
                     "<plist> must contain exactly one value, found \(children.count)")]))
                 return nil
             }
@@ -75,13 +75,13 @@ enum XMLPlist {
         _ e: XML.Element, depth: Int, into sink: inout IssueSink, limits: Limits
     ) -> RawValue? {
         guard depth <= limits.maxDepth else {
-            sink.add(Issue(code: .custom("plist_too_deep"),
+            sink.add(Issue(code: .plistTooDeep,
                            params: ["maxDepth": .int(limits.maxDepth)]))
             return nil
         }
 
-        func bad(_ reason: String, _ code: String = "plist_bad_value") -> RawValue? {
-            sink.add(Issue(code: .custom(code), params: ["reason": .string(reason)]))
+        func bad(_ reason: String, _ code: IssueCode = .plistBadValue) -> RawValue? {
+            sink.add(Issue(code: code, params: ["reason": .string(reason)]))
             return nil
         }
 
@@ -97,7 +97,7 @@ enum XMLPlist {
                 // Not saturated, not truncated. A number read as a different number is the
                 // one failure a decoder must never have.
                 return bad("'\(t)' is not an integer this decoder can represent",
-                           "plist_int_out_of_range")
+                           .plistIntOutOfRange)
             }
             return .int(n)
 
@@ -139,14 +139,14 @@ enum XMLPlist {
                 if c.name.local == "key" {
                     guard pendingKey == nil else {
                         return bad("two <key> elements in a row inside <dict>",
-                                   "plist_unpaired_key")
+                                   .plistUnpairedKey)
                     }
                     pendingKey = text(c)
                     continue
                 }
                 guard let k = pendingKey else {
                     return bad("<\(c.name.local)> inside <dict> with no <key> before it",
-                               "plist_unpaired_key")
+                               .plistUnpairedKey)
                 }
                 pendingKey = nil
                 guard let v = value(c, depth: depth + 1, into: &sink, limits: limits) else {
@@ -155,12 +155,12 @@ enum XMLPlist {
                 members.append(.init(key: k, value: v))
             }
             guard pendingKey == nil else {
-                return bad("a trailing <key> with no value", "plist_unpaired_key")
+                return bad("a trailing <key> with no value", .plistUnpairedKey)
             }
             return .mapping(members)
 
         default:
-            return bad("<\(e.name.local)> is not a property-list type", "plist_bad_marker")
+            return bad("<\(e.name.local)> is not a property-list type", .plistBadMarker)
         }
     }
 

@@ -152,7 +152,7 @@ extension XML {
 
             skipSpace(&r)
             guard r.currentByte == UInt8(ascii: "<") else {
-                r.report(&sink, .custom("xml_no_root"))
+                r.report(&sink, .xmlNoRoot)
                 return nil
             }
             guard let root = parseElement(&r, &sink, depth: 0) else { return nil }
@@ -182,13 +182,13 @@ extension XML {
                 return nil
             }
             guard r.consume("<") else {
-                r.report(&sink, .custom("xml_expected_element"))
+                r.report(&sink, .xmlExpectedElement)
                 return nil
             }
 
             let nameStart = r.byteOffset
             guard let nameRange = scanNameRange(&r) else {
-                r.report(&sink, .custom("xml_bad_name"))
+                r.report(&sink, .xmlBadName)
                 return nil
             }
             let rawName = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
@@ -240,7 +240,7 @@ extension XML {
                                                            len: rawName.utf8.count))
             }
             guard r.consume(">") else {
-                r.report(&sink, .custom("xml_unterminated_tag"))
+                r.report(&sink, .xmlUnterminatedTag)
                 return nil
             }
             // Everything between `>` and the matching `</` is this element's content, and
@@ -257,7 +257,7 @@ extension XML {
 
             while true {
                 guard !r.atEnd else {
-                    sink.add(Issue(code: .custom("xml_unclosed_element"),
+                    sink.add(Issue(code: .xmlUnclosedElement,
                                    path: [.key(rawName)],
                                    received: rawName,
                                    location: SourceSpan(lo: nameStart, len: rawName.utf8.count)))
@@ -268,17 +268,17 @@ extension XML {
                     contentEnd = r.byteOffset
                     _ = r.consume("</")
                     guard let close = scanName(&r) else {
-                        r.report(&sink, .custom("xml_bad_name"))
+                        r.report(&sink, .xmlBadName)
                         return nil
                     }
                     skipSpace(&r)
                     guard r.consume(">") else {
-                        r.report(&sink, .custom("xml_unterminated_tag"))
+                        r.report(&sink, .xmlUnterminatedTag)
                         return nil
                     }
                     guard close == rawName else {
                         sink.add(Issue(
-                            code: .custom("xml_mismatched_tag"),
+                            code: .xmlMismatchedTag,
                             path: [.key(rawName)],
                             params: ["expected": .string(rawName), "found": .string(close)],
                             received: close,
@@ -350,19 +350,19 @@ extension XML {
             while true {
                 skipSpace(&r)
                 guard let c = r.currentByte else {
-                    r.report(&sink, .custom("xml_unterminated_tag"))
+                    r.report(&sink, .xmlUnterminatedTag)
                     return false
                 }
                 if c == UInt8(ascii: ">") || c == UInt8(ascii: "/") { return true }
 
                 let attrStart = r.byteOffset
                 guard let aRange = scanNameRange(&r) else {
-                    r.report(&sink, .custom("xml_bad_attribute_name"))
+                    r.report(&sink, .xmlBadAttributeName)
                     return false
                 }
                 skipSpace(&r)
                 guard r.consume("=") else {
-                    r.report(&sink, .custom("xml_expected_equals"))
+                    r.report(&sink, .xmlExpectedEquals)
                     return false
                 }
                 skipSpace(&r)
@@ -552,7 +552,7 @@ extension XML {
                 }
                 r.advanceBy(1)
             }
-            r.report(&sink, .custom("xml_unterminated_comment"))
+            r.report(&sink, .xmlUnterminatedComment)
             return nil
         }
 
@@ -569,7 +569,7 @@ extension XML {
                 }
                 r.advanceBy(1)
             }
-            r.report(&sink, .custom("xml_unterminated_cdata"))
+            r.report(&sink, .xmlUnterminatedCdata)
             return nil
         }
 
@@ -578,7 +578,7 @@ extension XML {
         ) -> XML.Node? {
             _ = r.consume("<?")
             guard let target = scanName(&r) else {
-                r.report(&sink, .custom("xml_bad_pi_target"))
+                r.report(&sink, .xmlBadPiTarget)
                 return nil
             }
             skipSpace(&r)
@@ -592,7 +592,7 @@ extension XML {
                 }
                 r.advanceBy(1)
             }
-            r.report(&sink, .custom("xml_unterminated_pi"))
+            r.report(&sink, .xmlUnterminatedPi)
             return nil
         }
 
@@ -624,7 +624,7 @@ extension XML {
         ) -> String? {
             guard let quote = r.currentByte,
                   quote == UInt8(ascii: "\"") || quote == UInt8(ascii: "'") else {
-                r.report(&sink, .custom("xml_unquoted_attribute"))
+                r.report(&sink, .xmlUnquotedAttribute)
                 return nil
             }
             r.advanceBy(1)
@@ -635,13 +635,13 @@ extension XML {
                 if c == UInt8(ascii: "&") { sawEntity = true }
                 else if c == 0x0D || c == 0x0A || c == 0x09 { sawWhitespace = true }
                 else if c == UInt8(ascii: "<") {
-                    r.report(&sink, .custom("xml_raw_lt_in_attribute"))
+                    r.report(&sink, .xmlRawLtInAttribute)
                     return nil
                 }
                 r.advanceBy(1)
             }
             guard r.currentByte == quote else {
-                r.report(&sink, .custom("xml_unterminated_attribute"))
+                r.report(&sink, .xmlUnterminatedAttribute)
                 return nil
             }
             // Same one-pass rule as parseText: the loop above already saw every byte.
@@ -666,7 +666,7 @@ extension XML {
                 out += rest[rest.startIndex..<amp]
                 rest = rest[rest.index(after: amp)...]
                 guard let semi = rest.firstIndex(of: ";") else {
-                    r.report(&sink, .custom("xml_unterminated_entity"))
+                    r.report(&sink, .xmlUnterminatedEntity)
                     return nil
                 }
                 let name = String(rest[rest.startIndex..<semi])
@@ -682,7 +682,7 @@ extension XML {
                 default:
                     if name.hasPrefix("#") {
                         guard let scalar = numericCharacterReference(name) else {
-                            sink.add(Issue(code: .custom("xml_bad_character_reference"),
+                            sink.add(Issue(code: .xmlBadCharacterReference,
                                            received: "&\(name);"))
                             return nil
                         }
@@ -700,7 +700,7 @@ extension XML {
                         // and every one of them wrong. Now the expansion is real and the
                         // budget is what stops it.
                         guard !expanding.contains(name) else {
-                            sink.add(Issue(code: .custom("xml_recursive_entity"),
+                            sink.add(Issue(code: .xmlRecursiveEntity,
                                            params: ["entity": .string(name)],
                                            received: "&\(name);"))
                             return nil
@@ -713,7 +713,7 @@ extension XML {
                     } else {
                         // An undeclared entity is an error, never a silent pass-through.
                         // Silently emitting the raw text is how XXE mitigations get bypassed.
-                        sink.add(Issue(code: .custom("xml_undeclared_entity"),
+                        sink.add(Issue(code: .xmlUndeclaredEntity,
                                        params: ["entity": .string(name)],
                                        received: "&\(name);"))
                         return nil
@@ -727,7 +727,7 @@ extension XML {
                 // explodes.
                 expansionBudget -= replacement.utf8.count
                 guard expansionBudget > 0 else {
-                    sink.add(Issue(code: .custom("xml_entity_expansion_limit"),
+                    sink.add(Issue(code: .xmlEntityExpansionLimit,
                                    params: ["entity": .string(name)]))
                     return nil
                 }
@@ -784,7 +784,7 @@ extension XML {
                         // A warning, not an error: the document is still parseable, and
                         // the external declarations are simply not honoured.
                         sink.add(warning: Warning(
-                            code: .custom("xml_external_dtd_ignored"),
+                            code: .xmlExternalDtdIgnored,
                             params: ["reason": .string(
                                 "external DTD subsets and entities are never fetched (XXE)")]))
                     }
@@ -792,7 +792,7 @@ extension XML {
                 }
                 r.advanceBy(1)
             }
-            r.report(&sink, .custom("xml_unterminated_doctype"))
+            r.report(&sink, .xmlUnterminatedDoctype)
             return false
         }
 
@@ -815,7 +815,7 @@ extension XML {
                   quote == UInt8(ascii: "\"") || quote == UInt8(ascii: "'") else {
                 // No literal value means SYSTEM/PUBLIC — an external entity. Refused.
                 sink.add(warning: Warning(
-                    code: .custom("xml_external_entity_ignored"),
+                    code: .xmlExternalEntityIgnored,
                     params: ["entity": .string(name)]))
                 _ = skipUntil(&r, ">", &sink)
                 return

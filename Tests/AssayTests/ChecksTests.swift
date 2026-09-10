@@ -238,7 +238,7 @@ struct EnumTests {
         let d = Ticket.diagnose(json: #"{"title":"t","priority":"hgih"}"#)
         #expect(d.isValid == false)
         let issue = d.issues[0]
-        #expect(issue.code == .custom("unknown_variant"))
+        #expect(issue.code == .unknownVariant)
         #expect(issue.path.pathDescription == "priority")
         #expect(issue.params["options"] == .string("\"low\", \"medium\", \"high\""))
         #expect(issue.params["didYouMean"] == .string("high"))
@@ -293,7 +293,7 @@ struct AsyncCheckTests {
         #expect(d.isValid == false)
         // Only the sync issue; the async check never ran against a known-bad value.
         #expect(d.issues.count == 1)
-        #expect(d.issues[0].code == .custom("invalid_email"))
+        #expect(d.issues[0].code == .invalidEmail)
     }
 
     @Test("the async parse verb throws with everything collected")

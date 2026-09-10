@@ -213,7 +213,7 @@ public func _assayColumnMissing(
     _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString, _ expected: String
 ) {
     sink.add(Issue(
-        code: .custom("missing_column"),
+        code: .missingColumn,
         path: path + [.key(String(describing: key))],
         params: ["expected": .string(expected)]))
 }

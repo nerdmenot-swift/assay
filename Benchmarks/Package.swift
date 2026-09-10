@@ -30,6 +30,10 @@ let package = Package(
         // BENCHMARK PACKAGE ONLY, like Yams and yyjson. It pulls in C++, Objective-C and two
         // transitive packages; none of that goes anywhere near the shipping library.
         .package(url: "https://github.com/michaeleisel/ZippyJSON.git", from: "1.2.0"),
+        // TOMLKit wraps toml++ — the C++ implementation with the most complete TOML 1.0
+        // conformance record. An ORACLE for AssayTOML, exactly as Yams is for AssayYAML,
+        // and confined here for the same reason.
+        .package(url: "https://github.com/LebJe/TOMLKit.git", from: "0.6.0"),
     ],
     targets: [
         // The corpus generator. No dependency on Assay — it must be runnable before the
@@ -84,11 +88,13 @@ let package = Package(
                 .product(name: "AssayYAML", package: "assay"),
                 .product(name: "AssayXML", package: "assay"),
                 .product(name: "AssayPlist", package: "assay"),
+                .product(name: "AssayTOML", package: "assay"),
                 // For the Date/UUID column conformances, which cannot be tested in the
                 // library's own test target: importing Foundation there pulls
                 // swift-testing's _Testing_Foundation overlay and its macOS 13 floor.
                 .product(name: "AssayFoundation", package: "assay"),
                 .product(name: "Yams", package: "Yams"),
+                .product(name: "TOMLKit", package: "TOMLKit"),
                 "CorpusRender",
             ],
             path: "Sources/DiffFuzz",
@@ -103,6 +109,8 @@ let package = Package(
                 // The BASELINE for the YAML rows, exactly as it is the oracle for the
                 // differential: Yams is what a Swift project would otherwise use.
                 .product(name: "Yams", package: "Yams"),
+                .product(name: "AssayTOML", package: "assay"),
+                .product(name: "TOMLKit", package: "TOMLKit"),
                 // The comparison the falsification condition names. See the dependency note.
                 .product(name: "ZippyJSON", package: "ZippyJSON"),
                 "CorpusRender",

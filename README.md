@@ -60,12 +60,13 @@ Foundation** on the corpus below, from scalar Swift with no SIMD and no C.
     .product(name: "Assay", package: "assay"),            // core + JSON
     .product(name: "AssayYAML", package: "assay"),        // optional
     .product(name: "AssayXML", package: "assay"),         // optional
+    .product(name: "AssayTOML", package: "assay"),        // optional
     .product(name: "AssayPlist", package: "assay"),       // optional, binary + XML plists
     .product(name: "AssayFoundation", package: "assay"),  // Data/URL/mmap conveniences
 ])
 ```
 
-Five products, so a JSON-only user never links a YAML parser. The core takes bytes, not `Data`,
+Six products, so a JSON-only user never links a YAML parser. The core takes bytes, not `Data`,
 and imports no Foundation. Swift 6.2+.
 
 ---
@@ -329,7 +330,7 @@ diagnostic, because object keys are strings in every wire format.
 Formats are opt-in per type, so nothing links a parser it does not use:
 
 ```swift
-@Schema(formats: [.json, .yaml, .xml])
+@Schema(formats: [.json, .yaml, .xml, .toml])
 struct Config {
     var name: String
     var replicas: Int
@@ -338,10 +339,11 @@ struct Config {
 try Config.parse(json: bytes)
 try Config.parse(yaml: text)
 try Config.parse(xml: bytes)
+try Config.parse(toml: text)
 ```
 
-The YAML and XML parsers are hand-written, and each format keeps its own value model —
-`JSON.Value`, `YAML.Node`, `XML.Node`. They are deliberately not unified behind one type: a
+The YAML, XML and TOML parsers are hand-written, and each format keeps its own value model —
+`JSON.Value`, `YAML.Node`, `XML.Node`, `TOML.Node`. They are deliberately not unified behind one type: a
 YAML scalar's resolution and an XML element's namespace are not the same kind of thing, and
 pretending otherwise loses information. XXE is refused by construction; billion-laughs and alias
 bombs are capped by budget.
@@ -366,6 +368,8 @@ Foundation, the thesis is wrong and the SIMD work is moot.*
 | YAML node parse | Yams (`compose`, libyaml) | **6.62×** |
 | YAML struct decode | Yams `YAMLDecoder` (Codable) | **11.36×** |
 | XML tree parse (asymmetric, and **macOS only** — read `RESULTS.md`) | Foundation `XMLParser` | **1.30×** |
+| TOML node parse | toml++ (`TOMLTable(string:)`, C++) | **1.09×** |
+| TOML struct decode | TOMLKit `TOMLDecoder` (Codable) | **1.81×** |
 
 The thesis in one line: **the parser was never the bottleneck; the `Codable` container boundary
 was.** ZippyJSON bolted simdjson — the fastest JSON parser in existence — onto `Decodable` and
@@ -427,8 +431,9 @@ errors, source spans, validation, and every format but JSON.
 | JSON differential | `JSON.Value` agrees with `JSONSerialization` value-for-value on all **75** positive corpus files |
 | YAML differential | agrees with **Yams/libyaml** on 37 adversarial hand-written cases + 75 generated documents, and with `JSONSerialization` on the whole corpus read as YAML (JSON ⊂ YAML 1.2) |
 | XML differential | agrees with **Foundation's `XMLParser`** on 29 hand-written + 75 generated documents, namespaces and attributes included |
+| TOML conformance | **710/710** documents of the official `toml-test` suite (210 valid to the exact value, 501 invalid refused), run in CI; agrees with **toml++** on 35 hand-written + 150 generated documents |
 | Date differential | **2,279 instants** agree with Foundation *exactly*; deliberate divergences pinned in both directions (leap seconds; Foundation's silent date rollover) |
-| Fuzz | **9,680** deterministic mutations and truncations through all three parsers per run — no crash, no hang |
+| Fuzz | **10,680** deterministic mutations and truncations through all four parsers per run — no crash, no hang |
 | Macro tests | expansion and diagnostic assertions, without XCTest |
 
 The differential oracles earn their place the same way the fuzzer does: their first run caught
@@ -477,7 +482,8 @@ import gets caught rather than accidentally working.
 | [`docs/EXPERIENCE.md`](docs/EXPERIENCE.md) | the developer experience, end to end — the API spec |
 | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) | the runtime strategy and the falsification condition |
 | [`docs/COMPILE-TIME.md`](docs/COMPILE-TIME.md) | the second performance axis, and the CI gate |
-| [`docs/VALUE-MODELS.md`](docs/VALUE-MODELS.md) | why JSON, YAML and XML keep separate value types |
+| [`docs/VALUE-MODELS.md`](docs/VALUE-MODELS.md) | why JSON, YAML, XML and TOML keep separate value types |
+| [`docs/TOML.md`](docs/TOML.md) | the TOML parser: redefinition rules, the date-time projection, toml-test 710/710 |
 | [`docs/STREAMING.md`](docs/STREAMING.md) | why streaming is out of scope, and what it would cost |
 | [`docs/ENCODING.md`](docs/ENCODING.md) | the six semantics questions behind encoding, and how each was answered |
 | [`docs/VALIDATE.md`](docs/VALIDATE.md) | validating a value you already have, and the law that decides what it can check |

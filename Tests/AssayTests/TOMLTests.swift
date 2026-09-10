@@ -183,7 +183,7 @@ struct TOMLValueTests {
         ld1 = 1979-05-27
         lt1 = 07:32:00
         lt2 = 00:32:00.999999
-        leap = 2016-12-31T23:59:60Z
+        leap = 2016-12-31T23:59:60Z  # time-second is 00-60 in the ABNF; toml++ disagrees
         feb29 = 2024-02-29
         """)
         #expect(doc["odt1"]?.dateTime == .offsetDateTime("1979-05-27T07:32:00Z"))
@@ -329,6 +329,9 @@ struct TOMLValueTests {
         #expect(try node("").table?.isEmpty == true)
         #expect(try node("# nothing\n\n   \n").table?.isEmpty == true)
         #expect(try node("a = 1\r\nb = 2\r\n")["b"]?.int == 2)
+        // CRLF inside a multi-line string is normalised to LF, in both forms.
+        #expect(try node("a = \"\"\"\r\nx\r\ny\"\"\"\r\nb = '''\r\nx\r\ny'''\r\n")["a"]?.string == "x\ny")
+        #expect(try node("a = \"\"\"\r\nx\r\ny\"\"\"\r\nb = '''\r\nx\r\ny'''\r\n")["b"]?.string == "x\ny")
         #expect(try TOML.parse([0xEF, 0xBB, 0xBF] + Array("a = 1".utf8))["a"]?.int == 1)
         #expect(try node("a = 1 # trailing")["a"]?.int == 1)
     }

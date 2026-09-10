@@ -109,3 +109,104 @@ public func isXMLName(_ s: String) -> Bool {
         CharacterSet.alphanumerics.contains($0) || $0 == "_" || $0 == "-" || $0 == "."
     }
 }
+
+// MARK: - TOML
+
+/// Render a `RawValue` as TOML, or nil when TOML cannot spell it: a root that is not a
+/// mapping, or a null anywhere. Nested mappings become `[a.b]` sections; arrays are
+/// always inline, with inline tables inside them — deliberately a different layout from
+/// `AssayTOML`'s writer, so the oracle documents are not that writer's output.
+public func renderTOML(_ v: RawValue, sections: Bool = false) -> String? {
+    guard case .mapping(let members) = v, !containsNull(v) else { return nil }
+    var out = ""
+    renderTOMLTable(members, path: [], sections: sections, into: &out)
+    return out
+}
+
+private func containsNull(_ v: RawValue) -> Bool {
+    switch v {
+    case .null: return true
+    case .sequence(let items): return items.contains(where: containsNull)
+    case .mapping(let members): return members.contains { containsNull($0.value) }
+    default: return false
+    }
+}
+
+/// `sections: true` writes an array whose elements are all mappings as `[[a.b]]`
+/// sections — the shape a real document has — instead of one inline array.
+private func renderTOMLTable(
+    _ members: [RawValue.Member], path: [String], sections: Bool, into out: inout String
+) {
+    var tables: [RawValue.Member] = []
+    var arrays: [RawValue.Member] = []
+    for m in members {
+        if case .mapping = m.value { tables.append(m); continue }
+        if sections, case .sequence(let items) = m.value, !items.isEmpty,
+           items.allSatisfy({ if case .mapping = $0 { return true } else { return false } }) {
+            arrays.append(m)
+            continue
+        }
+        out += tomlKey(m.key) + " = " + renderTOMLInline(m.value) + "\n"
+    }
+    for m in tables {
+        guard case .mapping(let sub) = m.value else { continue }
+        let subPath = path + [m.key]
+        out += "\n[" + subPath.map(tomlKey).joined(separator: ".") + "]\n"
+        renderTOMLTable(sub, path: subPath, sections: sections, into: &out)
+    }
+    for m in arrays {
+        guard case .sequence(let items) = m.value else { continue }
+        let subPath = path + [m.key]
+        for item in items {
+            guard case .mapping(let sub) = item else { continue }
+            out += "\n[[" + subPath.map(tomlKey).joined(separator: ".") + "]]\n"
+            renderTOMLTable(sub, path: subPath, sections: sections, into: &out)
+        }
+    }
+}
+
+private func renderTOMLInline(_ v: RawValue) -> String {
+    switch v {
+    case .null: return "\"\""
+    case .bool(let b): return b ? "true" : "false"
+    case .int(let i): return String(i)
+    case .double(let d):
+        if d.isNaN { return "nan" }
+        if d.isInfinite { return d < 0 ? "-inf" : "inf" }
+        return String(d)
+    case .string(let s): return quoteTOML(s)
+    case .sequence(let items):
+        return "[" + items.map(renderTOMLInline).joined(separator: ", ") + "]"
+    case .mapping(let members):
+        return "{" + members.map { tomlKey($0.key) + " = " + renderTOMLInline($0.value) }.joined(separator: ", ") + "}"
+    }
+}
+
+private func tomlKey(_ k: String) -> String {
+    let bare = !k.isEmpty && k.utf8.allSatisfy {
+        ($0 >= 0x61 && $0 <= 0x7A) || ($0 >= 0x41 && $0 <= 0x5A) || ($0 >= 0x30 && $0 <= 0x39)
+            || $0 == UInt8(ascii: "_") || $0 == UInt8(ascii: "-")
+    }
+    return bare ? k : quoteTOML(k)
+}
+
+/// A basic string; the escape set is TOML's, which is JSON's without `\/`.
+public func quoteTOML(_ s: String) -> String {
+    var out = "\""
+    for ch in s.unicodeScalars {
+        switch ch {
+        case "\"":  out += "\\\""
+        case "\\":  out += "\\\\"
+        case "\n":  out += "\\n"
+        case "\t":  out += "\\t"
+        case "\r":  out += "\\r"
+        default:
+            if ch.value < 0x20 || ch.value == 0x7F {
+                out += String(format: "\\u%04X", ch.value)
+            } else {
+                out.unicodeScalars.append(ch)
+            }
+        }
+    }
+    return out + "\""
+}

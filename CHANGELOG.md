@@ -8,7 +8,7 @@ and every deliberate deferral lives in [`ROADMAP.md`](ROADMAP.md) with its reaso
 The first public release. Everything below is "added" by definition; the highlights
 that distinguish it:
 
-- **`@Schema` macro decoding** for JSON (streaming), YAML and XML (via a
+- **`@Schema` macro decoding** for JSON (streaming), YAML, XML and TOML (via a
   format-neutral `RawValue` projection) — no `Codable`, no `CodingKeys`, measured at
   5–9× Foundation on the published corpus (`Benchmarks/RESULTS.md`; one arm64 Mac,
   stated as such).
@@ -33,7 +33,12 @@ that distinguish it:
   Yams/libyaml, and Foundation's XMLParser; deterministic fuzzing; live-allocation
   gate; compile-time budget gate (~87 ms per type against a 100 ms ceiling).
 
-- **Encoding** for JSON, YAML and XML (`@Schema(encodes: true)`), with round-trip as a
+- **TOML** (`AssayTOML`, 2026-09-10): a hand-written TOML 1.0.0 parser passing all
+  710 documents of the official toml-test suite in CI, differential against toml++,
+  `parse(toml:)`/`diagnose(toml:)`, `SchemaFormats.toml`, `WireFormat.toml`, and
+  `encodedTOML()` with nil members omitted and every other null reported
+  (`docs/TOML.md`).
+- **Encoding** for JSON, YAML, XML and TOML (`@Schema(encodes: true)`), with round-trip as a
   stated law and a closed exception list (`docs/ENCODING.md`); 2.85× `JSONEncoder`.
 - **Unions** — `@Schema(discriminator: "type")` and `.untagged` — decode and encode,
   JSON only (`docs/UNIONS.md`).

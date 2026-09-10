@@ -20,6 +20,8 @@ are machine-specific by design, so this is pasted, not automated.
 | YAML node parse | **6.59×** | Yams `compose` | [YAML and XML](#yaml-and-xml-timed-for-the-first-time) |
 | YAML struct decode | **11.05×** | Yams `YAMLDecoder` | same |
 | XML tree parse | **2.37×** (macOS; **0.96×** on Linux) | Foundation `XMLParser` | [XML, made faster](#making-the-xml-parser-faster-by-profiling-rather-than-by-admiring-libxml2) |
+| TOML node parse | **1.09×** | toml++ via TOMLKit | [TOML](#toml-a-fourth-tree-decoder-against-c) |
+| TOML struct decode | **1.81×** | TOMLKit `TOMLDecoder` | same |
 | `Date` fields | **6.07×** | `JSONDecoder` + `.iso8601` | [Dates](#dates-the-unclaimed-win-claimed) |
 | `[String: T]` dictionaries | **7.38×** over 10 rows | `JSONDecoder` | [Dictionaries](#dictionaries-the-stated-worst-case-measured) |
 | encoding, 50 / 200 items | **2.91× / 2.93×** | `JSONEncoder` | `docs/ENCODING.md` |
@@ -1478,3 +1480,44 @@ thesis is about: that same class of parser, *wired to `Decodable`*.
 
 Darwin/arm64 only. `ZippyJSON` is a benchmark-package dependency and is not linked by anything
 the library ships.
+
+---
+
+## TOML: a fourth tree decoder, against C++
+
+**2026-09-10.** `AssayTOML` shipped with the same caveat as YAML and XML: it is a tree
+decoder — `TOML.Node`, then `RawValue`, then the struct — so no `Codable` boundary is
+deleted and the JSON thesis does not apply. The baseline is **toml++** (C++, the most
+conformant implementation) reached through TOMLKit's wrapper, which is what a Swift project
+would otherwise use. The corpus is the `apimodel` ladder rendered with `[[items]]` sections
+by `CorpusRender.renderTOML(sections: true)` — the same bytes `DiffFuzz toml` verifies both
+parsers agree on before this arm times them.
+
+```
+$ swift run -c release AssayBench toml
+
+TOML node parse — TOML.parse vs TOMLTable(string:) (toml++)
+size           bytes      toml++ ns     Assay ns     ratio
+512b             858           9118         8041     1.13x
+2k              2299          24096        21208     1.14x
+8k              8463          86503        77094     1.12x
+32k            33879         347015       331200     1.05x
+64k            67420         690974       695518     0.99x
+mean 1.09x over 5 sizes
+
+TOML struct decode — T.parse(toml:) vs TOMLKit's TOMLDecoder (Codable)
+size           bytes TOMLDecoder ns     Assay ns     ratio
+512b             858          17081         8889     1.92x
+2k              2299          43260        23045     1.88x
+8k              8463         154686        83216     1.86x
+32k            33879         612269       350872     1.74x
+64k            67420        1218893       734446     1.66x
+mean 1.81x over 5 sizes
+```
+
+Parity with a C++ parser on the tree — scalar Swift building a `TOML.Node` against toml++
+building a `toml::table`, and the wrapper's crossing is in the toml++ column, stated rather
+than hidden. The struct-decode row is the one a migrating project makes, and its 1.81× is
+mostly TOMLKit's `Codable` decoder walking the tree a second time. Nothing here has been
+profiled yet; the per-line `[KeySegment]` array and the `TableBuilder` class per `[[items]]`
+section are the obvious first targets if the number ever matters.

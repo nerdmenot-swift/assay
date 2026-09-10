@@ -224,6 +224,35 @@ stays faithful.
 Everything in XML is text — there is no number or boolean — so coercion remains the
 schema's visible job via `@Coerce`, never implicit.
 
+### `TOML.Node`
+
+```swift
+extension TOML {
+    public enum DateTime: Sendable, Hashable {
+        case offsetDateTime(String), localDateTime(String), localDate(String), localTime(String)
+    }
+    public struct Member: Sendable, Hashable {
+        public var key: String
+        public var value: Node
+        public var span: SourceSpan?           // excluded from ==/hash
+    }
+    public indirect enum Node: Sendable, Hashable {
+        case bool(Bool), int(Int64), double(Double), string(String)
+        case dateTime(DateTime)
+        case array([Node])
+        case table([Member])                    // ordered
+    }
+}
+```
+
+Added 2026-09-10, and the odd one out: TOML is **typed on the wire**, so this model
+resolves scalars at parse time where `YAML.Node` deliberately keeps the text. There is no
+Norway problem to defer — `1` is an integer and `"1"` is a string by the grammar. What it
+keeps that `RawValue` cannot is the **date-time kind**: TOML has four, `RawValue` has none
+(JSON has none either, and `RawValue` is the intersection), so the projection turns them
+into RFC 3339 strings and this model is where a caller finds out which of the four it was.
+Every key is a string, so the projection is total. `docs/TOML.md`.
+
 ---
 
 ## 5. `RawValue`, as a projection
@@ -237,7 +266,7 @@ public enum RawValue: Sendable, Hashable {
 ```
 
 Deliberately the *narrow* intersection, with no origin tags and no format-specific fields,
-because its entire job is to be the thing that means the same in all three. Each format
+because its entire job is to be the thing that means the same in all of them. Each format
 package provides `init?(_:)` from its own node type, and each projection documents its
 losses:
 
@@ -245,6 +274,8 @@ losses:
 - **YAML → RawValue**: fails on non-string keys; drops tags, styles, anchors.
 - **XML → RawValue**: every scalar becomes `.string`; attributes and elements flatten
   together; mixed content, comments, PIs and namespaces are dropped.
+- **TOML → RawValue**: total; the four date-time kinds all become `.string` in RFC 3339
+  spelling (`T` separator), which is the text the schema's `Date` path parses.
 
 Being explicitly lossy is what makes it honest. A caller who declares `RawValue` has said
 "I want portability more than fidelity," and that sentence is now true rather than a

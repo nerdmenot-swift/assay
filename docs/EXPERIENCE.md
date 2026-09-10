@@ -811,8 +811,9 @@ var createdAt: Date                          // ISO 8601, the default
 *Built: `@Schema(formats:)`, `parse(json:)`, `parse(yaml:)`, `parse(xml:)`,
 `parseAll(yaml:)`, `parse(mmapped:)`, `coerceScalars`, the `@XML` placement attributes,
 `parse(body, contentType:accepting:)`, and — 2026-09-09 — `parse(plist:)`, binary and XML,
-in the `AssayPlist` product. Still specified but not built: `parse(bytes, as:)` and
-`parse(contentsOf:)`.*
+in the `AssayPlist` product, and — 2026-09-10 — `parse(toml:)` in `AssayTOML`, TOML 1.0.0
+complete against the official toml-test suite ([`TOML.md`](TOML.md)). Still specified but
+not built: `parse(bytes, as:)` and `parse(contentsOf:)`.*
 
 Property lists are worth a note the rest of this section does not need. `parse(plist:)` reads
 **both** flavours behind one entry point, discriminated by the exact `bplist00` magic — which
@@ -859,8 +860,9 @@ meaning of a struct is written on the struct, where you can see it.
 ```swift
 @Schema                                   // JSON only. The default.
 @Schema(formats: [.json, .yaml])          // both
-@Schema(formats: .all)                    // JSON, YAML and XML
+@Schema(formats: .all)                    // JSON, YAML, XML and TOML
 @Schema(formats: [.yaml])                 // YAML only — no JSON body emitted at all
+@Schema(formats: [.json, .toml])          // a config file and its API twin
 ```
 
 ### Forgetting to opt in is a compile error, not a runtime one

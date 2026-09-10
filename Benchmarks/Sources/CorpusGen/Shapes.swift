@@ -244,7 +244,7 @@ struct Shape: @unchecked Sendable {
     let build: (inout SplitMix64, Int) -> JSON
 }
 
-nonisolated(unsafe) let SHAPES: [Shape] = [
+let SHAPES: [Shape] = [
     Shape(name: "scalars",
           doc: "All Int/Double/Bool. Isolates number parsing and struct fill.",
           build: { r, t in objectOf(&r, target: t) { r in r.bool() ? vInt(&r) : vDouble(&r) } }),
@@ -304,7 +304,7 @@ struct Negative: @unchecked Sendable {
     let build: (inout SplitMix64) -> [UInt8]
 }
 
-nonisolated(unsafe) let NEGATIVES: [Negative] = [
+let NEGATIVES: [Negative] = [
     Negative(name: "invalid-early", doc: "Malformed at byte 10. Measures fail-fast.",
              build: { r in
                  var b = mixed(&r, 8_192).encoded

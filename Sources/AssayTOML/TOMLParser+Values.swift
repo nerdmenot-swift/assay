@@ -145,12 +145,14 @@ extension TOML.Parser {
                     r.report(&sink, .tomlUnterminatedString)
                     return nil
                 }
+                // CRLF becomes LF: the specification lets a parser normalise newlines
+                // and toml++ and BurntSushi/toml both do, so a file edited on Windows
+                // yields the same strings everywhere. A bare CR is not a newline.
                 if c == 0x0D {
                     guard r.byte(at: 1) == 0x0A else {
                         r.report(&sink, .tomlControlCharacter)
                         return nil
                     }
-                    out.append(0x0D)
                     r.advanceBy(1)
                 }
                 out.append(0x0A)
@@ -248,7 +250,7 @@ extension TOML.Parser {
         r.advanceBy(multiline ? 3 : 1)
         if multiline { _ = consumeNewline(&r) }
         let start = r.byteOffset
-        var extra = 0
+        var out: [UInt8] = []
         while true {
             guard let c = r.currentByte else {
                 r.report(&sink, .tomlUnterminatedString)
@@ -256,6 +258,7 @@ extension TOML.Parser {
             }
             if c == UInt8(ascii: "'") {
                 if !multiline {
+                    // One copy: the single-line form has nothing to normalise.
                     let s = r.string(from: start, to: r.byteOffset)
                     r.advanceBy(1)
                     return s
@@ -268,11 +271,11 @@ extension TOML.Parser {
                         r.report(&sink, .tomlExpectedNewline)
                         return nil
                     }
-                    extra = n - 3
-                    let s = r.string(from: start, to: r.byteOffset + extra)
+                    for _ in 0..<(n - 3) { out.append(UInt8(ascii: "'")) }
                     r.advanceBy(n)
-                    return s
+                    return String(decoding: out, as: UTF8.self)
                 }
+                for _ in 0..<n { out.append(UInt8(ascii: "'")) }
                 r.advanceBy(n)
                 continue
             }
@@ -281,10 +284,15 @@ extension TOML.Parser {
                     r.report(&sink, .tomlUnterminatedString)
                     return nil
                 }
-                if c == 0x0D, r.byte(at: 1) != 0x0A {
-                    r.report(&sink, .tomlControlCharacter)
-                    return nil
+                // CRLF → LF, as in the basic form above.
+                if c == 0x0D {
+                    guard r.byte(at: 1) == 0x0A else {
+                        r.report(&sink, .tomlControlCharacter)
+                        return nil
+                    }
+                    r.advanceBy(1)
                 }
+                out.append(0x0A)
                 r.advanceBy(1)
                 continue
             }
@@ -292,6 +300,7 @@ extension TOML.Parser {
                 r.report(&sink, .tomlControlCharacter)
                 return nil
             }
+            out.append(c)
             r.advanceBy(1)
         }
     }

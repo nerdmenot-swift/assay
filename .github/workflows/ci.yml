@@ -260,8 +260,19 @@ jobs:
       - name: Generate the corpus
         working-directory: Benchmarks
         run: swift run -c release CorpusGen
+      # The official TOML conformance suite. `DiffFuzz toml-test` reads it from
+      # TOML_TEST_DIR and reports every valid document that parses to the wrong value and
+      # every invalid document that was accepted; without the checkout it skips, which is
+      # why the clone is a separate step that cannot silently be missing.
+      - name: Check out toml-test
+        uses: actions/checkout@v4
+        with:
+          repository: toml-lang/toml-test
+          path: toml-test
       - name: Differential (JSON.Value vs JSONSerialization) and deterministic fuzz
         working-directory: Benchmarks
+        env:
+          TOML_TEST_DIR: ${{ github.workspace }}/toml-test
         # Exits nonzero on any value mismatch, crash or hang. The fuzz seed is fixed, so
         # a failure here reproduces exactly — `DiffFuzz --probe yaml '<input>'` shrinks it.
         run: swift run -c release DiffFuzz

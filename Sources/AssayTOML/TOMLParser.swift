@@ -129,13 +129,20 @@ extension TOML {
         }
     }
 
+    /// `[[a]]` — a class for the same reason as `TableBuilder`: appending through an enum
+    /// payload copies the whole array each time, and 20,000 sections is a legal document.
+    final class ArrayBuilder {
+        var elements: [TableBuilder]
+        init(_ first: TableBuilder) { elements = [first] }
+    }
+
     enum Entry {
         /// A closed value: a scalar, a static array, or an inline table.
         case value(Node)
         /// An open table, reachable by later headers and dotted keys.
         case table(TableBuilder)
         /// `[[a]]` — headers append; `[a.b]` descends into the last.
-        case array([TableBuilder])
+        case array(ArrayBuilder)
     }
 
     struct Parser {
@@ -244,10 +251,9 @@ extension TOML.Parser {
                 existing.origin = .header
                 table.spans[i] = span
                 return existing
-            case .array(var elements) where array:
+            case .array(let elements) where array:
                 let element = TOML.TableBuilder(origin: .header)
-                elements.append(element)
-                table.entries[i] = .array(elements)
+                elements.elements.append(element)
                 return element
             case .table, .array:
                 r.report(&sink, .tomlRedefinedTable, params: ["key": .string(last.text)], span: last.span)
@@ -258,7 +264,7 @@ extension TOML.Parser {
             }
         }
         let element = TOML.TableBuilder(origin: .header)
-        table.add(last.text, array ? .array([element]) : .table(element), span: span)
+        table.add(last.text, array ? .array(TOML.ArrayBuilder(element)) : .table(element), span: span)
         return element
     }
 
@@ -306,7 +312,7 @@ extension TOML.Parser {
             }
             return child
         case .array(let elements) where throughArrays:
-            return elements[elements.count - 1]
+            return elements.elements[elements.elements.count - 1]
         case .array:
             r.report(&sink, .tomlNotATable, params: ["key": .string(seg.text)], span: seg.span)
             return nil
@@ -333,7 +339,7 @@ extension TOML.Parser {
             switch table.entries[i] {
             case .value(let v): value = v
             case .table(let t): value = finish(t)
-            case .array(let ts): value = .array(ts.map(finish))
+            case .array(let ts): value = .array(ts.elements.map(finish))
             }
             members.append(TOML.Member(key: table.keys[i], value: value, span: table.spans[i]))
         }

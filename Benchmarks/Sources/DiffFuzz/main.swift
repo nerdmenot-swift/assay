@@ -26,6 +26,7 @@ import Assay
 import AssayCore
 import AssayYAML
 import AssayXML
+import AssayTOML
 import CorpusRender
 
 // MARK: - Deterministic RNG (mirrors CorpusGen's)
@@ -141,6 +142,11 @@ func runFuzz(corpus: URL) throws -> Int {
         Array("<r xmlns:n=\"u\"><n:a>t</n:a><!-- c --></r>".utf8),
     ]
 
+    let tomlSeeds: [[UInt8]] = [
+        Array("a = 1\nb.c = \"x\"\n[t]\nd = [1, {e = 2}, 1979-05-27T07:32:00Z]\n[[u]]\nf = 0x1f\n".utf8),
+        Array("s = \"\"\"\nq\\\n  r\"\"\"\nl = '''\np'''\nn = -1_0.5e+3\nt = 07:32:00.5\n".utf8),
+    ]
+
     func exercise(_ bytes: [UInt8]) {
         let trace = ProcessInfo.processInfo.environment["FUZZ_TRACE"] == "1"
         func mark(_ what: String) {
@@ -157,6 +163,9 @@ func runFuzz(corpus: URL) throws -> Int {
         mark("XML")
         var sink3 = IssueSink(limits: limits)
         _ = XML.decode(bytes, into: &sink3, limits: limits)
+        mark("TOML")
+        var sink4 = IssueSink(limits: limits)
+        _ = TOML.decode(bytes, into: &sink4, limits: limits)
     }
 
     for seed in seeds {
@@ -186,7 +195,7 @@ func runFuzz(corpus: URL) throws -> Int {
         }
     }
 
-    for seed in yamlSeeds + xmlSeeds {
+    for seed in yamlSeeds + xmlSeeds + tomlSeeds {
         for _ in 0..<500 {
             var mutated = seed
             switch rng.int(3) {
@@ -207,7 +216,7 @@ func runFuzz(corpus: URL) throws -> Int {
 
 // MARK: - Driver
 
-// `DiffFuzz --probe <yaml|xml|json> <string>` — the reducer used to shrink a fuzz
+// `DiffFuzz --probe <yaml|xml|toml|json> <string>` — the reducer used to shrink a fuzz
 // finding to a minimal reproducer. Kept in the tool so a future finding is one command
 // away from a minimal case.
 if CommandLine.arguments.count >= 4, CommandLine.arguments[1] == "--probe" {
@@ -218,6 +227,7 @@ if CommandLine.arguments.count >= 4, CommandLine.arguments[1] == "--probe" {
     switch kind {
     case "yaml": _ = YAML.decodeAll(bytes, into: &s, limits: lim)
     case "xml":  _ = XML.decode(bytes, into: &s, limits: lim)
+    case "toml": _ = TOML.decode(bytes, into: &s, limits: lim)
     default:     _ = JSON.Value.decode(bytes, into: &s, limits: lim)
     }
     print("issues: \(s.issues.count)")
@@ -340,6 +350,35 @@ let oracles: [Oracle] = [
                assayOnly: xmlGen.assayOnlyRejected, oracleOnly: xmlGen.foundationOnlyRejected,
                disagreed: xmlGen.disagreed)
     },
+    Oracle(name: "toml", summary: "TOML vs toml++ (TOMLKit), hand-written and generated; encode round trip") {
+        let hand = runTOMLDifferential(handWrittenTOML)
+        report("TOML hand-written", "toml++",
+               agreed: hand.agreed, bothRejected: hand.bothRejected,
+               assayOnly: hand.assayOnlyRejected, oracleOnly: hand.oracleOnlyRejected,
+               disagreed: hand.disagreed)
+        var generated: [(name: String, text: String)] = []
+        for (name, data) in jsonFiles {
+            guard let value = try? JSON.Value.parse([UInt8](data)),
+                  let inline = renderTOML(RawValue(value)),
+                  let sectioned = renderTOML(RawValue(value), sections: true) else { continue }
+            generated.append((name, inline))
+            generated.append((name + " [[sections]]", sectioned))
+        }
+        let gen = runTOMLDifferential(generated)
+        report("TOML generated (\(generated.count) documents)", "toml++",
+               agreed: gen.agreed, bothRejected: gen.bothRejected,
+               assayOnly: gen.assayOnlyRejected, oracleOnly: gen.oracleOnlyRejected,
+               disagreed: gen.disagreed)
+        print("TOML encode differential: \(runTOMLEncodeDifferential(corpus: corpus)) documents Assay wrote that toml++ reads back")
+    },
+    Oracle(name: "toml-test", summary: "the official toml-test suite (TOML_TEST_DIR names a checkout)") {
+        guard let dir = ProcessInfo.processInfo.environment["TOML_TEST_DIR"] else {
+            print("toml-test: skipped — set TOML_TEST_DIR to a checkout of github.com/toml-lang/toml-test")
+            return
+        }
+        let r = runTOMLTestSuite(dir: URL(fileURLWithPath: dir))
+        print("toml-test: \(r.validOK)/\(r.valid) valid documents parse to the expected value, \(r.invalidOK)/\(r.invalid) invalid documents refused")
+    },
     Oracle(name: "encode", summary: "documents Assay wrote, read back by Foundation and libyaml") {
         print("encode differential: \(runEncodeDifferential(corpus: corpus)) documents Assay wrote that Foundation accepts")
         print("YAML encode differential: \(runYAMLEncodeDifferential(corpus: corpus)) documents Assay wrote that libyaml reads back")
@@ -369,14 +408,14 @@ let oracles: [Oracle] = [
     Oracle(name: "plist-fuzz", summary: "mutated/truncated/random plists, no crashes or traps") {
         print("plist fuzz: \(try runPlistFuzz()) mutated/truncated/random documents, no crashes, no traps")
     },
-    Oracle(name: "fuzz", summary: "mutated/truncated JSON, YAML and XML, no crashes or hangs") {
+    Oracle(name: "fuzz", summary: "mutated/truncated JSON, YAML, XML and TOML, no crashes or hangs") {
         print("fuzz: \(try runFuzz(corpus: corpus)) mutated/truncated inputs, no crashes, no hangs")
     },
 ]
 
 var args = Array(CommandLine.arguments.dropFirst())
 if args.contains("--list") || args.contains("--help") {
-    print("usage: DiffFuzz [--list] [oracle ...] | --probe <yaml|xml|json> <input>")
+    print("usage: DiffFuzz [--list] [oracle ...] | --probe <yaml|xml|toml|json> <input>")
     for o in oracles { print("  " + o.name.padding(toLength: 12, withPad: " ", startingAt: 0) + o.summary) }
     exit(0)
 }

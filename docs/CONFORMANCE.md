@@ -208,13 +208,43 @@ the attack; the absolute figure is beside the point.**
 
 ---
 
+## 5a. TOML — 1.0.0
+
+The one format with an **official conformance suite**, and the only one where "conformant"
+is a measurement rather than a claim: `DiffFuzz toml-test` runs every document in
+[toml-test](https://github.com/toml-lang/toml-test)'s 1.0.0 list — **210 valid documents
+must parse to exactly the tagged-JSON value beside them, 501 invalid documents must be
+refused** — and CI clones the suite so the number cannot go stale. 710/710 on the day it
+was built. A second oracle, toml++ through TOMLKit, agrees on 35 hand-written cases and 150
+generated documents; `docs/TOML.md` §5.
+
+**Supported:** all of 1.0.0 — the four string forms with every escape, integers in four
+bases with underscores, floats with `inf`/`nan`, the four date-time kinds (including the
+space separator and lowercase `t`/`z`), arrays across lines with comments and a trailing
+comma, inline tables, `[table]` and `[[array of tables]]` headers, dotted keys, and every
+redefinition rule the specification states.
+
+**Refused:** everything TOML 1.1 adds — newlines and a trailing comma in inline tables,
+`\e`, `\x`, seconds-optional times — so a document that parses here parses everywhere.
+
+**Two choices where the specification leaves room**, both stated in `docs/TOML.md` §3: a
+leap second (`23:59:60`) is accepted because the ABNF allows it (toml++ refuses; toml-test
+is silent), and CRLF inside a multi-line string is normalised to LF (toml++ and
+BurntSushi/toml both do; toml-test is silent).
+
+**Security.** TOML has no references, so there is no expansion attack; the output is at
+most the size of the input. `maxDepth` bounds arrays, inline tables and header paths,
+`maxBytes` is checked before the first byte is read.
+
+---
+
 ## 6. Where this is enforced
 
 - `Tests/AssayTests/ConformanceTests.swift` — the JSON grammar and the overflow-rewind
   property, in `swift test`.
 - `Tests/AssayTests/SpanTests.swift` — that carets point at the right bytes.
-- `Benchmarks/Sources/DiffFuzz` — the five differentials, plus 9,680 mutated and truncated
-  JSON/YAML/XML inputs and 12,234 plist ones per run, in CI.
+- `Benchmarks/Sources/DiffFuzz` — the differentials and the toml-test suite, plus 10,680
+  mutated and truncated JSON/YAML/XML/TOML inputs and 12,234 plist ones per run, in CI.
 - `Experiments/03-compile-time/gate.sh` — two compile-time budgets.
 
 Every ratio quoted anywhere in this repository is one arm64 Mac, warm, minimum of five

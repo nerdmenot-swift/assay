@@ -253,6 +253,15 @@ being a closed set and then quietly is not.
 
 ---
 
+## TOML (2026-09-10)
+
+Through the `RawValue` seam like YAML, with one rule the format forces: **TOML has no
+null.** A nil member of a table is omitted — an absent key is what an optional field
+decodes nil from, so the round-trip law holds — and a nil anywhere else (an array element,
+a dictionary value, the root) is `toml_no_null` with its path, never a silent substitution.
+That is the closed exception list's TOML entry. Layout, quoting and the toml++ read-back
+oracle are in `docs/TOML.md` §4.
+
 ## What is still not being promised
 
 Symmetry. `EXPERIENCE.md` §14's point stands whatever is decided above: two engines, not one.

@@ -1,5 +1,5 @@
 {
-  "originHash" : "f85df7134c6106a9e97d674cd5907cf146813b981618c58992b62a7251814d35",
+  "originHash" : "981f142e119bc0768148d41914f316e7935c726fb1f947da2bb0cea564d7c648",
   "pins" : [
     {
       "identity" : "jjliso8601dateformatter",
@@ -17,6 +17,15 @@
       "state" : {
         "revision" : "79e4b74a295b6eb74a8b585e3a39d29e70c1dbd1",
         "version" : "603.0.2"
+      }
+    },
+    {
+      "identity" : "tomlkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/LebJe/TOMLKit.git",
+      "state" : {
+        "revision" : "ec6198d37d495efc6acd4dffbd262cdca7ff9b3f",
+        "version" : "0.6.0"
       }
     },
     {

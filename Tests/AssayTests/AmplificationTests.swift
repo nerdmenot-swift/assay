@@ -39,6 +39,7 @@ import Testing
 import Assay
 import AssayYAML
 import AssayXML
+import AssayTOML
 
 /// How many values a parsed tree actually contains, which is what a bomb inflates.
 private func nodeCount(_ v: RawValue) -> Int {
@@ -232,6 +233,57 @@ struct AmplificationTests {
         #expect(sink.issues.count <= 50, "issue collection must respect maxIssues")
     }
 
+    // MARK: TOML
+
+    @Test("TOML deep nesting is refused at the configured depth, in all three spellings")
+    func tomlDeepNesting() {
+        let docs = [
+            "a = " + String(repeating: "[", count: 10_000),
+            "a = " + String(repeating: "{b = ", count: 10_000),
+            "[" + (0..<10_000).map { _ in "a" }.joined(separator: ".") + "]",
+            (0..<10_000).map { _ in "a" }.joined(separator: ".") + " = 1",
+        ]
+        for doc in docs {
+            var sink = IssueSink()
+            _ = TOML.decode(Array(doc.utf8), into: &sink, limits: .default)
+            #expect(sink.issues.contains { $0.code == .depthExceeded }, "for \(doc.prefix(20))…")
+        }
+    }
+
+    @Test("TOML output stays proportionate to input")
+    func tomlProportionate() {
+        let doc = "a = [" + (0..<5_000).map { _ in "0" }.joined(separator: ",") + "]\n"
+            + (0..<2_000).map { "[[t]]\nk = \($0)" }.joined(separator: "\n")
+        let bytes = Array(doc.utf8)
+        var sink = IssueSink()
+        guard let v = TOML.decode(bytes, into: &sink, limits: .default) else { return }
+        #expect(tomlNodeCount(v) <= bytes.count * maxNodesPerInputByte)
+    }
+
+    @Test("TOML: many sections, keys, dotted keys and long strings stay linear")
+    func tomlLinear() {
+        let cases = [
+            (0..<20_000).map { _ in "[[a]]\nx = 1" }.joined(separator: "\n"),
+            (0..<20_000).map { "[t\($0)]\nx = 1" }.joined(separator: "\n"),
+            (0..<20_000).map { "k\($0) = \($0)" }.joined(separator: "\n"),
+            (0..<20_000).map { "a.b.c.d\($0) = 1" }.joined(separator: "\n"),
+            "s = \"" + String(repeating: "a", count: 400_000) + "\"",
+            "s = \"\"\"" + String(repeating: "\\\n", count: 100_000) + "\"\"\"",
+            "s = '''" + String(repeating: "x\n", count: 200_000) + "'''",
+            "a = [" + String(repeating: "1,", count: 200_000) + "1]",
+            "a = " + String(repeating: "{b = ", count: 60) + "1" + String(repeating: "}", count: 60),
+        ]
+        for doc in cases {
+            let bytes = Array(doc.utf8)
+            let start = DispatchTime.now().uptimeNanoseconds
+            var sink = IssueSink()
+            _ = TOML.decode(bytes, into: &sink, limits: .default)
+            let seconds = Double(DispatchTime.now().uptimeNanoseconds - start) / 1e9
+            #expect(seconds < 5.0,
+                    "\(bytes.count) bytes took \(seconds)s — suspect a quadratic path")
+        }
+    }
+
     // MARK: The quadratic class — a blowup detector, NOT a performance gate
     //
     // Read the file header before touching these numbers. The ceilings are absurd on
@@ -278,6 +330,14 @@ struct AmplificationTests {
         _ = AmpWarned.diagnose(json: Array(doc.utf8))
         let seconds = Double(DispatchTime.now().uptimeNanoseconds - start) / 1e9
         #expect(seconds < 5.0, "2,000 unknown keys took \(seconds)s")
+    }
+}
+
+private func tomlNodeCount(_ n: TOML.Node) -> Int {
+    switch n {
+    case .array(let items): return 1 + items.reduce(0) { $0 + tomlNodeCount($1) }
+    case .table(let members): return 1 + members.reduce(0) { $0 + tomlNodeCount($1.value) }
+    default: return 1
     }
 }
 

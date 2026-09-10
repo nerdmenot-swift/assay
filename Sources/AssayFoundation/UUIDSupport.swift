@@ -6,7 +6,7 @@
 // `UUID` as a field type. docs/COLUMN-DECODABLE.md.
 //
 // THIS FILE IS BIGGER THAN THE `Date` ONE BECAUSE `UUID` STARTED FURTHER BACK. `Date` is
-// already a field type -- the macro special-cases it and `Dates.swift` implements it -- so
+// already a field type -- the macro special-cases it and `DateParser.swift` implements it -- so
 // its columnar conformance was the only missing half. `UUID` was not a field type at all:
 // `var id: UUID` in any `@Schema` failed with "type 'UUID' has no member '_assay'", so a
 // `ColumnDecodable` conformance alone would have been unreachable, which is exactly the

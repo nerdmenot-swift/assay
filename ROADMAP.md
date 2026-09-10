@@ -81,7 +81,7 @@ var created: Date                                  // ISO 8601, the default
 The blocking question — where the epoch conversion lives, given the core's no-Foundation
 rule — dissolved once the conversion was recognised as *arithmetic*, not calendar lookup:
 Hinnant's days-from-civil is a handful of integer operations, so the parsers live in
-`AssayCore/Dates.swift` and return epoch seconds as `Double`. The macro emits
+`AssayCore/DateParser.swift` and return epoch seconds as `Double`. The macro emits
 `Date(timeIntervalSince1970:)` **into the user's module**, where `var created: Date` had
 already forced a Foundation flavour into scope. No protocol, no retroactive conformance,
 no `AssayFoundation` requirement — and the seam is pinned by a test that decodes into a

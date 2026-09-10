@@ -6,7 +6,7 @@
 // `Date` out of a column store. docs/COLUMN-DECODABLE.md.
 //
 // WHY THIS IS HERE AND NOT IN AssayCore. The core is Foundation-free by design, and the
-// `Date` architecture already turns on that: the parsers in `Dates.swift` return epoch
+// `Date` architecture already turns on that: the parsers in `DateParser.swift` return epoch
 // seconds and the macro emits `Date(timeIntervalSince1970:)` into the USER's module, so
 // `Date` never appears in a core signature. A conformance in the core would drag Foundation
 // into it for one type.

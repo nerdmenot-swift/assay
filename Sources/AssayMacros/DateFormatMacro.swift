@@ -16,7 +16,7 @@
 //     at expansion, and unchecked patterns are how DateFormatter bugs happen);
 //   * a `.pattern` literal that does not compile — checked with the SAME rules the
 //     runtime uses, worded identically. The checker is deliberately duplicated from
-//     AssayCore/Dates.swift (the plugin cannot link the core), and a parity test in
+//     AssayCore/DateParser.swift (the plugin cannot link the core), and a parity test in
 //     MacroTests keeps the two from drifting.
 //===----------------------------------------------------------------------===//
 
@@ -114,7 +114,7 @@ public struct DateFormatMacro: PeerMacro {
     }
 }
 
-// MARK: - The pattern checker, duplicated from AssayCore/Dates.swift
+// MARK: - The pattern checker, duplicated from AssayCore/DateParser.swift
 
 /// Mirrors `DateParser.compilePattern`'s validation, wording included. The plugin
 /// binary cannot link AssayCore, so the rules live twice; the parity test in MacroTests

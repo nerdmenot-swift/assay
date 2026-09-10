@@ -176,6 +176,8 @@ nonisolated public static func _assay(
     // See the note in the JSON body: local validity, not global.
     let __ck0 = sink.checkpoint()
 
+    var __sp1: Assay.SourceSpan? = nil
+    var __sp3: Assay.SourceSpan? = nil
     var __f0: [String]? = nil
     var __f1: UInt8? = nil
     var __f2: [UInt8]? = nil
@@ -189,10 +191,12 @@ nonisolated public static func _assay(
             case 1:
                 if __k == "w" {
                     __presence |= 2
-                    __f1 = __v._assayUInt8(&sink, path, "w")
+                    __sp1 = __m.span
+                    __f1 = __v._assayUInt8(&sink, path, "w", at: __sp1)
                 } else if __k == "n" {
                     __presence |= 8
-                    __f3 = __v._assayInt(&sink, path, "n", coerce: true)
+                    __sp3 = __m.span
+                    __f3 = __v._assayInt(&sink, path, "n", coerce: true, at: __sp3)
                 } else {
                     break
                 }

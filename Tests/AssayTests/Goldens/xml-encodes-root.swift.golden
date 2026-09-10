@@ -135,6 +135,8 @@ nonisolated public static func _assay(
     // See the note in the JSON body: local validity, not global.
     let __ck0 = sink.checkpoint()
 
+    var __sp0: Assay.SourceSpan? = nil
+    var __sp1: Assay.SourceSpan? = nil
     var __f0: Int? = nil
     var __f1: String? = nil
     var __f2: [String]? = nil
@@ -147,21 +149,24 @@ nonisolated public static func _assay(
             case 0:
                 if __k == "" {
                     __presence |= 2
-                    __f1 = __v._assayString(&sink, path, "body", coerce: true)
+                    __sp1 = __m.span
+                    __f1 = __v._assayString(&sink, path, "body", coerce: true, at: __sp1)
                 } else {
                     break
                 }
             case 2:
                 if __k == "id" {
                     __presence |= 1
-                    __f0 = __v._assayInt(&sink, path, "id", coerce: true)
+                    __sp0 = __m.span
+                    __f0 = __v._assayInt(&sink, path, "id", coerce: true, at: __sp0)
                 } else {
                     break
                 }
             case 4:
                 if __k == "body" {
                     __presence |= 2
-                    __f1 = __v._assayString(&sink, path, "body", coerce: true)
+                    __sp1 = __m.span
+                    __f1 = __v._assayString(&sink, path, "body", coerce: true, at: __sp1)
                 } else if __k == "tags" {
                     __presence |= 4
                     if let __r = __v.sequence.map({ $0.compactMap { __e0 in __e0._assayString(&sink, path, "tags", coerce: true) } }) {

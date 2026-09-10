@@ -58,7 +58,7 @@ extension SchemaMacro {
         // A span local per field that can report one, mirroring the JSON body. On this path
         // the span comes from `RawValue.Member`, which the YAML and XML parsers fill in;
         // it is nil for any producer that does not track offsets, and nil is always safe.
-        for (i, f) in fields.enumerated() where f.needsSpan {
+        for (i, f) in fields.enumerated() where rawNeedsSpan(f) {
             locals += "    var __sp\(i): Assay.SourceSpan? = nil\n"
         }
         for (i, f) in fields.enumerated() {
@@ -95,7 +95,7 @@ extension SchemaMacro {
                 if key != f.wireKey, !key.isEmpty {
                     checks += "                    Assay._assayAliasMatched(&sink, path, \"\(f.wireKey)\", \"\(key)\")\n"
                 }
-                if f.needsSpan {
+                if rawNeedsSpan(f) {
                     checks += "                    __sp\(i) = __m.span\n"
                 }
                 checks += "                    \(rawDecodeStatement(field: f, index: i, ctx: ctx))\n"
@@ -212,7 +212,7 @@ extension SchemaMacro {
             return "__f\(i) = __v._assayDate(&sink, path, \"\(key)\", \(formats))\(wrap)"
         }
 
-        let spanRef = f.needsSpan ? "__sp\(i)" : nil
+        let spanRef = rawNeedsSpan(f) ? "__sp\(i)" : nil
         if f.fallback != nil,
            let call = rawScalarCall(base, key: key, coerce: f.coerce, span: spanRef) {
             return """
@@ -366,6 +366,28 @@ extension SchemaMacro {
     /// is where the YAML and XML parsers record an offset, and an element nested inside an
     /// array or dictionary value has no slot of its own. Those decode without a caret, the
     /// same way they do today.
+    /// Whether this field's raw-path decode can carry a span.
+    ///
+    /// `SchemaField.needsSpan` answers "do this field's RULES need somewhere to point",
+    /// which is the right question on the JSON path: a decode failure there uses the
+    /// reader's own position, so a rule-free field needs no capture and the capture is
+    /// real work (`reader.lastValueSpan`).
+    ///
+    /// On THIS path a decode failure has no reader to ask — the span has to come from
+    /// `RawValue.Member.span`, which is already in hand at the match. Tying the capture to
+    /// rules meant a type mismatch on a rule-free field printed with no caret in YAML, XML,
+    /// TOML and plists while the same mistake in JSON pointed at the byte. Found by writing
+    /// the format pages: `enabled: no` reported `enabled must be a boolean, found "no"` and
+    /// nothing else.
+    ///
+    /// Scalars only, and that is not a shortcut: the span is *consumed* by `rawScalarCall`
+    /// and by the validation calls, so capturing it for a nested `@Schema` field would
+    /// assign a local nothing reads — which is a warning in the user's build, and this
+    /// package gates on zero warnings.
+    static func rawNeedsSpan(_ f: SchemaField) -> Bool {
+        f.needsSpan || rawScalarCall(f.decodedType, key: "", coerce: f.coerce) != nil
+    }
+
     static func rawScalarCall(
         _ type: String, key: String, coerce: Bool, span: String? = nil
     ) -> String? {
@@ -430,7 +452,7 @@ extension SchemaMacro {
         var body = ""
         for (seg, i) in n.leaves {
             let f = fields[i]
-            let span = f.needsSpan ? "\(pad)            __sp\(i) = __m.span\n" : ""
+            let span = rawNeedsSpan(f) ? "\(pad)            __sp\(i) = __m.span\n" : ""
             body += """
             \(pad)        if __m.key == "\(seg)" {
             \(pad)            __presence |= \(1 << UInt64(i))

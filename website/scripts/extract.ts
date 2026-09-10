@@ -26,145 +26,12 @@ const OUT = join(HERE, '..', 'src', 'data')
 // The Swift program. One struct, several documents, every render captured.
 // ---------------------------------------------------------------------------
 
-const SWIFT = String.raw`
-import Assay
-import AssayYAML
-import AssayXML
-import AssayTOML
+// The example program lives in scripts/samples.swift.txt rather than in a template
+// literal here: it is real Swift, it is long, and a backtick or a `${` inside a template
+// literal would break it in ways that are tedious to see. Read as text, written to a temp
+// package, built against the real library.
+const SWIFT = readFileSync(join(HERE, 'samples.swift.txt'), 'utf8')
 
-// The hero: a deployment config with one thing wrong in it.
-@Schema(keys: .snakeCase, formats: .all)
-struct Deployment {
-    @Validate(.min(1), .max(63)) var name: String
-    var image: String
-    @Validate(.min(1)) var replicas: Int
-    var region: String = "eu-west-1"
-    @Validate(.url) var healthCheck: String?
-}
-
-// Every kind of failure at once, so the "all of them, not the first" claim is visible.
-@Schema(keys: .snakeCase, unknownKeys: .warn)
-struct Signup {
-    @Validate(.min(3), .max(24)) var username: String
-    @Validate(.email) var email: String
-    @Validate(.min(13)) var age: Int
-    var newsletter: Bool = false
-    @Check
-    static func adults(_ s: Signup, _ issues: inout Issues<Signup>) {
-        if s.age < 18, s.newsletter { issues.add("needs a guardian's consent", at: \.newsletter) }
-    }
-}
-
-@Schema(keys: .snakeCase)
-struct Article {
-    var title: String
-    var link: String
-    var readingMinutes: Int
-    var tags: [String] = []
-}
-
-func esc(_ s: String) -> String {
-    var out = ""
-    for c in s.unicodeScalars {
-        switch c {
-        case "\"": out += "\\\""
-        case "\\": out += "\\\\"
-        case "\n": out += "\\n"
-        case "\t": out += "\\t"
-        default:
-            if c.value < 0x20 {
-                let hex = String(c.value, radix: 16)
-                out += "\\u" + String(repeating: "0", count: 4 - hex.count) + hex
-            } else { out.unicodeScalars.append(c) }
-        }
-    }
-    return out
-}
-func pair(_ source: String, _ render: String) -> String {
-    "{\"source\":\"\(esc(source))\",\"render\":\"\(esc(render))\"}"
-}
-
-var parts: [String] = []
-
-// 1. Hero.
-let deploy = """
-{
-  "name": "api",
-  "image": "registry.internal/api:2.4.1",
-  "replicas": 0,
-  "health_check": "https://api.internal/healthz"
-}
-"""
-let d1 = Deployment.diagnose(json: deploy, sourceName: "deploy.json")
-parts.append("\"hero\":" + pair(deploy, d1.render(.plain)))
-
-// 2. The same struct, four formats, the same mistake. Same message, four carets.
-let deployYAML = """
-name: api
-image: registry.internal/api:2.4.1
-replicas: 0
-health_check: https://api.internal/healthz
-"""
-let deployTOML = """
-name = "api"
-image = "registry.internal/api:2.4.1"
-replicas = 0
-health_check = "https://api.internal/healthz"
-"""
-let deployXML = """
-<deployment>
-  <name>api</name>
-  <image>registry.internal/api:2.4.1</image>
-  <replicas>0</replicas>
-  <health_check>https://api.internal/healthz</health_check>
-</deployment>
-"""
-@Schema(keys: .snakeCase, coerceScalars: true, formats: [.xml])
-struct XMLDeployment {
-    @Validate(.min(1), .max(63)) var name: String
-    var image: String
-    @Validate(.min(1)) var replicas: Int
-    var region: String = "eu-west-1"
-    @Validate(.url) var healthCheck: String?
-}
-let f = [
-    "json": pair(deploy, d1.render(.plain)),
-    "yaml": pair(deployYAML, Deployment.diagnose(yaml: deployYAML, sourceName: "deploy.yaml").render(.plain)),
-    "toml": pair(deployTOML, Deployment.diagnose(toml: deployTOML, sourceName: "deploy.toml").render(.plain)),
-    "xml": pair(deployXML, XMLDeployment.diagnose(xml: Array(deployXML.utf8), sourceName: "deploy.xml").render(.plain)),
-]
-parts.append("\"formats\":{" + f.map { "\"\($0.key)\":\($0.value)" }.sorted().joined(separator: ",") + "}")
-
-// 3. Everything wrong at once.
-let signup = """
-{
-  "username": "jo",
-  "email": "jo@localhost",
-  "age": "fourteen",
-  "newsleter": true
-}
-"""
-let d3 = Signup.diagnose(json: signup, sourceName: "signup.json")
-parts.append("\"collect\":" + pair(signup, d3.render(.plain)))
-parts.append("\"collectJSON\":\"" + esc(d3.render(.json)) + "\"")
-
-// 4. The happy path, so the page shows what success looks like too.
-let article = """
-{"title": "On carets", "link": "https://example.com/carets", "reading_minutes": 4, "tags": ["errors"]}
-"""
-let a = try! Article.parse(json: article)
-parts.append("\"happy\":" + pair(article, String(describing: a)))
-
-// 5. A did-you-mean, on its own.
-@Schema(keys: .snakeCase, unknownKeys: .reject)
-struct Strict { var apiKey: String; var timeoutSeconds: Int }
-let strict = """
-{"api_key": "sk-live-4f2a", "timeout_secs": 30}
-"""
-parts.append("\"didYouMean\":" + pair(strict, Strict.diagnose(json: strict, sourceName: "config.json").render(.plain)))
-
-print("{" + parts.joined(separator: ",") + "}")
-`
 
 // ---------------------------------------------------------------------------
 // Numbers, read from the files that hold them
@@ -249,6 +116,7 @@ let package = Package(
         .product(name: "AssayYAML", package: "assay"),
         .product(name: "AssayXML", package: "assay"),
         .product(name: "AssayTOML", package: "assay"),
+        .product(name: "AssayPlist", package: "assay"),
     ])]
 )
 `

@@ -1,0 +1,616 @@
+import Assay
+import AssayYAML
+import AssayXML
+import AssayTOML
+import AssayPlist
+import Foundation
+
+// ===========================================================================
+// The types every page's examples are built from.
+//
+// Kept few and reused across formats on purpose: the site's claim is "one struct, many
+// formats", and demonstrating it with a different struct per format would quietly
+// undermine it.
+// ===========================================================================
+
+@Schema(keys: .snakeCase, formats: .all)
+struct Deployment {
+    @Validate(.min(1), .max(63)) var name: String
+    var image: String
+    @Validate(.min(1)) var replicas: Int
+    var region: String = "eu-west-1"
+    @Validate(.url) var healthCheck: String?
+}
+
+@Schema(keys: .snakeCase, coerceScalars: true, formats: .all)
+struct XMLDeployment {
+    @Validate(.min(1), .max(63)) var name: String
+    var image: String
+    @Validate(.min(1)) var replicas: Int
+    var region: String = "eu-west-1"
+    @Validate(.url) var healthCheck: String?
+}
+
+@Schema(keys: .snakeCase, unknownKeys: .warn)
+struct Signup {
+    @Validate(.min(3), .max(24)) var username: String
+    @Validate(.email) var email: String
+    @Validate(.min(13)) var age: Int
+    var newsletter: Bool = false
+}
+
+@Schema(keys: .snakeCase)
+struct Article {
+    var title: String
+    var link: String
+    var readingMinutes: Int
+    var tags: [String] = []
+}
+
+@Schema(keys: .snakeCase, unknownKeys: .reject)
+struct Strict { var apiKey: String; var timeoutSeconds: Int }
+
+// Nested shapes, for the array/object examples every format page wants.
+@Schema(keys: .snakeCase, formats: .all)
+struct Server { var host: String; var port: Int; var tls: Bool = true }
+
+@Schema(keys: .snakeCase, coerceScalars: true, formats: .all)
+struct Cluster {
+    var name: String
+    var servers: [Server]
+    var labels: [String: String] = [:]
+}
+
+// Numbers, for the overflow and precision examples.
+@Schema(keys: .snakeCase)
+struct Metrics {
+    var count: Int32
+    var ratio: Double
+    var enabled: Bool
+}
+
+// Dates, one per format that has an opinion about them.
+@Schema(keys: .snakeCase, formats: .all)
+struct Entry {
+    var name: String
+    var createdAt: Date
+    @DateFormat(.unixSeconds) var seenAt: Date
+}
+
+// XML placement.
+@Schema(keys: .snakeCase, coerceScalars: true, formats: [.xml])
+@XML(root: "item")
+struct Item {
+    @XML(.attribute) var id: Int
+    @XML(.attribute) var lang: String = "en"
+    @XML(.text) var body: String
+    @XML(.wrapped) var tags: [String]
+}
+
+// ===========================================================================
+// Plumbing
+// ===========================================================================
+
+func esc(_ s: String) -> String {
+    var out = ""
+    for c in s.unicodeScalars {
+        switch c {
+        case "\"": out += "\\\""
+        case "\\": out += "\\\\"
+        case "\n": out += "\\n"
+        case "\t": out += "\\t"
+        default:
+            if c.value < 0x20 {
+                let hex = String(c.value, radix: 16)
+                out += "\\u" + String(repeating: "0", count: 4 - hex.count) + hex
+            } else { out.unicodeScalars.append(c) }
+        }
+    }
+    return out
+}
+
+nonisolated(unsafe) var parts: [String] = []
+func emit(_ key: String, _ source: String, _ render: String) {
+    parts.append("\"\(esc(key))\":{\"source\":\"\(esc(source))\",\"render\":\"\(esc(render))\"}")
+}
+/// A render that is a value rather than a diagnostic — the happy path.
+func emitValue(_ key: String, _ source: String, _ value: Any) {
+    emit(key, source, String(describing: value))
+}
+/// The same, for a call that can throw. An example that stops working should say so in
+/// the output rather than killing the run: with thirty of them, one `try!` trap means one
+/// rebuild per problem.
+func emitTry(_ key: String, _ source: String, _ body: () throws -> Any) {
+    do { emit(key, source, String(describing: try body())) }
+    catch { emit(key, source, "EXAMPLE FAILED: \(error)") }
+}
+
+// ===========================================================================
+// JSON
+// ===========================================================================
+
+let deployJSON = """
+{
+  "name": "api",
+  "image": "registry.internal/api:2.4.1",
+  "replicas": 0,
+  "health_check": "https://api.internal/healthz"
+}
+"""
+emit("hero", deployJSON, Deployment.diagnose(json: deployJSON, sourceName: "deploy.json").render(.plain))
+
+let articleJSON = """
+{"title": "On carets", "link": "https://example.com/carets", "reading_minutes": 4, "tags": ["errors"]}
+"""
+emitTry("json.happy", articleJSON) { try Article.parse(json: articleJSON) }
+
+let clusterJSON = """
+{
+  "name": "eu-prod",
+  "servers": [
+    {"host": "a.internal", "port": 8080},
+    {"host": "b.internal", "port": 8081, "tls": false}
+  ],
+  "labels": {"tier": "prod", "team": "platform"}
+}
+"""
+emitTry("json.nested", clusterJSON) { try Cluster.parse(json: clusterJSON) }
+
+let signupJSON = """
+{
+  "username": "jo",
+  "email": "jo@localhost",
+  "age": "fourteen",
+  "newsleter": true
+}
+"""
+let signupD = Signup.diagnose(json: signupJSON, sourceName: "signup.json")
+emit("collect", signupJSON, signupD.render(.plain))
+parts.append("\"collectJSON\":\"" + esc(signupD.render(.json)) + "\"")
+parts.append("\"collectProblem\":\"" + esc(signupD.render(.problemDetails)) + "\"")
+
+let strictJSON = """
+{"api_key": "sk-live-4f2a", "timeout_secs": 30}
+"""
+emit("didYouMean", strictJSON, Strict.diagnose(json: strictJSON, sourceName: "config.json").render(.plain))
+
+// Malformed documents: the parser's own errors, not the schema's.
+let jsonTrailingComma = """
+{"title": "x", "link": "y", "reading_minutes": 1,}
+"""
+emit("json.trailingComma", jsonTrailingComma,
+     Article.diagnose(json: jsonTrailingComma, sourceName: "bad.json").render(.plain))
+
+let jsonUnquoted = """
+{title: "x"}
+"""
+emit("json.unquoted", jsonUnquoted, Article.diagnose(json: jsonUnquoted, sourceName: "bad.json").render(.plain))
+
+let jsonTruncated = """
+{"title": "x", "link":
+"""
+emit("json.truncated", jsonTruncated, Article.diagnose(json: jsonTruncated, sourceName: "bad.json").render(.plain))
+
+// Numbers.
+let jsonOverflow = """
+{"count": 99999999999, "ratio": 0.5, "enabled": true}
+"""
+emit("json.overflow", jsonOverflow, Metrics.diagnose(json: jsonOverflow, sourceName: "metrics.json").render(.plain))
+
+let jsonWrongNumber = """
+{"count": 1.5, "ratio": "half", "enabled": "yes"}
+"""
+emit("json.numbers", jsonWrongNumber, Metrics.diagnose(json: jsonWrongNumber, sourceName: "metrics.json").render(.plain))
+
+// Duplicate keys: last wins, and it is worth showing rather than describing.
+let jsonDuplicate = """
+{"title": "first", "title": "second", "link": "l", "reading_minutes": 1}
+"""
+emitTry("json.duplicate", jsonDuplicate) { try Article.parse(json: jsonDuplicate) }
+
+// The value model, when the shape is not known.
+let jsonUnknownShape = """
+{"kind": "batch", "items": [{"id": 1}, {"id": 2}], "meta": null}
+"""
+let jv = try! JSON.Value.parse(Array(jsonUnknownShape.utf8))
+emit("json.valueModel", jsonUnknownShape,
+     "v[\"kind\"]?.string      → \(jv["kind"]?.string ?? "nil")\n"
+     + "v[\"items\"]?[1]?[\"id\"]?.int → \(jv["items"]?[1]?["id"]?.int.map(String.init) ?? "nil")\n"
+     + "v[\"meta\"]            → \(jv["meta\"" == "" ? "" : "meta"].map { String(describing: $0) } ?? "nil")\n"
+     + "v[\"absent\"]          → \(jv["absent"].map { String(describing: $0) } ?? "nil")")
+
+// ===========================================================================
+// The same struct, four formats
+// ===========================================================================
+
+let deployYAML = """
+name: api
+image: registry.internal/api:2.4.1
+replicas: 0
+health_check: https://api.internal/healthz
+"""
+let deployTOML = """
+name = "api"
+image = "registry.internal/api:2.4.1"
+replicas = 0
+health_check = "https://api.internal/healthz"
+"""
+let deployXML = """
+<deployment>
+  <name>api</name>
+  <image>registry.internal/api:2.4.1</image>
+  <replicas>0</replicas>
+  <health_check>https://api.internal/healthz</health_check>
+</deployment>
+"""
+emit("formats.json", deployJSON, Deployment.diagnose(json: deployJSON, sourceName: "deploy.json").render(.plain))
+emit("formats.yaml", deployYAML, Deployment.diagnose(yaml: deployYAML, sourceName: "deploy.yaml").render(.plain))
+emit("formats.toml", deployTOML, Deployment.diagnose(toml: deployTOML, sourceName: "deploy.toml").render(.plain))
+emit("formats.xml", deployXML,
+     XMLDeployment.diagnose(xml: Array(deployXML.utf8), sourceName: "deploy.xml").render(.plain))
+
+// The same document, decoding cleanly, in each format — so a page can show success too.
+let okJSON = #"{"name": "api", "image": "img:1", "replicas": 3}"#
+let okYAML = "name: api\nimage: img:1\nreplicas: 3\n"
+let okTOML = "name = \"api\"\nimage = \"img:1\"\nreplicas = 3\n"
+let okXML = "<deployment><name>api</name><image>img:1</image><replicas>3</replicas></deployment>"
+emitTry("ok.json", okJSON) { try Deployment.parse(json: okJSON) }
+emitTry("ok.yaml", okYAML) { try Deployment.parse(yaml: okYAML) }
+emitTry("ok.toml", okTOML) { try Deployment.parse(toml: okTOML) }
+emitTry("ok.xml", okXML) { try XMLDeployment.parse(xml: Array(okXML.utf8)) }
+
+// ===========================================================================
+// YAML
+// ===========================================================================
+
+let yamlCluster = """
+name: eu-prod
+servers:
+  - host: a.internal
+    port: 8080
+  - host: b.internal
+    port: 8081
+    tls: false
+labels:
+  tier: prod
+  team: platform
+"""
+emitTry("yaml.nested", yamlCluster) { try Cluster.parse(yaml: yamlCluster) }
+
+let yamlFlow = """
+name: eu-prod
+servers: [{host: a.internal, port: 8080}, {host: b.internal, port: 8081}]
+labels: {tier: prod}
+"""
+emitTry("yaml.flow", yamlFlow) { try Cluster.parse(yaml: yamlFlow) }
+
+let yamlAnchors = """
+defaults: &defaults
+  port: 8080
+  tls: true
+name: eu-prod
+servers:
+  - <<: *defaults
+    host: a.internal
+  - <<: *defaults
+    host: b.internal
+    port: 9090
+"""
+emitTry("yaml.anchors", yamlAnchors) { try Cluster.parse(yaml: yamlAnchors) }
+
+// The Norway problem, shown rather than described: `NO` is the string, and `no` is NOT a
+// boolean — YAML 1.2's core schema says only true/false are, and Assay follows it rather
+// than the 1.1 grammar that made this famous.
+@Schema(formats: .all) struct Country { var code: String; var enabled: Bool }
+let yamlNorway = """
+code: NO
+enabled: false
+"""
+emitTry("yaml.norway", yamlNorway) { try Country.parse(yaml: yamlNorway) }
+
+let yamlNorwayBad = """
+code: NO
+enabled: no
+"""
+emit("yaml.norwayBad", yamlNorwayBad,
+     Country.diagnose(yaml: yamlNorwayBad, sourceName: "country.yaml").render(.plain))
+
+@Schema(coerceScalars: true, formats: .all) struct LooseCountry { var code: String; var enabled: Bool }
+emitTry("yaml.norwayCoerced", yamlNorwayBad) { try LooseCountry.parse(yaml: yamlNorwayBad) }
+
+// Block scalars.
+@Schema(coerceScalars: true, formats: .all) struct Note { var title: String; var body: String }
+let yamlBlock = """
+title: Release
+body: |
+  Line one.
+  Line two.
+"""
+emitTry("yaml.block", yamlBlock) { try Note.parse(yaml: yamlBlock) }
+
+let yamlFolded = """
+title: Release
+body: >
+  This is one
+  long line.
+"""
+emitTry("yaml.folded", yamlFolded) { try Note.parse(yaml: yamlFolded) }
+
+// Multi-document.
+let yamlMulti = """
+---
+name: a
+image: img:1
+replicas: 1
+---
+name: b
+image: img:2
+replicas: 2
+"""
+emitTry("yaml.multi", yamlMulti) { try Deployment.parseAll(yaml: yamlMulti).map(\.name) }
+
+// Errors.
+let yamlBadIndent = """
+name: api
+image: img:1
+  replicas: 3
+"""
+emit("yaml.badIndent", yamlBadIndent, Deployment.diagnose(yaml: yamlBadIndent, sourceName: "deploy.yaml").render(.plain))
+
+let yamlTypeError = """
+name: api
+image: img:1
+replicas: three
+"""
+emit("yaml.typeError", yamlTypeError, Deployment.diagnose(yaml: yamlTypeError, sourceName: "deploy.yaml").render(.plain))
+
+let yamlUnclosed = """
+name: api
+servers: [a, b
+"""
+emit("yaml.unclosed", yamlUnclosed, Cluster.diagnose(yaml: yamlUnclosed, sourceName: "cluster.yaml").render(.plain))
+
+// The value model.
+let yamlValueModel = """
+scalar: NO
+quoted: "NO"
+tagged: !!str 123
+"""
+let yn = try! YAML.parse(yamlValueModel)
+emit("yaml.valueModel", yamlValueModel,
+     "n[\"scalar\"]?.content        → \(yn["scalar"]?.content ?? "nil")\n"
+     + "n[\"scalar\"]?.resolvedBool   → \(yn["scalar"]?.resolvedBool.map(String.init) ?? "nil")\n"
+     + "n[\"quoted\"]?.scalar?.style  → \(yn["quoted"]?.scalar.map { String(describing: $0.style) } ?? "nil")\n"
+     + "n[\"tagged\"]?.scalar?.tag    → \(yn["tagged"]?.scalar?.tag ?? "nil")")
+
+// ===========================================================================
+// XML
+// ===========================================================================
+
+let xmlItem = """
+<item id="7" lang="fr">
+  The body text.
+  <tags><tags>swift</tags><tags>xml</tags></tags>
+</item>
+"""
+emitTry("xml.placement", xmlItem) { try Item.parse(xml: Array(xmlItem.utf8)) }
+
+let xmlRepeated = """
+<cluster>
+  <name>eu-prod</name>
+  <servers><host>a.internal</host><port>8080</port></servers>
+  <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>
+</cluster>
+"""
+emitTry("xml.repeated", xmlRepeated) { try Cluster.parse(xml: Array(xmlRepeated.utf8)) }
+
+let xmlCoerce = """
+<deployment><name>api</name><image>img:1</image><replicas>3</replicas></deployment>
+"""
+emit("xml.noCoerce", xmlCoerce,
+     Deployment.diagnose(xml: Array(xmlCoerce.utf8), sourceName: "deploy.xml").render(.plain))
+
+let xmlBadRoot = """
+<service><name>api</name></service>
+"""
+emit("xml.badRoot", xmlBadRoot, Item.diagnose(xml: Array(xmlBadRoot.utf8), sourceName: "item.xml").render(.plain))
+
+let xmlMismatched = """
+<deployment><name>api</image></deployment>
+"""
+emit("xml.mismatched", xmlMismatched,
+     XMLDeployment.diagnose(xml: Array(xmlMismatched.utf8), sourceName: "deploy.xml").render(.plain))
+
+let xmlEntity = """
+<!DOCTYPE deployment [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+<deployment><name>&xxe;</name><image>img:1</image><replicas>1</replicas></deployment>
+"""
+let xxeD = XMLDeployment.diagnose(xml: Array(xmlEntity.utf8), sourceName: "deploy.xml")
+emit("xml.xxe", xmlEntity,
+     xxeD.render(.plain) + "\n\nwarnings: " + xxeD.warnings.map(\.code.codeString).joined(separator: ", "))
+
+let xmlCData = """
+<note><title>T</title><body><![CDATA[<b>raw</b> & unescaped]]></body></note>
+"""
+emitTry("xml.cdata", xmlCData) { try Note.parse(xml: Array(xmlCData.utf8)) }
+
+// The value model.
+let xmlValueModel = """
+<root xmlns:n="urn:example"><n:child a="1">text<!-- c --></n:child></root>
+"""
+let xd = try! XML.parse(Array(xmlValueModel.utf8))
+let child = xd.root.children.compactMap { if case .element(let e) = $0 { return e } else { return nil } }.first!
+emit("xml.valueModel", xmlValueModel,
+     "root.name.local          → \(xd.root.name.local)\n"
+     + "child.name.local         → \(child.name.local)\n"
+     + "child.name.namespaceURI  → \(child.name.namespaceURI ?? "nil")\n"
+     + "child[attribute: \"a\"]    → \(child[attribute: "a"] ?? "nil")\n"
+     + "child.children.count     → \(child.children.count)   (text + comment)")
+
+// ===========================================================================
+// TOML
+// ===========================================================================
+
+let tomlCluster = """
+name = "eu-prod"
+
+[[servers]]
+host = "a.internal"
+port = 8080
+
+[[servers]]
+host = "b.internal"
+port = 8081
+tls = false
+
+[labels]
+tier = "prod"
+team = "platform"
+"""
+emitTry("toml.tables", tomlCluster) { try Cluster.parse(toml: tomlCluster) }
+
+let tomlInline = """
+name = "eu-prod"
+servers = [{host = "a.internal", port = 8080}]
+labels = {tier = "prod"}
+"""
+emitTry("toml.inline", tomlInline) { try Cluster.parse(toml: tomlInline) }
+
+let tomlDates = """
+name = "release"
+created_at = 1979-05-27T07:32:00Z
+seen_at = 1700000000
+"""
+emitTry("toml.dates", tomlDates) { try Entry.parse(toml: tomlDates) }
+
+let tomlRedefine = """
+name = "x"
+
+[labels]
+tier = "prod"
+
+[labels]
+team = "platform"
+"""
+emit("toml.redefine", tomlRedefine, Cluster.diagnose(toml: tomlRedefine, sourceName: "cluster.toml").render(.plain))
+
+let tomlBadNumber = """
+name = "api"
+image = "img:1"
+replicas = 01
+"""
+emit("toml.badNumber", tomlBadNumber, Deployment.diagnose(toml: tomlBadNumber, sourceName: "deploy.toml").render(.plain))
+
+let tomlBadDate = """
+name = "release"
+created_at = 2023-02-29
+seen_at = 1
+"""
+emit("toml.badDate", tomlBadDate, Entry.diagnose(toml: tomlBadDate, sourceName: "entry.toml").render(.plain))
+
+// The value model, and the four date-time kinds.
+let tomlValueModel = """
+odt = 1979-05-27T07:32:00Z
+ldt = 1979-05-27T07:32:00
+ld  = 1979-05-27
+lt  = 07:32:00
+hex = 0xDEAD_BEEF
+"""
+let td = try! TOML.parse(tomlValueModel)
+func kind(_ k: String) -> String {
+    guard let dt = td[k]?.dateTime else { return "nil" }
+    switch dt {
+    case .offsetDateTime(let s): return "offsetDateTime(\(s))"
+    case .localDateTime(let s): return "localDateTime(\(s))"
+    case .localDate(let s): return "localDate(\(s))"
+    case .localTime(let s): return "localTime(\(s))"
+    }
+}
+emit("toml.valueModel", tomlValueModel,
+     "t[\"odt\"]?.dateTime → \(kind("odt"))\n"
+     + "t[\"ldt\"]?.dateTime → \(kind("ldt"))\n"
+     + "t[\"ld\"]?.dateTime  → \(kind("ld"))\n"
+     + "t[\"lt\"]?.dateTime  → \(kind("lt"))\n"
+     + "t[\"hex\"]?.int      → \(td["hex"]?.int.map(String.init) ?? "nil")")
+
+// ===========================================================================
+// Property lists
+// ===========================================================================
+
+let plistXML = """
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>name</key><string>api</string>
+  <key>image</key><string>img:1</string>
+  <key>replicas</key><integer>3</integer>
+</dict>
+</plist>
+"""
+emitTry("plist.xml", plistXML) { try Deployment.parse(plist: Array(plistXML.utf8)) }
+
+// A binary plist, produced by Foundation so the bytes are genuinely binary.
+let binary = try! PropertyListSerialization.data(
+    fromPropertyList: ["name": "api", "image": "img:1", "replicas": 3],
+    format: .binary, options: 0)
+let binaryBytes = [UInt8](binary)
+emit("plist.binary",
+     "// 'bplist00' + " + String(binaryBytes.count) + " bytes, written by PropertyListSerialization\n"
+     + binaryBytes.prefix(16).map { String(format: "%02x", $0) }.joined(separator: " ") + " …",
+     String(describing: try! Deployment.parse(plist: binaryBytes)))
+
+let plistBadType = """
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+  <key>name</key><string>api</string>
+  <key>image</key><string>img:1</string>
+  <key>replicas</key><string>three</string>
+</dict>
+</plist>
+"""
+emit("plist.badType", plistBadType,
+     Deployment.diagnose(plist: Array(plistBadType.utf8), sourceName: "Settings.plist").render(.plain))
+
+// ===========================================================================
+// Content negotiation
+// ===========================================================================
+
+// A VALID body: these examples are about which parser was chosen, not about validation,
+// and reusing the deliberately-broken document above would put a rule failure in a
+// section that is not about rules.
+let negotiated = Array(okYAML.utf8)
+emitTry("http.ok", "Content-Type: application/yaml\naccepting: [.json, .yaml]") {
+    try Deployment.parse(body: negotiated, contentType: "application/yaml", accepting: [.json, .yaml])
+}
+emit("http.refused", "Content-Type: application/xml\naccepting: [.json, .yaml]",
+     Deployment.diagnose(body: Array(deployXML.utf8),
+                         contentType: "application/xml",
+                         accepting: [.json, .yaml],
+                         sourceName: "body.xml").render(.plain))
+emitTry("http.suffix", "Content-Type: application/vnd.acme.deploy+yaml; charset=utf-8\naccepting: [.yaml]") {
+    try Deployment.parse(body: negotiated,
+                         contentType: "application/vnd.acme.deploy+yaml; charset=utf-8",
+                         accepting: [.yaml])
+}
+
+// ===========================================================================
+// Encoding, per format
+// ===========================================================================
+
+@Schema(keys: .snakeCase, formats: .all, encodes: true)
+struct Release: Equatable {
+    var name: String
+    var version: Int
+    var stable: Bool
+    var notes: String?
+    var tags: [String]
+}
+let release = Release(name: "api", version: 2, stable: true, notes: nil, tags: ["a", "b"])
+emit("encode.json", String(describing: release), try! release.jsonText())
+emit("encode.yaml", String(describing: release), try! release.yamlText())
+emit("encode.toml", String(describing: release), try! release.tomlText())
+emit("encode.xml", String(describing: release), try! release.xmlText())
+
+print("{" + parts.joined(separator: ",") + "}")

@@ -40,6 +40,9 @@ that distinguish it:
 - **`Assayer<T>`** runtime schemas, `@Wraps`, `@Inline`, `@Key(path:)`, `@OneOrMany`,
   `@XML` placement and `@XML(root:)`, `@Schema(context:)`, `parse(plist:)`,
   `parse(body:contentType:accepting:)`, `jsonSchema(for:)`, columnar batch decode.
+- **One error type.** `JSON.Value.parse`, `YAML.parse` and `XML.parse` throw `AssayError`
+  like every other entry point, with the source retained, so their failures render carets
+  too. `JSONValueError`, `YAMLParseError` and `XMLParseError` are gone.
 - **Errors print.** `print(error)`, `"\(diagnosis)"` and (with `AssayFoundation`)
   `localizedDescription` show the caret render; they used to show a reflection dump.
 

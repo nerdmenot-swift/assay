@@ -56,14 +56,14 @@ struct JSONValueTests {
     @Test("malformed input reports issues rather than trapping")
     func malformed() {
         for bad in ["{", "[1,", #"{"k"}"#, "{'k':1}", "tru", "", "{} junk"] {
-            #expect(throws: JSONValueError.self) { try JSON.Value.parse(bad) }
+            #expect(throws: AssayError.self) { try JSON.Value.parse(bad) }
         }
     }
 
     @Test("depth limit is enforced")
     func depth() {
         let deep = String(repeating: "[", count: 300) + String(repeating: "]", count: 300)
-        #expect(throws: JSONValueError.self) {
+        #expect(throws: AssayError.self) {
             try JSON.Value.parse(deep, limits: Limits(maxDepth: 64))
         }
     }

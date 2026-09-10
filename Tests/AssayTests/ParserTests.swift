@@ -97,11 +97,11 @@ struct XMLParserTests {
 
     @Test("mismatched and unclosed tags are errors with the tag named")
     func wellFormedness() {
-        #expect(throws: XMLParseError.self) { try XML.parse("<a></b>") }
-        #expect(throws: XMLParseError.self) { try XML.parse("<a><b></a>") }
-        #expect(throws: XMLParseError.self) { try XML.parse("<a>") }
-        #expect(throws: XMLParseError.self) { try XML.parse("no root") }
-        #expect(throws: XMLParseError.self) { try XML.parse("<a/><b/>") }
+        #expect(throws: AssayError.self) { try XML.parse("<a></b>") }
+        #expect(throws: AssayError.self) { try XML.parse("<a><b></a>") }
+        #expect(throws: AssayError.self) { try XML.parse("<a>") }
+        #expect(throws: AssayError.self) { try XML.parse("no root") }
+        #expect(throws: AssayError.self) { try XML.parse("<a/><b/>") }
     }
 
     @Test("SECURITY: external entities are never fetched, only warned about")
@@ -146,7 +146,7 @@ struct XMLParserTests {
     @Test("depth limit is enforced")
     func depth() {
         let deep = String(repeating: "<a>", count: 300) + String(repeating: "</a>", count: 300)
-        #expect(throws: XMLParseError.self) {
+        #expect(throws: AssayError.self) {
             try XML.parse(deep, limits: Limits(maxIssues: 10, maxDepth: 64, maxBytes: 1 << 20))
         }
     }

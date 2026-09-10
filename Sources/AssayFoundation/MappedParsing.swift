@@ -153,7 +153,9 @@ extension JSON.Value {
             }
             return v
         }
-        guard let value = v, sink.isValid else { throw JSONValueError(issues: sink.issues) }
+        guard let value = v, sink.isValid else {
+            throw AssayError(issues: sink.issues, source: .empty, sourceName: "<mapped>")
+        }
         return value
     }
 }

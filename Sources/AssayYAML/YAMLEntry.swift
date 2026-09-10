@@ -114,7 +114,8 @@ extension RawDecodable {
             }
         }
         guard sink.isValid else {
-            throw YAMLParseError(issues: sink.issues)
+            throw AssayError(issues: sink.issues, source: SourceBytes(Array(text.utf8)),
+                             sourceName: "<input>")
         }
         return out
     }

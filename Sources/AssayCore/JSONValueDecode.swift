@@ -139,11 +139,11 @@ extension JSON.Value {
     public static func parse(
         _ bytes: [UInt8],
         limits: Limits = .default
-    ) throws(JSONValueError) -> JSON.Value {
+    ) throws(AssayError) -> JSON.Value {
         var sink = IssueSink(limits: limits)
         let result = decode(bytes, into: &sink, limits: limits)
         guard let value = result, sink.isValid else {
-            throw JSONValueError(issues: sink.issues)
+            throw AssayError(issues: sink.issues, source: SourceBytes(bytes), sourceName: "<input>")
         }
         return value
     }
@@ -185,13 +185,9 @@ extension JSON.Value {
     public static func parse(
         _ text: String,
         limits: Limits = .default
-    ) throws(JSONValueError) -> JSON.Value {
+    ) throws(AssayError) -> JSON.Value {
         try parse(Array(text.utf8), limits: limits)
     }
 }
 
 /// Thrown by `JSON.Value.parse`. Carries every issue, not just the first.
-public struct JSONValueError: Error, Sendable {
-    public var issues: [Issue]
-    public init(issues: [Issue]) { self.issues = issues }
-}

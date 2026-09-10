@@ -34,10 +34,10 @@ extension XML {
     public static func parse(
         _ bytes: [UInt8],
         limits: Limits = .default
-    ) throws(XMLParseError) -> Document {
+    ) throws(AssayError) -> Document {
         var sink = IssueSink(limits: limits)
         guard let doc = decode(bytes, into: &sink, limits: limits), sink.isValid else {
-            throw XMLParseError(issues: sink.issues)
+            throw AssayError(issues: sink.issues, source: SourceBytes(bytes), sourceName: "<input>")
         }
         return doc
     }
@@ -45,7 +45,7 @@ extension XML {
     public static func parse(
         _ text: String,
         limits: Limits = .default
-    ) throws(XMLParseError) -> Document {
+    ) throws(AssayError) -> Document {
         try parse(Array(text.utf8), limits: limits)
     }
 
@@ -74,11 +74,6 @@ extension XML {
             return parser.parseDocument(&reader, &sink)
         }
     }
-}
-
-public struct XMLParseError: Error, Sendable {
-    public var issues: [Issue]
-    public init(issues: [Issue]) { self.issues = issues }
 }
 
 extension XML {

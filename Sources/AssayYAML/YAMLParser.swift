@@ -44,15 +44,15 @@ extension YAML {
     public static func parse(
         _ bytes: [UInt8],
         limits: Limits = .default
-    ) throws(YAMLParseError) -> Node {
+    ) throws(AssayError) -> Node {
         let docs = try parseAll(bytes, limits: limits)
         guard let first = docs.first else {
-            throw YAMLParseError(issues: [Issue(code: .yamlEmptyStream)])
+            throw AssayError(issues: [Issue(code: .yamlEmptyStream)], source: SourceBytes(bytes), sourceName: "<input>")
         }
         guard docs.count == 1 else {
-            throw YAMLParseError(issues: [Issue(
-                code: .yamlMultipleDocuments,
-                params: ["count": .int(docs.count)])])
+            throw AssayError(issues: [Issue(code: .yamlMultipleDocuments,
+                                            params: ["count": .int(docs.count)])],
+                             source: SourceBytes(bytes), sourceName: "<input>")
         }
         return first
     }
@@ -61,22 +61,22 @@ extension YAML {
     public static func parseAll(
         _ bytes: [UInt8],
         limits: Limits = .default
-    ) throws(YAMLParseError) -> [Node] {
+    ) throws(AssayError) -> [Node] {
         var sink = IssueSink(limits: limits)
         let docs = decodeAll(bytes, into: &sink, limits: limits)
-        guard sink.isValid else { throw YAMLParseError(issues: sink.issues) }
+        guard sink.isValid else { throw AssayError(issues: sink.issues, source: SourceBytes(bytes), sourceName: "<input>") }
         return docs
     }
 
     public static func parse(
         _ text: String, limits: Limits = .default
-    ) throws(YAMLParseError) -> Node {
+    ) throws(AssayError) -> Node {
         try parse(Array(text.utf8), limits: limits)
     }
 
     public static func parseAll(
         _ text: String, limits: Limits = .default
-    ) throws(YAMLParseError) -> [Node] {
+    ) throws(AssayError) -> [Node] {
         try parseAll(Array(text.utf8), limits: limits)
     }
 
@@ -103,11 +103,6 @@ extension YAML {
             return parser.parseStream(&reader, &sink)
         }
     }
-}
-
-public struct YAMLParseError: Error, Sendable {
-    public var issues: [Issue]
-    public init(issues: [Issue]) { self.issues = issues }
 }
 
 extension YAML {

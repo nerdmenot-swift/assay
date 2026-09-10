@@ -11,6 +11,13 @@
 // they encode. `@Schema(encodes: true)` means a type that only decodes costs exactly what
 // it costs today.
 //
+// MEASURED 2026-09-10, because the paragraph above went unmeasured for a month: the code
+// roughly doubles and the compile time does NOT follow it — `encodes: true` costs about 5%
+// (82.2 ms/type against 78.0 at 10 fields). The body is the cheapest shape the type checker
+// sees: one concrete `w.write(self.x)` per field, nothing to infer. Opt-in stays, because 5%
+// across a model layer is real; "it would double your build" was never the number.
+// docs/COMPILE-TIME.md §5.6.
+//
 // The semantics implemented here are docs/ENCODING.md's six answers, each marked at the
 // site that implements it:
 //
@@ -83,14 +90,36 @@ extension SchemaMacro {
             """
         }
 
+        // THE MEMBERS ARE A SEPARATE FUNCTION, and the reason is a union.
+        //
+        // `docs/UNIONS.md` §4: a discriminated union writes "the payload's object with the
+        // tag added". The payload is a token to the macro, so the union cannot write the
+        // payload's fields itself — and if the payload writes its own braces there is
+        // nowhere left to put the tag. Splitting the braces off gives the union a seam:
+        // open the object, write the tag, let the variant write its members into it.
+        //
+        // The alternative was byte surgery — let the variant write `{...}`, pop the closing
+        // brace back off the buffer and append the tag. That costs nothing at compile time
+        // and puts the tag LAST, and it was rejected: it makes the writer's output depend on
+        // reaching into bytes it has already emitted, and every future writer change has to
+        // keep that reachable. This costs one three-line wrapper per encoding type — constant,
+        // not per-field, which is the term `docs/COMPILE-TIME.md` says actually matters.
         body += """
+        nonisolated public func _assayEncodeMembers(
+            into w: inout Assay.JSONWriter,
+            into sink: inout Assay.IssueSink,
+            at path: [Assay.PathComponent]
+        ) {
+        \(lines)}
+
         nonisolated public func _assayEncode(
             into w: inout Assay.JSONWriter,
             into sink: inout Assay.IssueSink,
             at path: [Assay.PathComponent]
         ) {
             w.beginObject()
-        \(lines)    w.endObject()
+            self._assayEncodeMembers(into: &w, into: &sink, at: path)
+            w.endObject()
         }
         """
         return body

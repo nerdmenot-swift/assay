@@ -12,13 +12,14 @@
 //         case purchase(PurchaseEvent)
 //     }
 //
-// THE TAGGED FORM ONLY, and that is a build-order decision rather than a partial one.
+// TAGGED FIRST, and that was a build-order decision rather than a partial one.
 // `docs/UNIONS.md` §6: three of that document's four hard questions do not apply to a
 // discriminated union. There is no composed failure to report (once the tag is read exactly
 // one branch is possible, so the branch's issues *are* the union's issues), no backtracking to
 // bound (one attempt, always), and no round-trip exception (the tag names the branch, so
-// encoding is unambiguous). The untagged form has all three and rests on the same rewind
-// primitive; it is a strictly larger job and is not built.
+// encoding is unambiguous). The untagged form has all three, rests on the same rewind
+// primitive, and followed the same day — `untaggedBody` below. Encoding for both forms landed
+// 2026-09-10; the emitters are at the bottom of this file.
 //
 // SCAN, REWIND, DECODE. `{"a": 1, "type": "click"}` is legal, so the tag can arrive last and
 // the branch cannot be chosen by reading forward. `scanDiscriminator` reads keys and skips
@@ -154,30 +155,71 @@ extension SchemaMacro {
             }
         }
 
-        // `encodes: true` on a union would be silently ignored — the body below emits no
-        // encoder — and a silently-ignored option is worse than a refused one.
-        if Self.encodes(from: node) {
-            context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
-                "@Schema(encodes: true) is not built for unions. docs/UNIONS.md §4 settles "
-                + "what it should mean — the payload plus the tag, spelled from the case name "
-                + "through `keys:` — but it is design, not code, and emitting nothing while "
-                + "accepting the option would be the worse failure.")))
-            return []
-        }
-
-        guard formats.json else {
+        // A union decodes from JSON and only from JSON, so asking for YAML or XML must be
+        // refused rather than quietly answered with less than was asked for. `formats.raw`
+        // and not just `!formats.json`: `formats: .all` sets both, and testing only the
+        // first let `.all` through to emit a JSON-only body — the exact trap the paragraph
+        // below says this refusal exists to prevent.
+        guard formats.json, !formats.raw else {
             context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
                 "@Schema(discriminator:) is built for the JSON path. The RawValue path — YAML "
                 + "and XML — is not built for unions; docs/UNIONS.md.")))
             return []
         }
 
-        let body = untagged
+        // THE OTHER OPTIONS A UNION DOES NOT IMPLEMENT, refused for the reason `encodes:`
+        // was until this was built: an option that is accepted and then does nothing is
+        // worse than one that is refused. `formats: .all` is the standing proof — the guard
+        // above existed, tested the wrong half, and quietly emitted a JSON-only body for
+        // `.all` from the day it was written.
+        //
+        // `context:` is the worst of the three and is why they are checked here rather than
+        // left to the call site. `sources:` and `describes:` promise a member that will not
+        // exist, so the type checker eventually says so; a contextual union would simply
+        // stay NON-contextual — `parse(json:)` still resolves, no error anywhere, and the
+        // context silently never reaches a check. That is the same shape as the `@XML(root:)`
+        // trap: it compiles and checks nothing.
+        if Self.sources(from: node) {
+            context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
+                "@Schema(sources: true) is for a column-first source, which hands over whole "
+                + "columns of one record shape. A union is a choice between shapes and has no "
+                + "field manifest to bind; put `sources: true` on the variant types.")))
+            return []
+        }
+        if Self.describes(from: node) {
+            context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
+                "@Schema(describes: true) is not built for unions — a JSON Schema `oneOf` "
+                + "with a discriminator is its own design question, and describing a union "
+                + "as anything less exact would break the rule that a description says MORE "
+                + "than the type accepts, never less. `jsonSchema(for:)` on the variants "
+                + "works today.")))
+            return []
+        }
+        if !Self.contextType(from: node).isEmpty {
+            context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
+                "@Schema(context:) is not built for unions. Accepting it would leave the type "
+                + "non-contextual with no error anywhere — `parse(json:)` would still resolve "
+                + "and the context would never reach a check. Put the context on the variant "
+                + "types, which is where the checks that read it live.")))
+            return []
+        }
+
+        let wantsEncoding = Self.encodes(from: node)
+
+        var body = untagged
             ? untaggedBody(typeName: typeName, cases: cases)
             : taggedBody(typeName: typeName, cases: cases, tag: tag!)
 
+        var conformances = "Assay.JSONAssayable"
+        if wantsEncoding {
+            conformances += ", Assay.JSONEncodableSchema"
+            body += "\n\n" + (untagged
+                ? untaggedEncodeBody(cases: cases)
+                : taggedEncodeBody(cases: cases, tag: tag!))
+        }
+
         let ext = try? ExtensionDeclSyntax(
-            "extension \(raw: typeName): Assay.JSONAssayable") {
+            "extension \(raw: typeName): \(raw: conformances)") {
             DeclSyntax(stringLiteral: body)
         }
         return ext.map { [$0] } ?? []
@@ -325,6 +367,111 @@ extension SchemaMacro {
             reader.restore(__mark)
             _ = reader.skipValue(&sink)
             return nil
+        }
+        """
+    }
+}
+
+// MARK: - Encoding
+//
+// `docs/UNIONS.md` §4, built 2026-09-10. Both forms, JSON only — which is the same surface
+// decoding has, because a union has no `RawValue` path to encode through.
+//
+// THE TAGGED FORM WRITES THE PAYLOAD'S OBJECT WITH THE TAG ADDED, and the tag is spelled
+// from the CASE name through the type's `keys:` style — the same `wireName` the decoder
+// dispatches on, so the two cannot drift. That it is one stored spelling rather than two
+// derivations is the point: a union that encoded `page_view` and decoded `pageView` would
+// satisfy every test written against one side.
+//
+// THE TAG GOES FIRST. `scanDiscriminator` reads keys until it finds the tag, so a document
+// this library wrote is one the fast path finds on its first key. Tag-last would have been
+// free (pop the payload's closing brace back off the buffer and append) and would have made
+// every round trip pay a full pre-scan.
+//
+// THE UNTAGGED FORM WRITES THE PAYLOAD ALONE, which is where `ENCODING.md`'s round-trip law
+// takes its one union exception: two cases whose payloads accept the same documents make the
+// second unreachable on the way back in. The macro refuses the half it can see (the same
+// payload TOKEN twice, above); the half it cannot see — two distinct types accepting the same
+// documents — is the stated exception in §4.
+extension SchemaMacro {
+
+    /// The tagged encoder. `_assayEncodeMembers` exists so a union can be a variant of
+    /// another union: the outer one opens the object, writes its tag, and the inner one
+    /// writes its own tag and its payload's members into the same object.
+    static func taggedEncodeBody(cases: [UnionCase], tag: String) -> String {
+        var arms = ""
+        for c in cases {
+            arms += """
+                    case .\(c.identifier)(let __v):
+                        w.key("\(tag)")
+                        w.write("\(c.wireName)")
+                        __v._assayEncodeMembers(into: &w, into: &sink, at: path)
+
+            """
+        }
+        return """
+        nonisolated public func _assayEncodeMembers(
+            into w: inout Assay.JSONWriter,
+            into sink: inout Assay.IssueSink,
+            at path: [Assay.PathComponent]
+        ) {
+            switch self {
+        \(arms)    }
+        }
+
+        nonisolated public func _assayEncode(
+            into w: inout Assay.JSONWriter,
+            into sink: inout Assay.IssueSink,
+            at path: [Assay.PathComponent]
+        ) {
+            w.beginObject()
+            self._assayEncodeMembers(into: &w, into: &sink, at: path)
+            w.endObject()
+        }
+        """
+    }
+
+    /// The untagged encoder — the payload, and nothing else.
+    ///
+    /// No `_assayEncodeMembers`, deliberately: a scalar variant has no members, so the
+    /// function could only exist for some untagged unions and not others. Emitting it
+    /// conditionally would mean an untagged union nested inside a tagged one compiles or
+    /// does not depending on a payload type three declarations away, which is worse than
+    /// the error the type checker gives for a member that is never emitted.
+    static func untaggedEncodeBody(cases: [UnionCase]) -> String {
+        var arms = ""
+        for c in cases {
+            let type = c.payloadType ?? ""
+            let write: String
+            // WHICH TYPES ARE SCALARS IS ASKED OF `scalarCall`, not restated here. It is
+            // what the decode path branches on, so a scalar this encoder did not know about
+            // would be a type that decodes and cannot be written back — and the list is
+            // exactly the kind that grows (six integer widths arrived in one commit).
+            if scalarCall(type, key: c.identifier) == nil {
+                // A schema variant. Its own `encodes: true` is enforced by the compiler,
+                // and the path does NOT gain a component: a union member has no key.
+                write = "__v._assayEncode(into: &w, into: &sink, at: path)"
+            } else if type == "Double" || type == "Float" {
+                // Q4: NaN and infinity have no JSON spelling. The case name stands in for
+                // the key, exactly as it does in the decode path's issues.
+                write = "w.write(__v, &sink, path, \"\(c.identifier)\")"
+            } else {
+                write = "w.write(__v)"
+            }
+            arms += """
+                    case .\(c.identifier)(let __v):
+                        \(write)
+
+            """
+        }
+        return """
+        nonisolated public func _assayEncode(
+            into w: inout Assay.JSONWriter,
+            into sink: inout Assay.IssueSink,
+            at path: [Assay.PathComponent]
+        ) {
+            switch self {
+        \(arms)    }
         }
         """
     }

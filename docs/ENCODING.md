@@ -217,8 +217,15 @@ the single-document version and corrected it in v4.
 accept — and round-trip becomes a stated law with an explicit exception list.**
 
 > For any `v` produced by `parse`, `parse(encode(v))` produces a value equal to `v`, except
-> where a `@Fallback` fired, an `@Unknown` case was captured without `roundTrips: true`, or
-> unknown keys were dropped by a policy other than `.collect`.
+> where a `@Fallback` fired, an `@Unknown` case was captured without `roundTrips: true`,
+> unknown keys were dropped by a policy other than `.collect`, or an **untagged union** has
+> two variants whose types accept the same documents.
+
+The fourth was added 2026-09-10 with union encoding, and it is the only one the library
+cannot see coming: the macro refuses two cases carrying the same payload *token*, and two
+distinct `@Schema` types that happen to accept the same documents are indistinguishable to
+it. `docs/UNIONS.md` §4. A **discriminated** union has no such exception — the tag names the
+branch — which is one more reason to prefer one.
 
 Two things this buys. Targeting `.input` is what makes the law true at all — with `@Inverse`
 supplying the wire type, the encoder emits exactly the shape decode accepts. And stating it

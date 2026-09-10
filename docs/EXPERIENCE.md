@@ -618,8 +618,20 @@ Untagged unions exist for wire formats you don't control:
 enum StringOrNumber { case text(String), number(Double) }
 ```
 
-**Built 2026-09-09**, decode only, JSON only. The first branch that decodes wins, in
-declaration order.
+**Built 2026-09-09**, JSON only; **encoding followed 2026-09-10** for both forms. The first
+branch that decodes wins, in declaration order.
+
+```swift
+@Schema(encodes: true, discriminator: "type")
+enum Event { case click(ClickEvent), pageView(PageViewEvent) }
+
+try Event.click(e).jsonText()      // {"type":"click","x":1,"y":2}
+```
+
+The tag is the **case name** through the type's `keys:` style — `case pageView` writes
+`"page_view"` — so it is the rule field names already follow rather than a second convention,
+and `@Key("...")` overrides it on the way out exactly as it does on the way in. An untagged
+union writes the payload alone.
 
 When *those* fail, "every branch, and why each one didn't match" is the wall of noise a
 discriminator exists to avoid — so you get **one summary plus the detail of the closest
@@ -1314,7 +1326,7 @@ enum P: String, Assayable { case low, high; @Unknown case other(String) }
 @Schema(context: Ctx.self)
 @AsyncCheck static func h(_ v: T, _ ctx: Ctx, _ issues: inout Issues<T>) async
 
-// Unions — built 2026-09-09, decode only, JSON only. docs/UNIONS.md
+// Unions — built 2026-09-09, encoding 2026-09-10, JSON only. docs/UNIONS.md
 @Schema(discriminator: "type") enum E { case a(A), b(B) }   // tagged
 @Schema(discriminator: .none) enum U { case a(A), b(B) }    // untagged, first match wins
 @OneOrMany var tags: [String]                               // built 2026-09-08

@@ -28,6 +28,15 @@
 # exactly what the `arrays` note below warns about. Reported, not gated, for the same reason
 # `arrays` is: the 100 ms budget was calibrated on a flat scalar type.
 #
+# `encodes` is `@Schema(encodes: true)` — a type that writes as well as reads. Added
+# 2026-09-10 with union encoding, and for the same reason `arrays` and `paths` were: no arm
+# measured it. Encoding roughly doubles the per-field generated code, `ROADMAP.md` §1 quoted
+# a number for it ("unmoved at ~87 ms") that no harness here had produced, and union encoding
+# then added a per-TYPE wrapper to every encoding type. Measured: ~5% over `schema`, and the
+# wrapper is under half a millisecond per type (docs/COMPILE-TIME.md §5.6).
+# Reported, not gated — the 100 ms budget was calibrated on a decode-only scalar type, and
+# gating a second shape on the first one's number is how a budget stops meaning anything.
+#
 # `arrays` makes every field an ARRAY of the same scalar. Added 2026-09-08, and the reason
 # is that it was missing: every arm above declares scalars only, so `arrayDecode` — which
 # emits an inline loop per field rather than a single primitive call, and which two changes
@@ -84,7 +93,7 @@ emit_fields() {
 }
 
 case "$MODE" in
-  schema|validated|arrays|paths|describes)  echo "import Assay" ;;
+  schema|validated|arrays|paths|describes|encodes)  echo "import Assay" ;;
   *)       echo "import Foundation" ;;
 esac
 echo
@@ -93,6 +102,10 @@ for ((k = 0; k < N; k++)); do
   case "$MODE" in
     describes)
       echo "@Schema(keys: .snakeCase, describes: true)"
+      echo "public struct T${k} {"
+      ;;
+    encodes)
+      echo "@Schema(keys: .snakeCase, encodes: true)"
       echo "public struct T${k} {"
       ;;
     schema|validated|arrays|paths)

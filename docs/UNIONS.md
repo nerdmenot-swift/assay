@@ -132,9 +132,9 @@ or three deep at most, and 10,000 attempts is unreachable by anything but an att
 
 ## 4. What encoding a union means
 
-**Not built for either form** — `@Schema(encodes: true)` on a union is refused at expansion
-rather than silently ignored. This section is the settled answer for when it is, and the
-duplicate-payload check it argues for **is** built, because decoding needs it too.
+**Built 2026-09-10 for both forms.** This section was written as the settled answer for when
+it would be, and it is what was implemented — every paragraph below stands as written. What
+building it cost is at the end of the section.
 
 `ENCODING.md`'s round-trip law is that decoding what was encoded returns an equal value, with a
 closed exception list. Unions add one exception and refuse the case that would add a second.
@@ -164,6 +164,57 @@ round-trips. **That is the exception on the list**, and it is the untagged form'
 **A discriminated union has no such exception**, which is the last of several reasons to prefer
 one.
 
+### What building it cost
+
+**The variant's braces had to be split off, and that is a change to every encoding type.**
+A tagged union writes "the payload's object with the tag added", and the payload is a token —
+the union cannot write the payload's fields itself, and if the payload writes its own braces
+there is nowhere left to put the tag. So `@Schema(encodes: true)` now emits
+`_assayEncodeMembers` (the key/value pairs) and `_assayEncode` (a three-line wrapper that
+opens the object, calls it, and closes). The union opens the object, writes the tag, and lets
+the variant write its members into it.
+
+The alternative was byte surgery: let the variant write `{...}`, pop the closing brace back
+off the writer's buffer and append the tag. That costs nothing at compile time and puts the
+tag **last**. It was rejected twice over — it makes the output depend on reaching into bytes
+already emitted, and tag-last makes every round trip pay a full pre-scan, since
+`scanDiscriminator` reads keys until it finds the tag. The split costs one constant wrapper
+per encoding type, and that was measured rather than asserted: 82.3 and 82.2 ms/type against
+82.0 unsplit at 10 fields, and 157.6 and 156.7 against 160.0 at 20 — the split arm *faster*
+at 20, which can only be noise. Under half a millisecond per type, not growing with fields.
+`docs/COMPILE-TIME.md` §5.6, which also reports what `encodes: true` itself costs (~5%),
+because nothing had ever measured that either.
+
+It also composes: a union can be a variant of another union, because the inner one has
+`_assayEncodeMembers` too and writes its own tag into the same object.
+`{"type":"inner","sub":"click","x":7,"y":8}` is one object with two tags, and it decodes back.
+
+**§5's cost is now visible on the way out.** A variant that declares the tag field itself —
+which §5 says is exactly what a variant with `unknownKeys: .reject` must do — makes the union
+write that key twice. It still round-trips through Assay (the pre-scan reads the first
+occurrence and picks the branch; field dispatch takes the last and gives the variant its own
+value back), but the document has a duplicate key, and not every consumer will like it. Pinned
+by a test rather than left to be found.
+
+**The untagged form gets no `_assayEncodeMembers`, deliberately.** A scalar variant has no
+members, so the function could exist for some untagged unions and not others — and an untagged
+union nested inside a tagged one would then compile or not depending on a payload type three
+declarations away. Refusing it always is the smaller surprise.
+
+**And three more options that were accepted and ignored.** Wiring `encodes:` through the same
+guard made it obvious that `sources:`, `describes:` and `context:` were all being read past on
+a union and silently doing nothing. All three are refused now. `context:` is the one that
+needed it: the other two promise a member that is never emitted, so the type checker eventually
+says so at the call site, but a contextual union would simply stay non-contextual —
+`parse(json:)` resolves, nothing errors anywhere, and the context never reaches a check. That
+is the `@XML(root:)` trap again: it compiles and checks nothing.
+
+**And a refusal that was not refusing.** `formats: .all` sets the RawValue bit *and* the JSON
+one, and the guard tested only `formats.json` — so `.all` passed and emitted a JSON-only body.
+That is precisely the trap the refusal below says it exists to prevent, sitting inside the
+refusal itself. Found while wiring `encodes:` through the same guard; the test is
+`allFormatsRefused`.
+
 ---
 
 ## 5. Two things a variant must know
@@ -182,8 +233,9 @@ diagnostic the macro cannot.
 
 ## 6. Status
 
-**Both forms built 2026-09-09**, decode only, JSON only. Encoding is refused at expansion for
-either — §4 above is the settled answer for when it is built.
+**Both forms built 2026-09-09**, decode only. **Encoding followed 2026-09-10** for both forms,
+exactly as §4 specified it; what that cost is recorded there. JSON only throughout — a union
+has no `RawValue` path to decode from, so it has none to encode through either.
 
 The build order this document argued for held: tagged first, because three of the four hard
 questions do not apply to it. Untagged then needed all three, and each cost something the
@@ -230,5 +282,9 @@ What the tagged form cost, beyond the rewind primitive:
 - **JSON only.** The `RawValue` path — YAML and XML — is refused at expansion rather than
   silently omitted, because a union that decoded from JSON and not from YAML while declaring
   `formats: .all` would be a trap.
-- **Encoding likewise refused**, for the same reason: §4 settles what it should mean, and
-  accepting `encodes: true` while emitting no encoder is the worse failure.
+- **Encoding was likewise refused** until 2026-09-10, for the same reason: §4 settles what it
+  should mean, and accepting `encodes: true` while emitting no encoder is the worse failure.
+  It is now built, and the refusal is gone. Four options are still refused — `formats:`
+  naming YAML or XML (including `.all`), `sources:`, `describes:` and `context:` — and three
+  of those refusals were added the day encoding was, because until then they were accepted
+  and ignored. §4.

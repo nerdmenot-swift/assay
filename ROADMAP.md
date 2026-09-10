@@ -20,7 +20,16 @@ let d = article.diagnoseEncode()            // partial bytes + issues, same rend
 ```
 
 Opt-in, because generated body size dominates expansion cost and a decode-only type must not
-pay for an encoder it never calls — the compile-time gate is unmoved at ~87 ms.
+pay for an encoder it never calls — the gated decode-only arm is unmoved, since it does not
+declare `encodes:` at all.
+
+**What that costs was finally measured 2026-09-10**, and it is smaller than the sentence
+above implies: `encodes: true` is **~5%** — 82.2 ms/type against the decode-only arm's 78.0
+at 10 fields, 156.7 against 150.1 at 20. The generated code does roughly double; the compile
+time does not follow it, because the encode body is one concrete `w.write` per field with
+nothing for the type checker to explore. Opt-in stays — 5% of every type in a model layer is
+real, and a decode-only type should pay nothing — but "it would double your build" was never
+the number. `docs/COMPILE-TIME.md` §5.6.
 
 All six semantics questions were answered, accepted and implemented. The sixth
 (`@Unknown(roundTrips:)`) was blocked on `@Unknown` existing at all; `@Unknown` shipped
@@ -317,8 +326,8 @@ construct, not a transliteration.
 ### Unions — BOTH FORMS BUILT 2026-09-09
 
 `EXPERIENCE.md` §9 specifies `@Schema(discriminator: "type")` and `discriminator: .none`.
-Neither exists, and neither was listed here — this is a gap in the roadmap itself, found
-while cutting `@PickFirst`.
+Neither existed when this section was written, and neither was listed here — a gap in the
+roadmap itself, found while cutting `@PickFirst`.
 
 They force the one thing the decode body was designed never to do: **rewind**. A
 discriminated union must find the tag before choosing a branch (the `"type"` key may appear
@@ -362,9 +371,35 @@ round-trip exception. That is also `EXPERIENCE.md` §9's own argument for prefer
   attempts than expected, because `arrayDecode` breaks on the first element that will not
   decode; a test written with a budget of three never reached it.
 
-Encoding is refused at expansion for both forms. `UNIONS.md` §4 settles what it should mean,
-and its duplicate-payload check *is* built — decoding needs it too, since `case a(Int), b(Int)`
-makes `b` unreachable whether or not anything is encoded.
+**Encoding followed 2026-09-10**, for both forms and exactly as `UNIONS.md` §4 specified it:
+the tagged form writes the payload's object with the tag added (tag first, spelled from the
+case name through `keys:`), the untagged form writes the payload alone. Three things it cost,
+all in `UNIONS.md` §4:
+
+- **Every encoding type's braces had to be split off.** The union cannot write a variant's
+  fields — the payload is a token — and if the variant writes its own braces there is nowhere
+  to put the tag. `@Schema(encodes: true)` now emits `_assayEncodeMembers` plus a three-line
+  `_assayEncode` wrapper, which is a constant per type and not per field. The alternative,
+  popping the variant's closing brace back off the writer's buffer and appending the tag, was
+  free at compile time and rejected: it puts the tag last, and `scanDiscriminator` would then
+  pre-scan every key of every document this library wrote. Measured on both sides: **under
+  half a millisecond per type, and not growing with fields.** The same run finally measured
+  `encodes: true` itself — **~5%**, against a stated justification that said it would roughly
+  double the per-field cost. `docs/COMPILE-TIME.md` §5.6.
+- **The round-trip law gains its fourth exception**, and only for the untagged form: two
+  variants whose *types* accept the same documents. The macro refuses the same payload token
+  twice and cannot see the rest. `docs/ENCODING.md` §5.
+- **A refusal that was not refusing, and three that were missing.** `formats: .all` sets the
+  RawValue bit and the JSON one, and the guard tested only `formats.json` — so `.all` emitted
+  a JSON-only body, which is the trap the refusal was written to prevent. Wiring `encodes:`
+  through the same guard also turned up `sources:`, `describes:` and `context:` being read
+  past and silently ignored on a union; all three are refused now. `context:` is the one that
+  needed it — the other two eventually produce a type-checker error at a call site, while a
+  contextual union would stay non-contextual with no error anywhere and never pass its
+  context to a check.
+
+The duplicate-payload check *is* built and always was — decoding needs it too, since
+`case a(Int), b(Int)` makes `b` unreachable whether or not anything is encoded.
 
 ## 6. `@Wraps` and `@Unknown` — BOTH BUILT
 

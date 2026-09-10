@@ -326,6 +326,58 @@ precise about which choice did the work:
 
 Rule 1 remains right; the descriptor simply is not the shape it warns about.
 
+### 5.6 `encodes: true` — measured 2026-09-10, and the opt-in's stated reason is weaker than it sounded
+
+`ROADMAP.md` §1 and `EncodeGen.swift` both justify making encoding opt-in on compile time:
+"emitting an encoder for every type would roughly double the per-field code every user pays."
+Until now no arm measured it, and §1 quoted a number ("the compile-time gate is unmoved at
+~87 ms") that no harness here had produced. `gen_types.sh` has an `encodes` mode now, and
+`measure.sh` reports it beside `describes`.
+
+50 types, min of 3, quiet machine, debug:
+
+| arm | 10 fields | 20 fields | implied per field |
+|---|---|---|---|
+| `schema` — decode only | **78.0 ms/type** | **150.1 ms/type** | 7.2 ms |
+| `encodes` — decode + encode | **82.2 ms/type** | **156.7 ms/type** | 7.4 ms |
+
+**`encodes: true` costs about 4 ms per type at 10 fields and 7 at 20 — roughly 5%**, or
+~0.35 ms per field on top of 7.2. The generated code does roughly double; the compile time
+does not follow it, and the gap between those two sentences is the finding.
+
+Why it does not follow: the encode body is the cheapest possible shape for the type checker.
+One `w.write(self.x)` per field, every type concrete, no optional-vs-default inference, no
+dispatch table, no window arithmetic — §5.3 measured zero slow expressions in the decode body
+for exactly the reasons rules 4 and 6 exist, and the encode body is even flatter than that.
+
+The full gate run the same day agrees, with one caveat worth showing rather than trimming:
+`encodes` read 80.5 ms/type at 100 types against `schema`'s 73.8, and 87 against 87 at 25 —
+single digits either way — but its 50-type sample hit contention (median 17.8 s against a
+6.8 s minimum, two builds in three), which is the case min-of-3 exists for and the reason the
+table above is the controlled number, not the gate's.
+
+Opt-in stays: a decode-only type should pay nothing for an encoder it never calls, and 5% of
+every type in a model layer is still real. But **"it would double your build" is not the
+argument** — the argument is that it is 5%, and the honest version of the sentence is now in
+the table above.
+
+**The union brace split cost nothing measurable.** Encoding a discriminated union required
+splitting `_assayEncode` into a members function plus a three-line wrapper (`docs/UNIONS.md`
+§4), which adds one function to every encoding type. Measured on both sides by patching the
+emitter back to one function and running the same script again, serially, on an otherwise
+idle machine — the two `split` samples are two separate runs of that arm:
+
+| | 10 fields | 20 fields |
+|---|---|---|
+| one function (before) | 82.0 ms/type | 160.0 ms/type |
+| split (after) | 82.3, 82.2 | 157.6, 156.7 |
+
+Repeatability on one arm is ±0.1 ms/type, so the ~0.3 ms at 10 fields is at the edge of what
+this harness can see, and at 20 fields the split arm measured *faster* — which can only be
+noise. The reading that survives: **under half a millisecond per type, and it does not grow
+with the number of fields**, which is what "constant per type, not per field" has to mean to
+be worth saying.
+
 ### 5.4 Still unmeasured
 
 - **Xcode / SwiftUI previews.** Anecdotally the most sensitive environment to macro cost; no

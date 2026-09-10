@@ -391,11 +391,19 @@ extension SchemaMacro {
         var body: String
     }
 
+    /// The match for one wire key. An alias's match also records which alias it was —
+    /// through the reader, in one expression, so the decode body is emitted once.
+    static func keyCondition(_ key: String, primary: String, isAlias: Bool) -> String {
+        isAlias
+            ? "reader._aliasMatched(__key, \"\(key)\", &sink, path, \"\(primary)\")"
+            : "reader.keyMatches(__key, \"\(key)\")"
+    }
+
     static func windowDispatch(entries: [DispatchEntry], plan: WindowPlan,
                                unknown: String = "_ = reader.skipValue(&sink)") -> String {
         var arms = ""
         for (i, e) in entries.enumerated() {
-            let cond = e.keys.map { "reader.keyMatches(__key, \"\($0)\")" }
+            let cond = e.keys.enumerated().map { keyCondition($1, primary: e.keys[0], isAlias: $0 > 0) }
                 .joined(separator: " || ")
             arms += """
                             case \(i):
@@ -435,7 +443,7 @@ extension SchemaMacro {
             var checks = ""
             for (e, key) in byLength[len]! {
                 checks += """
-                                    if reader.keyMatches(__key, "\(key)") {
+                                    if \(keyCondition(key, primary: e.keys[0], isAlias: key != e.keys[0])) {
                 \(e.body)
                                     } else
                 """

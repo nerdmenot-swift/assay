@@ -60,7 +60,7 @@ nonisolated public static func _assay(
                     }
                     }
                 case 1:
-                    if reader.keyMatches(__key, "k") || reader.keyMatches(__key, "kk") {
+                    if reader.keyMatches(__key, "k") || reader._aliasMatched(__key, "kk", &sink, path, "k") {
                         __presence |= 4
                         __f2 = reader._decodeString(&sink, path, "k")
                     } else {

@@ -92,6 +92,9 @@ extension SchemaMacro {
             for (i, f, key) in byLength[len]! {
                 checks += "\(first ? "" : " else ")if __k == \"\(key)\" {\n"
                 checks += "                    __presence |= \(1 << UInt64(i))\n"
+                if key != f.wireKey, !key.isEmpty {
+                    checks += "                    Assay._assayAliasMatched(&sink, path, \"\(f.wireKey)\", \"\(key)\")\n"
+                }
                 if f.needsSpan {
                     checks += "                    __sp\(i) = __m.span\n"
                 }

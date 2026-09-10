@@ -246,3 +246,14 @@ extension IssueSink {
         }
     }
 }
+
+/// The `alias_matched` warning: `field` was read from `alias`. Cold; every path that
+/// honours `@Key(_:or:)` reports through here so the warning is the same on all of them.
+@inline(never)
+public func _assayAliasMatched(
+    _ sink: inout IssueSink, _ path: [PathComponent], _ field: StaticString, _ alias: StaticString
+) {
+    sink.add(warning: Warning(code: .aliasMatched,
+                              path: path + [.key(String(describing: field))],
+                              params: ["alias": .string(String(describing: alias))]))
+}

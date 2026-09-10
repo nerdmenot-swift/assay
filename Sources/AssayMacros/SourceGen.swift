@@ -123,16 +123,35 @@ extension SchemaMacro {
             // the generic one on the second line affordable: it is the shape that cost
             // KeyedSource 1.6-4.7x when it was paid per row, and dividing it by the row
             // count is the entire reason this design works. See ColumnDecodable.swift.
-            if let accessor = columnAccessor(f.decodedType) {
+            // `@Key(_:or:)`: the aliases are tried in order when the primary column is
+            // absent, and the one that matched is reported once for the batch — the same
+            // warning the tree paths record per document.
+            let fetch: (String) -> String = columnAccessor(f.decodedType) != nil
+                ? { "source.\(columnAccessor(f.decodedType)!)(\"\($0)\", \(i))" }
+                : { "Assay._assayFetchColumn(\(f.decodedType).self, from: source, \"\($0)\", \(i))" }
+            var aliasArms = ""
+            for alias in f.aliases {
+                aliasArms += """
+
+                        if __c\(i) == nil, let __a = \(fetch(alias)) {
+                            __c\(i) = __a
+                            __k\(i) = "\(alias)"
+                            Assay._assayAliasMatched(&sink, path, "\(f.wireKey)", "\(alias)")
+                        }
+                """
+            }
+            let binding = f.aliases.isEmpty ? "let" : "var"
+            let keyVar = f.aliases.isEmpty ? "" : "\n        var __k\(i): StaticString = \"\(f.wireKey)\""
+            if columnAccessor(f.decodedType) != nil {
+                let nullsKey = f.aliases.isEmpty ? "\"\(f.wireKey)\"" : "__k\(i)"
                 pulls += """
-                        let __c\(i) = source.\(accessor)("\(f.wireKey)", \(i))
-                        let __n\(i) = source.nulls("\(f.wireKey)", \(i))\(onMissing)
+                        \(binding) __c\(i) = \(fetch(f.wireKey))\(keyVar)\(aliasArms)
+                        let __n\(i) = source.nulls(\(nullsKey), \(i))\(onMissing)
 
                 """
             } else {
                 pulls += """
-                        let __c\(i) = Assay._assayFetchColumn(
-                            \(f.decodedType).self, from: source, "\(f.wireKey)", \(i))\(onMissing)
+                        \(binding) __c\(i) = \(fetch(f.wireKey))\(keyVar)\(aliasArms)\(onMissing)
 
                 """
             }

@@ -539,6 +539,20 @@ extension AssayReader {
         }
     }
 
+    /// `keyMatches` for a `@Key(_:or:)` alias: on a match, records the warning that says
+    /// which alias the field was read from. The generated dispatch arm is
+    /// `keyMatches(primary) || _aliasMatched(alias, …)`, so the warning costs nothing on
+    /// the primary key and the decode body is not duplicated per alias.
+    @inlinable
+    public func _aliasMatched(
+        _ key: KeyRange, _ alias: StaticString, _ sink: inout IssueSink,
+        _ path: [PathComponent], _ field: StaticString
+    ) -> Bool {
+        guard keyMatches(key, alias) else { return false }
+        _assayAliasMatched(&sink, path, field, alias)
+        return true
+    }
+
     /// Scan forward to the next occurrence of `byte`, returning its absolute offset.
     @inlinable
     public func find(_ needle: UInt8, from start: Int) -> Int? {

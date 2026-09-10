@@ -39,6 +39,10 @@ that distinguish it:
   Yams/libyaml, and Foundation's XMLParser; deterministic fuzzing; live-allocation
   gate; compile-time budget gate (~87 ms per type against a 100 ms ceiling).
 
+- **`@Key(_:or:)` now actually warns which alias matched** (2026-09-10) — `alias_matched`,
+  on the JSON, YAML/XML/TOML and columnar paths. Three documents had promised it and no
+  code did. The columnar path also honours aliases now: an alias column is tried when
+  the primary is absent, and the warning is filed once for the batch.
 - **Columnar batch decode at 10 ns/row** (2026-09-10): the generated `_assayBatch` loop
   allocated a diagnostic path per row that a clean batch never read — 52.6 ns/row against
   a 9.6 ns floor. The row index now reaches issues through `IssueSink._enterRow`, two

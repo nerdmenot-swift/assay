@@ -30,6 +30,9 @@ extension IssueCode {
     public static let assayerConversionFailed = IssueCode.custom("assayer_conversion_failed")
     /// `fallback_applied` — "fell back to the declared value".
     public static let fallbackApplied = IssueCode.custom("fallback_applied")
+    /// `alias_matched` — "was read from its alias \"…\"". A warning: the field decoded
+    /// from a `@Key(_:or:)` alias rather than its primary key. Params: `alias`.
+    public static let aliasMatched = IssueCode.custom("alias_matched")
     /// `invalid_regex_pattern` — "the rule's pattern … is not a valid regular expression". Params: `pattern`.
     public static let invalidRegexPattern = IssueCode.custom("invalid_regex_pattern")
     /// `regex_unavailable` — "regular expressions are not available on this platform version".

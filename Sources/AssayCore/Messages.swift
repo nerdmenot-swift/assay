@@ -385,6 +385,9 @@ extension Issue {
             let expected = params["expected"]?.displayString ?? ""
             if let r = received { return "root element must be <\(expected)>, found <\(r)>" }
             return "root element must be <\(expected)>"
+        case .custom("alias_matched"):
+            if let a = params["alias"]?.displayString { return "was read from its alias \"\(a)\"" }
+            return "was read from an alias"
         case .custom("toml_redefined_table"):
             if let k = params["key"]?.displayString { return "table '\(k)' is already defined" }
             return "table is already defined"

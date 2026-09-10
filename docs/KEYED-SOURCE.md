@@ -160,3 +160,8 @@ source, and a reader over a million rows should not be told a million times.
 
 **No carets.** A columnar source has no byte offsets, so issues carry paths and no location.
 Issues over a batch carry `[i]` for the row.
+
+**Keys are the wire keys**, after `keys:` conversion and `@Key` — so a column called
+`first name` or `count (items)` binds to a field with an ordinary Swift name — and
+`@Key(_:or:)` aliases are tried in order when the primary column is absent, with the
+`alias_matched` warning filed once for the batch (2026-09-10).

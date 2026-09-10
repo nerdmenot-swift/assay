@@ -163,7 +163,8 @@ and never existed (found 2026-09-10); when it is, it takes an identifier `String
 
 ### Keys
 **Built:** `@Schema(keys: .snakeCase)`, `@Key("id")`, `@Key("email", or: "email_address")`
-(warns which alias matched), `@Extras var x: [String: RawValue]`,
+(warns which alias matched — `alias_matched`, and that warning existed in three documents
+and no code until 2026-09-10; it is on every path now, the columnar one included), `@Extras var x: [String: RawValue]`,
 `@Schema(unknownKeys: .ignore/.warn/.reject/.collect)` with did-you-mean.
 
 `@Key(path: "profile.display_name")` and `@Inline` both shipped 2026-09-08. What is still

@@ -110,7 +110,7 @@ labels:
 ```
 
 ```text
-Cluster(name: "eu-prod", servers: [Server(host: "a.internal", port: 8080, tls: true), Server(host: "b.internal", port: 8081, tls: false)], labels: ["team": "platform", "tier": "prod"])
+Cluster(name: "eu-prod", servers: [Server(host: "a.internal", port: 8080, tls: true), Server(host: "b.internal", port: 8081, tls: false)], labels: ["tier": "prod", "team": "platform"])
 ```
 
 Flow style, which is JSON wearing a hat:

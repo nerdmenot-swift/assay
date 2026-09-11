@@ -46,18 +46,28 @@ public struct RowDecoder<T: SourceDecodable>: ~Copyable {
     /// driver can fail fast instead of decoding a million rows that each report it.
     public let missingColumns: [String]
 
-    public init(columns: [String], batchSize: Int = 4096, limits: Limits = .default) {
+    public init(columns: [String], batchSize: Int = 4096, limits: Limits = .default,
+                inferColumnKinds: Bool = false) {
         self.init(plan: BoundPlan(manifest: T._assayManifest, columns: columns),
-                  batchSize: batchSize, limits: limits)
+                  batchSize: batchSize, limits: limits, inferColumnKinds: inferColumnKinds)
     }
 
-    public init(plan: BoundPlan, batchSize: Int = 4096, limits: Limits = .default) {
+    /// `inferColumnKinds: true` when your cells are not the kind the field declares — a
+    /// CSV, a database in text mode, a spreadsheet. Each column's storage then comes from
+    /// its first cell, so `append(text:)` into an `Int` field yields a string column the
+    /// schema parses under `coerceScalars`. It measures 40.9 ns/row against 32.7 for the
+    /// declared-kind path, 1.25×, which is why it is a flag rather than the behaviour;
+    /// `RowBatch`'s initialiser has the measurement and the two free-of-charge designs
+    /// that were tried first and refused.
+    public init(plan: BoundPlan, batchSize: Int = 4096, limits: Limits = .default,
+                inferColumnKinds: Bool = false) {
         let manifest = T._assayManifest
         self.plan = plan
         self.batchSize = Swift.max(batchSize, 1)
         self.limits = limits
         self.missingColumns = plan._missingRequired(in: manifest)
-        self.batch = RowBatch(manifest: manifest, plan: plan, capacity: self.batchSize)
+        self.batch = RowBatch(manifest: manifest, plan: plan, capacity: self.batchSize,
+                              inferColumnKinds: inferColumnKinds)
     }
 
     // MARK: Feeding

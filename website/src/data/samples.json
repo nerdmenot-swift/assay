@@ -1,7 +1,7 @@
 {
   "stats": {
     "version": "0.1.0",
-    "tests": 746,
+    "tests": 755,
     "suites": 125,
     "codes": 120,
     "formats": [
@@ -219,7 +219,7 @@
     },
     "yaml.nested": {
       "source": "name: eu-prod\nservers:\n  - host: a.internal\n    port: 8080\n  - host: b.internal\n    port: 8081\n    tls: false\nlabels:\n  tier: prod\n  team: platform",
-      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"team\": \"platform\", \"tier\": \"prod\"])"
+      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"tier\": \"prod\", \"team\": \"platform\"])"
     },
     "yaml.flow": {
       "source": "name: eu-prod\nservers: [{host: a.internal, port: 8080}, {host: b.internal, port: 8081}]\nlabels: {tier: prod}",
@@ -372,6 +372,66 @@
     "encode.xml": {
       "source": "Release(name: \"api\", version: 2, stable: true, notes: nil, tags: [\"a\", \"b\"])",
       "render": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Release><name>api</name><version>2</version><stable>true</stable><tags>a</tags><tags>b</tags></Release>"
+    },
+    "recipe.api.ok": {
+      "source": "POST /deployments\nContent-Type: application/json\n\n{\"name\":\"api\",\"image\":\"img:1\",\"replicas\":3}",
+      "render": "201\n{\"created\":\"api\"}"
+    },
+    "recipe.api.invalid": {
+      "source": "POST /deployments\nContent-Type: application/json\n\n{\"name\":\"\",\"image\":\"img:1\",\"replicas\":0,\"health_check\":\"not a url\"}",
+      "render": "422\n{\"type\":\"about:blank\",\"title\":\"Validation failed\",\"status\":422,\"errors\":[{\"path\":\"name\",\"code\":\"too_small\",\"message\":\"must be at least 1 character\",\"params\":{\"minimum\":1,\"unit\":\"characters\"}},{\"path\":\"replicas\",\"code\":\"not_in_range\",\"message\":\"must be between 1 and 100\",\"params\":{\"maximum\":100,\"minimum\":1}},{\"path\":\"health_check\",\"code\":\"invalid_url\",\"message\":\"must be a valid URL\"}]}"
+    },
+    "recipe.api.mediaType": {
+      "source": "POST /deployments\nContent-Type: application/xml\n\n{\"name\":\"api\",\"image\":\"img:1\",\"replicas\":3}",
+      "render": "415\n{\"type\":\"about:blank\",\"title\":\"Unsupported media type\",\"status\":415,\"errors\":[{\"path\":\"\",\"code\":\"unsupported_media_type\",\"message\":\"media type application/xml is not in the accepted list\",\"params\":{\"received\":\"application/xml\"}}]}"
+    },
+    "recipe.api.yaml": {
+      "source": "POST /deployments\nContent-Type: application/yaml\n\nname: api\nimage: img:1\nreplicas: 3\n",
+      "render": "201\n{\"created\":\"api\"}"
+    },
+    "recipe.config.ok": {
+      "source": "service_name = \"checkout\"\nport = 9000\nupstream = \"https://inventory.internal\"",
+      "render": "AppConfig(serviceName: \"checkout\", port: 9000, logLevel: \"info\", workers: 4, upstream: Optional(\"https://inventory.internal\"))"
+    },
+    "recipe.config.bad": {
+      "source": "service_name = \"\"\nprot = 9000\nworkers = 900\nupstream = \"inventory\"",
+      "render": "app.toml:1:16: error: service_name must be at least 1 character\n  1 │ service_name = \"\"\n    │                ^^\n  2 │ prot = 9000\n\napp.toml:3:11: error: workers must be between 1 and 64\n  1 │ service_name = \"\"\n  2 │ prot = 9000\n  3 │ workers = 900\n    │           ^^^\n  4 │ upstream = \"inventory\"\n\napp.toml:4:12: error: upstream must be a valid URL\n  2 │ prot = 9000\n  3 │ workers = 900\n  4 │ upstream = \"inventory\"\n    │            ^^^^^^^^^^^\n\napp.toml: warning: unknown key \"prot\"; did you mean \"port\"?\n\n3 errors, 1 warning\n"
+    },
+    "recipe.drift.old": {
+      "source": "{\"id\": 1, \"email_address\": \"jo@example.com\", \"tier\": \"pro\", \"seat_count\": 4}",
+      "render": "id:        1\nemail:     jo@example.com\ntier:      pro\nseatCount: 4\nrest:      (nothing unmodelled)\n\nwarnings:\n  alias_matched: was read from its alias \"email_address\""
+    },
+    "recipe.drift.new": {
+      "source": "{\"id\": 2, \"email\": \"sam@example.com\", \"tier\": \"enterprise\",\n \"seat_count\": \"twelve\", \"billing_region\": \"eu\", \"trial_ends\": null}",
+      "render": "id:        2\nemail:     sam@example.com\ntier:      other(\"enterprise\")\nseatCount: 0\nrest:      billing_region = \"eu\", trial_ends = null\n\nwarnings:\n  fallback_applied: fell back to the declared value"
+    },
+    "recipe.form.errors": {
+      "source": "{\"username\": \"jo\", \"email\": \"jo@localhost\", \"age\": 11, \"password\": \"short\"}",
+      "render": "username: needs at least 3 characters\nemail: does not look like an email address\nage: must be between 13 and 120\npassword: needs at least 8 characters"
+    },
+    "recipe.form.json": {
+      "source": "{\"username\": \"jo\", \"email\": \"jo@localhost\", \"age\": 11, \"password\": \"short\"}",
+      "render": "{\"source\":\"register.json\",\"valid\":false,\"issues\":[{\"path\":\"username\",\"code\":\"too_small\",\"message\":\"must be at least 3 characters\",\"params\":{\"minimum\":3,\"unit\":\"characters\"},\"received\":\"jo\",\"offset\":13,\"length\":4,\"line\":1,\"column\":14},{\"path\":\"email\",\"code\":\"invalid_email\",\"message\":\"must be a valid email address\",\"received\":\"jo@localhost\",\"offset\":28,\"length\":14,\"line\":1,\"column\":29},{\"path\":\"age\",\"code\":\"not_in_range\",\"message\":\"must be between 13 and 120\",\"params\":{\"maximum\":120,\"minimum\":13},\"received\":\"11\",\"offset\":51,\"length\":2,\"line\":1,\"column\":52},{\"path\":\"password\",\"code\":\"too_small\",\"message\":\"must be at least 8 characters\",\"params\":{\"minimum\":8,\"unit\":\"characters\"},\"received\":\"short\",\"offset\":67,\"length\":7,\"line\":1,\"column\":68}],\"warnings\":[]}"
+    },
+    "recipe.csv": {
+      "source": "order_id,sku,quantity,unit_price,note\n1001,WIDGET-1,2,9.99,gift wrap\n1002,WIDGET-2,1,24.50,\n1003,WIDGET-3,0,5.00,\n1004,WIDGET-4,many,5.00,",
+      "render": "decoded 2 of 4 rows\n\n  Sale(orderId: 1001, sku: \"WIDGET-1\", quantity: 2, unitPrice: 9.99, note: Optional(\"gift wrap\"))\n  Sale(orderId: 1002, sku: \"WIDGET-2\", quantity: 1, unitPrice: 24.5, note: nil)\n\nissues:\n  [[2].quantity] must be between 1 and 999\n  [[3].quantity] must be an integer, found \"many\""
+    },
+    "recipe.sql": {
+      "source": "id, email, display_name, locked_at\n1, jo@example.com, Jo, NULL\n2, sam@example.com, Sam, 2026-01-02T03:04:05Z\n3, not-an-email, Kim, NULL\n4, lee@example.com, Lee, NULL\n5, also-not-an-email, Max, NULL",
+      "render": "3 batches of 2\n\nbatch 0: 2 rows\nbatch 1: 1 rows\n  [[2].email] must be a valid email address\nbatch 2: 0 rows\n  [[4].email] must be a valid email address"
+    },
+    "recipe.untrusted.mediaType": {
+      "source": "Content-Type: application/xml\naccepting: [.json]\n\n<!DOCTYPE lolz [<!ENTITY lol \"lol\"><!ENTITY lol2 \"&lol;&lol;&lol;&lol;&lol;\">]>\n<upload><title>&lol2;</title></upload>",
+      "render": "upload.xml: error: media type application/xml is not in the accepted list\n\n1 error\n"
+    },
+    "recipe.untrusted.depth": {
+      "source": "maxDepth: 8, and a document nested 20 deep\n\n[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]",
+      "render": "<input>:1:10: error: nesting exceeds the maximum depth of 8\n  1 │ [[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]\n    │          ^\n\n1 error\n"
+    },
+    "recipe.untrusted.size": {
+      "source": "maxBytes: 4096, and a 5012-byte document",
+      "render": "upload.json: error: input exceeds the maximum size of 4096 bytes\n\n1 error\n"
     }
   }
 }

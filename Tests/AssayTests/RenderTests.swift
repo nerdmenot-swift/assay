@@ -165,6 +165,52 @@ struct RenderTests {
         #expect(v["errors"]?[0]?["message"]?.string == "is required")
     }
 
+    // The status was hard-coded to 422 until 2026-09-11, and nothing here noticed —
+    // the test above asserted the constant rather than the mapping. A handler that
+    // answers 415 for `unsupported_media_type` (which is the entire reason that code
+    // exists) was serving a body that said 422 beside it.
+    @Test("problemDetails reports 415 for a media type that was never parsed")
+    func problemDetails415() throws {
+        var sink = IssueSink()
+        sink.add(Issue(code: .unsupportedMediaType,
+                       params: ["received": .string("application/xml")]))
+        let out = Renderer.render(issues: sink.issues, warnings: [],
+                                  source: SourceBytes([]), sourceName: "body",
+                                  style: .problemDetails)
+        let v = try JSON.Value.parse(out)
+        #expect(v["status"]?.int == 415)
+        #expect(v["title"]?.string == "Unsupported media type")
+    }
+
+    @Test("problemDetails reports 413 when the body was too large to read")
+    func problemDetails413() throws {
+        var sink = IssueSink()
+        sink.add(Issue(code: .tooManyBytes, params: ["maxBytes": .int(1024)]))
+        let v = try JSON.Value.parse(
+            Renderer.render(issues: sink.issues, warnings: [], source: SourceBytes([]),
+                            sourceName: "body", style: .problemDetails))
+        #expect(v["status"]?.int == 413)
+    }
+
+    @Test("problemDetails reports 400 for a body that did not parse, not 422")
+    func problemDetails400() throws {
+        let d = RenderTarget.diagnose(json: "{\"a\": ")
+        let v = try JSON.Value.parse(d.render(.problemDetails))
+        #expect(v["status"]?.int == 400)
+        #expect(v["title"]?.string == "Malformed request body")
+    }
+
+    @Test("an earlier failure wins: negotiation outranks a rule that never ran")
+    func problemDetailsOrdering() throws {
+        var sink = IssueSink()
+        sink.add(Issue(code: .tooSmall, path: [.key("name")], params: ["minimum": .int(1)]))
+        sink.add(Issue(code: .unsupportedMediaType))
+        let v = try JSON.Value.parse(
+            Renderer.render(issues: sink.issues, warnings: [], source: SourceBytes([]),
+                            sourceName: "body", style: .problemDetails))
+        #expect(v["status"]?.int == 415)
+    }
+
     @Test("json render escapes what needs escaping")
     func jsonEscaping() throws {
         // A malformed document whose *content* would break naive JSON emission.

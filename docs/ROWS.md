@@ -275,10 +275,23 @@ generic route cost ~40 instead of ~70; it is not what a driver that wants the la
 
 ### CSV, for contrast
 
-`RowDecoder<T>(columns: headerRow)`, every cell `append(text:)` from the field's byte slice,
-schema `coerceScalars: true`. That is the whole reader-side adapter; the parser stays the
-library's. The writer: `T._assayManifest.keys` for the header, a `RowSink` that appends
-delimited bytes.
+`RowDecoder<T>(columns: headerRow, inferColumnKinds: true)`, every cell `append(text:)`
+from the field's byte slice, schema `coerceScalars: true`. That is the whole reader-side
+adapter; the parser stays the library's. The writer: `T._assayManifest.keys` for the
+header, a `RowSink` that appends delimited bytes.
+
+**`inferColumnKinds` is load-bearing and was missing from this paragraph until
+2026-09-11.** Without it `RowBatch` takes each column's storage kind from the manifest, so
+`"1001"` offered to an `Int64` field is a wrong-kind cell: rejected, and reported as
+`missing_column (expected int64)`. The text-parsing half of §4 reads `stringColumn`, so it
+never saw anything — the column it needed could not exist. Every test of §4 used a
+hand-written `ColumnarSource` serving text directly, so none of them covered the one shape
+§4 was built for, and the sentence above described something that did not work.
+
+The flag costs **40.9 ns/row against 32.7**, measured as two rows of one `rowbatch` run.
+It is off by default because a driver that sends typed cells should not pay for one that
+does not; two ways of making it free were built and measured first, and both cost the
+typed path instead.
 
 ---
 

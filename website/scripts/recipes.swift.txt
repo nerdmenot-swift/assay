@@ -1,0 +1,388 @@
+// Recipes: seven complete programs, each one a task rather than a feature.
+//
+// This file is compiled and run by scripts/extract.ts alongside samples.swift.txt, and
+// every output on the /recipes/ pages is what it actually printed. A recipe that cannot
+// be written as a working program is not a recipe — it is a guide page that already
+// exists — so the constraint is doing editorial work, not just honesty work.
+//
+// `emit` and `parts` are globals declared in main.swift (samples.swift.txt), which calls
+// `runRecipes()` before it prints.
+
+import Assay
+import AssayYAML
+import AssayXML
+import AssayTOML
+import Foundation
+
+// ===========================================================================
+// 1. A JSON API endpoint
+// ===========================================================================
+
+@Schema(keys: .snakeCase, formats: [.json, .yaml])
+struct CreateDeployment {
+    @Validate(.min(1), .max(63)) var name: String
+    var image: String
+    @Validate(.range(1...100)) var replicas: Int
+    @Validate(.url) var healthCheck: String?
+}
+
+/// What a handler hands back to whatever web framework you use.
+struct Reply { var status: Int; var body: String }
+
+func handleCreate(body: [UInt8], contentType: String?) -> Reply {
+    let d = CreateDeployment.diagnose(body: body, contentType: contentType,
+                                      accepting: [.json, .yaml], sourceName: "body")
+    guard d.isValid, let deployment = d.value else {
+        // 415 when the body was never parsed, 422 when it was parsed and rejected.
+        // The code carries that distinction so the handler does not read messages.
+        let refused = d.issues.contains { $0.code == .unsupportedMediaType }
+        return Reply(status: refused ? 415 : 422, body: d.render(.problemDetails))
+    }
+    return Reply(status: 201, body: #"{"created":"\#(deployment.name)"}"#)
+}
+
+// ===========================================================================
+// 2. An application config file
+// ===========================================================================
+
+@Schema(keys: .snakeCase, unknownKeys: .warn, formats: .all)
+struct AppConfig {
+    @Validate(.min(1)) var serviceName: String
+    var port: Int = 8080
+    var logLevel: String = "info"
+    @Validate(.range(1...64)) var workers: Int = 4
+    @Validate(.url) var upstream: String?
+}
+
+/// Load, or print every problem and stop. A config error at boot should read like a
+/// compiler error, because that is exactly what it is.
+func loadConfig(_ text: String, named name: String) -> (AppConfig?, String) {
+    let d = AppConfig.diagnose(toml: text, sourceName: name)
+    // `.plain` renders warnings alongside errors already. Looping over `d.warnings` and
+    // appending them is the obvious next line and it prints every warning twice.
+    return (d.isValid ? d.value : nil, d.render(.plain))
+}
+
+// ===========================================================================
+// 3. A third-party API that keeps changing
+// ===========================================================================
+
+@Schema enum Tier: Equatable {
+    case free, pro
+    @Unknown case other(String)
+}
+
+@Schema(keys: .snakeCase)
+struct Customer {
+    var id: Int64
+    // The field was renamed. Accept both, and say which one arrived.
+    @Key("email", or: "email_address") @Validate(.email) var email: String
+    // A new enum member ships before your deploy does.
+    var tier: Tier
+    // A field that has been known to arrive as a string. Do not fail the whole record.
+    @Fallback(0) var seatCount: Int
+    // Everything you have not modelled, kept rather than dropped.
+    @Extras var rest: [String: RawValue]
+}
+
+/// `RawValue` describes itself with its module name attached, which is noise on a page.
+func show(_ v: RawValue) -> String {
+    switch v {
+    case .null: return "null"
+    case .bool(let b): return String(b)
+    case .int(let i): return String(i)
+    case .double(let d): return String(d)
+    case .string(let s): return "\"\(s)\""
+    case .sequence(let xs): return "[\(xs.count) items]"
+    case .mapping(let m): return "{\(m.count) keys}"
+    }
+}
+
+func describeCustomer(_ d: Diagnosis<Customer>) -> String {
+    guard let c = d.value else { return d.render(.plain) }
+    var out = "id:        \(c.id)\n"
+    out += "email:     \(c.email)\n"
+    out += "tier:      \(c.tier)\n"
+    out += "seatCount: \(c.seatCount)\n"
+    out += "rest:      "
+        + (c.rest.isEmpty ? "(nothing unmodelled)"
+           : c.rest.sorted { $0.key < $1.key }
+                   .map { "\($0.key) = \(show($0.value))" }.joined(separator: ", "))
+    if !d.warnings.isEmpty {
+        out += "\n\nwarnings:\n"
+            + d.warnings.map { "  \($0.code.codeString): \($0.message)" }
+                        .joined(separator: "\n")
+    }
+    return out
+}
+
+// ===========================================================================
+// 4. A form, with errors next to the fields
+// ===========================================================================
+
+@Schema(keys: .snakeCase, unknownKeys: .warn)
+struct Registration {
+    @Validate(.min(3), .max(24)) var username: String
+    @Validate(.email) var email: String
+    @Validate(.range(13...120)) var age: Int
+    @Validate(.min(8)) var password: String
+}
+
+/// One message per field, in your own words, from the code and its parameters.
+/// Never from `issue.message` if you intend to translate: the wording is not API.
+func fieldErrors(_ d: Diagnosis<Registration>) -> [(String, String)] {
+    var out: [(String, String)] = []
+    for issue in d.issues {
+        let field = issue.path.pathDescription
+        let text: String
+        switch issue.code {
+        case .tooSmall:
+            let n = issue.params["minimum"]?.displayString ?? "?"
+            text = "needs at least \(n) characters"
+        case .tooLarge:
+            let n = issue.params["maximum"]?.displayString ?? "?"
+            text = "must be \(n) characters or fewer"
+        case .notInRange:
+            let lo = issue.params["minimum"]?.displayString ?? "?"
+            let hi = issue.params["maximum"]?.displayString ?? "?"
+            text = "must be between \(lo) and \(hi)"
+        case .invalidEmail:
+            text = "does not look like an email address"
+        case .missing:
+            text = "is required"
+        default:
+            text = issue.message
+        }
+        out.append((field, text))
+    }
+    return out
+}
+
+// ===========================================================================
+// 5. A CSV file into structs
+// ===========================================================================
+
+@Schema(keys: .snakeCase, coerceScalars: true, formats: [], sources: true)
+struct Sale: Equatable {
+    var orderId: Int64
+    @Validate(.min(1)) var sku: String
+    @Validate(.range(1...999)) var quantity: Int
+    var unitPrice: Double
+    var note: String?
+}
+
+/// The splitter is yours — Assay does not parse CSV, it decodes what you split.
+/// Deliberately naive: no quoting, because that is the reader's job and not the point.
+func decodeCSV(_ text: String) -> BatchDiagnosis<Sale> {
+    var lines = text.split(separator: "\n", omittingEmptySubsequences: true)
+    let header = lines.removeFirst().split(separator: ",").map(String.init)
+    // `inferColumnKinds` because every cell arrives as text: without it each column's
+    // storage comes from the schema, and `"1001"` offered to an Int64 column is rejected.
+    var dec = RowDecoder<Sale>(columns: header, inferColumnKinds: true)
+    for line in lines {
+        dec.beginRow()
+        for (i, cell) in line.split(separator: ",", omittingEmptySubsequences: false).enumerated() {
+            if cell.isEmpty { dec.appendNull(column: i) } else { dec.append(text: cell.utf8, column: i) }
+        }
+    }
+    return dec.finish()
+}
+
+// ===========================================================================
+// 6. A SQL result set into structs
+// ===========================================================================
+
+/// Stand-in for whatever your driver calls a cell. Every driver has this enum.
+enum Cell { case null, int(Int64), double(Double), text(String), bool(Bool) }
+
+@Schema(keys: .snakeCase, formats: [], sources: true)
+struct Account: Equatable {
+    var id: Int64
+    @Validate(.email) var email: String
+    var displayName: String
+    var lockedAt: String?
+}
+
+/// The adapter a driver writes ONCE, generic over every schema anyone will declare.
+func decodeRows<T: SourceDecodable>(
+    _ rows: [[Cell]], columns: [String], as _: T.Type, batchSize: Int = 2
+) -> [BatchDiagnosis<T>] {
+    var dec = RowDecoder<T>(columns: columns, batchSize: batchSize)
+    var batches: [BatchDiagnosis<T>] = []
+    for row in rows {
+        dec.beginRow()
+        for (i, cell) in row.enumerated() {
+            switch cell {
+            case .int(let v):    dec.append(int64: v, column: i)
+            case .double(let v): dec.append(double: v, column: i)
+            case .text(let s):   dec.append(string: s, column: i)
+            case .bool(let v):   dec.append(bool: v, column: i)
+            case .null:          dec.appendNull(column: i)
+            }
+        }
+        if dec.isFull { batches.append(dec.flush()) }
+    }
+    let last = dec.finish()
+    if !last.values.isEmpty || !last.issues.isEmpty { batches.append(last) }
+    return batches
+}
+
+// ===========================================================================
+// 7. A file from someone you do not trust
+// ===========================================================================
+
+@Schema(keys: .snakeCase, formats: .all)
+struct Upload {
+    var title: String
+    var tags: [String] = []
+}
+
+/// Small on purpose. The defaults are generous because most callers are not serving
+/// strangers; a public upload endpoint should say what it will accept.
+let strict = Limits(maxIssues: 20, maxDepth: 8, maxBytes: 4_096)
+
+// ===========================================================================
+// Run them
+// ===========================================================================
+
+func runRecipes() {
+    // --- 1. the endpoint ------------------------------------------------
+    let goodBody = Array(#"{"name":"api","image":"img:1","replicas":3}"#.utf8)
+    let badBody = Array(#"{"name":"","image":"img:1","replicas":0,"health_check":"not a url"}"#.utf8)
+
+    let ok = handleCreate(body: goodBody, contentType: "application/json")
+    emit("recipe.api.ok", "POST /deployments\nContent-Type: application/json\n\n"
+         + String(decoding: goodBody, as: UTF8.self),
+         "\(ok.status)\n\(ok.body)")
+
+    let bad = handleCreate(body: badBody, contentType: "application/json")
+    emit("recipe.api.invalid", "POST /deployments\nContent-Type: application/json\n\n"
+         + String(decoding: badBody, as: UTF8.self),
+         "\(bad.status)\n\(bad.body)")
+
+    let wrongType = handleCreate(body: goodBody, contentType: "application/xml")
+    emit("recipe.api.mediaType", "POST /deployments\nContent-Type: application/xml\n\n"
+         + String(decoding: goodBody, as: UTF8.self),
+         "\(wrongType.status)\n\(wrongType.body)")
+
+    // The same handler, same schema, a YAML body — because `accepting:` allowed it.
+    let yamlBody = Array("name: api\nimage: img:1\nreplicas: 3\n".utf8)
+    let yamlOK = handleCreate(body: yamlBody, contentType: "application/yaml")
+    emit("recipe.api.yaml", "POST /deployments\nContent-Type: application/yaml\n\n"
+         + String(decoding: yamlBody, as: UTF8.self),
+         "\(yamlOK.status)\n\(yamlOK.body)")
+
+    // --- 2. the config file ---------------------------------------------
+    let goodConfig = """
+    service_name = "checkout"
+    port = 9000
+    upstream = "https://inventory.internal"
+    """
+    let (cfg, _) = loadConfig(goodConfig, named: "app.toml")
+    emit("recipe.config.ok", goodConfig, String(describing: cfg!))
+
+    let badConfig = """
+    service_name = ""
+    prot = 9000
+    workers = 900
+    upstream = "inventory"
+    """
+    let (_, report) = loadConfig(badConfig, named: "app.toml")
+    emit("recipe.config.bad", badConfig, report)
+
+    // --- 3. the moving API ----------------------------------------------
+    let oldShape = """
+    {"id": 1, "email_address": "jo@example.com", "tier": "pro", "seat_count": 4}
+    """
+    emit("recipe.drift.old", oldShape,
+         describeCustomer(Customer.diagnose(json: oldShape, sourceName: "customer.json")))
+
+    let newShape = """
+    {"id": 2, "email": "sam@example.com", "tier": "enterprise",
+     "seat_count": "twelve", "billing_region": "eu", "trial_ends": null}
+    """
+    emit("recipe.drift.new", newShape,
+         describeCustomer(Customer.diagnose(json: newShape, sourceName: "customer.json")))
+
+    // --- 4. the form ----------------------------------------------------
+    let form = """
+    {"username": "jo", "email": "jo@localhost", "age": 11, "password": "short"}
+    """
+    let formD = Registration.diagnose(json: form, sourceName: "register.json")
+    emit("recipe.form.errors", form,
+         fieldErrors(formD).map { "\($0.0): \($0.1)" }.joined(separator: "\n"))
+    emit("recipe.form.json", form, formD.render(.json))
+
+    // --- 5. the CSV -----------------------------------------------------
+    let csv = """
+    order_id,sku,quantity,unit_price,note
+    1001,WIDGET-1,2,9.99,gift wrap
+    1002,WIDGET-2,1,24.50,
+    1003,WIDGET-3,0,5.00,
+    1004,WIDGET-4,many,5.00,
+    """
+    let sales = decodeCSV(csv)
+    emit("recipe.csv", csv,
+         "decoded \(sales.values.count) of 4 rows\n\n"
+         + sales.values.map { "  \($0)" }.joined(separator: "\n")
+         + "\n\nissues:\n"
+         + sales.issues.map { "  [\($0.path.pathDescription)] \($0.message)" }
+                .joined(separator: "\n"))
+
+    // --- 6. the result set ----------------------------------------------
+    let cols = ["id", "email", "display_name", "locked_at"]
+    let rows: [[Cell]] = [
+        [.int(1), .text("jo@example.com"), .text("Jo"), .null],
+        [.int(2), .text("sam@example.com"), .text("Sam"), .text("2026-01-02T03:04:05Z")],
+        [.int(3), .text("not-an-email"), .text("Kim"), .null],
+        [.int(4), .text("lee@example.com"), .text("Lee"), .null],
+        [.int(5), .text("also-not-an-email"), .text("Max"), .null],
+    ]
+    let batches = decodeRows(rows, columns: cols, as: Account.self)
+    var sqlOut = "\(batches.count) batches of 2\n"
+    for (i, b) in batches.enumerated() {
+        sqlOut += "\nbatch \(i): \(b.values.count) rows"
+        for issue in b.issues {
+            sqlOut += "\n  [\(issue.path.pathDescription)] \(issue.message)"
+        }
+    }
+    emit("recipe.sql", cols.joined(separator: ", ") + "\n"
+         + rows.map { r in r.map { c in
+             switch c {
+             case .null: return "NULL"
+             case .int(let v): return String(v)
+             case .double(let v): return String(v)
+             case .text(let s): return s
+             case .bool(let v): return String(v)
+             }
+         }.joined(separator: ", ") }.joined(separator: "\n"),
+         sqlOut)
+
+    // --- 7. the untrusted file ------------------------------------------
+    let laughs = """
+    <!DOCTYPE lolz [<!ENTITY lol "lol"><!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;">]>
+    <upload><title>&lol2;</title></upload>
+    """
+    let refusedD = Upload.diagnose(body: Array(laughs.utf8), contentType: "application/xml",
+                                   accepting: [.json], limits: strict, sourceName: "upload.xml")
+    emit("recipe.untrusted.mediaType",
+         "Content-Type: application/xml\naccepting: [.json]\n\n" + laughs,
+         refusedD.render(.plain))
+
+    // Depth is the limit that matters when you do NOT know the shape, so this one goes
+    // through the value model. A schema bounds its own nesting by being a declaration;
+    // an arbitrary document is bounded only by whoever sent it.
+    var deep = ""
+    for _ in 0..<20 { deep += "[" }
+    deep += "1"
+    for _ in 0..<20 { deep += "]" }
+    var depthOut = "parsed fine"
+    do { _ = try JSON.Value.parse(Array(deep.utf8), limits: strict) }
+    catch { depthOut = (error as! AssayError).render(.plain) }
+    emit("recipe.untrusted.depth",
+         "maxDepth: 8, and a document nested 20 deep\n\n" + deep, depthOut)
+
+    let big = "{\"title\":\"" + String(repeating: "x", count: 5_000) + "\"}"
+    emit("recipe.untrusted.size", "maxBytes: 4096, and a \(big.utf8.count)-byte document",
+         Upload.diagnose(json: big, limits: strict, sourceName: "upload.json").render(.plain))
+}

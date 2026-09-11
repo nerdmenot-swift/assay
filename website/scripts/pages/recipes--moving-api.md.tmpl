@@ -1,0 +1,95 @@
+---
+title: An API that keeps changing
+description: Renamed fields, new enum cases, types that drift, and everything you have not modelled — without your decode failing on someone else's release.
+---
+
+Someone else's API will add a field, rename one, and ship an enum case before you deploy.
+None of that should take your service down, and none of it should happen silently either.
+
+```swift
+@Schema enum Tier: Equatable {
+    case free, pro
+    @Unknown case other(String)
+}
+
+@Schema(keys: .snakeCase)
+struct Customer {
+    var id: Int64
+    // The field was renamed. Accept both, and say which one arrived.
+    @Key("email", or: "email_address") @Validate(.email) var email: String
+    // A new enum member ships before your deploy does.
+    var tier: Tier
+    // A field that has been known to arrive as a string. Do not fail the whole record.
+    @Fallback(0) var seatCount: Int
+    // Everything you have not modelled, kept rather than dropped.
+    @Extras var rest: [String: RawValue]
+}
+```
+
+Four tools, each for a different kind of drift.
+
+## The old shape
+
+{{example:recipe.drift.old:json}}
+
+`email_address` matched the alias, and you were told. The warning is the point: tolerance
+without a record is how a temporary compatibility shim becomes permanent. `alias_matched`
+carries which alias fired, so you can count it and delete the alias when it stops firing.
+
+## The new shape
+
+{{example:recipe.drift.new:json}}
+
+Three things happened.
+
+**`tier` is `enterprise`**, which your enum does not have. `@Unknown case other(String)`
+catches it with the original spelling kept, so you can branch on `.free` and `.pro` and
+treat everything else as a default — and log the string when you want to know what is out
+there. Without it, one new case upstream is a decode failure for every record.
+
+**`seat_count` arrived as `"twelve"`.** `@Fallback(0)` takes the declared value and records
+`fallback_applied` rather than failing the record. Use it where a wrong field is survivable
+and the record is still worth having; do not use it where it hides a real problem.
+
+**`billing_region` and `trial_ends` were not modelled at all.** `@Extras` collects them as
+`RawValue` instead of discarding them, so you can log what is arriving, pass it through, or
+notice that a field you need has appeared.
+
+## Choosing between them
+
+| Situation | Reach for |
+|---|---|
+| The field was renamed and both spellings are live | `@Key(_:or:)` |
+| A field is sometimes wrong and the record is still useful | `@Fallback` |
+| The set of values will grow | `@Unknown` on the enum |
+| You want to see what else is arriving | `@Extras` |
+| The field is genuinely optional | `String?` — not a fallback |
+
+The last row matters. `@Fallback` on an optional is almost always the wrong tool: absent
+already has an answer, and a fallback would also swallow *invalid*, which is different.
+
+## Watching the drift instead of ignoring it
+
+Every tolerance above emits a warning, and `diagnose` gives you all of them:
+
+```swift
+let d = Customer.diagnose(json: body)
+for w in d.warnings { metrics.increment("decode.tolerated", tags: [w.code.codeString]) }
+if let extra = d.value?.rest, !extra.isEmpty { log("upstream added \(extra.keys)") }
+```
+
+A counter per code turns "it still works" into "this alias fired 40,000 times last week and
+`email_address` can go". That is the difference between tolerance and rot.
+
+## What not to reach for
+
+An untagged union, if you can avoid it. Two variants that both accept the same document is
+a real hazard, and the cost is per-branch attempts on every decode.
+[Unions](/guides/unions/) says when it is genuinely the answer, which is mostly when the
+wire gives you no discriminator at all.
+
+## Next
+
+- [Keys](/guides/keys/) — aliases, paths, inlining, unknown-key policy.
+- [Presence](/guides/presence/) — where `@Fallback` sits among the five states.
+- [Advanced](/guides/advanced/) — open enums, wrapping, and the rest.

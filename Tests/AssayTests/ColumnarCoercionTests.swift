@@ -52,10 +52,81 @@ struct TextStore: ColumnarSource {
     borrowing func boolColumn(_ key: StaticString, _ f: Int) -> [Bool]? { nil }
 }
 
+/// The shape the whole text-cell feature exists for, and the one nothing covered: a CSV
+/// reader handing every cell over as text through `RowDecoder`. Every other test here
+/// uses `TextStore`, a hand-written source that serves `stringColumn` directly — so they
+/// all passed while `RowBatch` was rejecting every text cell offered to a numeric field,
+/// because it picks column kinds from the manifest. Fixed 2026-09-11.
+@Schema(keys: .snakeCase, coerceScalars: true, formats: [], sources: true)
+struct CSVSale: Equatable {
+    var orderId: Int64
+    @Validate(.min(1)) var sku: String
+    @Validate(.range(1...999)) var quantity: Int
+    var unitPrice: Double
+    var note: String?
+}
+
 @Suite("Text cells on the columnar path")
 struct ColumnarCoercionTests {
 
     static let columns = ["id", "ratio", "active", "small", "when", "stamp", "note"]
+
+    @Test("a CSV through RowDecoder decodes — every cell text, kinds from the manifest")
+    func csvThroughTheDecoder() {
+        var dec = RowDecoder<CSVSale>(
+            columns: ["order_id", "sku", "quantity", "unit_price", "note"],
+            inferColumnKinds: true)
+        for row in [["1001", "W-1", "2", "9.99", "gift"],
+                    ["1002", "W-2", "1", "24.50", ""]] {
+            dec.beginRow()
+            for (i, cell) in row.enumerated() {
+                if cell.isEmpty { dec.appendNull(column: i) }
+                else { dec.append(text: cell.utf8, column: i) }
+            }
+        }
+        let d = dec.finish()
+        #expect(d.isValid, "\(d.issues)")
+        #expect(d.values == [CSVSale(orderId: 1001, sku: "W-1", quantity: 2,
+                                     unitPrice: 9.99, note: "gift"),
+                             CSVSale(orderId: 1002, sku: "W-2", quantity: 1,
+                                     unitPrice: 24.50, note: nil)])
+    }
+
+    @Test("a CSV cell that is not a number reports the row, not a missing column")
+    func csvBadCell() {
+        var dec = RowDecoder<CSVSale>(
+            columns: ["order_id", "sku", "quantity", "unit_price", "note"],
+            inferColumnKinds: true)
+        for row in [["1001", "W-1", "2", "9.99", ""],
+                    ["1002", "W-2", "many", "1.00", ""]] {
+            dec.beginRow()
+            for (i, cell) in row.enumerated() {
+                if cell.isEmpty { dec.appendNull(column: i) }
+                else { dec.append(text: cell.utf8, column: i) }
+            }
+        }
+        let d = dec.finish()
+        #expect(d.values.count == 1)
+        #expect(d.issues.count == 1)
+        #expect(d.issues.first?.code == .typeMismatch)
+        #expect(d.issues.first?.path == [.index(1), .key("quantity")])
+    }
+
+    @Test("rules run on a text cell the same as on a typed one")
+    func csvRulesApply() {
+        var dec = RowDecoder<CSVSale>(
+            columns: ["order_id", "sku", "quantity", "unit_price", "note"],
+            inferColumnKinds: true)
+        dec.beginRow()
+        for (i, cell) in ["1001", "W-1", "0", "9.99", ""].enumerated() {
+            if cell.isEmpty { dec.appendNull(column: i) }
+            else { dec.append(text: cell.utf8, column: i) }
+        }
+        let d = dec.finish()
+        #expect(d.values.isEmpty)
+        #expect(d.issues.first?.code == .notInRange)
+        #expect(d.issues.first?.path == [.index(0), .key("quantity")])
+    }
 
     @Test("a CSV-shaped store decodes under coerceScalars, by the tree path's rules")
     func csv() {

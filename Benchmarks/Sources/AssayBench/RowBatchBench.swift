@@ -143,6 +143,17 @@ func runRowBatchBenchmarks() {
         fillRowBatch(rows, into: &b)
         return b.rowCount
     }
+    // THE SAME FILL, WITH KINDS INFERRED FROM THE DATA — what a CSV or a text-mode
+    // database pays. Measured HERE rather than against a separately-built binary on
+    // purpose: this machine drifts ~15% between builds minutes apart, and every
+    // cross-build A/B taken while developing this flag was inside that drift. Two rows
+    // in one process, each a min of 5, is the only comparison worth quoting.
+    fill("  fill only: RowBatch, inferColumnKinds") {
+        var b = RowBatch(manifest: BenchRow._assayManifest, columns: rows.columns,
+                         capacity: n, inferColumnKinds: true)
+        fillRowBatch(rows, into: &b)
+        return b.rowCount
+    }
     fill("  fill only: hand transpose, 8 cells") { handTranspose(rows).rowCount }
     // The storage floor: the same 8 appends through pointers to tail-allocated [T]s, no
     // bookkeeping at all. If this is not close to the hand transpose, the storage is the

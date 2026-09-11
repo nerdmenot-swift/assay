@@ -123,6 +123,8 @@ struct RowDecoderTests {
     func metadata() {
         var dec = RowDecoder<RDRow>(columns: ["id", "email", "score"], batchSize: 1)
         dec.setMetadata(ColumnMetadata(unit: -6), column: 0)
+        // No `inferColumnKinds`, so `id` is an integer column and text into it is a
+        // driver mistake, rejected and counted.
         dec.beginRow(); dec.append(string: "text into id", column: 0)
         let before = dec.rejectedCells
         #expect(before == [1, 0, 0])

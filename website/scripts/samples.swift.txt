@@ -625,4 +625,6 @@ emit("encode.yaml", String(describing: release), try! release.yamlText())
 emit("encode.toml", String(describing: release), try! release.tomlText())
 emit("encode.xml", String(describing: release), try! release.xmlText())
 
+runRecipes()          // scripts/recipes.swift.txt
+
 print("{" + parts.joined(separator: ",") + "}")

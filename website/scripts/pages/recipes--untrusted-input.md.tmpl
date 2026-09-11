@@ -1,0 +1,114 @@
+---
+title: A file you do not trust
+description: Budgets for size, nesting and expansion, an accepting list with no default, and what each one actually stops.
+---
+
+The defaults are generous, because most callers are decoding their own data. A public
+endpoint taking files from strangers should say what it will accept.
+
+```swift
+@Schema(keys: .snakeCase, formats: .all)
+struct Upload {
+    var title: String
+    var tags: [String] = []
+}
+
+let strict = Limits(maxIssues: 20, maxDepth: 8, maxBytes: 4_096)
+```
+
+Three numbers, three different attacks.
+
+## The parser you did not ask for
+
+{{example:recipe.untrusted.mediaType:text}}
+
+That is an entity-expansion attempt in XML, offered to an endpoint accepting only JSON. It
+produced one issue and **never entered an XML parser**, because `accepting:` is checked
+before anything reads the body.
+
+This is why that argument is required and has no default. The cheapest defence against a
+parser's edge cases is not reaching the parser. A server opts in, at the call site, in
+writing, to each format a request can reach.
+
+Worth knowing even so: had XML been on the list, the entity would have been refused anyway.
+Assay's XML parser has no code path that fetches an external entity, so
+[XXE](/formats/xml/#xxe-is-refused-by-construction) is not a flag you can forget to set.
+
+## Nesting
+
+{{example:recipe.untrusted.depth:text}}
+
+`maxDepth` guards the stack. A recursive-descent parser meeting twenty thousand open
+brackets traps rather than returning an error, and on WebAssembly the stack is small enough
+that it happens sooner than you would think.
+
+This example goes through the value model on purpose. A schema bounds its own nesting by
+being a declaration — the types stop somewhere. A document whose shape you do not know is
+bounded only by whoever sent it, which is exactly when the limit earns its place.
+
+## Size
+
+{{example:recipe.untrusted.size:text}}
+
+Checked before a byte is parsed, so an oversized body costs a comparison rather than a
+parse.
+
+## The attacks a depth limit does not catch
+
+Two shapes are small on disk, shallow, and enormous once expanded. Depth cannot see either,
+because the expansion is in the breadth.
+
+**Alias expansion in YAML.** A few nested anchors, each referring to the one before. 331
+bytes reached 11.4 million nodes before the budget that stops it existed. The guard charges
+each alias its *expanded* size against a budget derived from the input size.
+
+**Shared objects in a binary property list.** Ten arrays of a thousand references each,
+under a kilobyte, 10³⁰ nodes. No cycle, every reference to a real distinct object, and a
+depth of ten. Same answer: a node budget, because a real document cannot describe more
+nodes than it has bytes to describe them with.
+
+Both are built byte by byte in the test suite rather than described. A test that asserts a
+limit exists without constructing the input it bounds is a test that keeps passing when the
+limit is deleted.
+
+## Issue budget
+
+`maxIssues` bounds the report, not the parse. A hostile file can be wrong in a million
+places, and collecting a million issues — each retaining a source span — is its own denial
+of service.
+
+```swift
+let d = Upload.diagnose(json: bytes, limits: strict)
+if d.truncatedIssues { /* there were more than we kept */ }
+```
+
+`truncatedIssues` distinguishes "twenty problems" from "at least twenty", which matters when
+you are deciding whether to show a user a list or tell them the file is broken.
+
+## A reasonable starting point
+
+```swift
+let publicUpload = Limits(
+    maxIssues: 50,          // enough to be useful, not enough to be a weapon
+    maxDepth: 16,           // deeper than any hand-written document
+    maxBytes: 1 << 20       // whatever your endpoint actually needs
+)
+```
+
+Then the accepting list, which is the one with no default:
+
+```swift
+try Upload.parse(body: bytes, contentType: ct, accepting: [.json], limits: publicUpload)
+```
+
+## What is not defended
+
+Assay validates and bounds; it does not sandbox. A `@Check` you write that is slow is slow
+on hostile input too, and a regex rule is your regex. The budgets above cover the decoder's
+own behaviour, which is the part the library can be responsible for.
+
+## Next
+
+- [Limits and security](/reference/limits-and-security/) — every budget and what it stops.
+- [HTTP bodies](/formats/http/) — negotiation in full.
+- [A JSON API endpoint](/recipes/api-endpoint/) — the handler these limits belong in.

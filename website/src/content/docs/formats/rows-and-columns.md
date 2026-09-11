@@ -70,10 +70,13 @@ hardware wants.
 
 ## Text cells
 
-CSV gives you strings for everything, and so does a database in text mode. Under
-`coerceScalars` (or `@Coerce` per field) a numeric or boolean field takes the string column
-and parses it per row — by exactly the same rules the tree path uses, from one shared
-definition, so `"8080.5"` is not an integer on either.
+CSV gives you strings for everything, and so does a database in text mode. Two switches
+make that work, and you need both.
+
+The schema says text is acceptable, with `coerceScalars` or `@Coerce` per field. A numeric
+or boolean field then takes the string column and parses it per row, by exactly the same
+rules the tree path uses, from one shared definition — so `"8080.5"` is not an integer on
+either.
 
 ```swift
 @Schema(coerceScalars: true, formats: [], sources: true)
@@ -84,6 +87,21 @@ struct CSVRow {
     var when: Date
 }
 ```
+
+The decoder says the cells are not the kind the fields declare:
+
+```swift
+var dec = RowDecoder<CSVRow>(columns: header, inferColumnKinds: true)
+```
+
+Without that second switch each column's storage comes from the schema, so `"8080"`
+offered to an `Int` field is a wrong-kind cell and the field reports `missing_column`
+instead. Each column's kind then comes from its first cell, which also handles a mixed
+source: a driver sending a real `Int64` for one column and text for the next gets the
+right storage for both.
+
+It is a flag rather than the default because it costs about 8 ns per row, and a driver
+that sends typed cells should not pay for one that does not.
 
 A `Date` field takes text **always** — text is what a date is on every other path — so
 `@DateFormat` chains, fallback warnings and invalid-date reports behave identically here.

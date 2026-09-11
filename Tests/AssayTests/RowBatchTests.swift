@@ -123,22 +123,61 @@ struct RowBatchTests {
         #expect(d.issues.allSatisfy { $0.path.first == .index(2) })
     }
 
-    @Test("a cell of the wrong kind invalidates that column, once, and nothing else")
-    func wrongKind() {
-        var b = RowBatch(manifest: RB._assayManifest, columns: Self.columns)
+    // TEXT INTO A NUMERIC FIELD IS NOT A WRONG KIND — it is a CSV, and it takes the
+    // column. `RB` does not coerce, so the string column goes unread and the field still
+    // reports `missing_column`; what changed is that nothing is REJECTED, so a schema
+    // that does coerce can read it. See `csvThroughTheDecoder` below for that half.
+    @Test("under inferColumnKinds, text takes a numeric field's column")
+    func textAdoptsTheColumn() {
+        var b = RowBatch(manifest: RB._assayManifest, columns: Self.columns,
+                         inferColumnKinds: true)
         for i in 0..<3 {
             b.beginRow()
             b.append(string: "\(i)", column: 0)          // text into an Int64 field
             b.append(string: "n", column: 1); b.append(double: 1, column: 2); b.append(bool: true, column: 3)
         }
         b.finishRow()
-        let rejected = b.rejectedCells
-        #expect(rejected[0] == 3)
+        #expect(b.rejectedCells[0] == 0)
+        #expect(b.stringColumn("id", 0) == ["0", "1", "2"])
+        #expect(b.int64Column("id", 0) == nil)
         let d = RB.batch(from: b)
         #expect(d.values.isEmpty)
         #expect(d.issues.count == 1)
         #expect(d.issues.first?.code == .missingColumn)
         #expect(d.issues.first?.path == [.key("id")])
+    }
+
+    @Test("a column that has already taken a real number rejects text after it")
+    func mixedKindsAreStillRejected() {
+        var b = RowBatch(manifest: RB._assayManifest, columns: Self.columns,
+                         inferColumnKinds: true)
+        b.beginRow()
+        b.append(int64: 1, column: 0)
+        b.append(string: "n", column: 1); b.append(double: 1, column: 2); b.append(bool: true, column: 3)
+        b.beginRow()
+        b.append(string: "two", column: 0)               // the source is mixing kinds
+        b.append(string: "n", column: 1); b.append(double: 1, column: 2); b.append(bool: true, column: 3)
+        b.finishRow()
+        #expect(b.rejectedCells[0] == 1)
+        #expect(b.int64Column("id", 0) == nil)           // one rejection invalidates it
+        #expect(b.stringColumn("id", 0) == nil)
+    }
+
+    @Test("nulls already in the column are carried over when text takes it")
+    func adoptionCarriesNullsOver() {
+        var b = RowBatch(manifest: RB._assayManifest, columns: Self.columns,
+                         inferColumnKinds: true)
+        b.beginRow()
+        b.appendNull(column: 0)
+        b.append(string: "n", column: 1); b.append(double: 1, column: 2); b.append(bool: true, column: 3)
+        b.beginRow()
+        b.append(string: "7", column: 0)
+        b.append(string: "n", column: 1); b.append(double: 1, column: 2); b.append(bool: true, column: 3)
+        b.finishRow()
+        #expect(b.rejectedCells[0] == 0)
+        #expect(b.stringColumn("id", 0)?.count == 2)
+        #expect(b.stringColumn("id", 0)?[1] == "7")
+        #expect(b.nulls("id", 0)?[0] == true)
     }
 
     @Test("two cells for one field in a row are rejected; a cell before beginRow starts the row")

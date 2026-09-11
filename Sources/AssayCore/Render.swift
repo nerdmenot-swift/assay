@@ -271,11 +271,43 @@ public enum Renderer {
 
     // MARK: - RFC 9457
 
+    /// RFC 9457 §3.1: `status` SHOULD be the same code the origin server actually sent,
+    /// and it exists so a client reading a stored or forwarded problem document can
+    /// recover it. A renderer cannot know the status in general — but for some issues it
+    /// is determined, and hard-coding 422 through those was wrong.
+    ///
+    /// The load-bearing case is the one that made this visible. `unsupported_media_type`
+    /// is its own code *precisely* so a server can answer 415 rather than 400 or 422; a
+    /// body claiming 422 next to a 415 header contradicts the header the client has
+    /// already acted on. A recipe that wrote the handler end to end caught it; three
+    /// documents describing the renderer had not.
+    ///
+    /// Ordered by when the failure happened, earliest first: negotiation before the body
+    /// was read, then its size, then whether it parsed, then what it said.
+    static func problemStatus(_ issues: [Issue]) -> (code: Int, title: String) {
+        if issues.contains(where: { $0.code == .unsupportedMediaType }) {
+            return (415, "Unsupported media type")
+        }
+        if issues.contains(where: { $0.code == .tooManyBytes }) {
+            return (413, "Content too large")
+        }
+        // 400 rather than 422: 422 is for a body that parsed and then failed its rules.
+        // A body that is not well-formed never got that far.
+        if issues.contains(where: {
+            $0.code == .malformedDocument || $0.code == .invalidUTF8
+                || $0.code == .trailingContent || $0.code == .depthExceeded
+        }) {
+            return (400, "Malformed request body")
+        }
+        return (422, "Validation failed")
+    }
+
     static func problemDetailsRender(_ issues: [Issue]) -> String {
+        let status = problemStatus(issues)
         var out = "{"
         out += "\"type\":\"about:blank\","
-        out += "\"title\":\"Validation failed\","
-        out += "\"status\":422,"
+        out += "\"title\":\(jsonString(status.title)),"
+        out += "\"status\":\(status.code),"
         out += "\"errors\":["
         out += issues.map { issue -> String in
             var e = "{"

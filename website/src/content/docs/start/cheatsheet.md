@@ -202,3 +202,5 @@ JSON only, and encoding needs `encodes: true`. [Unions](/guides/unions/) says wh
 | Property lists, both flavours | [Property lists](/formats/plist/) |
 | SQL rows, CSV, Parquet | [Rows and columns](/formats/rows-and-columns/) |
 | `Content-Type` negotiation | [HTTP bodies](/formats/http/) |
+
+For a whole job rather than a spelling, see [Recipes](/recipes/).

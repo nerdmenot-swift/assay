@@ -73,6 +73,22 @@ export default defineConfig({
             { slug: 'start/cheatsheet' },
           ],
         },
+        // Recipes sit after Start, which is where someone lands once the first schema
+        // works and they want to do something real. Task-shaped, where everything below
+        // is feature-shaped.
+        {
+          label: 'Recipes',
+          items: [
+            { slug: 'recipes' },
+            { slug: 'recipes/api-endpoint' },
+            { slug: 'recipes/config-file' },
+            { slug: 'recipes/moving-api' },
+            { slug: 'recipes/form-errors' },
+            { slug: 'recipes/csv' },
+            { slug: 'recipes/sql-rows' },
+            { slug: 'recipes/untrusted-input' },
+          ],
+        },
         {
           label: 'Guides',
           items: [

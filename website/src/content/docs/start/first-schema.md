@@ -157,6 +157,7 @@ every one of them genuinely does differently.
 
 ## Next
 
+- [Recipes](/recipes/) — seven jobs start to finish, each a program that compiles.
 - [Coming from Codable](/start/from-codable/) — every habit you have, and what it becomes.
 - [Formats](/formats/) — the same struct, on five formats and on database rows.
 - [Cheatsheet](/start/cheatsheet/) — one page, everything, no prose.

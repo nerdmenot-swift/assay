@@ -163,19 +163,46 @@
     @usableFromInline let capacity: Int
 
     /// Bind by name: `columns` in the source's order, resolved against the manifest once.
-    public init(manifest: FieldManifest, columns: [String], capacity: Int = 4096) {
+    public init(manifest: FieldManifest, columns: [String], capacity: Int = 4096,
+                inferColumnKinds: Bool = false) {
         self.init(manifest: manifest, plan: BoundPlan(manifest: manifest, columns: columns),
-                  capacity: capacity)
+                  capacity: capacity, inferColumnKinds: inferColumnKinds)
     }
 
     /// Bind by position: the source's column `i` feeds manifest field `f` where
     /// `plan[f] == i`. `BoundPlan(slots: Array(0..<n))` when the columns ARE the manifest.
-    public init(manifest: FieldManifest, plan: BoundPlan, capacity: Int = 4096) {
+    ///
+    /// `inferColumnKinds` is for a source whose cells are **not** the kind the field
+    /// declares: a CSV, a database in text mode, a spreadsheet. Each column's storage
+    /// then comes from its first cell rather than from the schema, so `append(text:)`
+    /// into an `Int` field produces a string column the generated body can parse under
+    /// `coerceScalars` — instead of a rejected cell and `missing_column (expected int)`,
+    /// which is what it did until 2026-09-11 and is why this flag exists.
+    ///
+    /// **It is off by default because it is not free.** The `rowbatch` arm fills the same
+    /// eight columns both ways in one process: **32.7 ns/row declared, 40.9 inferred —
+    /// 1.25×.** Two ways of getting it for nothing were built and measured first, a branch
+    /// in `append(string:)` letting text claim a numeric column, and inferring for
+    /// everyone; both cost the declared path and were refused, because that function runs
+    /// once per cell and `RESULTS.md` has seven earlier storage designs rejected for less.
+    ///
+    /// Both rows come from ONE run on purpose. This machine drifts about 15% between
+    /// builds minutes apart, and every cross-build comparison taken while developing this
+    /// flag sat inside that drift — including one that looked like a 50% regression and
+    /// was the room warming up. A source that
+    /// knows its cells are typed should not pay for one that does not.
+    ///
+    /// A mixed source works too: the flag means "the data decides", not "everything is
+    /// text", so a driver that sends `Int64` for one column and text for the next gets the
+    /// right storage for both.
+    public init(manifest: FieldManifest, plan: BoundPlan, capacity: Int = 4096,
+                inferColumnKinds: Bool = false) {
         let n = manifest.fields.count
         self.capacity = Swift.max(capacity, 1)
         var kinds: [Kind] = []
         kinds.reserveCapacity(n)
         for f in manifest.fields {
+            guard !inferColumnKinds else { kinds.append(.undecided); continue }
             switch f.kind {
             case .int, .int64, .int32, .uint, .int8, .int16, .uint8, .uint16, .uint32, .uint64:
                 kinds.append(.int64)

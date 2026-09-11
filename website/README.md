@@ -21,7 +21,8 @@ accessibility.
 ```
 scripts/extract.ts           builds a Swift program against the real package, runs it,
                              writes src/data/samples.json and every generated page
-scripts/samples.swift.txt    the example program — every render on the site comes from it
+scripts/samples.swift.txt    the example program — most renders on the site come from it
+scripts/recipes.swift.txt    seven whole programs, one per Recipes page
 scripts/pages/*.md.tmpl      docs pages whose examples are real output (see below)
 scripts/performance.md.tmpl  prose for the performance page; {{TABLE}} is substituted
 src/pages/index.astro        the landing page
@@ -46,6 +47,7 @@ These pages are generated in full and **should not be edited** — edit the temp
 | `reference/issue-codes.md` | `Sources/AssayCore/IssueCode+Names.swift` |
 | `reference/performance.md` | `scripts/performance.md.tmpl`, table from `RESULTS.md` |
 | `formats/*.md` | `scripts/pages/formats--*.md.tmpl` |
+| `recipes/*.md` | `scripts/pages/recipes--*.md.tmpl`, examples from `scripts/recipes.swift.txt` |
 
 `scripts/pages/<name>.md.tmpl` becomes `src/content/docs/<name>.md`, with `--` in the
 filename meaning a directory separator. Four placeholders pull real output in by render key:

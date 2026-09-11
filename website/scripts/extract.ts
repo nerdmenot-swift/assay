@@ -32,6 +32,11 @@ const OUT = join(HERE, '..', 'src', 'data')
 // package, built against the real library.
 const SWIFT = readFileSync(join(HERE, 'samples.swift.txt'), 'utf8')
 
+// The recipes are a second file rather than more of the first: they are whole programs
+// with their own types and helpers, and main.swift is already long. Top-level code only
+// belongs in main.swift, so this one exposes `runRecipes()` and main.swift calls it.
+const RECIPES = readFileSync(join(HERE, 'recipes.swift.txt'), 'utf8')
+
 
 // ---------------------------------------------------------------------------
 // Numbers, read from the files that hold them
@@ -103,6 +108,7 @@ if (hasSwift) {
   const tmp = join(REPO, '.website-extract')
   mkdirSync(join(tmp, 'Sources', 'extract'), { recursive: true })
   writeFileSync(join(tmp, 'Sources', 'extract', 'main.swift'), SWIFT)
+  writeFileSync(join(tmp, 'Sources', 'extract', 'recipes.swift'), RECIPES)
   writeFileSync(
     join(tmp, 'Package.swift'),
     `// swift-tools-version: 6.2

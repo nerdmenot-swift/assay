@@ -1808,3 +1808,67 @@ And the claim that mattered is unharmed. The argument for `ColumnDecodable` was 
 hook is free"; it was "the generic call happens once per column instead of once per row",
 against a `KeyedSource` shape measured at 57× the concrete call. 3 ns/row is a price. A
 witness call per row was the reason the other path was deleted.
+
+---
+
+# Writing seven recipes found two bugs, and one of them was the feature's own use case
+
+**2026-09-11.** A "Recipes" section for the website: seven whole programs, each compiled
+and run by the docs build so the output on the page is what it printed. The constraint was
+editorial — a recipe that cannot be written as a working program is a guide page in
+disguise — and it turned out to be a test harness.
+
+## 1. The handler that answered 415 with a body saying 422
+
+The first recipe is an HTTP endpoint. It maps `unsupported_media_type` to a 415, which is
+the entire reason that code is distinct, and renders RFC 9457 problem details as the body.
+The body said `"status":422`, because `problemDetailsRender` hard-coded it.
+
+RFC 9457 §3.1 asks that `status` match what the origin server sent, so a stored or
+forwarded document can recover it. A body contradicting the header a client has already
+acted on is worse than omitting the member.
+
+Now derived from the issues, earliest failure first: negotiation (415), then size (413),
+then whether it parsed at all (400), then what it said (422). Four tests pin it. The
+existing test asserted the constant rather than the mapping, which is why nothing failed.
+
+## 2. A CSV could not be decoded by the thing built for decoding CSVs
+
+`RowBatch` takes each column's storage kind from the manifest, so an `Int64` field gets an
+integer column. A CSV reader handing over `"1001"` had every cell rejected as the wrong
+kind, and the field reported `missing_column (expected int64)`.
+
+The text-parsing half — added 2026-09-10, the whole point of which was CSV — lives in the
+generated body and reads `stringColumn`. It never got a chance: the column it needed could
+not exist.
+
+**Every test of it used `TextStore`, a hand-written `ColumnarSource` that serves
+`stringColumn` directly.** So the feature was covered, the transpose was covered, and the
+one path that joins them was not. `docs/ROWS.md` §6 described the combination in a
+sentence, and the sentence was wrong.
+
+### Three designs, measured, two refused
+
+| design | fill, 8 columns | verdict |
+|---|---|---|
+| declared kinds (before) | 32.7 ns/row | — |
+| a branch in `append(string:)` letting text claim a numeric column | slower | refused |
+| infer kinds from the first cell, always | slower | refused |
+| **`inferColumnKinds: true`, opt-in** | **40.9 ns/row** | shipped |
+
+`append(string:)` runs once per cell and is four call sites per row on this arm; the row
+path has seven earlier storage designs in this file rejected for less. So the cost is
+opt-in, paid by sources whose cells are not the declared kind and by nobody else.
+
+### A methodology note that cost an hour
+
+The first two designs were measured against a baseline built minutes earlier, and the
+numbers made no sense — one looked like a 50% regression in code that could not affect the
+path. **The machine drifts ~15% between release builds taken minutes apart**, and every
+cross-build comparison was inside that drift. Re-measuring the untouched baseline twice,
+twenty minutes apart, gave 29.0 and 33.2 ns/row for identical code.
+
+The fix is the arm, not more patience: `rowbatch` now fills the same eight columns **both
+ways in one process**, each a min of 5. Two rows of one run are comparable; two runs of one
+row are not. That is worth generalising — any A/B here that needs a rebuild between the two
+halves is measuring the room as much as the code.

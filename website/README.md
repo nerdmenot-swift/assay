@@ -29,7 +29,8 @@ scripts/performance.md.tmpl  prose for the performance page; {{TABLE}} is substi
 src/pages/index.astro        the landing page
 src/styles/theme.css         tokens + Starlight overrides (docs and landing page share them)
 src/styles/home.css          the landing page only
-src/components/              Header and PageTitle overrides, theme and ToC toggles
+src/components/              Header and PageTitle overrides, theme and ToC toggles,
+                             the shared GitHub mark
 src/content/docs/            start/, guides/, formats/, reference/
 ```
 
@@ -66,6 +67,19 @@ render there first, then reference it.
 
 The generated output is committed, so CI and a fresh clone work without a Swift toolchain.
 Without Swift, `extract` says so and keeps what is committed.
+
+## The two headers
+
+The docs header and the landing page header are deliberately the same shape, and
+deliberately short. The docs one carries **no text links at all**: everything they used to
+point at is in the sidebar two inches below, and they cost the width that search and the
+toggles need on a phone. The landing page keeps three words, and drops those below 34rem —
+its own body is the navigation there, through the hero buttons, the format rail and the
+closing doors.
+
+Anything added to either header has to earn its width at 360px. The rule of thumb is that
+a header item must be something the page itself cannot offer: the way home, search, and the
+source.
 
 ## Voice
 

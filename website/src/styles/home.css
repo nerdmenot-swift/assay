@@ -21,7 +21,15 @@ body {
 }
 .top-brand { display: block; width: 7.5rem; color: var(--assay-ink); }
 .top-brand svg { width: 100%; height: auto; display: block; }
-.top-nav { display: flex; align-items: center; gap: 1.3rem; }
+.top-nav { display: flex; align-items: center; gap: 1.1rem; }
+/* Below this the three words go and the mark stays: the hero's own buttons are the
+   navigation on a phone, and a header that wraps to two lines is worse than a short one. */
+@media (max-width: 34rem) {
+  .top { gap: .75rem; padding-inline: 1rem; }
+  .top-brand { width: 6rem; }
+  .top-nav { gap: .4rem; }
+  .top-nav > a:not(.gh) { display: none; }
+}
 .top-nav a {
   color: var(--assay-muted); text-decoration: none; font-size: .88rem; font-weight: 500;
 }

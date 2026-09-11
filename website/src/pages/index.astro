@@ -11,6 +11,7 @@
 import samples from '../data/samples.json'
 import lockup from '../components/lockup.svg?raw'
 import ThemeToggle from '../components/ThemeToggle.astro'
+import GitHubLink from '../components/GitHubLink.astro'
 import '../styles/theme.css'
 import '../styles/home.css'
 
@@ -149,14 +150,15 @@ function caret(text: string): string {
   <body>
     <header class="top">
       <a class="top-brand" href="/" aria-label="Assay" set:html={lockup} />
+      <!-- Three words, a mark and a toggle. It was six words plus GitHub, which wrapped
+           onto a second line by about 30rem and left nothing readable on a phone. The page
+           below is the navigation: the CTA pair, the format rail and the closing doors all
+           go where these links went. -->
       <nav class="top-nav">
-        <a href="/start/install/">Install</a>
         <a href="/start/first-schema/">Start</a>
         <a href="/recipes/">Recipes</a>
         <a href="/formats/">Formats</a>
-        <a href="/guides/errors/">Errors</a>
-        <a href="/reference/attributes/">Reference</a>
-        <a href="https://github.com/nerdmenot-swift/assay">GitHub</a>
+        <GitHubLink />
         <ThemeToggle />
       </nav>
     </header>
@@ -269,6 +271,9 @@ function caret(text: string): string {
             </p>
           </div>
         </div>
+        <p class="fineprint">
+          <a href="/guides/errors/">Codes, paths, spans and the four renderers &rarr;</a>
+        </p>
       </section>
 
       <!-- Formats. The same struct, the same mistake, four parsers, four carets. -->

@@ -60,14 +60,6 @@ let package = Package(
         // A one-function C shim so a struct-returning libc call stays on the C side of the
         // ABI boundary. See CHeapBytes.h — this is a crash fix, not a convenience.
         .target(name: "CHeapBytes", path: "Sources/CHeapBytes"),
-        // A KeyedSource in ANOTHER MODULE, to settle whether the generic entry point
-        // specialises across a module boundary — which is where every real driver lives.
-        .target(
-            name: "ForeignSource",
-            dependencies: [.product(name: "Assay", package: "assay")],
-            path: "Sources/ForeignSource",
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
         // The YAML/XML renderers over the JSON corpus, shared by DiffFuzz and AssayBench
         // so the documents the oracles verify and the documents the benchmarks time are
         // the same bytes.
@@ -116,7 +108,6 @@ let package = Package(
                 "CorpusRender",
                 "CYYJSON",
                 "CHeapBytes",
-                "ForeignSource",
             ],
             path: "Sources/AssayBench",
             swiftSettings: [.swiftLanguageMode(.v6)]

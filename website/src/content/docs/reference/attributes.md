@@ -6,7 +6,7 @@ description: Every attribute and every `@Schema` option, in one table each.
 ## `@Schema` options
 
 ```swift
-@Schema(keys:unknownKeys:coerceScalars:formats:encodes:sources:describes:discriminator:)
+@Schema(keys:unknownKeys:coerceScalars:formats:encodes:describes:discriminator:)
 @Schema(context:…)              // the contextual overload
 ```
 
@@ -17,14 +17,13 @@ description: Every attribute and every `@Schema` option, in one table each.
 | `coerceScalars:` | `Bool` | `false` | `"8080"` decodes into an `Int`. Required for XML; usual for CSV |
 | `formats:` | `SchemaFormats` | `.json` | `.json`, `.yaml`, `.xml`, `.toml`, `.all`, or `[]`. Each adds a decode body |
 | `encodes:` | `Bool` | `false` | Adds the writer for every format in `formats:` |
-| `sources:` | `Bool` | `false` | Adds the column/row batch decoder and `_assayManifest` |
 | `describes:` | `Bool` | `false` | Adds `jsonSchema(for:)` |
 | `discriminator:` | `Discriminator?` | `nil` | On an enum: a tag key, or `.untagged` |
 | `context:` | `Any.Type` | — | Decoding takes a context value; a different overload |
 
-`formats: []` with `sources: true` or `encodes: true` or any validation is a real
-configuration — a type decoded by something else that still wants rules. `formats: []` with
-none of those is refused, with a message naming the fix.
+`formats: []` with `encodes: true` or any validation is a real configuration — a type
+decoded by something else that still wants rules. `formats: []` with neither is refused,
+with a message naming the fix.
 
 ## Field attributes
 
@@ -71,12 +70,9 @@ none of those is refused, with a message naming the fix.
 | `T.diagnose(…)` | as above | `Diagnosis<T>`, never throws |
 | `T.validate(_ value:)` | any rules | throws; decodes nothing |
 | `T.diagnose(_ value:)` | any rules | `Diagnosis<T>` |
-| `T.batch(from: store)` | `sources: true` | `BatchDiagnosis<T>` |
-| `RowDecoder<T>(columns:)` | `sources: true` | a streaming decoder |
 | `T.jsonSchema(for:)` | `describes: true` | a JSON Schema descriptor |
 | `value.encodedJSON()` / `jsonText()` | `encodes: true` | `[UInt8]` / `String`, throws |
 | `value.diagnoseEncodeJSON()` | `encodes: true` | `EncodeDiagnosis` |
-| `value.encodeRow(into:)` | `encodes: true, sources: true` | — |
 
 Every `parse`/`diagnose` takes `limits:` and `sourceName:`.
 
@@ -85,7 +81,6 @@ Every `parse`/`diagnose` takes `limits:` and `sourceName:`.
 ```swift
 Diagnosis<T>      .value  .issues  .warnings  .isValid  .truncatedIssues
                   .get()  .render(_:)  .source  .sourceName
-BatchDiagnosis<T> .values .issues  .warnings  .isValid  .truncatedIssues
 EncodeDiagnosis   .bytes  .issues  .warnings  .isValid
 AssayError        .issues .render(_:)   — description renders with carets
 Issue             .code   .path  .params  .received  .location  .message
@@ -98,5 +93,5 @@ Issue             .code   .path  .params  .received  .location  .message
 [Advanced](/guides/advanced/#types-the-macro-refuses) has the table with reasons.
 
 Also refused: `var x = 3` without a type, `let y: Int = 3`, `@Key("")`, a `@Check` in an
-extension, `@Ignore` alongside any acting attribute, `@AsyncCheck` with `sources: true`,
+extension, `@Ignore` alongside any acting attribute,
 and a union with a non-JSON format.

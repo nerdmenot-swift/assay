@@ -3,10 +3,14 @@ title: Dates
 description: ISO-8601 by default, unix time, HTTP dates, patterns, candidate chains, and rules about when.
 ---
 
+The documents here are TOML, which is the only format with date-times in its grammar —
+`iso` below is a native value, not a string. Everything on this page works the same from
+JSON, YAML, XML and property lists, where a date is text.
+
 ## The formats
 
 ```swift
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct Timestamps: Equatable {
     var iso: Date                                         // ISO-8601 by default
     @DateFormat(.unixSeconds) var epoch: Date
@@ -16,7 +20,7 @@ struct Timestamps: Equatable {
 }
 ```
 
-{{example:cb.dates:json}}
+{{example:cb.dates:toml}}
 
 Several formats in one attribute is a **candidate chain**: tried in order, first that
 parses wins. Useful for an API mid-migration, and for a field that has always been
@@ -26,7 +30,7 @@ inconsistent.
 
 ## When they do not parse
 
-{{example:cb.datesBad:json}}
+{{example:cb.datesBad:toml}}
 
 Each failure names the field and shows what was there. A chain reports once for the field
 rather than once per candidate, because four messages about one value is noise.
@@ -38,7 +42,7 @@ rather than once per candidate, because four messages about one value is noise.
 @Validate(.between("2020-01-01", "2030-01-01")) var effective: Date
 ```
 
-{{example:cb.dateRules:json}}
+{{example:cb.dateRules:toml}}
 
 Bounds are ISO-8601 strings parsed **once, at expansion**, so a malformed bound is a build
 error rather than a surprise per document.
@@ -55,12 +59,6 @@ about 6× `JSONDecoder` with `.iso8601`.
 
 `.pattern` is the one to be careful with on a size budget: an arbitrary UTS-35 pattern
 needs a real formatter, and on some platforms that means ICU.
-
-## Dates from rows and columns
-
-A `Date` field takes a text column always, since text is what a date is on every other
-path, and an integer column with a unit from the source's metadata. Nothing extra to
-declare — see [rows](/recipes/rows/).
 
 ## Next
 

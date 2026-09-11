@@ -224,9 +224,8 @@ c.json:1:12: error: strict must be an integer, found "8080"
 ```
 
 One field took the string, the other refused it. `coerceScalars: true` on the type is the
-same switch for every field, and is required for [XML](/formats/xml/) and usual for
-[CSV](/recipes/csv/). It is opt-in because `"8080"` becoming `8080` should be a decision
-you made.
+same switch for every field, and is required for [XML](/formats/xml/), where every leaf is
+text. It is opt-in because `"8080"` becoming `8080` should be a decision you made.
 
 `"8080.5"` is still not an integer, on any path.
 

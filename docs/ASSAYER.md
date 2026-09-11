@@ -57,7 +57,7 @@ public protocol AssayerBacked: JSONAssayable, RawDecodable {
 ```
 
 The interpreter is non-generic on purpose — one copy in `Assay`, no specialisation pressure,
-no code-size multiplication per `T`. Same insight that made `ColumnDecodable` free: the
+no code-size multiplication per `T`. The insight is that the
 generic work happens once, the per-value work is concrete.
 
 Two interpreter arms mirror the split the macro already emits, which is why **YAML and XML

@@ -7,7 +7,7 @@
 //
 // Until 2026-09-10 each option had its own `static func x(from: node)` and each consumer
 // called the ones it remembered. That is how `formats: .all` on a union emitted a JSON-only
-// body (the union path tested `formats.json` and not `formats.raw`), and how `sources:`,
+// body (the union path tested `formats.json` and not `formats.raw`), and how
 // `describes:` and `context:` on a union were accepted and ignored — nobody called those
 // three. One struct, built up front and handed to both the struct path and the union path,
 // makes "which options does this path honour?" a question with one answer.
@@ -28,7 +28,6 @@ struct SchemaConfig {
     var coerceScalars: Bool
     var formats: (json: Bool, raw: Bool, xml: Bool)
     var encodes: Bool
-    var sources: Bool
     var describes: Bool
     /// The context type's NAME, or `""` for the overwhelming majority of types that declare
     /// none. `""` rather than nil because every consumer interpolates it into generated text
@@ -46,7 +45,6 @@ struct SchemaConfig {
         coerceScalars = SchemaConfig.bool("coerceScalars", from: node)
         formats = SchemaConfig.formats(from: node)
         encodes = SchemaConfig.bool("encodes", from: node)
-        sources = SchemaConfig.bool("sources", from: node)
         describes = SchemaConfig.bool("describes", from: node)
         context = SchemaConfig.contextType(from: node)
         discriminator = SchemaConfig.discriminator(from: node)

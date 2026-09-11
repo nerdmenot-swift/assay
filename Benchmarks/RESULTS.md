@@ -27,15 +27,13 @@ the value model and the yyjson tree arm — moved because of the fix journalled 
 | XML tree parse | **2.34×** (macOS; **0.96×** on Linux) | Foundation `XMLParser` | [XML, made faster](#making-the-xml-parser-faster-by-profiling-rather-than-by-admiring-libxml2) |
 | TOML node parse | **1.17×** | toml++ via TOMLKit | [TOML](#toml-a-fourth-tree-decoder-against-c) |
 | TOML struct decode | **1.95×** | TOMLKit `TOMLDecoder` | same |
-| rows in through `RowBatch`, 8 columns | **37.4 ns/row** (old route 75.1; hand transpose 29.8; floor 12.8) | a `RawValue` per row | [Rows](#rows-the-transpose-measured-seven-times) |
-| field values out, `encodeRow` | **1.3 ns/row** (tree: 64.0) | `_assayEncodeRaw` | same |
 | `Date` fields | **6.07×** | `JSONDecoder` + `.iso8601` | [Dates](#dates-the-unclaimed-win-claimed) |
 | `[String: T]` dictionaries | **6.93×** over 10 rows | `JSONDecoder` | [Dictionaries](#dictionaries-the-stated-worst-case-measured) |
 | encoding, 50 / 200 items | **2.95× / 2.83×** | `JSONEncoder` | `docs/ENCODING.md` |
 | cold start, 60 types | **7.8×** first decode (median); 6.3× steady | `JSONDecoder` | `ColdStartBench.swift` |
 | multi-megabyte documents | **6.79–6.89×**, ~700 MB/s, flat | `JSONDecoder` | `LargeDocBench.swift` |
-| columnar batch fill | **6.6–7.1×** the tree path, ~11 ns/row | Assay's own tree path | [Columnar, fixed](#columnar-the-per-row-allocation-that-was-wrongly-closed) |
 | `T.validate(_:)` | **76 ns** per value, 1 block; **84 ns/row** batched | — | [Validating a value](#validating-a-value-you-already-have) |
+| ~~rows and columns~~ | **removed 2026-09-11** — nothing depended on it | — | [why](#decoding-from-rows-and-columns-removed-in-full) |
 | live allocations, `apimodel-8k` struct | gated, **PASS** | absolute thresholds | [Allocations](#allocations) |
 | compile time, 10 fields | **79.0 ms/type** (gate 100) | `Codable`: 4.1× | `docs/COMPILE-TIME.md` |
 
@@ -1872,3 +1870,56 @@ The fix is the arm, not more patience: `rowbatch` now fills the same eight colum
 ways in one process**, each a min of 5. Two rows of one run are comparable; two runs of one
 row are not. That is worth generalising — any A/B here that needs a rebuild between the two
 halves is measuring the room as much as the code.
+
+
+---
+
+# Decoding from rows and columns, removed in full
+
+**2026-09-11.** `ColumnarSource`, `ColumnDecodable`, `RowBatch`, `RowDecoder<T>`, `RowSink`
+and `@Schema(sources: true)` are gone, along with the `columnar`, `columndecodable`,
+`colfloor`, `pathab` and `rowbatch` arms, the `ForeignSource` target, the Foundation column
+oracle, and the `sources` compile-time arm. The measurements they produced are left in this
+file below — they were true, and two of the lessons in them are not about columns.
+
+**It was not removed for being slow.** The columnar path was the fastest thing in the
+library: 11 ns/row against 72 for a `RawValue` per row, 6.6–7.1× the tree path, and
+`encodeRow` at 1.2 ns/row against 60 for building a tree and walking it. It won every
+technical argument that `KeyedSource` lost.
+
+It was removed because **nothing depended on it**. Neither haul nor swizzle — the two
+consumers it was designed for — referenced Assay at all. The audience for Parquet and Arrow
+decoding in Swift is small, the audience that would reach for a validation-first decoder to
+do it is smaller, and a decoder that also owns column stores is two libraries wearing one
+name.
+
+The price of keeping it, for the record:
+
+| | |
+|---|---|
+| source | ~1,900 lines across four modules |
+| compile time | `sources: true` doubled expansion, 164 ms/type against 80 |
+| test surface | four suites, a golden fixture, a differential oracle |
+| benchmark surface | five arms, a separate target, two allocation-gate rows |
+| documentation | three design docs, three website pages |
+| bugs | three of the week's finds were in it: `@Check` and `@Transform` never ran on the batch path, the documented CSV route did not work at all, and `ColumnDecodable` was recorded free when it cost ~3 ns/row |
+
+**What survives is the better answer anyway.** `T.validate(_:)` — 76 ns against a value a
+fast reader produced its own way. A specialised reader decodes at its own speed in its own
+module, and Assay runs the rules afterwards. That was always the seam; it is now the only
+one.
+
+## Two lessons from this work that outlive it
+
+Worth carrying, because neither is about columns.
+
+**A diagnostic path threaded eagerly through a hot loop is invisible to every test**,
+because tests assert on the diagnostics and never on what producing them cost. Found three
+times in one week: the columnar row loop, haul's report before it, and `JSON.Value.parse`,
+which is still here and went 2.1× faster when it was fixed.
+
+**A ratio is only evidence about a difference if the difference is large against the
+noise** — and a large cost shared by both sides is noise for that purpose. `ColumnDecodable`
+read as free for ten days because both sides of the comparison carried a 38 ns/row
+allocation that hid a 3 ns difference. When a fix makes an instrument more sensitive, the
+conclusions that predate it are unverified again. Not wrong: unverified.

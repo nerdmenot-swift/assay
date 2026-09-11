@@ -469,27 +469,6 @@ public struct SchemaMacro: ExtensionMacro {
             """
         }
 
-        if config.sources {
-            guard Self.refuse(Self.sourceDiagnostics(activeS), node: node, context: context) else {
-                return nil
-            }
-            // The batch decode is synchronous (CLAUDE.md rule 7), so an async check could
-            // only be skipped — silently, which is how bugs are made. Refused instead.
-            if let async = a.checks.first(where: \.isAsync) {
-                guard Self.refuse(["'\(async.functionName)' is an @AsyncCheck, and a columnar "
-                    + "batch decode is synchronous — it would never run there. Drop "
-                    + "`sources: true`, or make the check synchronous"],
-                    node: node, context: context) else { return nil }
-            }
-            body += "\n\n" + Self.manifestBody(typeName: typeName, fields: activeS)
-            body += "\n\n" + Self.batchBody(
-                typeName: typeName, fields: activeS,
-                validation: Self.postDecodeSection(activeS, spans: false),
-                checks: Self.checkCalls(typeName, a.checks, activeS, spans: false, ctx: ctxType))
-            if config.encodes {
-                body += "\n\n" + Self.rowEncodeBody(fields: activeS)
-            }
-        }
         if Self.hasValidation(activeS, a.checks) {
             if !body.isEmpty { body += "\n\n" }
             body += Self.validateBody(typeName: typeName, fields: activeS,
@@ -509,20 +488,15 @@ public struct SchemaMacro: ExtensionMacro {
         // only reason `formats: []` needs guarding — said here, where the diagnostic can
         // name the fix, rather than by quietly turning the empty set back into JSON.
         //
-        // Every way of generating a body has to be listed, and `sources` belongs in that
-        // list: `@Schema(formats: [], sources: true)` emits `_assayManifest` and
-        // `_assayBatch`, so refusing it told the truth about `formats: []` and a falsehood
-        // about the declaration in front of it. A columnar-only type carrying a consumer's
-        // own scalar cannot say `formats: .json` either — the JSON byte path calls
-        // `T._assay(from: AssayReader…)`, which is not a public protocol requirement.
-        if !formats.json, !formats.raw, !formats.xml, !config.encodes, !config.sources,
+        // Every way of generating a body has to be listed, or the diagnostic tells the
+        // truth about `formats: []` and a falsehood about the declaration in front of it.
+        if !formats.json, !formats.raw, !formats.xml, !config.encodes,
            !Self.hasValidation(activeS, a.checks) {
             _ = Self.refuse([
                 "@Schema(formats: []) emits no decode body, and this type declares no "
-                + "@Validate, no @Check, no `encodes: true` and no `sources: true`, so "
-                + "the macro would generate nothing. Add a rule if you want "
-                + "`\(typeName).validate(_:)`, `sources: true` to decode from a column "
-                + "store, or remove `formats: []` to decode JSON."], node: node, context: context)
+                + "@Validate, no @Check and no `encodes: true`, so the macro would "
+                + "generate nothing. Add a rule if you want `\(typeName).validate(_:)`, "
+                + "or remove `formats: []` to decode JSON."], node: node, context: context)
             return nil
         }
         return body
@@ -547,8 +521,6 @@ public struct SchemaMacro: ExtensionMacro {
         if config.encodes && formats.json { out.append("Assay.JSONEncodableSchema") }
         if config.encodes && formats.raw { out.append("Assay.RawEncodableSchema") }
         if config.encodes && formats.xml { out.append("Assay.XMLEncodableSchema") }
-        if config.sources { out.append("Assay.SourceDecodable") }
-        if config.sources && config.encodes { out.append("Assay.RowEncodableSchema") }
         if config.xmlRoot != nil && formats.xml { out.append("Assay.XMLRooted") }
         if config.describes { out.append("Assay.SchemaDescribing") }
         return out

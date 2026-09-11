@@ -25,8 +25,7 @@
 // NESTED TYPES USE THE METATYPE TRICK, which is the only sound route. A macro reads the token
 // `Author` and cannot know whether `Author` is a `@Schema` type, a typealias, or a struct that
 // happens to be named that. Holding `Author.self` as an `any SchemaDescribing.Type` makes the
-// TYPE CHECKER verify the conformance the macro cannot see — the same device `ColumnDecodable`
-// already uses. A non-describing nested type is then a compile error at the use site naming
+// TYPE CHECKER verify the conformance the macro cannot see. A non-describing nested type is then a compile error at the use site naming
 // the actual problem, rather than a schema that silently describes it as `{}`.
 //
 // `.input` VS `.output`, which is not decoration. They differ exactly when `@Transform` is

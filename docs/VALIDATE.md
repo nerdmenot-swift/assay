@@ -190,12 +190,9 @@ rule engine, called from a second place.
 | **validate a constructed value** | **76** |
 
 Over a batch it is **84 ns/row**, flat from 64 rows to 100,000 — 76 for the rules plus the
-array element copy. That is **7.9×** this machine's columnar batch decode, which the
-benchmark now measures in the same run rather than quoting (it divided by a hard-coded 53
-until 2026-09-11, and printed 1.6× for months after the columnar arm went to 11). That
-ratio is the honest way to read the seam: a row's rules cost more than its decode, because
-the rules are the work. It is still nowhere near re-decoding the document, which is the
-alternative this entry point exists to avoid.
+array element copy. Nowhere near re-decoding the document, which is the alternative this
+entry point exists to avoid, and that is the comparison that matters now: a fast reader
+produces values its own way, and `validate` is what makes them trustworthy afterwards.
 
 Two things had to be right for that number, and neither was obvious:
 
@@ -268,29 +265,28 @@ the CR condition makes the differential fail, which is how the check was checked
 
 ## 5. Why this and not a decode path
 
-The obvious answer to "a Parquet reader wants Assay's rules" is a third decode path — a
+The obvious answer to "a Parquet reader wants Assay's rules" is a decode path of its own — a
 protocol for decoding one record at a time out of anything already parsed and addressable
-by key. That was built, measured, and removed. `Sources/AssayCore/ColumnarSource.swift`
-carries the full reasoning; in short:
+by key. Two were built and both are gone.
 
-- It lost to the path it was invented to beat. Building a `RawValue` and decoding through
-  the tree path cost 95 ns per row; the row protocol cost 311 ns once its presence
-  semantics were correct. The premise that justified it — "an allocation per value per
-  record" — was false.
-- It could not accept the borrowed rows it existed for. A genuinely zero-copy row view is
-  `~Escapable`, and value semantics rule that out: `Array` requires `Escapable`, so such a
+- **The row protocol lost to the path it was invented to beat.** Building a `RawValue` and
+  decoding through the tree path cost 95 ns per row; the row protocol cost 311 ns once its
+  presence semantics were correct. The premise that justified it — "an allocation per value
+  per record" — was false. It also could not accept the borrowed rows it existed for: a
+  genuinely zero-copy row view is `~Escapable`, and `Array` requires `Escapable`, so such a
   row cannot be an element of anything, cannot be `Equatable`, and cannot outlive the scope
-  that made it. (The experimental-feature-gate reason recorded originally is measurably
-  wrong — see `docs/KEYED-SOURCE.md`.)
-- Its cost landed worst exactly where a driver lives: a `rows(of: T.self)` loop is generic
-  over the schema, `@inlinable` is forbidden on generated bodies (SE-0193), and the
-  witness-table call is paid per row — 1.6–4.7×.
+  that made it. Worst, its cost landed exactly where a driver lives: a `rows(of: T.self)`
+  loop is generic over the schema, `@inlinable` is forbidden on generated bodies (SE-0193),
+  and the witness-table call is paid per row — 1.6–4.7×.
+- **The columnar path survived that argument and was removed anyway, on 2026-09-11**, for a
+  product reason rather than a technical one: nothing depended on it, and a decoder that
+  also owns column stores is two libraries wearing one name. `ROADMAP.md` records the
+  decision.
 
 `validate` has none of those problems because it is not trying to decode. The specialised
 reader does what it is good at, at its own speed, in its own module; Assay does what it is
 good at afterwards. Neither side pays for the other, and neither has to know the other's
 memory model.
 
-The columnar half of that design survives, for the symmetric reason: a column store hands
-over whole arrays, so there is no per-row borrow, no per-row dispatch, and no per-row
-presence ambiguity. See `docs/KEYED-SOURCE.md`.
+**That is now the only answer Assay gives to this question, and it is a better one for
+being the only answer.**

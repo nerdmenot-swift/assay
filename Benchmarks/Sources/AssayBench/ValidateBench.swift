@@ -90,45 +90,6 @@ func runValidateBenchmarks() {
     print(String(format: "validating separately:      %.0f ns (%.2fx a full decode)",
                  validateNs, validateNs / ruledNs))
 
-    // THE QUESTION THE SEAM TURNS ON. A columnar reader decodes a row in tens of ns.
-    // Validation has to be small against that or nobody will call it.
-    //
-    // MEASURED HERE, NOT TYPED IN. This comparison used a hard-coded 53 ns/row from the
-    // columnar arm, and on 2026-09-10 that arm went to ~11 — so the ratio printed 1.57x
-    // for a year-end of 2026 where the truth was nearer 7.5x, and nothing failed. A
-    // constant copied out of another arm's output is a number with no owner. The floor is
-    // now re-measured in this run, against the same store the columnar arm uses.
-    let floorRows = 20_000
-    let floorStore = makeStore(rows: floorRows)
-    let floorNs = measure(iterations: 10) {
-        let got = BenchRow.batch(from: floorStore)
-        precondition(got.values.count == floorRows)
-    } / Double(floorRows)
-
-    print("")
-    print("As a fraction of a fast decode — the seam this entry point exists for")
-    print(pad("rows", 10, right: true) + pad("validate ns", 14) + pad("per row", 10)
-          + pad(String(format: "vs %.0f ns/row", floorNs), 14))
-    print(String(repeating: "-", count: 50))
-
-    for n in [64, 1_000, 20_000, 100_000] {
-        let batch = Array(repeating: value, count: n)
-        let reps = max(1, 400_000 / n)
-        let ns = measure(iterations: reps) {
-            let v = RuledAccount.diagnose(batch)
-            precondition(v.isValid)
-        }
-        let perRow = ns / Double(n)
-        print(pad("\(n)", 10, right: true)
-              + pad(String(format: "%.0f", ns), 14)
-              + pad(String(format: "%.0f", perRow), 10)
-              + pad(String(format: "%.2fx", perRow / floorNs), 14))
-    }
-    print(String(format: "%.0f ns/row is this machine's columnar batch fill, measured in this",
-                 floorNs))
-    print("run rather than quoted — the fastest decode Assay itself has, and a fair stand-in")
-    print("for a specialised reader.")
-
     // The failing path, which is the one a real dataset takes. Reporting must not be so
     // much more expensive than accepting that a bad file becomes a denial of service.
     print("")

@@ -49,7 +49,7 @@ struct Record: Equatable {
 // PRESENCE
 // ===========================================================================
 
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct Presence: Equatable {
     var required: String                      // absent -> an error
     var optional: String?                     // absent -> nil
@@ -58,7 +58,7 @@ struct Presence: Equatable {
     @Ignore var notAField: String? = nil      // never read from the document
 }
 
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct Nullable: Equatable {
     var a: String?
     var b: String?
@@ -69,10 +69,10 @@ struct Nullable: Equatable {
 // NAMES
 // ===========================================================================
 
-@Schema(keys: .screamingSnakeCase)
+@Schema(keys: .screamingSnakeCase, formats: .all)
 struct Env: Equatable { var databaseUrl: String; var maxRetries: Int }
 
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct Names: Equatable {
     @Key("id") var identifier: Int
     @Key("email", or: "email_address", "mail") var email: String
@@ -81,7 +81,7 @@ struct Names: Equatable {
     @Extras var rest: [String: RawValue]
 }
 
-@Schema(keys: .snakeCase, unknownKeys: .reject)
+@Schema(keys: .snakeCase, unknownKeys: .reject, formats: .all)
 struct ApiConfig: Equatable { var apiKey: String; var timeoutSeconds: Int }
 
 // ===========================================================================
@@ -173,7 +173,7 @@ struct Timeouts: Equatable {
 // DATES
 // ===========================================================================
 
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct Timestamps: Equatable {
     var iso: Date                                        // ISO-8601 by default
     @DateFormat(.unixSeconds) var epoch: Date
@@ -182,7 +182,7 @@ struct Timestamps: Equatable {
     @DateFormat(.iso8601, .unixSeconds) var either: Date  // a candidate chain
 }
 
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct DateRules: Equatable {
     @Validate(.after("2020-01-01")) var createdAt: Date
     @Validate(.between("2020-01-01", "2030-01-01")) var effective: Date
@@ -222,51 +222,67 @@ func runCookbookPartOne() {
     """
     emitTry("cb.inline", inlined) { try Record.parse(json: inlined) }
 
-    // --- presence -------------------------------------------------------
+    // --- presence, in YAML ------------------------------------------------
+    // Deliberately not JSON. The declaration is the same either way, and a config file is
+    // where "what does absent mean" is a question people actually have.
     let presentAll = """
-    {"required": "here", "optional": "also here", "defaulted": 9, "salvaged": 5}
+    required: here
+    optional: also here
+    defaulted: 9
+    salvaged: 5
     """
-    emitTry("cb.presenceAll", presentAll) { try Presence.parse(json: presentAll) }
+    emitTry("cb.presenceAll", presentAll) { try Presence.parse(yaml: presentAll) }
 
-    let presentNone = """
-    {"required": "here"}
-    """
-    let pd = Presence.diagnose(json: presentNone, sourceName: "p.json")
+    let presentNone = "required: here"
+    let pd = Presence.diagnose(yaml: presentNone, sourceName: "p.yaml")
     emit("cb.presenceAbsent", presentNone,
          String(describing: pd.value!) + "\n\nwarnings: "
-         + (pd.warnings.map(\.code.codeString).joined(separator: ", ")).description)
+         + pd.warnings.map(\.code.codeString).joined(separator: ", "))
 
     let presentBad = """
-    {"salvaged": "not a number"}
+    required: here
+    salvaged: not a number
     """
-    let pb = Presence.diagnose(json: presentBad, sourceName: "p.json")
+    let pb = Presence.diagnose(yaml: presentBad, sourceName: "p.yaml")
     emit("cb.presenceSalvaged", presentBad,
-         pb.render(.plain) + "\nwarnings: " + pb.warnings.map(\.code.codeString).joined(separator: ", "))
+         String(describing: pb.value!) + "\n\nwarnings: "
+         + pb.warnings.map(\.code.codeString).joined(separator: ", "))
 
     let nulls = """
-    {"a": null, "c": null}
+    a: null
+    c: null
     """
     emit("cb.nullVsAbsent", nulls,
-         Nullable.diagnose(json: nulls, sourceName: "n.json").render(.plain)
-         + "\n" + String(describing: Nullable.diagnose(json: nulls).value as Any))
+         Nullable.diagnose(yaml: nulls, sourceName: "n.yaml").render(.plain))
 
-    // --- names ----------------------------------------------------------
-    emitTry("cb.keyStyle", #"{"DATABASE_URL": "postgres://x", "MAX_RETRIES": 3}"#) {
-        try Env.parse(json: #"{"DATABASE_URL": "postgres://x", "MAX_RETRIES": 3}"#)
-    }
-
-    let named = """
-    {"id": 1, "mail": "jo@example.com", "profile": {"display_name": "Jo"},
-     "default": true, "extra_one": 1, "extra_two": "two"}
+    // --- names, in TOML ---------------------------------------------------
+    let envTOML = """
+    DATABASE_URL = "postgres://x"
+    MAX_RETRIES = 3
     """
-    let nd = Names.diagnose(json: named, sourceName: "named.json")
-    emit("cb.keys", named,
+    emitTry("cb.keyStyle", envTOML) { try Env.parse(toml: envTOML) }
+
+    let namedTOML = """
+    id = 1
+    mail = "jo@example.com"
+    default = true
+    extra_one = 1
+    extra_two = "two"
+
+    [profile]
+    display_name = "Jo"
+    """
+    let nd = Names.diagnose(toml: namedTOML, sourceName: "named.toml")
+    emit("cb.keys", namedTOML,
          String(describing: nd.value!) + "\n\nwarnings: "
          + nd.warnings.map(\.code.codeString).joined(separator: ", "))
 
-    let typo = #"{"api_key": "sk-1", "timeout_secs": 30}"#
-    emit("cb.unknownKeyRejected", typo,
-         ApiConfig.diagnose(json: typo, sourceName: "cfg.json").render(.plain))
+    let typoTOML = """
+    api_key = "sk-1"
+    timeout_secs = 30
+    """
+    emit("cb.unknownKeyRejected", typoTOML,
+         ApiConfig.diagnose(toml: typoTOML, sourceName: "cfg.toml").render(.plain))
 
     // --- rules ----------------------------------------------------------
     let bounds = """
@@ -307,22 +323,34 @@ func runCookbookPartOne() {
         try Timeouts.parse(json: transformed).jsonText()
     }
 
-    // --- dates ------------------------------------------------------------
+    // --- dates, in TOML ---------------------------------------------------
+    // TOML is the only format here with date-times in the grammar, so it is the one worth
+    // showing them in. The declaration is unchanged; `iso` below is a native TOML value
+    // rather than a string.
     let dates = """
-    {"iso": "2026-09-11T12:00:00Z", "epoch": 1700000000,
-     "http_date": "Wed, 21 Oct 2026 07:28:00 GMT", "day": "2026-01-31", "either": 1700000000}
+    iso = 2026-09-11T12:00:00Z
+    epoch = 1700000000
+    http_date = "Wed, 21 Oct 2026 07:28:00 GMT"
+    day = "2026-01-31"
+    either = 1700000000
     """
-    emitTry("cb.dates", dates) { try Timestamps.parse(json: dates) }
+    emitTry("cb.dates", dates) { try Timestamps.parse(toml: dates) }
 
     let badDates = """
-    {"iso": "yesterday", "epoch": 1700000000, "http_date": "Wed, 21 Oct 2026 07:28:00 GMT",
-     "day": "31/01/2026", "either": "nope"}
+    iso = "yesterday"
+    epoch = 1700000000
+    http_date = "Wed, 21 Oct 2026 07:28:00 GMT"
+    day = "31/01/2026"
+    either = "nope"
     """
-    emit("cb.datesBad", badDates, Timestamps.diagnose(json: badDates, sourceName: "d.json").render(.plain))
+    emit("cb.datesBad", badDates, Timestamps.diagnose(toml: badDates, sourceName: "d.toml").render(.plain))
 
-    let dateRules = #"{"created_at": "2019-06-01T00:00:00Z", "effective": "2031-01-01T00:00:00Z"}"#
+    let dateRules = """
+    created_at = 2019-06-01T00:00:00Z
+    effective = 2031-01-01T00:00:00Z
+    """
     emit("cb.dateRules", dateRules,
-         DateRules.diagnose(json: dateRules, sourceName: "d.json").render(.plain))
+         DateRules.diagnose(toml: dateRules, sourceName: "d.toml").render(.plain))
 }
 
 // ===========================================================================
@@ -332,22 +360,22 @@ func runCookbookPartOne() {
 /// A closed enum needs no macro — declare the conformance and the implementation comes
 /// from a protocol extension. `CaseIterable` is optional and makes the error list the
 /// values it would have accepted.
-enum Colour: String, JSONAssayable, CaseIterable, Equatable { case red, green, blue }
-enum Priority: Int, JSONAssayable, Equatable { case low = 1, high = 2 }
+enum Colour: String, JSONAssayable, RawDecodable, CaseIterable, Equatable { case red, green, blue }
+enum Priority: Int, JSONAssayable, RawDecodable, Equatable { case low = 1, high = 2 }
 
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct Label: Equatable { var colour: Colour; var priority: Priority }
 
 /// An OPEN enum keeps a value it does not recognise instead of failing.
-@Schema enum Plan: Equatable {
+@Schema(formats: .all) enum Plan: Equatable {
     case free, pro
     @Unknown case other(String)
 }
 
-@Schema(keys: .snakeCase) struct Membership: Equatable { var tier: Plan }
+@Schema(keys: .snakeCase, formats: .all) struct Membership: Equatable { var plan: Plan }
 
 /// A wire that sometimes sends one and sometimes sends many.
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct Post: Equatable { @OneOrMany var tags: [String] }
 
 /// `@Wraps` makes a struct a constrained scalar. The issues are byte-identical to
@@ -355,7 +383,7 @@ struct Post: Equatable { @OneOrMany var tags: [String] }
 @Wraps(String.self, .email) struct EmailAddress {}
 @Wraps(Int64.self, .range(1...100)) struct Percent {}
 
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct Contact: Equatable { var contact: EmailAddress; var complete: Percent }
 
 // ===========================================================================
@@ -411,58 +439,24 @@ extension Ticket: AssayerBacked {
 
 @Schema(keys: .snakeCase) struct Booking: Equatable { var ticket: Ticket }
 
-// ===========================================================================
-// ROWS AND COLUMNS
-// ===========================================================================
-
-@Schema(keys: .snakeCase, formats: [], encodes: true, sources: true)
-struct Row: Equatable {
-    var id: Int64
-    @Validate(.email) var email: String
-    var active: Bool
-}
-
-/// A column store that already holds one array per field — Parquet, Arrow.
-struct Store: ColumnarSource {
-    var ids: [Int64], emails: [String], actives: [Bool]
-    var rowCount: Int { ids.count }
-    borrowing func int64Column(_ key: StaticString, _ f: Int) -> [Int64]? { f == 0 ? ids : nil }
-    borrowing func stringColumn(_ key: StaticString, _ f: Int) -> [String]? { f == 1 ? emails : nil }
-    borrowing func boolColumn(_ key: StaticString, _ f: Int) -> [Bool]? { f == 2 ? actives : nil }
-    borrowing func doubleColumn(_ key: StaticString, _ f: Int) -> [Double]? { nil }
-}
-
-/// A sink that collects field values on the way out — the shape a CSV writer or an
-/// INSERT parameter binder has.
-struct PrintSink: RowSink {
-    var cells: [String] = []
-    mutating func write(int64 v: Int64, _ f: Int) { cells.append(String(v)) }
-    mutating func write(double v: Double, _ f: Int) { cells.append(String(v)) }
-    mutating func write(bool v: Bool, _ f: Int) { cells.append(String(v)) }
-    mutating func write(string v: String, _ f: Int) { cells.append(v) }
-    mutating func write(bytes v: UnsafeRawBufferPointer, _ f: Int) { cells.append("\(v.count) bytes") }
-    mutating func writeNull(_ f: Int) { cells.append("NULL") }
-}
-
 func runCookbookPartTwo() {
     // --- enums ------------------------------------------------------------
-    emitTry("cb.enumClosed", #"{"colour": "green", "priority": 2}"#) {
-        try Label.parse(json: #"{"colour": "green", "priority": 2}"#)
-    }
-    let badEnum = #"{"colour": "chartreuse", "priority": 9}"#
-    emit("cb.enumBad", badEnum, Label.diagnose(json: badEnum, sourceName: "e.json").render(.plain))
+    // In YAML, because a closed vocabulary is usually something a person types by hand.
+    let goodEnum = "colour: green\npriority: 2"
+    emitTry("cb.enumClosed", goodEnum) { try Label.parse(yaml: goodEnum) }
 
-    emitTry("cb.enumOpen", #"{"tier": "enterprise"}"#) {
-        try Membership.parse(json: #"{"tier": "enterprise"}"#)
-    }
+    let badEnum = "colour: chartreuse\npriority: 9"
+    emit("cb.enumBad", badEnum, Label.diagnose(yaml: badEnum, sourceName: "e.yaml").render(.plain))
+
+    emitTry("cb.enumOpen", "plan: enterprise") { try Membership.parse(yaml: "plan: enterprise") }
 
     emitTry("cb.oneOrMany", #"{"tags": "swift"}"#) {
         (try Post.parse(json: #"{"tags": "swift"}"#),
          try Post.parse(json: #"{"tags": ["swift", "json"]}"#))
     }
 
-    let wrapped = #"{"contact": "not-an-email", "complete": 150}"#
-    emit("cb.wraps", wrapped, Contact.diagnose(json: wrapped, sourceName: "w.json").render(.plain))
+    let wrapped = "contact: not-an-email\ncomplete: 150"
+    emit("cb.wraps", wrapped, Contact.diagnose(yaml: wrapped, sourceName: "w.yaml").render(.plain))
 
     // --- unions -----------------------------------------------------------
     let tagged = #"{"type": "page_view", "path": "/pricing"}"#
@@ -510,27 +504,4 @@ func runCookbookPartTwo() {
     }
     emit("cb.assayerBad", #"{"ticket": "XX-1"}"#,
          Booking.diagnose(json: #"{"ticket": "XX-1"}"#, sourceName: "t.json").render(.plain))
-
-    // --- rows and columns --------------------------------------------------
-    let store = Store(ids: [1, 2, 3],
-                        emails: ["a@example.com", "nope", "c@example.com"],
-                        actives: [true, false, true])
-    let batch = Row.batch(from: store)
-    var colSrc = "ids:     [1, 2, 3]\n"
-    colSrc += "emails:  [\"a@example.com\", \"nope\", \"c@example.com\"]\n"
-    colSrc += "actives: [true, false, true]"
-    var colOut = "decoded \(batch.values.count) of 3\n"
-    for v in batch.values { colOut += "  \(v)\n" }
-    colOut += "\nissues:\n"
-    for issue in batch.issues {
-        let where_ = issue.path.pathDescription
-        colOut += "  [" + where_ + "] " + issue.message + "\n"
-    }
-    emit("cb.columnar", colSrc, colOut)
-
-    var sink = PrintSink()
-    Row(id: 7, email: "jo@example.com", active: true).encodeRow(into: &sink)
-    emit("cb.rowSink", "Row(id: 7, email: \"jo@example.com\", active: true)",
-         "columns: " + Row._assayManifest.keys.joined(separator: ", ")
-         + "\ncells:   " + sink.cells.joined(separator: ", "))
 }

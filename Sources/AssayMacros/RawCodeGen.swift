@@ -102,7 +102,7 @@ extension SchemaMacro {
                 checks += "                }"
                 first = false
             }
-            checks += " else {\n                    \(rawUnknownArm(policy: policy, extras: extras))\n                }"
+            checks += " else {\n                    \(rawUnknownArm(policy: policy, extras: extras, segments: groups.map(\.segment)))\n                }"
             arms += """
                         case \(len):
                             \(checks)
@@ -153,7 +153,7 @@ extension SchemaMacro {
                 let __v = __m.value
                 switch __k.utf8.count {
         \(arms)            default:
-                    \(rawUnknownArm(policy: policy, extras: extras))
+                    \(rawUnknownArm(policy: policy, extras: extras, segments: groups.map(\.segment)))
                 }
             }
 
@@ -167,20 +167,28 @@ extension SchemaMacro {
         """
     }
 
-    static func rawUnknownArm(policy: String, extras: SchemaField?) -> String {
+    /// `segments` are the first components of every `@Key(path:)` group. A key the
+    /// schema reached THROUGH is not an unknown key, and the JSON body has always known
+    /// that — its dispatch table has an arm for the prefix, so the key is consumed before
+    /// the unknown handler sees it. This body descends into paths separately, so without
+    /// this the same document put `profile` into `@Extras` on YAML/XML/TOML and not on
+    /// JSON. Found 2026-09-11 by showing the same example in TOML.
+    static func rawUnknownArm(policy: String, extras: SchemaField?,
+                              segments: [String] = []) -> String {
         switch policy {
         case "collect":
             guard let e = extras else { return "break" }
             let value = elementType(stripOptional(e.typeName))
             // RawValue is the only thing a RawValue-shaped decode can produce, so a
             // format-specific extras type is simply not reachable on this path.
-            return value.hasSuffix("RawValue")
-                ? "__extras[__k] = __v"
-                : "break"
+            guard value.hasSuffix("RawValue") else { return "break" }
+            if segments.isEmpty { return "__extras[__k] = __v" }
+            let list = segments.map { "\"\($0)\"" }.joined(separator: ", ")
+            return "if ![\(list)].contains(__k) { __extras[__k] = __v }"
         case "warn":
-            return "Assay.RawValue._unknownKey(&sink, path, __k, known: Self.__assayKnownKeys, reject: false)"
+            return "Assay.RawValue._unknownKey(&sink, path, __k, known: Self.__assayKnownKeys, reject: false, span: __m.span)"
         case "reject":
-            return "Assay.RawValue._unknownKey(&sink, path, __k, known: Self.__assayKnownKeys, reject: true)"
+            return "Assay.RawValue._unknownKey(&sink, path, __k, known: Self.__assayKnownKeys, reject: true, span: __m.span)"
         default:
             return "break"
         }

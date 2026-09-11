@@ -151,14 +151,6 @@ public struct IssueSink: Sendable {
     @usableFromInline
     var limits: Limits
 
-    /// The row a columnar batch is on, inserted into every path recorded while it is set.
-    /// Two integers written per row, so a clean batch allocates nothing for diagnostics;
-    /// the path with the row in it is only ever built inside `add`, which is cold. This is
-    /// what replaced `let path = path + [.index(__r)]` at the top of the generated row loop
-    /// — one array allocation per row that a clean batch never read, measured at 40 of the
-    /// 53 ns a row cost. `_enterRow` / `_leaveRows` bracket the loop.
-    @usableFromInline var rowIndex: Int = -1
-    @usableFromInline var rowDepth: Int = 0
 
     @inlinable
     public init(limits: Limits = .default) {
@@ -167,19 +159,6 @@ public struct IssueSink: Sendable {
 
     @inlinable
     public var isValid: Bool { issues.isEmpty }
-
-    /// Begin row `row` of a batch whose issues carry `depth` path components before the
-    /// row index. Generated code only.
-    @_documentation(visibility: internal)
-    @inlinable
-    public mutating func _enterRow(_ row: Int, depth: Int) {
-        rowIndex = row
-        rowDepth = depth
-    }
-
-    @_documentation(visibility: internal)
-    @inlinable
-    public mutating func _leaveRows() { rowIndex = -1 }
 
     /// Cold: never inlined into the field loop, where it would bloat the hot function
     /// past the escape-analysis complexity budget (`1_000_000 / estimatedFunctionSize`,
@@ -191,8 +170,6 @@ public struct IssueSink: Sendable {
             truncatedIssues = true
             return
         }
-        var issue = issue
-        if rowIndex >= 0 { issue.path.insert(.index(rowIndex), at: Swift.min(rowDepth, issue.path.count)) }
         issues.append(issue)
     }
 
@@ -202,8 +179,6 @@ public struct IssueSink: Sendable {
             truncatedIssues = true
             return
         }
-        var warning = warning
-        if rowIndex >= 0 { warning.path.insert(.index(rowIndex), at: Swift.min(rowDepth, warning.path.count)) }
         warnings.append(warning)
     }
 }

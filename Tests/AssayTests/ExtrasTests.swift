@@ -142,3 +142,59 @@ struct ExtrasTests {
         #expect(far?.params["didYouMean"] == nil)
     }
 }
+
+// MARK: - Parity between the JSON body and the RawValue body
+//
+// Both bugs below were the same shape: the JSON body had always been right and the
+// RawValue body had never been checked against it, because every test of these two
+// features used JSON. Found 2026-09-11 by rendering the same example as TOML for the
+// website, which is the cheapest differential this project has.
+
+@Schema(keys: .snakeCase, unknownKeys: .collect, formats: .all)
+struct PathAndExtras: Equatable {
+    var id: Int
+    @Key(path: "profile.display_name") var displayName: String
+    @Extras var rest: [String: RawValue]
+}
+
+@Schema(keys: .snakeCase, unknownKeys: .reject, formats: .all)
+struct RejectsUnknown: Equatable { var apiKey: String }
+
+@Suite("JSON and RawValue report unknown keys identically")
+struct UnknownKeyParityTests {
+
+    /// A key the schema reached THROUGH is not an unknown key. The JSON dispatch table
+    /// has an arm for the prefix so it never reaches the unknown handler; the RawValue
+    /// body descends into paths separately and used to collect the prefix as an extra.
+    @Test("a @Key(path:) prefix is not collected into @Extras, on either path")
+    func pathPrefixIsNotAnExtra() throws {
+        let json = #"{"id": 1, "profile": {"display_name": "Jo"}, "other": 2}"#
+        let toml = """
+        id = 1
+        other = 2
+
+        [profile]
+        display_name = "Jo"
+        """
+        let fromJSON = try PathAndExtras.parse(json: json)
+        let fromTOML = try PathAndExtras.parse(toml: toml)
+        #expect(fromJSON.displayName == "Jo")
+        #expect(fromJSON.rest.keys.sorted() == ["other"])
+        #expect(fromTOML.rest.keys.sorted() == fromJSON.rest.keys.sorted(),
+                "TOML collected \(fromTOML.rest.keys.sorted())")
+    }
+
+    /// An unknown key carried a source span on JSON and none at all on the RawValue
+    /// formats, so the caret was missing exactly where a config file needs it most.
+    @Test("an unknown key carries a location on every format")
+    func unknownKeyHasALocation() {
+        let json = RejectsUnknown.diagnose(json: #"{"api_key": "k", "nope": 1}"#)
+        let yaml = RejectsUnknown.diagnose(yaml: "api_key: k\nnope: 1\n")
+        let toml = RejectsUnknown.diagnose(toml: "api_key = \"k\"\nnope = 1\n")
+        for (name, d) in [("json", json), ("yaml", yaml), ("toml", toml)] {
+            let unknown = d.issues.first { $0.code == .unknownKey }
+            #expect(unknown != nil, "\(name) reported no unknown key")
+            #expect(unknown?.location != nil, "\(name) unknown key has no location")
+        }
+    }
+}

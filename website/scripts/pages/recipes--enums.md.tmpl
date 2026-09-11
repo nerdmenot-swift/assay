@@ -6,14 +6,18 @@ description: Closed sets that need no macro, open ones that survive a new case, 
 ## A closed set
 
 ```swift
-enum Colour: String, JSONAssayable, CaseIterable, Equatable { case red, green, blue }
-enum Priority: Int, JSONAssayable, Equatable { case low = 1, high = 2 }
+enum Colour: String, JSONAssayable, RawDecodable, CaseIterable { case red, green, blue }
+enum Priority: Int, JSONAssayable, RawDecodable { case low = 1, high = 2 }
 
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct Label: Equatable { var colour: Colour; var priority: Priority }
 ```
 
-{{example:cb.enumClosed:json}}
+YAML here, because a closed vocabulary is usually something a person types by hand.
+`RawDecodable` is the conformance that makes these work outside JSON; drop it and
+`parse(yaml:)` will not compile for a type with an enum field.
+
+{{example:cb.enumClosed:yaml}}
 
 No macro on the enum. Declare the conformance and the implementation comes from a protocol
 extension, for any `RawRepresentable` with a `String` or `Int` raw value. Add
@@ -21,7 +25,7 @@ extension, for any `RawRepresentable` with a `String` or `Int` raw value. Add
 
 `CaseIterable` is optional and pays for itself:
 
-{{example:cb.enumBad:json}}
+{{example:cb.enumBad:yaml}}
 
 The first field lists what it would have accepted; the second, without `CaseIterable`,
 cannot.
@@ -29,15 +33,15 @@ cannot.
 ## A set that will grow
 
 ```swift
-@Schema enum Plan: Equatable {
+@Schema(formats: .all) enum Plan: Equatable {
     case free, pro
     @Unknown case other(String)
 }
 
-@Schema(keys: .snakeCase) struct Membership: Equatable { var plan: Plan }
+@Schema(keys: .snakeCase, formats: .all) struct Membership: Equatable { var plan: Plan }
 ```
 
-{{example:cb.enumOpen:json}}
+{{example:cb.enumOpen:yaml}}
 
 The raw value is kept, so you can branch on the cases you know, treat the rest as a
 default, and log what is actually arriving. Without this, one new value upstream is a
@@ -50,7 +54,7 @@ not a default.
 ## Sometimes one, sometimes many
 
 ```swift
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct Post: Equatable { @OneOrMany var tags: [String] }
 ```
 
@@ -67,11 +71,11 @@ that layer.
 @Wraps(String.self, .email) struct EmailAddress {}
 @Wraps(Int64.self, .range(1...100)) struct Percent {}
 
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct Contact: Equatable { var contact: EmailAddress; var complete: Percent }
 ```
 
-{{example:cb.wraps:json}}
+{{example:cb.wraps:yaml}}
 
 A wrapper gives you a type the compiler can keep apart from every other `String`, with the
 validation attached to the type rather than repeated at each use site.

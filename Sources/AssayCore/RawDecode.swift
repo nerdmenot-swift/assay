@@ -304,11 +304,22 @@ extension RawValue {
     }
 
     /// Report an unknown key found while decoding a mapping, with a did-you-mean.
+    ///
+    /// `span` is the member's, so the report carries a caret. It did not until
+    /// 2026-09-11: an unknown key pointed at the byte on JSON and at nothing at all on
+    /// YAML, XML, TOML and property lists. Same family as the type-mismatch caret fixed a
+    /// day earlier, and found the same way — by showing the same example in another format.
+    ///
+    /// One honest difference remains. `RawValue.Member` carries the span of the VALUE, so
+    /// the caret lands under `30` in `timeout_secs = 30` where the JSON body puts it under
+    /// the key. Right line, right member, wrong half of it. Closing that means a second
+    /// span on every member, paid by every document, to improve one cold diagnostic — so
+    /// it is recorded here rather than done.
     @_documentation(visibility: internal)
     @inline(never)
     public static func _unknownKey(
         _ sink: inout IssueSink, _ path: [PathComponent], _ name: String,
-        known: [String], reject: Bool
+        known: [String], reject: Bool, span: SourceSpan? = nil
     ) {
         var params: [String: IssueValue] = [:]
         if let suggestion = AssayReader._didYouMean(name, in: known) {
@@ -317,10 +328,10 @@ extension RawValue {
         params["received"] = .string(name)
         if reject {
             sink.add(Issue(code: .unknownKey, path: path,
-                           params: params, received: name))
+                           params: params, received: name, location: span))
         } else {
             sink.add(warning: Warning(code: .unknownKey, path: path,
-                                      params: params))
+                                      params: params, location: span))
         }
     }
 }
@@ -373,7 +384,7 @@ extension RawValue {
 //
 // `coerceScalars` / `@Coerce` accept a string where a number or boolean was declared. The
 // rules live here and nowhere else, so the RawValue path (YAML, XML, TOML, plists) and the
-// columnar path (a CSV cell, a text-format SQL value) cannot drift: "8080.5" is not an
+// tree path cannot drift: "8080.5" is not an
 // integer on either, and "yes" is a boolean on both.
 
 /// `"8080"` → 8080. Sign allowed; no fraction, no exponent, no whitespace.
@@ -400,7 +411,7 @@ public func _assayCoerceBool(_ s: String) -> Bool? {
     guard it.next() == nil else { return nil }
     if b == nil { return a == 0x31 ? true : (a == 0x30 ? false : nil) }              // 1 / 0
     // The casing must be one of three shapes: all lower, all upper, or first upper only.
-    // No array here: this runs per text cell on the columnar path.
+    // No array here.
     let firstUpper = a & 0x20 == 0
     var restUpper = true, restLower = true
     func fold(_ x: UInt8?) {

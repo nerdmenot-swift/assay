@@ -478,7 +478,7 @@ extension AssayReader {
 // Int8/Int16/UInt8/UInt16/UInt32/UInt64, added 2026-08-31. Int, Int32, Int64 and UInt were
 // the whole set before that, which meant `var b: UInt8` did not compile in ANY `@Schema`
 // type -- and with it `[UInt8]`, the obvious way to carry a blob. That is what blocked the
-// columnar bytes column from having a usable field type; see docs/COLUMN-DECODABLE.md.
+// `[UInt8]` from having a usable field type.
 //
 // Spelled out one width at a time rather than written once over `FixedWidthInteger`. The
 // header of `CodeGen.scalarCall` states the reason as a rule -- "monomorphic per type;

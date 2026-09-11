@@ -160,5 +160,4 @@ document the decoder would have accepted is worse than a vague one.
 
 ## Next
 
-- [Rows and columns](/recipes/rows/) — the write side with no tree at all.
 - [Encoding, explained](/guides/encoding/) — the six semantics questions and their answers.

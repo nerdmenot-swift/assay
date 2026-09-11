@@ -133,11 +133,36 @@ Then the accepting list, which is the one with no default:
 try Upload.parse(body: bytes, contentType: ct, accepting: [.json], limits: publicUpload)
 ```
 
-## What is not defended
+## What the limits do not cover
 
-Assay validates and bounds; it does not sandbox. A `@Check` you write that is slow is slow
-on hostile input too, and a regex rule is your regex. The budgets above cover the decoder's
-own behaviour, which is the part the library can be responsible for.
+Everything above bounds what the **decoder** does: bytes read, nesting entered, expansion
+allowed, issues kept. None of it bounds code that you supply and the decoder calls.
+
+Two of those exist, and the first is a genuine denial of service.
+
+**A `.regex` rule runs your pattern**, and Swift's `Regex` backtracks. A pattern like
+`^(a+)+$` against a long run of `a` takes exponential time, and no byte or depth limit sees
+it, because the document is small and shallow — the cost is in the matcher.
+
+```swift
+@Validate(.regex("^(a+)+$")) var code: String    // 30 characters of input is enough
+```
+
+If a pattern's input comes from strangers, keep the pattern simple and anchored, put a
+`.max` in front of it so the string is short before the matcher sees it, or use `.prefix`,
+`.suffix` and `.oneOf`, which are linear.
+
+```swift
+@Validate(.max(64), .regex("^[a-z][a-z0-9-]*$")) var slug: String
+```
+
+**A `@Check` you write runs once per value**, and once per element for a collection. If it
+queries a database or is quadratic, that is the cost of the document, multiplied by however
+many values it has.
+
+Beyond those, Assay is a decoder and not a sandbox. It does not limit memory the way a
+container does, it does not bound the time the whole parse takes, and a process that must
+survive deliberately hostile input needs those from the layer that owns the process.
 
 ## Next
 

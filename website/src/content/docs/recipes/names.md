@@ -6,12 +6,16 @@ description: Key conventions, renaming one field, aliases, reaching into nested 
 ## A convention for the whole type
 
 ```swift
-@Schema(keys: .screamingSnakeCase)
+@Schema(keys: .screamingSnakeCase, formats: .all)
 struct Env: Equatable { var databaseUrl: String; var maxRetries: Int }
 ```
 
-```json
-{"DATABASE_URL": "postgres://x", "MAX_RETRIES": 3}
+The documents here are TOML, because keys are the subject and TOML is nothing but keys.
+Every one of these attributes behaves identically on JSON, YAML, XML and property lists.
+
+```toml
+DATABASE_URL = "postgres://x"
+MAX_RETRIES = 3
 ```
 
 ```text
@@ -26,7 +30,7 @@ identifier, so `avatarURL` round-trips exactly — a runtime converter turns it 
 ## One key at a time
 
 ```swift
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct Names: Equatable {
     @Key("id") var identifier: Int
     @Key("email", or: "email_address", "mail") var email: String
@@ -36,13 +40,19 @@ struct Names: Equatable {
 }
 ```
 
-```json
-{"id": 1, "mail": "jo@example.com", "profile": {"display_name": "Jo"},
- "default": true, "extra_one": 1, "extra_two": "two"}
+```toml
+id = 1
+mail = "jo@example.com"
+default = true
+extra_one = 1
+extra_two = "two"
+
+[profile]
+display_name = "Jo"
 ```
 
 ```text
-Names(identifier: 1, email: "jo@example.com", displayName: "Jo", default: true, rest: ["extra_two": RawValue.string("two"), "extra_one": RawValue.int(1)])
+Names(identifier: 1, email: "jo@example.com", displayName: "Jo", default: true, rest: ["extra_one": RawValue.int(1), "extra_two": RawValue.string("two")])
 
 warnings: alias_matched
 ```
@@ -54,9 +64,11 @@ Four things at once.
 **Aliases** are tried in order, and the one that matched is reported as a warning. That is
 the point: a compatibility shim you cannot see is a compatibility shim you never delete.
 
-**`@Key(path:)`** walks into nested objects without declaring a type for the wrapper. An
-index segment (`tags[0]`) is refused — that is a different operation, with a fourth answer
-for "the array was shorter than that".
+**`@Key(path:)`** walks into nested objects — a TOML table here, a JSON object elsewhere —
+without declaring a type for the wrapper. An index segment (`tags[0]`) is refused: that is a
+different operation, with a fourth answer for "the array was shorter than that". Note that
+`profile` does **not** appear in `rest`: a key the schema reached through is not an unknown
+key.
 
 **`@Extras`** collects everything undeclared as `RawValue` instead of dropping it, and
 implies `unknownKeys: .collect`.
@@ -64,20 +76,22 @@ implies `unknownKeys: .collect`.
 ## Typos, caught
 
 ```swift
-@Schema(keys: .snakeCase, unknownKeys: .reject)
+@Schema(keys: .snakeCase, unknownKeys: .reject, formats: .all)
 struct ApiConfig: Equatable { var apiKey: String; var timeoutSeconds: Int }
 ```
 
-```json
-{"api_key": "sk-1", "timeout_secs": 30}
+```toml
+api_key = "sk-1"
+timeout_secs = 30
 ```
 
 ```text
-cfg.json:1:22: error: unknown key "timeout_secs"
-  1 │ {"api_key": "sk-1", "timeout_secs": 30}
-    │                      ^^^^^^^^^^^^
+cfg.toml:2:16: error: unknown key "timeout_secs"
+  1 │ api_key = "sk-1"
+  2 │ timeout_secs = 30
+    │                ^^
 
-cfg.json: error: timeout_seconds is required
+cfg.toml: error: timeout_seconds is required
 
 2 errors
 ```

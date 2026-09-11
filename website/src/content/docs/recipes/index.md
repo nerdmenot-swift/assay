@@ -24,7 +24,6 @@ lives.
 | [Unions](/recipes/unions/) | Tagged and untagged |
 | [Encoding](/recipes/encoding/) | Writing all four formats, round-trip, JSON Schema |
 | [Unknown shapes](/recipes/unknown-shapes/) | Value models, and schemas with no declaration |
-| [Rows and columns](/recipes/rows/) | Column stores and the write side |
 
 Then, when you want a whole job rather than one feature:
 
@@ -34,8 +33,6 @@ Then, when you want a whole job rather than one feature:
 | [An application config file](/recipes/config-file/) | Defaults, typos, carets at boot |
 | [An API that keeps changing](/recipes/moving-api/) | Aliases, fallbacks, open enums, extras |
 | [A form with errors on the fields](/recipes/form-errors/) | Paths to field names, your own wording |
-| [A CSV file](/recipes/csv/) | Text cells, row-indexed failures |
-| [A SQL result set](/recipes/sql-rows/) | The driver adapter, batching, global row numbers |
 | [A file you do not trust](/recipes/untrusted-input/) | Limits, and what each one stops |
 
 ## Everything here ran
@@ -44,6 +41,6 @@ Every example on these pages is a real program in this site's build: it compiles
 the package, runs, and the page shows what it printed. Nothing is illustrative.
 
 That is not only a promise about accuracy. It has found four bugs so far — a handler
-answering 415 with a body claiming 422, a documented CSV path that did not work, a caret
-that went missing on four formats, and an example in the guides that does not compile.
-Examples that have to run are a test suite with a readership.
+answering 415 with a body claiming 422, a documented path that did not work, a caret that
+went missing on four formats, and an example in the guides that does not compile. Examples
+that have to run are a test suite with a readership.

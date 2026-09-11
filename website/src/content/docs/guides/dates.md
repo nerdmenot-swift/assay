@@ -81,28 +81,12 @@ Three things follow. The core has no Foundation dependency. The behaviour is bit
 on macOS, Linux and Windows — no ICU version to differ. And it is fast: about 6× Foundation's
 `.iso8601` strategy, verified exact against Foundation on 2,279 instants.
 
-## Dates from columns and rows
-
-On the [column path](/formats/rows-and-columns/), a `Date` field takes whichever of these the
-source offers:
-
-- an `Int64` column with a unit in its metadata — Parquet's `TIMESTAMP`, Postgres binary;
-- a `Double` column, read by the field's own formats;
-- a `String` column, parsed exactly as the tree path would — so `@DateFormat` chains,
-  fallback warnings and invalid-date reports all behave identically.
-
-The unit travels with the column as data rather than being baked into the type, because a
-Parquet timestamp column is millis or micros or nanos according to its own metadata, and a
-schema that hardcodes one is wrong against files that use another.
-
 ## Your own date type
 
 If you have a `Timestamp` of your own, `Date` is not special — the macro keys on the type
 *name* and emits an initializer call. A type named `Date` in scope gets the date treatment;
-anything else goes through [`@Transform`](/guides/advanced/#transform) or, for column
-stores, [`ColumnDecodable`](/formats/rows-and-columns/#your-own-scalar-types).
+anything else goes through [`@Transform`](/guides/advanced/#transform).
 
 ## Next
 
 - [Encoding](/guides/encoding/) — dates on the way out.
-- [Rows and columns](/formats/rows-and-columns/) — timestamps from a database.

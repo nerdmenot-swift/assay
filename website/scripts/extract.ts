@@ -279,7 +279,12 @@ writeFileSync(
   join(HERE, '..', 'src', 'content', 'docs', 'reference', 'performance.md'),
   perfTmpl.replace(
     '{{TABLE}}',
-    numbers().map((r) => `| ${r.arm} | **${r.number}** | ${r.against} |`).join('\n')
+    // A struck-through row is a note to the repository's own readers, not to someone
+    // choosing a decoder. The journal keeps the record; the site keeps the numbers.
+    numbers()
+      .filter((r) => !r.arm.startsWith('~~'))
+      .map((r) => `| ${r.arm} | **${r.number}** | ${r.against} |`)
+      .join('\n')
   )
 )
 

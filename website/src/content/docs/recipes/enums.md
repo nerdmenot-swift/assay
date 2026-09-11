@@ -6,15 +6,20 @@ description: Closed sets that need no macro, open ones that survive a new case, 
 ## A closed set
 
 ```swift
-enum Colour: String, JSONAssayable, CaseIterable, Equatable { case red, green, blue }
-enum Priority: Int, JSONAssayable, Equatable { case low = 1, high = 2 }
+enum Colour: String, JSONAssayable, RawDecodable, CaseIterable { case red, green, blue }
+enum Priority: Int, JSONAssayable, RawDecodable { case low = 1, high = 2 }
 
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct Label: Equatable { var colour: Colour; var priority: Priority }
 ```
 
-```json
-{"colour": "green", "priority": 2}
+YAML here, because a closed vocabulary is usually something a person types by hand.
+`RawDecodable` is the conformance that makes these work outside JSON; drop it and
+`parse(yaml:)` will not compile for a type with an enum field.
+
+```yaml
+colour: green
+priority: 2
 ```
 
 ```text
@@ -27,18 +32,15 @@ extension, for any `RawRepresentable` with a `String` or `Int` raw value. Add
 
 `CaseIterable` is optional and pays for itself:
 
-```json
-{"colour": "chartreuse", "priority": 9}
+```yaml
+colour: chartreuse
+priority: 9
 ```
 
 ```text
-e.json:1:12: error: colour "chartreuse" is not a recognised value; must be one of "red", "green", "blue"
-  1 │ {"colour": "chartreuse", "priority": 9}
-    │            ^^^^^^^^^^^^
+e.yaml: error: colour "chartreuse" is not a recognised value; must be one of "red", "green", "blue"
 
-e.json:1:38: error: priority "9" is not a recognised value
-  1 │ {"colour": "chartreuse", "priority": 9}
-    │                                      ^
+e.yaml: error: priority "9" is not a recognised value
 
 2 errors
 ```
@@ -49,20 +51,20 @@ cannot.
 ## A set that will grow
 
 ```swift
-@Schema enum Plan: Equatable {
+@Schema(formats: .all) enum Plan: Equatable {
     case free, pro
     @Unknown case other(String)
 }
 
-@Schema(keys: .snakeCase) struct Membership: Equatable { var plan: Plan }
+@Schema(keys: .snakeCase, formats: .all) struct Membership: Equatable { var plan: Plan }
 ```
 
-```json
-{"tier": "enterprise"}
+```yaml
+plan: enterprise
 ```
 
 ```text
-Membership(tier: Plan.other("enterprise"))
+Membership(plan: Plan.other("enterprise"))
 ```
 
 The raw value is kept, so you can branch on the cases you know, treat the rest as a
@@ -76,7 +78,7 @@ not a default.
 ## Sometimes one, sometimes many
 
 ```swift
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct Post: Equatable { @OneOrMany var tags: [String] }
 ```
 
@@ -99,18 +101,19 @@ that layer.
 @Wraps(String.self, .email) struct EmailAddress {}
 @Wraps(Int64.self, .range(1...100)) struct Percent {}
 
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct Contact: Equatable { var contact: EmailAddress; var complete: Percent }
 ```
 
-```json
-{"contact": "not-an-email", "complete": 150}
+```yaml
+contact: not-an-email
+complete: 150
 ```
 
 ```text
-w.json: error: contact must be a valid email address
+w.yaml: error: contact must be a valid email address
 
-w.json: error: complete must be between 1 and 100
+w.yaml: error: complete must be between 1 and 100
 
 2 errors
 ```

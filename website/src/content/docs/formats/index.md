@@ -109,9 +109,8 @@ and the column number moved.
 | TOML 1.0.0 | `AssayTOML` | [TOML](/formats/toml/) | 710/710 on the official `toml-test` suite |
 | Property lists | `AssayPlist` | [Property lists](/formats/plist/) | Binary and XML behind one entry point |
 
-Plus two things that are not file formats but decode the same way:
+Plus one thing that is not a file format but decodes the same way:
 
-- [**Rows and columns**](/formats/rows-and-columns/) — SQL result sets, CSV, Parquet, Arrow.
 - [**HTTP bodies**](/formats/http/) — pick the parser from a `Content-Type`, safely.
 
 ## Opt in per type

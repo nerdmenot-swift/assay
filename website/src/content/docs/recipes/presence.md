@@ -3,10 +3,14 @@ title: Presence
 description: Five states, one declaration each. Required, optional, defaulted, salvaged, ignored — and the difference between null and absent.
 ---
 
+These examples are YAML, because a config file is where "what does absent mean" is a
+question people actually have. The declaration is the same whatever the format is — swap
+`parse(yaml:)` for `parse(json:)` and nothing else changes.
+
 ## The five states
 
 ```swift
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: .all)
 struct Presence: Equatable {
     var required: String                      // absent → an error
     var optional: String?                     // absent → nil
@@ -18,8 +22,11 @@ struct Presence: Equatable {
 
 Everything present:
 
-```json
-{"required": "here", "optional": "also here", "defaulted": 9, "salvaged": 5}
+```yaml
+required: here
+optional: also here
+defaulted: 9
+salvaged: 5
 ```
 
 ```text
@@ -28,8 +35,8 @@ Presence(required: "here", optional: Optional("also here"), defaulted: 9, salvag
 
 Everything optional absent:
 
-```json
-{"required": "here"}
+```yaml
+required: here
 ```
 
 ```text
@@ -45,16 +52,13 @@ always says so, because silently substituting a value is how data problems hide.
 
 The difference is what happens when the key is **present and wrong**.
 
-```json
-{"salvaged": "not a number"}
+```yaml
+required: here
+salvaged: not a number
 ```
 
 ```text
-p.json: error: required is required
-
-p.json: warning: salvaged fell back to the declared value
-
-1 error, 1 warning
+Presence(required: "here", optional: nil, defaulted: 3, salvaged: 0, notAField: nil)
 
 warnings: fallback_applied
 ```
@@ -67,18 +71,15 @@ you charge, no.
 
 ## Null is not absent
 
-```json
-{"a": null, "c": null}
+```yaml
+a: null
+c: null
 ```
 
 ```text
-n.json:1:22: error: c must be an array, found null
-  1 │ {"a": null, "c": null}
-    │                      ^
+n.yaml: error: c must be an array, found null
 
 1 error
-
-nil
 ```
 
 `null` for an optional is `nil` — the document said so explicitly and that is the same

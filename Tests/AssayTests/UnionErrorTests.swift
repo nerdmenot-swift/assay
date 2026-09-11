@@ -186,18 +186,13 @@ extension UnionDiagnostics {
     /// `formats.json` let it through and emitted a JSON-only body — a union that decoded from
     /// JSON and not from YAML while declaring `.all`, which is the exact trap the refusal
     /// above exists to prevent. Found while building encoding; fixed 2026-09-10.
-    /// Three options a union does not implement, refused rather than accepted and ignored.
-    /// `context:` is the one that needs a refusal most: the other two eventually produce a
+    /// Two options a union does not implement, refused rather than accepted and ignored.
+    /// `context:` is the one that needs a refusal most: the other eventually produces a
     /// type-checker error at the call site of a member that was never emitted, while a
     /// contextual union would simply stay non-contextual — `parse(json:)` resolves, nothing
     /// errors, and the context never reaches a check.
-    @Test("sources:, describes: and context: are refused on a union")
+    @Test("describes: and context: are refused on a union")
     func ignoredOptionsRefused() {
-        let (_, sources) = expandSchemaForTesting("""
-            @Schema(sources: true, discriminator: "type") enum U { case a(A) }
-            """)
-        #expect(sources.contains { $0.contains("column-first source") }, "got \(sources)")
-
         let (_, describes) = expandSchemaForTesting("""
             @Schema(describes: true, discriminator: "type") enum U { case a(A) }
             """)

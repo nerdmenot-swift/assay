@@ -49,37 +49,6 @@ public protocol RawEncodableSchema: Assayable {
 }
 
 
-/// A type that hands its fields to a `RowSink` in manifest order — emitted by
-/// `@Schema(encodes: true, sources: true)`. The write side of the row path: no tree, one
-/// call per field, column names from `_assayManifest.keys`. `docs/ROWS.md` §D.
-public protocol RowEncodableSchema: Assayable {
-    nonisolated func _assayEncodeRow<S: RowSink & ~Copyable>(into sink: inout S)
-}
-
-extension RowEncodableSchema {
-    /// Write this value's fields to `sink`, one call per field in manifest order.
-    @inlinable
-    public func encodeRow<S: RowSink & ~Copyable>(into sink: inout S) {
-        _assayEncodeRow(into: &sink)
-    }
-}
-
-/// A type that can decode a batch from a column-first source — Parquet, Arrow, a column
-/// store — emitted by `@Schema(sources: true)`. See `docs/KEYED-SOURCE.md`.
-public protocol SourceDecodable: Assayable {
-    /// Every field this type declares, in order, resolved at compile time. A source binds
-    /// against this ONCE per stream rather than resolving keys per record.
-    nonisolated static var _assayManifest: FieldManifest { get }
-
-    /// Decode a whole batch from a COLUMN-first source, one sequential pass per column.
-    nonisolated static func _assayBatch<C: ColumnarSource & ~Copyable>(
-        from source: borrowing C,
-        into sink: inout IssueSink,
-        at path: [PathComponent]
-    ) -> [Self]
-}
-
-
 /// A type that can write itself as XML — emitted by `@Schema(encodes: true)` when
 /// `formats:` includes `.xml`.
 ///

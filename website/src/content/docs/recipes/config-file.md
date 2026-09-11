@@ -80,7 +80,11 @@ app.toml:4:12: error: upstream must be a valid URL
   4 │ upstream = "inventory"
     │            ^^^^^^^^^^^
 
-app.toml: warning: unknown key "prot"; did you mean "port"?
+app.toml:2:8: warning: unknown key "prot"; did you mean "port"?
+  1 │ service_name = ""
+  2 │ prot = 9000
+    │        ^^^^
+  3 │ workers = 900
 
 3 errors, 1 warning
 ```

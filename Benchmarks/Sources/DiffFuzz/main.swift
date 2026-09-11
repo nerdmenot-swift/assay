@@ -384,9 +384,8 @@ let oracles: [Oracle] = [
         print("YAML encode differential: \(runYAMLEncodeDifferential(corpus: corpus)) documents Assay wrote that libyaml reads back")
         print("XML encode differential: \(runXMLEncodeDifferential(corpus: corpus)) documents Assay wrote that Foundation accepts")
     },
-    Oracle(name: "dates", summary: "date parsers and Date/UUID columns vs Foundation") {
+    Oracle(name: "dates", summary: "date parsers vs Foundation") {
         print("date differential: \(runDateDifferential()) instants agree with Foundation exactly")
-        print("Date/UUID differential: \(runFoundationColumnDifferential()) checks against Foundation, on the tree and columnar paths")
     },
     Oracle(name: "reject", summary: "RFC 8259 accept/reject verdicts") {
         print("reject differential: \(runRejectDifferential()) documents, RFC 8259 accept/reject verdicts")

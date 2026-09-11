@@ -3,21 +3,15 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `UUID` as a field type. docs/COLUMN-DECODABLE.md.
+// `UUID` as a field type.
 //
-// THIS FILE IS BIGGER THAN THE `Date` ONE BECAUSE `UUID` STARTED FURTHER BACK. `Date` is
-// already a field type -- the macro special-cases it and `DateParser.swift` implements it -- so
-// its columnar conformance was the only missing half. `UUID` was not a field type at all:
-// `var id: UUID` in any `@Schema` failed with "type 'UUID' has no member '_assay'", so a
-// `ColumnDecodable` conformance alone would have been unreachable, which is exactly the
-// trap that stopped `[UInt8]` from shipping.
+// `var id: UUID` in any `@Schema` used to fail with "type 'UUID' has no member '_assay'".
+// This file is `_assay(from:)` for the JSON reader and for `RawValue`, which is what makes
+// it compile and work from JSON, YAML, XML, TOML and property lists.
 //
-// So there are two halves here, and they are independent:
-//
-//   * the TREE path -- `_assay(from:)` for the JSON reader and for `RawValue`, which is
-//     what makes `var id: UUID` compile and work from JSON, YAML and XML;
-//   * the COLUMNAR path -- `ColumnDecodable`, which is what makes it work from a column
-//     store.
+// (It was written alongside a columnar conformance, removed 2026-09-11 with the rest of
+// that path. The raw-bytes helper below survives it: a 16-byte form is what a binary wire
+// protocol hands over, not only a column store.)
 //
 // ACCEPTANCE IS THE `.uuid` RULE'S, EXACTLY. `FormatValidators.isUUID` already settles what
 // Assay considers a UUID: "exactly 8-4-4-4-12 hex with hyphens. No braces, no urn:uuid:, no
@@ -72,7 +66,7 @@ func _assayUUIDFromCanonical(_ b: ArraySlice<UInt8>) -> UUID? {
     return UUID(uuid: _assayUUIDBytes(hi, lo))
 }
 
-/// Sixteen raw bytes, as a binary column holds them.
+/// Sixteen raw bytes, as a binary wire format holds them.
 @usableFromInline
 func _assayUUIDFromRaw(_ b: ArraySlice<UInt8>) -> UUID? {
     guard b.count == 16 else { return nil }
@@ -154,36 +148,5 @@ extension UUID {
             return nil
         }
         return u
-    }
-}
-
-// MARK: - The columnar path
-
-// `BytesColumn` rather than `ColumnBuffer<String>`, and the reason is the text case, not
-// the binary one.
-//
-// Binary is the majority: Arrow stores a UUID as FixedSizeBinary(16), Parquet the same,
-// Postgres' wire form is 16 bytes, DuckDB likewise. That alone would settle it.
-//
-// But a `String` carrier would be worse for the sources that DO hold text. A CSV or NDJSON
-// reader already has the bytes in its file buffer, contiguously, with offsets -- which is
-// precisely `BytesColumn`. Asking it for a `[String]` column forces one 36-byte `String`
-// allocation per row (past the 15-byte small-string limit, so it really is a malloc) purely
-// to be parsed and thrown away. Asking for bytes lets it hand over what it already has.
-//
-// Length disambiguates with no ambiguity to resolve: the canonical text form is 36 bytes
-// and the raw form is 16, so a column can be either and a row is never both.
-extension UUID: ColumnDecodable {
-
-    public typealias Column = BytesColumn
-
-    public init?(assayColumn c: borrowing BytesColumn, row: Int, metadata: ColumnMetadata) {
-        guard let r = c.range(at: row) else { return nil }
-        let slice = c.bytes[r]
-        switch r.count {
-        case 16: guard let u = _assayUUIDFromRaw(slice) else { return nil }; self = u
-        case 36: guard let u = _assayUUIDFromCanonical(slice) else { return nil }; self = u
-        default: return nil
-        }
     }
 }

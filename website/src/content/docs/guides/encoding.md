@@ -140,19 +140,6 @@ because a bare `123` is an integer to every YAML reader alive. So the rule is in
 a pretty-printer's: plain style only when the text provably cannot be read as anything else.
 57 hazard cases and a differential against libyaml hold it there.
 
-## Rows, without a tree
-
-For a CSV writer or a parameter binder, building a value tree per row is waste. With both
-`encodes: true` and `sources: true`:
-
-```swift
-value.encodeRow(into: &sink)      // one typed call per field, in manifest order
-T._assayManifest.keys             // the column names
-```
-
-About 1.3 ns per row for the handoff, against 59 for the tree.
-[Rows and columns](/formats/rows-and-columns/#the-write-side) has the sink protocol.
-
 ## Describing the shape
 
 ```swift
@@ -171,4 +158,3 @@ an approximate `pattern` that would reject documents the type would take.
 ## Next
 
 - [Unions](/guides/unions/) — including the encoding exception above.
-- [Rows and columns](/formats/rows-and-columns/) — the write side without a tree.

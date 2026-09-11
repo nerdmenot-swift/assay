@@ -101,5 +101,4 @@ the type system rather than advice.
 
 ## Next
 
-- [Rows and columns](/recipes/rows/) — shapes that are not documents at all.
 - [Advanced](/guides/advanced/) — the reasoning behind all three.

@@ -1,4 +1,4 @@
-// Recipes: seven complete programs, each one a task rather than a feature.
+// Recipes: five complete programs, each one a task rather than a feature.
 //
 // This file is compiled and run by scripts/extract.ts alongside samples.swift.txt, and
 // every output on the /recipes/ pages is what it actually printed. A recipe that cannot
@@ -159,76 +159,7 @@ func fieldErrors(_ d: Diagnosis<Registration>) -> [(String, String)] {
 }
 
 // ===========================================================================
-// 5. A CSV file into structs
-// ===========================================================================
-
-@Schema(keys: .snakeCase, coerceScalars: true, formats: [], sources: true)
-struct Sale: Equatable {
-    var orderId: Int64
-    @Validate(.min(1)) var sku: String
-    @Validate(.range(1...999)) var quantity: Int
-    var unitPrice: Double
-    var note: String?
-}
-
-/// The splitter is yours — Assay does not parse CSV, it decodes what you split.
-/// Deliberately naive: no quoting, because that is the reader's job and not the point.
-func decodeCSV(_ text: String) -> BatchDiagnosis<Sale> {
-    var lines = text.split(separator: "\n", omittingEmptySubsequences: true)
-    let header = lines.removeFirst().split(separator: ",").map(String.init)
-    // `inferColumnKinds` because every cell arrives as text: without it each column's
-    // storage comes from the schema, and `"1001"` offered to an Int64 column is rejected.
-    var dec = RowDecoder<Sale>(columns: header, inferColumnKinds: true)
-    for line in lines {
-        dec.beginRow()
-        for (i, cell) in line.split(separator: ",", omittingEmptySubsequences: false).enumerated() {
-            if cell.isEmpty { dec.appendNull(column: i) } else { dec.append(text: cell.utf8, column: i) }
-        }
-    }
-    return dec.finish()
-}
-
-// ===========================================================================
-// 6. A SQL result set into structs
-// ===========================================================================
-
-/// Stand-in for whatever your driver calls a cell. Every driver has this enum.
-enum Cell { case null, int(Int64), double(Double), text(String), bool(Bool) }
-
-@Schema(keys: .snakeCase, formats: [], sources: true)
-struct Account: Equatable {
-    var id: Int64
-    @Validate(.email) var email: String
-    var displayName: String
-    var lockedAt: String?
-}
-
-/// The adapter a driver writes ONCE, generic over every schema anyone will declare.
-func decodeRows<T: SourceDecodable>(
-    _ rows: [[Cell]], columns: [String], as _: T.Type, batchSize: Int = 2
-) -> [BatchDiagnosis<T>] {
-    var dec = RowDecoder<T>(columns: columns, batchSize: batchSize)
-    var batches: [BatchDiagnosis<T>] = []
-    for row in rows {
-        dec.beginRow()
-        for (i, cell) in row.enumerated() {
-            switch cell {
-            case .int(let v):    dec.append(int64: v, column: i)
-            case .double(let v): dec.append(double: v, column: i)
-            case .text(let s):   dec.append(string: s, column: i)
-            case .bool(let v):   dec.append(bool: v, column: i)
-            case .null:          dec.appendNull(column: i)
-            }
-        }
-        if dec.isFull { batches.append(dec.flush()) }
-    }
-    let last = dec.finish()
-    if !last.values.isEmpty || !last.issues.isEmpty { batches.append(last) }
-    return batches
-}
-
-// ===========================================================================
-// 7. A file from someone you do not trust
+// 5. A file from someone you do not trust
 // ===========================================================================
 
 @Schema(keys: .snakeCase, formats: .all)
@@ -313,52 +244,7 @@ func runRecipes() {
          fieldErrors(formD).map { "\($0.0): \($0.1)" }.joined(separator: "\n"))
     emit("recipe.form.json", form, formD.render(.json))
 
-    // --- 5. the CSV -----------------------------------------------------
-    let csv = """
-    order_id,sku,quantity,unit_price,note
-    1001,WIDGET-1,2,9.99,gift wrap
-    1002,WIDGET-2,1,24.50,
-    1003,WIDGET-3,0,5.00,
-    1004,WIDGET-4,many,5.00,
-    """
-    let sales = decodeCSV(csv)
-    emit("recipe.csv", csv,
-         "decoded \(sales.values.count) of 4 rows\n\n"
-         + sales.values.map { "  \($0)" }.joined(separator: "\n")
-         + "\n\nissues:\n"
-         + sales.issues.map { "  [\($0.path.pathDescription)] \($0.message)" }
-                .joined(separator: "\n"))
-
-    // --- 6. the result set ----------------------------------------------
-    let cols = ["id", "email", "display_name", "locked_at"]
-    let rows: [[Cell]] = [
-        [.int(1), .text("jo@example.com"), .text("Jo"), .null],
-        [.int(2), .text("sam@example.com"), .text("Sam"), .text("2026-01-02T03:04:05Z")],
-        [.int(3), .text("not-an-email"), .text("Kim"), .null],
-        [.int(4), .text("lee@example.com"), .text("Lee"), .null],
-        [.int(5), .text("also-not-an-email"), .text("Max"), .null],
-    ]
-    let batches = decodeRows(rows, columns: cols, as: Account.self)
-    var sqlOut = "\(batches.count) batches of 2\n"
-    for (i, b) in batches.enumerated() {
-        sqlOut += "\nbatch \(i): \(b.values.count) rows"
-        for issue in b.issues {
-            sqlOut += "\n  [\(issue.path.pathDescription)] \(issue.message)"
-        }
-    }
-    emit("recipe.sql", cols.joined(separator: ", ") + "\n"
-         + rows.map { r in r.map { c in
-             switch c {
-             case .null: return "NULL"
-             case .int(let v): return String(v)
-             case .double(let v): return String(v)
-             case .text(let s): return s
-             case .bool(let v): return String(v)
-             }
-         }.joined(separator: ", ") }.joined(separator: "\n"),
-         sqlOut)
-
-    // --- 7. the untrusted file ------------------------------------------
+    // --- 5. the untrusted file ------------------------------------------
     let laughs = """
     <!DOCTYPE lolz [<!ENTITY lol "lol"><!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;">]>
     <upload><title>&lol2;</title></upload>

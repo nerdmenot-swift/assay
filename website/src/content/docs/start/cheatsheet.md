@@ -12,7 +12,6 @@ description: The whole surface on one page. Skim it, bookmark it, stop reading p
 @Schema(unknownKeys: .ignore)                    // .warn, .reject, .collect
 @Schema(coerceScalars: true)                     // "8080" decodes into an Int
 @Schema(encodes: true)                           // adds the writer
-@Schema(sources: true)                           // adds the column/row batch decoder
 @Schema(describes: true)                         // adds jsonSchema(for:)
 @Schema(context: AppContext.self)                // decode needs a context value
 @Schema(discriminator: "type")                   // a tagged union enum
@@ -141,24 +140,6 @@ try value.encodedTOML()          // AssayTOML
 value.diagnoseEncodeJSON()       // → EncodeDiagnosis, never throws
 ```
 
-## Rows and columns
-
-```swift
-@Schema(sources: true) struct T { … }
-
-// A column store — Parquet, Arrow: conform it to ColumnarSource.
-let batch = T.batch(from: store)      // values, issues, warnings, truncatedIssues
-
-// A row source — SQL, CSV: feed cells to a RowDecoder.
-var dec = RowDecoder<T>(columns: names)
-dec.beginRow(); dec.append(int64: v, column: 0); …
-let batch = dec.finish()
-
-// The write side, with encodes: true as well.
-value.encodeRow(into: &sink)          // one call per field, no tree
-T._assayManifest.keys                 // the column names, in order
-```
-
 ## Value models, for when you do not know the shape
 
 ```swift
@@ -200,7 +181,6 @@ JSON only, and encoding needs `encodes: true`. [Unions](/guides/unions/) says wh
 | XML, placement, XXE | [XML](/formats/xml/) |
 | TOML, tables, date-times | [TOML](/formats/toml/) |
 | Property lists, both flavours | [Property lists](/formats/plist/) |
-| SQL rows, CSV, Parquet | [Rows and columns](/formats/rows-and-columns/) |
 | `Content-Type` negotiation | [HTTP bodies](/formats/http/) |
 
 For a whole job rather than a spelling, see [Recipes](/recipes/).

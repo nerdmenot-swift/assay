@@ -33,9 +33,6 @@ const READS = [
   ['XML', '/formats/xml/'],
   ['TOML', '/formats/toml/'],
   ['plists', '/formats/plist/'],
-  ['SQL rows', '/formats/rows-and-columns/'],
-  ['CSV', '/formats/rows-and-columns/'],
-  ['Parquet', '/formats/rows-and-columns/'],
   ['HTTP bodies', '/formats/http/'],
 ] as const
 
@@ -133,7 +130,7 @@ function caret(text: string): string {
     <title>Assay — a decoder for Swift that tells you what went wrong</title>
     <meta
       name="description"
-      content="One struct decodes from JSON, YAML, XML, TOML, property lists, HTTP bodies, SQL rows, CSV and Parquet — with the same rules and the same errors. Every failure points at the byte that caused it, and you get all of them at once, about 9× faster than Codable."
+      content="One struct decodes from JSON, YAML, XML, TOML, property lists and HTTP bodies — with the same rules and the same errors. Every failure points at the byte that caused it, and you get all of them at once, about 9× faster than Codable."
     />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -178,9 +175,9 @@ function caret(text: string): string {
             the column, and a caret under the byte.
           </p>
           <p class="voice">
-            Then it does the same for <em>eight more</em> kinds of input. One struct, one set
-            of rules, one kind of error, whether it arrived as YAML, as XML, or as a
-            thousand rows from Postgres.
+            Then it does the same for <em>five more</em> formats. One struct, one set of
+            rules, one kind of error, whether it arrived as JSON, as YAML, as XML, as TOML,
+            as a property list, or as an HTTP body whose type you only learn at runtime.
           </p>
           <div class="cta">
             <a class="btn" href="/start/first-schema/">Start here</a>
@@ -350,36 +347,6 @@ function caret(text: string): string {
             </figure>
           </div>
         ))}
-      </section>
-
-      <!-- Rows and columns: the thing nobody expects a decoder to do, so it gets a
-           section rather than a bullet. -->
-      <section class="reg">
-        <p class="doc-label">Not only files</p>
-        <h2>Database rows and column stores, too</h2>
-        <div class="knobs">
-          <p>
-            A SQL result set, a CSV, a Parquet file: hand the cells to a
-            <code>RowDecoder</code> and the same struct comes out, with the same rules and
-            the same issues — carrying the row number rather than a byte offset.
-          </p>
-          <p>
-            It is the same seam a column store gets. Parquet and Arrow already hand over one
-            array per field, and that path decodes at about 11 ns per row.
-          </p>
-        </div>
-        <figure class="render">
-          <pre class="src"><code>{`var dec = RowDecoder<User>(columns: resultSet.columnNames)
-for row in resultSet {
-    dec.beginRow()
-    for (i, cell) in row.enumerated() { cell.append(to: &dec, column: i) }
-    if dec.isFull { consume(dec.flush()) }
-}
-let batch = dec.finish()     // values, issues with row indices, warnings`}</code></pre>
-        </figure>
-        <p class="fineprint">
-          <a href="/formats/rows-and-columns/">How to wire a driver up &rarr;</a>
-        </p>
       </section>
 
       <!-- Ends. Three doors, by what the reader came for. -->

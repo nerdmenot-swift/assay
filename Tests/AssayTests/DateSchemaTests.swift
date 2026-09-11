@@ -24,24 +24,6 @@ struct Date: Sendable, Equatable {
     init(timeIntervalSince1970: Double) { self.timeIntervalSince1970 = timeIntervalSince1970 }
 }
 
-/// The columnar carrier the real `Date` has in `AssayFoundation/DateColumn.swift`, so a
-/// `sources: true` type with a `Date` field expands here too. Same unit rule.
-extension Date: ColumnDecodable {
-    typealias Column = ColumnBuffer<Int64>
-    init?(assayColumn c: borrowing ColumnBuffer<Int64>, row: Int, metadata m: ColumnMetadata) {
-        let divisor: Int64
-        switch m.unit {
-        case 0: divisor = 1
-        case -3: divisor = 1_000
-        case -6: divisor = 1_000_000
-        case -9: divisor = 1_000_000_000
-        default: return nil
-        }
-        let (seconds, fraction) = c[row].quotientAndRemainder(dividingBy: divisor)
-        self.init(timeIntervalSince1970: Double(seconds) + Double(fraction) / Double(divisor))
-    }
-}
-
 @Schema(keys: .snakeCase)
 struct Event {
     var name: String

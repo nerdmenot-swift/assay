@@ -53,7 +53,7 @@ A YAML/XML decode body costs about 34 ms per type at build time — roughly 41% 
 expansion. "JSON users never pay for XML" is a linking claim everywhere else; making it
 opt-in is what makes it a *compile-time* claim too.
 
-The same reasoning covers `encodes:`, `sources:` and `describes:`.
+The same reasoning covers `encodes:` and `describes:`.
 
 ## Why the parsers are hand-written
 
@@ -83,21 +83,31 @@ The tagged form scans for the tag, rewinds, and decodes the branch over the whol
 a byte reader's operation. The `RawValue` path is a tree that has already been built, and
 the mechanism does not transfer. Refusing at expansion beats silently omitting the body.
 
-## Why there is no row-at-a-time protocol
+## Why Assay does not decode rows or column stores
 
-One was built, measured and removed. Three findings, all in `docs/KEYED-SOURCE.md`:
+Two paths for this were built and both were removed.
 
-- Its justifying premise — "the `RawValue` path costs an allocation per value per record" —
-  was never measured and was false. `RawValue.mapping` is *one* allocation per record.
-- It lost to the path it was meant to replace: 311 ns/record against 95.
-- It could not accept the borrowed rows it existed for, and its cost landed worst exactly
-  where a driver lives — generic over the schema, where `@inlinable` is forbidden on
-  generated bodies, so the witness call stands.
+A row-at-a-time protocol went first, on its own numbers. Its justifying premise — that the
+`RawValue` path costs an allocation per value per record — was never measured and was false;
+it is one allocation per record. It then lost to the path it was meant to replace, 311
+nanoseconds against 95, could not accept the borrowed rows it existed for, and its cost
+landed worst exactly where a driver lives, generic over the schema where `@inlinable` is
+forbidden on generated bodies so the witness call stands.
 
-The lesson was about direction rather than about rows: per-row calls must go *into* concrete
-code, and the generic call must happen once per batch.
-[`RowBatch`](/formats/rows-and-columns/) is that, built later and measured against a
-hand-written transpose.
+A column-store path replaced it and **won** every one of those arguments: whole arrays
+rather than rows means no per-row borrow, no per-row dispatch, no per-row presence
+ambiguity. It measured 11 nanoseconds per row.
+
+It was removed anyway, and the reason is not technical. Nothing depended on it, the audience
+for Parquet and Arrow decoding in Swift is small, and a decoder that also owns column stores
+is two libraries wearing one name. It cost about 1,900 lines and doubled the expansion cost
+of any type that used it.
+
+What serves that need is [`validate(_:)`](/guides/rules/#validating-something-you-already-have).
+A specialised reader decodes at its own speed in its own module, and Assay runs the rules
+afterwards. Neither side pays for the other, and neither has to know the other's memory
+model. It was always the better seam; it is now the only one, which makes the answer
+unambiguous.
 
 ## Why streaming is out of scope
 

@@ -39,34 +39,23 @@ that distinguish it:
   Yams/libyaml, and Foundation's XMLParser; deterministic fuzzing; live-allocation
   gate; compile-time budget gate (~87 ms per type against a 100 ms ceiling).
 
+- **Rows and column stores are not part of Assay** (2026-09-11). `ColumnarSource`,
+  `ColumnDecodable`, `RowBatch`, `RowDecoder<T>`, `RowSink` and `@Schema(sources: true)`
+  were built, measured and removed before release. Not for being slow — the columnar path
+  was the fastest thing here at 11 ns/row — but because nothing depended on it, the audience
+  is small, and a decoder that also owns column stores is two libraries wearing one name.
+  It cost ~1,900 lines and doubled the expansion cost of any type that used it.
+  `T.validate(_:)` is the answer for a fast external reader: it decodes at its own speed in
+  its own module, and Assay runs the rules afterwards. `ROADMAP.md` has the full record; if
+  it returns it will be a separate package.
 - **The value model is 2.1× faster** (2026-09-11): `JSON.Value.parse` allocated a path
   array per value in the document, for a diagnostic path nothing reads unless the document
   is malformed. The corpus-wide sweep goes 1.51× → **3.11×** over `JSONSerialization`, and
   the DOM-vs-DOM gap against yyjson closes from 16× to 7×.
 - **A type mismatch on the YAML/XML/TOML/plist path now carries a caret** even when the
   field has no rules; previously only JSON did.
-- **Rows** (2026-09-11, `docs/ROWS.md`): the generic row-shaped path. `RowBatch` transposes
-  rows from any source — a SQL result set, a CSV — into typed columns and decodes them
-  through the columnar batch (~40 ns/row on the 8-column row against ~70 for a `RawValue`
-  per row; a hand-written transpose is 28); `RowDecoder<T>` streams it in batches with global
-  row indices. Text cells decode into numeric, boolean and `Date` fields under the schema's
-  own coercion policy, by the tree path's rules. `RowSink` + `encodeRow(into:)` hand a value's
-  fields to a sink in manifest order with no tree (1.3 ns/row against 59). `@Check` now runs
-  on the columnar path, `@Transform` is applied there (it was not), and `@AsyncCheck` with
-  `sources: true` is refused at expansion rather than silently skipped.
 - **`@Key(_:or:)` now actually warns which alias matched** (2026-09-10) — `alias_matched`,
-  on the JSON, YAML/XML/TOML and columnar paths. Three documents had promised it and no
-  code did. The columnar path also honours aliases now: an alias column is tried when
-  the primary is absent, and the warning is filed once for the batch.
-- **Columnar batch decode at 10 ns/row** (2026-09-10): the generated `_assayBatch` loop
-  allocated a diagnostic path per row that a clean batch never read — 52.6 ns/row against
-  a 9.6 ns floor. The row index now reaches issues through `IssueSink._enterRow`, two
-  integers; batch decode is 8.4× the row-wise path (was 1.27×) and a `ColumnDecodable`
-  scalar costs 4 ns/row (was 42). A narrowing overflow on that path is now reported as
-  `number_overflow`, not `missing`; a missing required column stops the batch after its
-  one issue instead of also filing `missing` per row to the cap; and `batch(from:)`
-  returns `BatchDiagnosis<T>` (values, issues, warnings, `truncatedIssues`, `isValid`)
-  rather than a tuple that could not say the issue list was capped.
+  on the JSON and YAML/XML/TOML paths. Three documents had promised it and no code did.
 - **TOML** (`AssayTOML`, 2026-09-10): a hand-written TOML 1.0.0 parser passing all
   710 documents of the official toml-test suite in CI, differential against toml++,
   `parse(toml:)`/`diagnose(toml:)`, `SchemaFormats.toml`, `WireFormat.toml`, and
@@ -78,7 +67,7 @@ that distinguish it:
   JSON only (`docs/UNIONS.md`).
 - **`Assayer<T>`** runtime schemas, `@Wraps`, `@Inline`, `@Key(path:)`, `@OneOrMany`,
   `@XML` placement and `@XML(root:)`, `@Schema(context:)`, `parse(plist:)`,
-  `parse(body:contentType:accepting:)`, `jsonSchema(for:)`, columnar batch decode.
+  `parse(body:contentType:accepting:)` and `jsonSchema(for:)`.
 - **Collections report one issue per bad element** and continue; a dictionary value's
   issue names its key (`m.j`, `d.a[1]`). A backticked property name (`` `default` ``)
   decodes. A UTF-8 BOM is skipped. `@Check` misuse, undecodable field types (`Set`,

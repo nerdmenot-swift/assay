@@ -25,14 +25,13 @@
 // `Author` and cannot know what it is — so the metatype makes the TYPE CHECKER verify the
 // conformance, and a nested type that forgot `describes: true` is a compile error naming the
 // real problem instead of a schema that silently describes it as `{}`. Same device
-// `ColumnDecodable` already uses.
 //===----------------------------------------------------------------------===//
 
 import SwiftSyntax
 
 extension SchemaMacro {
 
-    /// `@Schema(describes: true)`. Opt-in, like `encodes:` and `sources:`, for the reason in
+    /// `@Schema(describes: true)`. Opt-in, like `encodes:`, for the reason in
     /// the file header: a type that never emits a schema document must not carry one.
     static func describes(from node: AttributeSyntax) -> Bool {
         guard let args = node.arguments?.as(LabeledExprListSyntax.self) else { return false }

@@ -1,8 +1,8 @@
 {
   "stats": {
     "version": "0.1.0",
-    "tests": 755,
-    "suites": 125,
+    "tests": 689,
+    "suites": 115,
     "codes": 120,
     "formats": [
       "JSON",
@@ -79,16 +79,6 @@
       "against": "TOMLKit TOMLDecoder"
     },
     {
-      "arm": "rows in through RowBatch, 8 columns",
-      "number": "37.4 ns/row (old route 75.1; hand transpose 29.8; floor 12.8)",
-      "against": "a RawValue per row"
-    },
-    {
-      "arm": "field values out, encodeRow",
-      "number": "1.3 ns/row (tree: 64.0)",
-      "against": "_assayEncodeRaw"
-    },
-    {
       "arm": "Date fields",
       "number": "6.07×",
       "against": "JSONDecoder + .iso8601"
@@ -114,13 +104,13 @@
       "against": "JSONDecoder"
     },
     {
-      "arm": "columnar batch fill",
-      "number": "6.6–7.1× the tree path, ~11 ns/row",
-      "against": "Assay's own tree path"
-    },
-    {
       "arm": "T.validate(_:)",
       "number": "76 ns per value, 1 block; 84 ns/row batched",
+      "against": "—"
+    },
+    {
+      "arm": "~~rows and columns~~",
+      "number": "removed 2026-09-11 — nothing depended on it",
       "against": "—"
     },
     {
@@ -219,7 +209,7 @@
     },
     "yaml.nested": {
       "source": "name: eu-prod\nservers:\n  - host: a.internal\n    port: 8080\n  - host: b.internal\n    port: 8081\n    tls: false\nlabels:\n  tier: prod\n  team: platform",
-      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"tier\": \"prod\", \"team\": \"platform\"])"
+      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"team\": \"platform\", \"tier\": \"prod\"])"
     },
     "yaml.flow": {
       "source": "name: eu-prod\nservers: [{host: a.internal, port: 8080}, {host: b.internal, port: 8081}]\nlabels: {tier: prod}",
@@ -338,7 +328,7 @@
       "render": "Deployment(name: \"api\", image: \"img:1\", replicas: 3, region: \"eu-west-1\", healthCheck: nil)"
     },
     "plist.binary": {
-      "source": "// 'bplist00' + 86 bytes, written by PropertyListSerialization\n62 70 6c 69 73 74 30 30 d3 01 02 03 04 05 06 58 …",
+      "source": "// 'bplist00' + 86 bytes, written by PropertyListSerialization\n62 70 6c 69 73 74 30 30 d3 01 02 03 04 05 06 55 …",
       "render": "Deployment(name: \"api\", image: \"img:1\", replicas: 3, region: \"eu-west-1\", healthCheck: nil)"
     },
     "plist.badType": {
@@ -395,7 +385,7 @@
     },
     "recipe.config.bad": {
       "source": "service_name = \"\"\nprot = 9000\nworkers = 900\nupstream = \"inventory\"",
-      "render": "app.toml:1:16: error: service_name must be at least 1 character\n  1 │ service_name = \"\"\n    │                ^^\n  2 │ prot = 9000\n\napp.toml:3:11: error: workers must be between 1 and 64\n  1 │ service_name = \"\"\n  2 │ prot = 9000\n  3 │ workers = 900\n    │           ^^^\n  4 │ upstream = \"inventory\"\n\napp.toml:4:12: error: upstream must be a valid URL\n  2 │ prot = 9000\n  3 │ workers = 900\n  4 │ upstream = \"inventory\"\n    │            ^^^^^^^^^^^\n\napp.toml: warning: unknown key \"prot\"; did you mean \"port\"?\n\n3 errors, 1 warning\n"
+      "render": "app.toml:1:16: error: service_name must be at least 1 character\n  1 │ service_name = \"\"\n    │                ^^\n  2 │ prot = 9000\n\napp.toml:3:11: error: workers must be between 1 and 64\n  1 │ service_name = \"\"\n  2 │ prot = 9000\n  3 │ workers = 900\n    │           ^^^\n  4 │ upstream = \"inventory\"\n\napp.toml:4:12: error: upstream must be a valid URL\n  2 │ prot = 9000\n  3 │ workers = 900\n  4 │ upstream = \"inventory\"\n    │            ^^^^^^^^^^^\n\napp.toml:2:8: warning: unknown key \"prot\"; did you mean \"port\"?\n  1 │ service_name = \"\"\n  2 │ prot = 9000\n    │        ^^^^\n  3 │ workers = 900\n\n3 errors, 1 warning\n"
     },
     "recipe.drift.old": {
       "source": "{\"id\": 1, \"email_address\": \"jo@example.com\", \"tier\": \"pro\", \"seat_count\": 4}",
@@ -412,14 +402,6 @@
     "recipe.form.json": {
       "source": "{\"username\": \"jo\", \"email\": \"jo@localhost\", \"age\": 11, \"password\": \"short\"}",
       "render": "{\"source\":\"register.json\",\"valid\":false,\"issues\":[{\"path\":\"username\",\"code\":\"too_small\",\"message\":\"must be at least 3 characters\",\"params\":{\"minimum\":3,\"unit\":\"characters\"},\"received\":\"jo\",\"offset\":13,\"length\":4,\"line\":1,\"column\":14},{\"path\":\"email\",\"code\":\"invalid_email\",\"message\":\"must be a valid email address\",\"received\":\"jo@localhost\",\"offset\":28,\"length\":14,\"line\":1,\"column\":29},{\"path\":\"age\",\"code\":\"not_in_range\",\"message\":\"must be between 13 and 120\",\"params\":{\"maximum\":120,\"minimum\":13},\"received\":\"11\",\"offset\":51,\"length\":2,\"line\":1,\"column\":52},{\"path\":\"password\",\"code\":\"too_small\",\"message\":\"must be at least 8 characters\",\"params\":{\"minimum\":8,\"unit\":\"characters\"},\"received\":\"short\",\"offset\":67,\"length\":7,\"line\":1,\"column\":68}],\"warnings\":[]}"
-    },
-    "recipe.csv": {
-      "source": "order_id,sku,quantity,unit_price,note\n1001,WIDGET-1,2,9.99,gift wrap\n1002,WIDGET-2,1,24.50,\n1003,WIDGET-3,0,5.00,\n1004,WIDGET-4,many,5.00,",
-      "render": "decoded 2 of 4 rows\n\n  Sale(orderId: 1001, sku: \"WIDGET-1\", quantity: 2, unitPrice: 9.99, note: Optional(\"gift wrap\"))\n  Sale(orderId: 1002, sku: \"WIDGET-2\", quantity: 1, unitPrice: 24.5, note: nil)\n\nissues:\n  [[2].quantity] must be between 1 and 999\n  [[3].quantity] must be an integer, found \"many\""
-    },
-    "recipe.sql": {
-      "source": "id, email, display_name, locked_at\n1, jo@example.com, Jo, NULL\n2, sam@example.com, Sam, 2026-01-02T03:04:05Z\n3, not-an-email, Kim, NULL\n4, lee@example.com, Lee, NULL\n5, also-not-an-email, Max, NULL",
-      "render": "3 batches of 2\n\nbatch 0: 2 rows\nbatch 1: 1 rows\n  [[2].email] must be a valid email address\nbatch 2: 0 rows\n  [[4].email] must be a valid email address"
     },
     "recipe.untrusted.mediaType": {
       "source": "Content-Type: application/xml\naccepting: [.json]\n\n<!DOCTYPE lolz [<!ENTITY lol \"lol\"><!ENTITY lol2 \"&lol;&lol;&lol;&lol;&lol;\">]>\n<upload><title>&lol2;</title></upload>",
@@ -454,32 +436,32 @@
       "render": "Record(id: 7, audit: Record.Audit(createdBy: \"jo\", revision: 3))"
     },
     "cb.presenceAll": {
-      "source": "{\"required\": \"here\", \"optional\": \"also here\", \"defaulted\": 9, \"salvaged\": 5}",
+      "source": "required: here\noptional: also here\ndefaulted: 9\nsalvaged: 5",
       "render": "Presence(required: \"here\", optional: Optional(\"also here\"), defaulted: 9, salvaged: 5, notAField: nil)"
     },
     "cb.presenceAbsent": {
-      "source": "{\"required\": \"here\"}",
+      "source": "required: here",
       "render": "Presence(required: \"here\", optional: nil, defaulted: 3, salvaged: 0, notAField: nil)\n\nwarnings: fallback_applied"
     },
     "cb.presenceSalvaged": {
-      "source": "{\"salvaged\": \"not a number\"}",
-      "render": "p.json: error: required is required\n\np.json: warning: salvaged fell back to the declared value\n\n1 error, 1 warning\n\nwarnings: fallback_applied"
+      "source": "required: here\nsalvaged: not a number",
+      "render": "Presence(required: \"here\", optional: nil, defaulted: 3, salvaged: 0, notAField: nil)\n\nwarnings: fallback_applied"
     },
     "cb.nullVsAbsent": {
-      "source": "{\"a\": null, \"c\": null}",
-      "render": "n.json:1:22: error: c must be an array, found null\n  1 │ {\"a\": null, \"c\": null}\n    │                      ^\n\n1 error\n\nnil"
+      "source": "a: null\nc: null",
+      "render": "n.yaml: error: c must be an array, found null\n\n1 error\n"
     },
     "cb.keyStyle": {
-      "source": "{\"DATABASE_URL\": \"postgres://x\", \"MAX_RETRIES\": 3}",
+      "source": "DATABASE_URL = \"postgres://x\"\nMAX_RETRIES = 3",
       "render": "Env(databaseUrl: \"postgres://x\", maxRetries: 3)"
     },
     "cb.keys": {
-      "source": "{\"id\": 1, \"mail\": \"jo@example.com\", \"profile\": {\"display_name\": \"Jo\"},\n \"default\": true, \"extra_one\": 1, \"extra_two\": \"two\"}",
-      "render": "Names(identifier: 1, email: \"jo@example.com\", displayName: \"Jo\", default: true, rest: [\"extra_two\": RawValue.string(\"two\"), \"extra_one\": RawValue.int(1)])\n\nwarnings: alias_matched"
+      "source": "id = 1\nmail = \"jo@example.com\"\ndefault = true\nextra_one = 1\nextra_two = \"two\"\n\n[profile]\ndisplay_name = \"Jo\"",
+      "render": "Names(identifier: 1, email: \"jo@example.com\", displayName: \"Jo\", default: true, rest: [\"extra_one\": RawValue.int(1), \"extra_two\": RawValue.string(\"two\")])\n\nwarnings: alias_matched"
     },
     "cb.unknownKeyRejected": {
-      "source": "{\"api_key\": \"sk-1\", \"timeout_secs\": 30}",
-      "render": "cfg.json:1:22: error: unknown key \"timeout_secs\"\n  1 │ {\"api_key\": \"sk-1\", \"timeout_secs\": 30}\n    │                      ^^^^^^^^^^^^\n\ncfg.json: error: timeout_seconds is required\n\n2 errors\n"
+      "source": "api_key = \"sk-1\"\ntimeout_secs = 30",
+      "render": "cfg.toml:2:16: error: unknown key \"timeout_secs\"\n  1 │ api_key = \"sk-1\"\n  2 │ timeout_secs = 30\n    │                ^^\n\ncfg.toml: error: timeout_seconds is required\n\n2 errors\n"
     },
     "cb.bounds": {
       "source": "{\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}",
@@ -522,36 +504,36 @@
       "render": "{\"tags\":[\"a\",\"b\"],\"timeout_seconds\":1500}"
     },
     "cb.dates": {
-      "source": "{\"iso\": \"2026-09-11T12:00:00Z\", \"epoch\": 1700000000,\n \"http_date\": \"Wed, 21 Oct 2026 07:28:00 GMT\", \"day\": \"2026-01-31\", \"either\": 1700000000}",
+      "source": "iso = 2026-09-11T12:00:00Z\nepoch = 1700000000\nhttp_date = \"Wed, 21 Oct 2026 07:28:00 GMT\"\nday = \"2026-01-31\"\neither = 1700000000",
       "render": "Timestamps(iso: 2026-09-11 12:00:00 +0000, epoch: 2023-11-14 22:13:20 +0000, httpDate: 2026-10-21 07:28:00 +0000, day: 2026-01-31 00:00:00 +0000, either: 2023-11-14 22:13:20 +0000)"
     },
     "cb.datesBad": {
-      "source": "{\"iso\": \"yesterday\", \"epoch\": 1700000000, \"http_date\": \"Wed, 21 Oct 2026 07:28:00 GMT\",\n \"day\": \"31/01/2026\", \"either\": \"nope\"}",
-      "render": "d.json:1:10: error: iso must be an ISO-8601 date — expected a 4-digit year\n  1 │ {\"iso\": \"yesterday\", \"epoch\": 1700000000, \"http_date\": \"Wed, 21 Oct 2026 07:28:00 GMT\",\n    │          ^\n  2 │  \"day\": \"31/01/2026\", \"either\": \"nope\"}\n\nd.json:2:10: error: day must be a date matching \"yyyy-MM-dd\" — expected a 4-digit year\n  1 │ {\"iso\": \"yesterday\", \"epoch\": 1700000000, \"http_date\": \"Wed, 21 Oct 2026 07:28:00 GMT\",\n  2 │  \"day\": \"31/01/2026\", \"either\": \"nope\"}\n    │          ^\n\nd.json:2:34: error: either must be an ISO-8601 date, or unix timestamp (seconds) — expected a 4-digit year\n  1 │ {\"iso\": \"yesterday\", \"epoch\": 1700000000, \"http_date\": \"Wed, 21 Oct 2026 07:28:00 GMT\",\n  2 │  \"day\": \"31/01/2026\", \"either\": \"nope\"}\n    │                                  ^\n\n3 errors\n"
+      "source": "iso = \"yesterday\"\nepoch = 1700000000\nhttp_date = \"Wed, 21 Oct 2026 07:28:00 GMT\"\nday = \"31/01/2026\"\neither = \"nope\"",
+      "render": "d.toml: error: iso must be an ISO-8601 date — expected a 4-digit year\n\nd.toml: error: day must be a date matching \"yyyy-MM-dd\" — expected a 4-digit year\n\nd.toml: error: either must be an ISO-8601 date, or unix timestamp (seconds) — expected a 4-digit year\n\n3 errors\n"
     },
     "cb.dateRules": {
-      "source": "{\"created_at\": \"2019-06-01T00:00:00Z\", \"effective\": \"2031-01-01T00:00:00Z\"}",
-      "render": "d.json:1:16: error: created_at must be after 2020-01-01\n  1 │ {\"created_at\": \"2019-06-01T00:00:00Z\", \"effective\": \"2031-01-01T00:00:00Z\"}\n    │                ^^^^^^^^^^^^^^^^^^^^^^\n\nd.json:1:53: error: effective must be between 2020-01-01 and 2030-01-01\n  1 │ {\"created_at\": \"2019-06-01T00:00:00Z\", \"effective\": \"2031-01-01T00:00:00Z\"}\n    │                                                     ^^^^^^^^^^^^^^^^^^^^^^\n\n2 errors\n"
+      "source": "created_at = 2019-06-01T00:00:00Z\neffective = 2031-01-01T00:00:00Z",
+      "render": "d.toml:1:14: error: created_at must be after 2020-01-01\n  1 │ created_at = 2019-06-01T00:00:00Z\n    │              ^^^^^^^^^^^^^^^^^^^^\n  2 │ effective = 2031-01-01T00:00:00Z\n\nd.toml:2:13: error: effective must be between 2020-01-01 and 2030-01-01\n  1 │ created_at = 2019-06-01T00:00:00Z\n  2 │ effective = 2031-01-01T00:00:00Z\n    │             ^^^^^^^^^^^^^^^^^^^^\n\n2 errors\n"
     },
     "cb.enumClosed": {
-      "source": "{\"colour\": \"green\", \"priority\": 2}",
+      "source": "colour: green\npriority: 2",
       "render": "Label(colour: Colour.green, priority: Priority.high)"
     },
     "cb.enumBad": {
-      "source": "{\"colour\": \"chartreuse\", \"priority\": 9}",
-      "render": "e.json:1:12: error: colour \"chartreuse\" is not a recognised value; must be one of \"red\", \"green\", \"blue\"\n  1 │ {\"colour\": \"chartreuse\", \"priority\": 9}\n    │            ^^^^^^^^^^^^\n\ne.json:1:38: error: priority \"9\" is not a recognised value\n  1 │ {\"colour\": \"chartreuse\", \"priority\": 9}\n    │                                      ^\n\n2 errors\n"
+      "source": "colour: chartreuse\npriority: 9",
+      "render": "e.yaml: error: colour \"chartreuse\" is not a recognised value; must be one of \"red\", \"green\", \"blue\"\n\ne.yaml: error: priority \"9\" is not a recognised value\n\n2 errors\n"
     },
     "cb.enumOpen": {
-      "source": "{\"tier\": \"enterprise\"}",
-      "render": "Membership(tier: Plan.other(\"enterprise\"))"
+      "source": "plan: enterprise",
+      "render": "Membership(plan: Plan.other(\"enterprise\"))"
     },
     "cb.oneOrMany": {
       "source": "{\"tags\": \"swift\"}",
       "render": "(Post(tags: [\"swift\"]), Post(tags: [\"swift\", \"json\"]))"
     },
     "cb.wraps": {
-      "source": "{\"contact\": \"not-an-email\", \"complete\": 150}",
-      "render": "w.json: error: contact must be a valid email address\n\nw.json: error: complete must be between 1 and 100\n\n2 errors\n"
+      "source": "contact: not-an-email\ncomplete: 150",
+      "render": "w.yaml: error: contact must be a valid email address\n\nw.yaml: error: complete must be between 1 and 100\n\n2 errors\n"
     },
     "cb.unionTagged": {
       "source": "{\"type\": \"page_view\", \"path\": \"/pricing\"}",
@@ -604,14 +586,6 @@
     "cb.assayerBad": {
       "source": "{\"ticket\": \"XX-1\"}",
       "render": "t.json: error: ticket must start with \"TCK-\"\n\nt.json: error: ticket must be exactly 9 characters\n\n2 errors\n"
-    },
-    "cb.columnar": {
-      "source": "ids:     [1, 2, 3]\nemails:  [\"a@example.com\", \"nope\", \"c@example.com\"]\nactives: [true, false, true]",
-      "render": "decoded 2 of 3\n  Row(id: 1, email: \"a@example.com\", active: true)\n  Row(id: 3, email: \"c@example.com\", active: true)\n\nissues:\n  [[1].email] must be a valid email address\n"
-    },
-    "cb.rowSink": {
-      "source": "Row(id: 7, email: \"jo@example.com\", active: true)",
-      "render": "columns: id, email, active\ncells:   7, jo@example.com, true"
     }
   }
 }

@@ -156,19 +156,12 @@ extension SchemaMacro {
         // above existed, tested the wrong half, and quietly emitted a JSON-only body for
         // `.all` from the day it was written.
         //
-        // `context:` is the worst of the three and is why they are checked here rather than
-        // left to the call site. `sources:` and `describes:` promise a member that will not
+        // `context:` is the worst of the two and is why they are checked here rather than
+        // left to the call site. `describes:` promises a member that will not
         // exist, so the type checker eventually says so; a contextual union would simply
         // stay NON-contextual — `parse(json:)` still resolves, no error anywhere, and the
         // context silently never reaches a check. That is the same shape as the `@XML(root:)`
         // trap: it compiles and checks nothing.
-        if config.sources {
-            context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
-                "@Schema(sources: true) is for a column-first source, which hands over whole "
-                + "columns of one record shape. A union is a choice between shapes and has no "
-                + "field manifest to bind; put `sources: true` on the variant types.")))
-            return []
-        }
         if config.describes {
             context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
                 "@Schema(describes: true) is not built for unions — a JSON Schema `oneOf` "

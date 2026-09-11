@@ -373,7 +373,6 @@ Foundation, the thesis is wrong and the SIMD work is moot.*
 | XML tree parse (asymmetric, and **macOS only** — read `RESULTS.md`) | Foundation `XMLParser` | **1.30×** |
 | TOML node parse | toml++ (`TOMLTable(string:)`, C++) | **1.09×** |
 | TOML struct decode | TOMLKit `TOMLDecoder` (Codable) | **1.81×** |
-| Row-shaped source → struct (`RowBatch`, 8 columns) | a `RawValue` per row through the tree path | **1.7×** (40 vs 70 ns/row; a hand transpose is 28) |
 
 The thesis in one line: **the parser was never the bottleneck; the `Codable` container boundary
 was.** ZippyJSON bolted simdjson — the fastest JSON parser in existence — onto `Decodable` and
@@ -488,13 +487,11 @@ import gets caught rather than accidentally working.
 | [`docs/COMPILE-TIME.md`](docs/COMPILE-TIME.md) | the second performance axis, and the CI gate |
 | [`docs/VALUE-MODELS.md`](docs/VALUE-MODELS.md) | why JSON, YAML, XML and TOML keep separate value types |
 | [`docs/TOML.md`](docs/TOML.md) | the TOML parser: redefinition rules, the date-time projection, toml-test 710/710 |
-| [`docs/ROWS.md`](docs/ROWS.md) | rows in, structs out: `RowBatch`, `RowDecoder<T>`, text cells, `RowSink` — for SQL drivers and CSV readers |
 | [`docs/STREAMING.md`](docs/STREAMING.md) | why streaming is out of scope, and what it would cost |
 | [`docs/ENCODING.md`](docs/ENCODING.md) | the six semantics questions behind encoding, and how each was answered |
 | [`docs/VALIDATE.md`](docs/VALIDATE.md) | validating a value you already have, and the law that decides what it can check |
 | [`docs/CONFORMANCE.md`](docs/CONFORMANCE.md) | what each parser accepts and refuses, and how that is checked |
 | [`docs/PLIST.md`](docs/PLIST.md) | property lists, and the two amplification attacks the binary format carries |
-| [`docs/KEYED-SOURCE.md`](docs/KEYED-SOURCE.md) | a decode path that was built, measured and withdrawn — and the columnar one that survived |
 | [`ROADMAP.md`](ROADMAP.md) | what is deferred, and why |
 | [`CLAUDE.md`](CLAUDE.md) | settled decisions and hard constraints on generated code |
 | [`LICENSE`](LICENSE) / [`NOTICE`](NOTICE) | Apache 2.0, and third-party attribution |

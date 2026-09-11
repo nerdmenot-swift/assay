@@ -14,7 +14,7 @@ export default defineConfig({
       title: 'Assay',
       description:
         'A decoder for Swift that tells you what went wrong. JSON, YAML, XML, TOML, ' +
-        'property lists, HTTP bodies and database rows into ordinary structs — one set of ' +
+        'property lists and HTTP bodies into ordinary structs — one set of ' +
         'rules, one kind of error, every error pointing at the byte, and faster than ' +
         'Codable while it does it.',
       logo: { src: './src/assets/icon.svg', alt: 'Assay', replacesTitle: false },
@@ -90,7 +90,6 @@ export default defineConfig({
             { slug: 'recipes/unions' },
             { slug: 'recipes/encoding' },
             { slug: 'recipes/unknown-shapes' },
-            { slug: 'recipes/rows' },
           ],
         },
         {
@@ -101,8 +100,6 @@ export default defineConfig({
             { slug: 'recipes/config-file' },
             { slug: 'recipes/moving-api' },
             { slug: 'recipes/form-errors' },
-            { slug: 'recipes/csv' },
-            { slug: 'recipes/sql-rows' },
             { slug: 'recipes/untrusted-input' },
           ],
         },
@@ -120,9 +117,9 @@ export default defineConfig({
             { slug: 'guides/advanced' },
           ],
         },
-        // Formats get their own section rather than one page. Five parsers plus rows and
-        // content negotiation is more than a guide holds, and "it reads more than JSON"
-        // is the thing a reader is most likely to arrive not knowing.
+        // Formats get their own section rather than one page. Five parsers plus content
+        // negotiation is more than a guide holds, and "it reads more than JSON" is the
+        // thing a reader is most likely to arrive not knowing.
         {
           label: 'Formats',
           items: [
@@ -132,7 +129,6 @@ export default defineConfig({
             { slug: 'formats/xml' },
             { slug: 'formats/toml' },
             { slug: 'formats/plist' },
-            { slug: 'formats/rows-and-columns' },
             { slug: 'formats/http' },
           ],
         },

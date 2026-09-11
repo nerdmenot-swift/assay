@@ -99,7 +99,7 @@ extension AssayReader {
         while true {
             // Push, descend, pop — rather than `path + [.index(…)]`, which allocated an
             // array per VALUE in the document and copied the parent into it, for a path
-            // nothing reads unless the document is malformed. Same bug as the columnar
+            // nothing reads unless the document is malformed. Same bug as the (removed) columnar
             // row path (2026-09-10) and haul's report before it; this is the third place
             // it was written, and the last one still standing.
             path.append(.index(items.count))

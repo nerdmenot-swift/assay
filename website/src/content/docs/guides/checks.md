@@ -119,10 +119,8 @@ error with a message rather than a rule that silently never runs.
 **A failing check means the row/value is not produced.** Like any other issue: `diagnose`
 gives you `nil` for the value plus the issues, `parse` throws.
 
-**Checks run on every path.** JSON, YAML, XML, TOML, `validate(_:)` on an existing value,
-and column/row batches. The one exception is `@AsyncCheck` with `sources: true` — a batch
-decode is synchronous, so that combination is refused at expansion rather than silently
-skipping your check.
+**Checks run on every path.** JSON, YAML, XML, TOML and `validate(_:)` on a value something
+else produced.
 
 ## When to reach for what
 

@@ -8,7 +8,7 @@
 // WHY THIS EXISTS. Assay fuses validation into decoding, which is the right default and is
 // most of what makes it fast: the rules run against the wire value, in the same pass, with
 // the byte offsets still in hand, so a violation gets a caret. But it left a real hole. If
-// something ELSE produced your value — a fast columnar reader, a database driver, a hand
+// something ELSE produced your value — a Parquet reader, a database driver, a hand
 // written initialiser, a UI form, a value you mutated after decoding — there was no way to
 // ask the schema whether it is still legal. The rules were declared on the type and only
 // reachable through a decode.

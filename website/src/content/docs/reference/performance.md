@@ -26,14 +26,11 @@ it is said so.
 | XML tree parse | **2.34× (macOS; 0.96× on Linux)** | Foundation XMLParser |
 | TOML node parse | **1.17×** | toml++ via TOMLKit |
 | TOML struct decode | **1.95×** | TOMLKit TOMLDecoder |
-| rows in through RowBatch, 8 columns | **37.4 ns/row (old route 75.1; hand transpose 29.8; floor 12.8)** | a RawValue per row |
-| field values out, encodeRow | **1.3 ns/row (tree: 64.0)** | _assayEncodeRaw |
 | Date fields | **6.07×** | JSONDecoder + .iso8601 |
 | [String: T] dictionaries | **6.93× over 10 rows** | JSONDecoder |
 | encoding, 50 / 200 items | **2.95× / 2.83×** | JSONEncoder |
 | cold start, 60 types | **7.8× first decode (median); 6.3× steady** | JSONDecoder |
 | multi-megabyte documents | **6.79–6.89×, ~700 MB/s, flat** | JSONDecoder |
-| columnar batch fill | **6.6–7.1× the tree path, ~11 ns/row** | Assay's own tree path |
 | T.validate(_:) | **76 ns per value, 1 block; 84 ns/row batched** | — |
 | live allocations, apimodel-8k struct | **gated, PASS** | absolute thresholds |
 | compile time, 10 fields | **79.0 ms/type (gate 100)** | Codable: 4.1× |
@@ -98,12 +95,6 @@ The pattern in the right-hand column is the familiar one. Where a baseline goes 
 `Codable`, the gap widens; where it does not, the gap is parity with C. That is the same
 finding as the JSON thesis, arrived at from the other direction.
 
-Rows and columns are a third shape again. A column store that already hands over one array
-per field decodes at about 11 ns per row; a row-shaped source going through `RowBatch` is
-in the high thirties, against about 75 for the value-model route it replaces. The gate
-written before that work was 1.2× a hand-written transpose and it was missed, which the
-repository journal records as a miss rather than rounding away.
-
 ## Compile time is the second axis
 
 `@Schema` costs about **80 ms per type at ten fields** — roughly 3.6× `Codable`. The cost
@@ -126,7 +117,6 @@ The opt-ins are what they are for:
 | a rule on nearly every field | ~116 ms |
 | `encodes: true` | about 5% more |
 | `formats: .all` | ~34 ms more, for the shared YAML/XML/TOML body |
-| `sources: true` with `coerceScalars` | ~164 ms |
 
 ## What is gated in CI
 

@@ -11,7 +11,7 @@ import AssayTOML
 // Wire keys are arbitrary strings: spaces, punctuation, unicode. A field's name is a Swift
 // identifier and its key is whatever the document calls it, on every path.
 
-@Schema(formats: .all, encodes: true, sources: true)
+@Schema(formats: .all, encodes: true)
 struct Spaced: Equatable {
     @Key("first name") var firstName: String
     @Key("e-mail", or: "email address", "E-Mail") var email: String
@@ -41,21 +41,6 @@ struct KeyAliasTests {
         let t = Spaced.diagnose(toml: "\"first name\" = \"Ada\"\n\"email address\" = \"a@x.io\"\n\"ünïcödé key\" = 3\n")
         #expect(t.value?.email == "a@x.io")
         #expect(t.warnings.map(\.code.codeString) == ["alias_matched"])
-    }
-
-    @Test("the columnar path, including an alias column")
-    func columnar() {
-        var store = ColumnStore(rowCount: 2)
-        store.strings["first name"] = ["Ada", "Bob"]
-        store.strings["email address"] = ["a@x.io", "b@x.io"]
-        store.ints["ünïcödé key"] = [1, 2]
-        let d = Spaced.batch(from: store)
-        #expect(d.isValid, "\(d.issues)")
-        #expect(d.values.map(\.email) == ["a@x.io", "b@x.io"])
-        #expect(d.values.map(\.count) == [0, 0])
-        // Once for the batch, like a missing column, not once per row.
-        #expect(d.warnings.map(\.code.codeString) == ["alias_matched"])
-        #expect(Spaced._assayManifest.keys == ["first name", "e-mail", "ünïcödé key", "count (items)"])
     }
 
     @Test("encoding writes the primary key, quoted as the format requires")

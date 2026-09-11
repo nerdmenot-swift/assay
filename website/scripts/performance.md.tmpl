@@ -75,12 +75,6 @@ The pattern in the right-hand column is the familiar one. Where a baseline goes 
 `Codable`, the gap widens; where it does not, the gap is parity with C. That is the same
 finding as the JSON thesis, arrived at from the other direction.
 
-Rows and columns are a third shape again. A column store that already hands over one array
-per field decodes at about 11 ns per row; a row-shaped source going through `RowBatch` is
-in the high thirties, against about 75 for the value-model route it replaces. The gate
-written before that work was 1.2× a hand-written transpose and it was missed, which the
-repository journal records as a miss rather than rounding away.
-
 ## Compile time is the second axis
 
 `@Schema` costs about **80 ms per type at ten fields** — roughly 3.6× `Codable`. The cost
@@ -103,7 +97,6 @@ The opt-ins are what they are for:
 | a rule on nearly every field | ~116 ms |
 | `encodes: true` | about 5% more |
 | `formats: .all` | ~34 ms more, for the shared YAML/XML/TOML body |
-| `sources: true` with `coerceScalars` | ~164 ms |
 
 ## What is gated in CI
 

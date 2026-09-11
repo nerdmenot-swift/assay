@@ -94,35 +94,6 @@ func runAllocationGate() -> Bool {
                  foundation: { (try? dec.decode(CodableStringPrefix.self, from: data)).map { Box($0) } })
     }
 
-    // The columnar batch: 64 rows over 8 columns, every string either small-form or
-    // RETAINED from the column array rather than copied. So the answer should be ~2 — the
-    // box and the output array — and nothing per row. This is the row that would have
-    // caught the per-row diagnostic path allocation (2026-09-10) had it existed: it did
-    // not show as a LIVE block, being freed within the row, which is exactly the counter's
-    // stated limitation, so the threshold here guards the retained side only and the
-    // `colfloor` arm guards the transient side by wall clock against a hand-written floor.
-    do {
-        let store = makeStore(rows: 64)
-        allocRow("columnar batch, 64 rows", limitBlocks: 6,
-                 assay: { Box(BenchRow.batch(from: store).values) },
-                 foundation: { Box(decodeRowwise(store)) })
-    }
-
-    // Rows in through `RowBatch`: the batch's own columns are O(columns) blocks, never
-    // O(rows), and the strings are retained from the input rather than copied. Eight
-    // columns, one mask at most, the output array and the box — 12 with headroom.
-    do {
-        let store = makeStore(rows: 64)
-        let rows = RowShapedStore(store: store)
-        allocRow("RowBatch, 64 rows x 8 cols", limitBlocks: 16,
-                 assay: {
-                     var b = RowBatch(manifest: BenchRow._assayManifest, columns: rows.columns, capacity: 64)
-                     fillRowBatch(rows, into: &b)
-                     return Box(BenchRow.batch(from: b).values)
-                 },
-                 foundation: { Box(decodeRowwise(store)) })
-    }
-
     print("")
     if failures.isEmpty {
         print("allocation gate: PASS")

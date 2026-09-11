@@ -11,7 +11,7 @@
 // parameter enters only at the last step, when `Assayer<T>.build` turns the interpreted
 // `RawValue` into the caller's type.
 //
-// That is the same shape that made `ColumnDecodable` free: the generic work happens once,
+// The shape is that the generic work happens once,
 // the per-value work is concrete. It is also what keeps the `@inlinable` shims in
 // `AssayerBacked` thin enough to stay inside the escape-analysis complexity budget that
 // CLAUDE.md's constraint 4 is about.

@@ -675,9 +675,10 @@ discover that the schema is at fault. So a rule with no *exact* 2020-12 equivale
 added in v4 after shipping the single-document version and finding it wrong.
 
 **Nested types use the metatype trick.** `Author.self` as an `any SchemaDescribing.Type` makes
-the *type checker* verify a conformance the macro cannot see — the same device
-`ColumnDecodable` uses — so a nested type that forgot `describes: true` is a compile error
-naming the real problem rather than a schema that silently describes it as `{}`.
+the *type checker* verify a conformance the macro cannot see, so a nested type that forgot
+`describes: true` is a compile error naming the real problem rather than a schema that
+silently describes it as `{}`. (The columnar path used the same device, and was the place it
+was worked out; that path is gone and this is where the technique now lives.)
 
 **Two combinations are refused at expansion** rather than described wrongly: `@Key(path:)`
 (JSON Schema's `properties` map is flat, and a field living at `profile.name` would have to be
@@ -839,36 +840,96 @@ Two things worth keeping from this:
 
 ---
 
-## The third decode path — built, measured, REMOVED
+## Decoding from rows and columns — built, measured, REMOVED
 
-**Status: withdrawn 2026-08-10 on its own numbers.** `docs/KEYED-SOURCE.md` is the record.
+**Status: removed in full on 2026-09-11.** Two decode paths were built for this and neither
+survives. The idea is attractive enough to be proposed again, so both records stay here.
+
+### The row protocol, withdrawn 2026-08-10 on its own numbers
 
 A `KeyedSource` protocol for decoding one record at a time from anything already parsed and
-addressable by key — database rows, CSV, plists, form data — was designed, built and
-benchmarked. It was removed, and the reason is worth having on the roadmap rather than only
-in a header, because the idea is attractive enough to be proposed again:
+addressable by key — database rows, CSV, plists, form data.
 
 - **The premise was false and unchecked.** It was justified by "the `RawValue` path costs an
   allocation per value per record." `RawValue.mapping` is *one* allocation per record.
 - **It lost to the path it was meant to beat**: 311 ns/record against 95 ns for building a
   `RawValue` and decoding through the tree path.
 - **It could not accept the borrowed rows it existed for.** A zero-copy row view is
-  `~Escapable`, and this library refuses an experimental-feature gate on its public surface.
+  `~Escapable`, and `Array` requires `Escapable`, so such a row cannot be an element of
+  anything, cannot be `Equatable`, and cannot outlive the scope that made it.
 - **Its cost landed per row in a driver**, where `@inlinable` is forbidden on generated
   bodies (SE-0193) and the witness-table call stands: 1.6–4.7×.
 
-**What survives.** `ColumnarSource` and `_assayBatch`, behind `@Schema(sources: true)`: a
-column store hands over whole arrays, so it has no per-row borrow, no per-row dispatch and no
-per-row presence ambiguity — the three things that sank the other half. 8.4× over the tree
-path at a flat ~10 ns/row (2026-09-10; it was 1.27× at 53 ns until a per-row diagnostic
-allocation was removed), and 1.13× when called generically from another module.
+### The columnar path, removed 2026-09-11 for a different reason
+
+`ColumnarSource`, `ColumnDecodable`, `RowBatch`, `RowDecoder<T>` and `RowSink`, behind
+`@Schema(sources: true)`. This half won every technical argument the other half lost: a
+column store hands over whole arrays, so there is no per-row borrow, no per-row dispatch and
+no per-row presence ambiguity. It measured 11 ns/row, 6.6–7.1× the tree path, and the write
+side at 1.3 ns/row against 60 for a tree.
+
+**It was removed anyway, and the reason is a product one.** Nothing depended on it — not
+haul, not swizzle, neither of which referenced Assay at all. The audience for Parquet and
+Arrow decoding in Swift is small, the audience that would reach for *this* library to do it
+is smaller, and a decoder that also owns column stores is two libraries wearing one name.
+
+What it cost while it existed is worth recording, because it is the price of keeping a
+feature nobody had asked for:
+
+- ~1,900 lines across `AssayCore`, `Assay`, `AssayMacros` and `AssayFoundation`.
+- `sources: true` roughly doubled a type's expansion, 164 ms against 80 at ten fields.
+- Four test suites, a golden fixture, five benchmark arms, a differential oracle, a separate
+  benchmark target, three design documents and three website pages.
+- Three of the bugs found in the week before its removal were in it: `@Check` and
+  `@Transform` never ran on the batch path, a documented CSV route did not work at all, and
+  `ColumnDecodable` was recorded as free when it cost about 3 ns/row.
 
 **What replaces it.** `T.validate(_:)` — `docs/VALIDATE.md`. A specialised reader decodes at
-its own speed in its own module, and Assay runs the rules afterwards. That is the seam the
-decode path was reaching for, and neither side pays for the other.
+its own speed in its own module, and Assay runs the rules afterwards. That was always the
+better seam, and it is now the only one, which makes the answer to "I have a Parquet reader
+and I want Assay's rules" short and unambiguous.
 
-Still deferred: nested and collection fields on a `sources: true` type, which remain compile
-errors naming the field rather than runtime surprises.
+**If it comes back**, it should come back as a separate package that depends on Assay rather
+than as part of it, and only once something concrete needs it.
+
+## Carets on the RawValue path — PARTIAL, and the remaining half is known
+
+**Found 2026-09-11 by showing the recipe pages in YAML and TOML instead of JSON.**
+
+A schema issue carries a caret on the JSON path always, because the reader tracks byte
+offsets inherently. On the `RawValue` path — YAML, XML, TOML, property lists — a caret
+appears only when the macro decided the field "needs a span", and that decision is
+`f.needsSpan || rawScalarCall(...) != nil`: rules, checks, or a built-in scalar type.
+
+So these report with a caret on JSON and **without one** on every other format:
+
+| field | example |
+|---|---|
+| `Date`, no rules | `iso must be an ISO-8601 date` |
+| an enum, no rules | `colour "chartreuse" is not a recognised value` |
+| a `@Wraps` scalar | `contact must be a valid email address` |
+| any nested `@Schema` type | whatever it reports |
+
+Two of these were fixed on 2026-09-10 and 09-11 — a type mismatch on a scalar field, and an
+unknown key — and both were found the same way. This entry exists so the third is found on
+purpose rather than by accident.
+
+**The two halves cost very differently.**
+
+`Date` is cheap: `_assayDate` takes no span, and threading one through it plus
+`reportInvalidDate`, `numberDate` and `mismatch` is contained to `DateDecode.swift` and one
+line of `rawNeedsSpan`.
+
+Enums, wrappers and nested types are not. They report from inside
+`_assay(from: RawValue, into:, at:)`, which is a protocol requirement — giving it a span
+changes the signature every conforming type and every generated body uses. That is a real
+piece of work, and it should be measured: `rawNeedsSpan` exists because capturing a span
+per field is not free, and widening it to "always" is the thing to benchmark first.
+
+One further limit, worth knowing before anyone starts: `RawValue.Member` carries the span of
+the **value**, so even where a caret appears it lands under the value rather than the key.
+For an unknown key the JSON body points at the key. Closing that needs a second span on
+every member.
 
 ## Verification gaps
 
@@ -918,10 +979,8 @@ intrinsics resolve, emit real NEON, and survive versioned dependency resolution,
 ## Small integer widths — BUILT 2026-08-31
 
 `Int8`, `Int16`, `UInt8`, `UInt16`, `UInt32` and `UInt64` are field types on every path:
-JSON, `RawValue` (YAML/XML), validation rules, all three encoders, and the columnar
-manifest. `[UInt8]` works with them, and now maps to `bytesColumn` through the
-`ColumnDecodable` conformance that was written and withheld — see
-`docs/COLUMN-DECODABLE.md`.
+JSON, `RawValue` (YAML/XML), validation rules and all three encoders. `[UInt8]` works with
+them, which is also the answer to `Data` being refused.
 
 **`UInt64` cannot reach its own maximum**, and that is inherited rather than introduced:
 `scanInt64` returns `Int64`, so any unsigned value above `Int64.max` fails to scan. `UInt`
@@ -970,6 +1029,13 @@ a different trade — it is the one place this change would have added an alloca
 not taken blind.
 
 ## The eagerly-built diagnostic path — FIXED 2026-09-10, after being wrongly closed
+
+> **The code this entry is about was removed on 2026-09-11 with the rest of the columnar
+> path.** The entry stays because the lesson is not about columns. The same mistake — a
+> diagnostic path threaded eagerly through a hot loop, invisible to every test because tests
+> assert on diagnostics and never on what producing them cost — was found three times in one
+> week, and the third was in `JSON.Value.parse`, which is still here.
+
 
 A report (haul's, 2026-09-01) measured `path + [.index(__r)]` per row on the columnar path
 and proposed building it inside the failure branches. The change was made on 2026-09-06,

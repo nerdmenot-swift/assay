@@ -1,0 +1,108 @@
+---
+title: Rules
+description: Every validator, with what each reports. Plus custom messages, normalising before checking, and accepting "8080" as a number.
+---
+
+Rules are checked against the field's type **at expansion**. `.email` on an `Int` does not
+compile, and the error says so rather than failing at runtime on a Tuesday.
+
+## Bounds
+
+```swift
+@Validate(.min(1)) var replicas: Int
+@Validate(.range(1...65535)) var port: Int
+@Validate(.positive) var quantity: Int
+@Validate(.multipleOf(15)) var minutes: Int
+@Validate(.finite) var score: Double
+```
+
+{{example:cb.bounds:json}}
+
+`.min` and `.max` mean different things by type, deliberately: character count on a
+`String`, element count on an array, magnitude on a number. The message says which.
+
+## Size and collections
+
+```swift
+@Validate(.notEmpty) var bio: String
+@Validate(.length(6)) var code: String
+@Validate(.count(1...3)) var tags: [String]
+@Validate(.unique) var ids: [Int]
+@Validate(.each(.min(2), .max(8))) var parts: [String]
+```
+
+{{example:cb.sizes:json}}
+
+`.each` reports per element, with the index in the path.
+
+## Strings and formats
+
+```swift
+@Validate(.email) var email: String
+@Validate(.url) var link: String
+@Validate(.uuid) var id: String
+@Validate(.hostname) var host: String
+@Validate(.regex("^[a-z][a-z0-9-]*$")) var slug: String
+@Validate(.prefix("sk-")) var key: String
+@Validate(.oneOf(["draft", "published"])) var status: String
+```
+
+{{example:cb.strings:json}}
+
+The four format validators are hand-written rather than delegated, so they behave
+identically on every platform. `UUID(uuidString:)` has two C implementations picked by
+platform, and nothing in Foundation validates an email at all.
+
+There is also `.ascii`, `.suffix`, `.contains`, `.isTrimmed` and `.isLowercase`. The last
+two **assert**; they do not change the value.
+
+## Your own wording
+
+```swift
+@Validate(.min(8), "pick something longer") var password: String
+@Validate(.range(13...120), "we can only accept teenagers and up") var age: Int
+```
+
+{{example:cb.messages:json}}
+
+For anything that needs translating, switch on `issue.code` instead and use
+`issue.params` — [a form](/recipes/form-errors/) shows that shape.
+
+## Normalise first
+
+```swift
+@Schema(keys: .snakeCase)
+struct Normalise: Equatable {
+    @Preprocess(.trim, .lowercase) @Validate(.email) var email: String
+    @Preprocess(.collapseWhitespace) @Validate(.isTrimmed) var title: String
+}
+```
+
+{{example:cb.preprocess:json}}
+
+`@Preprocess` runs **before** the rules, so `"  JO@Example.COM  "` is valid and arrives
+normalised. `.trim`, `.lowercase`, `.uppercase`, `.collapseWhitespace`.
+
+## Accepting "8080" as a number
+
+```swift
+@Schema(keys: .snakeCase)
+struct Coerce: Equatable {
+    var strict: Int
+    @Coerce var lenient: Int
+}
+```
+
+{{example:cb.coerce:json}}
+
+One field took the string, the other refused it. `coerceScalars: true` on the type is the
+same switch for every field, and is required for [XML](/formats/xml/) and usual for
+[CSV](/recipes/csv/). It is opt-in because `"8080"` becoming `8080` should be a decision
+you made.
+
+`"8080.5"` is still not an integer, on any path.
+
+## Next
+
+- [Checks and transforms](/recipes/checks/) — when a rule is not enough.
+- [Rules, explained](/guides/rules/) — what a rule is underneath.

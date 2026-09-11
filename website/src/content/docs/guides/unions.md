@@ -110,7 +110,7 @@ For a closed set of strings, you do not need any of this — a plain `RawReprese
 decodes with no macro at all:
 
 ```swift
-enum Status: String, Codable { case active, archived }
+enum Status: String, JSONAssayable, CaseIterable { case active, archived }
 ```
 
 For a set that the server may add to:

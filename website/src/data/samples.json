@@ -145,7 +145,7 @@
     },
     "json.nested": {
       "source": "{\n  \"name\": \"eu-prod\",\n  \"servers\": [\n    {\"host\": \"a.internal\", \"port\": 8080},\n    {\"host\": \"b.internal\", \"port\": 8081, \"tls\": false}\n  ],\n  \"labels\": {\"tier\": \"prod\", \"team\": \"platform\"}\n}",
-      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"tier\": \"prod\", \"team\": \"platform\"])"
+      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"team\": \"platform\", \"tier\": \"prod\"])"
     },
     "collect": {
       "source": "{\n  \"username\": \"jo\",\n  \"email\": \"jo@localhost\",\n  \"age\": \"fourteen\",\n  \"newsleter\": true\n}",
@@ -432,6 +432,186 @@
     "recipe.untrusted.size": {
       "source": "maxBytes: 4096, and a 5012-byte document",
       "render": "upload.json: error: input exceeds the maximum size of 4096 bytes\n\n1 error\n"
+    },
+    "cb.nested": {
+      "source": "{\n  \"name\": \"triangle\",\n  \"origin\": {\"x\": 0, \"y\": 0},\n  \"vertices\": [{\"x\": 1, \"y\": 0}, {\"x\": 0, \"y\": 1}],\n  \"labels\": {\"colour\": \"red\"}\n}",
+      "render": "Shape(name: \"triangle\", origin: Point(x: 0, y: 0), vertices: [Point(x: 1, y: 0), Point(x: 0, y: 1)], labels: [\"colour\": \"red\"], parent: nil)"
+    },
+    "cb.nestedErrors": {
+      "source": "{\"name\": \"t\", \"origin\": {\"x\": 0}, \"vertices\": [{\"x\": 1, \"y\": 0}, {\"x\": \"two\", \"y\": 1}]}",
+      "render": "shape.json:1:72: error: vertices[1].x must be an integer, found \"two\"\n  1 │ {\"name\": \"t\", \"origin\": {\"x\": 0}, \"vertices\": [{\"x\": 1, \"y\": 0}, {\"x\": \"two\", \"y\": 1}]}\n    │                                                                        ^\n\nshape.json: error: origin.y is required\n\n2 errors\n"
+    },
+    "cb.widths": {
+      "source": "{\"small\": 127, \"medium\": 65535, \"large\": 9007199254740993, \"ratio\": 0.5, \"payload\": [1, 2, 255]}",
+      "render": "Widths(small: 127, medium: 65535, large: 9007199254740993, ratio: 0.5, payload: [1, 2, 255])"
+    },
+    "cb.widthsOverflow": {
+      "source": "{\"small\": 128, \"medium\": 65536, \"large\": 1, \"ratio\": 0.5, \"payload\": []}",
+      "render": "widths.json:1:14: error: small must be an integer\n  1 │ {\"small\": 128, \"medium\": 65536, \"large\": 1, \"ratio\": 0.5, \"payload\": []}\n    │              ^\n\nwidths.json:1:31: error: medium must be an integer\n  1 │ {\"small\": 128, \"medium\": 65536, \"large\": 1, \"ratio\": 0.5, \"payload\": []}\n    │                               ^\n\n2 errors\n"
+    },
+    "cb.inline": {
+      "source": "{\"id\": 7, \"created_by\": \"jo\", \"revision\": 3}",
+      "render": "Record(id: 7, audit: Record.Audit(createdBy: \"jo\", revision: 3))"
+    },
+    "cb.presenceAll": {
+      "source": "{\"required\": \"here\", \"optional\": \"also here\", \"defaulted\": 9, \"salvaged\": 5}",
+      "render": "Presence(required: \"here\", optional: Optional(\"also here\"), defaulted: 9, salvaged: 5, notAField: nil)"
+    },
+    "cb.presenceAbsent": {
+      "source": "{\"required\": \"here\"}",
+      "render": "Presence(required: \"here\", optional: nil, defaulted: 3, salvaged: 0, notAField: nil)\n\nwarnings: fallback_applied"
+    },
+    "cb.presenceSalvaged": {
+      "source": "{\"salvaged\": \"not a number\"}",
+      "render": "p.json: error: required is required\n\np.json: warning: salvaged fell back to the declared value\n\n1 error, 1 warning\n\nwarnings: fallback_applied"
+    },
+    "cb.nullVsAbsent": {
+      "source": "{\"a\": null, \"c\": null}",
+      "render": "n.json:1:22: error: c must be an array, found null\n  1 │ {\"a\": null, \"c\": null}\n    │                      ^\n\n1 error\n\nnil"
+    },
+    "cb.keyStyle": {
+      "source": "{\"DATABASE_URL\": \"postgres://x\", \"MAX_RETRIES\": 3}",
+      "render": "Env(databaseUrl: \"postgres://x\", maxRetries: 3)"
+    },
+    "cb.keys": {
+      "source": "{\"id\": 1, \"mail\": \"jo@example.com\", \"profile\": {\"display_name\": \"Jo\"},\n \"default\": true, \"extra_one\": 1, \"extra_two\": \"two\"}",
+      "render": "Names(identifier: 1, email: \"jo@example.com\", displayName: \"Jo\", default: true, rest: [\"extra_two\": RawValue.string(\"two\"), \"extra_one\": RawValue.int(1)])\n\nwarnings: alias_matched"
+    },
+    "cb.unknownKeyRejected": {
+      "source": "{\"api_key\": \"sk-1\", \"timeout_secs\": 30}",
+      "render": "cfg.json:1:22: error: unknown key \"timeout_secs\"\n  1 │ {\"api_key\": \"sk-1\", \"timeout_secs\": 30}\n    │                      ^^^^^^^^^^^^\n\ncfg.json: error: timeout_seconds is required\n\n2 errors\n"
+    },
+    "cb.bounds": {
+      "source": "{\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}",
+      "render": "b.json:1:14: error: replicas must be at least 1\n  1 │ {\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}\n    │              ^\n\nb.json:1:25: error: port must be between 1 and 65535\n  1 │ {\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}\n    │                         ^^^^^\n\nb.json:1:44: error: quantity must be positive\n  1 │ {\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}\n    │                                            ^^\n\nb.json:1:59: error: minutes must be a multiple of 15\n  1 │ {\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}\n    │                                                           ^^\n\nb.json:1:72: error: score must be a finite number\n  1 │ {\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}\n    │                                                                        ^^^^^\n\n5 errors\n"
+    },
+    "cb.sizes": {
+      "source": "{\"bio\": \"\", \"code\": \"abc\", \"tags\": [], \"ids\": [1, 1], \"parts\": [\"a\", \"toolongvalue\"]}",
+      "render": "s.json:1:9: error: bio must not be empty\n  1 │ {\"bio\": \"\", \"code\": \"abc\", \"tags\": [], \"ids\": [1, 1], \"parts\": [\"a\", \"toolongvalue\"]}\n    │         ^^\n\ns.json:1:21: error: code must be exactly 6 characters\n  1 │ {\"bio\": \"\", \"code\": \"abc\", \"tags\": [], \"ids\": [1, 1], \"parts\": [\"a\", \"toolongvalue\"]}\n    │                     ^^^^^\n\ns.json:1:36: error: tags must contain between 1 and 3 items\n  1 │ {\"bio\": \"\", \"code\": \"abc\", \"tags\": [], \"ids\": [1, 1], \"parts\": [\"a\", \"toolongvalue\"]}\n    │                                    ^^\n\ns.json:1:47: error: ids must not contain duplicates\n  1 │ {\"bio\": \"\", \"code\": \"abc\", \"tags\": [], \"ids\": [1, 1], \"parts\": [\"a\", \"toolongvalue\"]}\n    │                                               ^^^^^^\n\ns.json:1:64: error: parts[0] must be at least 2 characters\n  1 │ {\"bio\": \"\", \"code\": \"abc\", \"tags\": [], \"ids\": [1, 1], \"parts\": [\"a\", \"toolongvalue\"]}\n    │                                                                ^^^^^^^^^^^^^^^^^^^^^\n\ns.json:1:64: error: parts[1] must be at most 8 characters\n  1 │ {\"bio\": \"\", \"code\": \"abc\", \"tags\": [], \"ids\": [1, 1], \"parts\": [\"a\", \"toolongvalue\"]}\n    │                                                                ^^^^^^^^^^^^^^^^^^^^^\n\n6 errors\n"
+    },
+    "cb.strings": {
+      "source": "{\"email\": \"jo@localhost\", \"link\": \"not a url\", \"id\": \"abc\", \"host\": \"-bad-\",\n \"slug\": \"Not_A_Slug\", \"key\": \"pk-1\", \"status\": \"deleted\"}",
+      "render": "s.json:1:11: error: email must be a valid email address\n  1 │ {\"email\": \"jo@localhost\", \"link\": \"not a url\", \"id\": \"abc\", \"host\": \"-bad-\",\n    │           ^^^^^^^^^^^^^^\n  2 │  \"slug\": \"Not_A_Slug\", \"key\": \"pk-1\", \"status\": \"deleted\"}\n\ns.json:1:35: error: link must be a valid URL\n  1 │ {\"email\": \"jo@localhost\", \"link\": \"not a url\", \"id\": \"abc\", \"host\": \"-bad-\",\n    │                                   ^^^^^^^^^^^\n  2 │  \"slug\": \"Not_A_Slug\", \"key\": \"pk-1\", \"status\": \"deleted\"}\n\ns.json:1:54: error: id must be a valid UUID\n  1 │ {\"email\": \"jo@localhost\", \"link\": \"not a url\", \"id\": \"abc\", \"host\": \"-bad-\",\n    │                                                      ^^^^^\n  2 │  \"slug\": \"Not_A_Slug\", \"key\": \"pk-1\", \"status\": \"deleted\"}\n\ns.json:1:69: error: host must be a valid hostname\n  1 │ {\"email\": \"jo@localhost\", \"link\": \"not a url\", \"id\": \"abc\", \"host\": \"-bad-\",\n    │                                                                     ^^^^^^^\n  2 │  \"slug\": \"Not_A_Slug\", \"key\": \"pk-1\", \"status\": \"deleted\"}\n\ns.json:2:10: error: slug must match the pattern ^[a-z][a-z0-9-]*$\n  1 │ {\"email\": \"jo@localhost\", \"link\": \"not a url\", \"id\": \"abc\", \"host\": \"-bad-\",\n  2 │  \"slug\": \"Not_A_Slug\", \"key\": \"pk-1\", \"status\": \"deleted\"}\n    │          ^^^^^^^^^^^^\n\ns.json:2:31: error: key must start with \"sk-\"\n  1 │ {\"email\": \"jo@localhost\", \"link\": \"not a url\", \"id\": \"abc\", \"host\": \"-bad-\",\n  2 │  \"slug\": \"Not_A_Slug\", \"key\": \"pk-1\", \"status\": \"deleted\"}\n    │                               ^^^^^^\n\ns.json:2:49: error: status must be one of \"draft\", \"published\"\n  1 │ {\"email\": \"jo@localhost\", \"link\": \"not a url\", \"id\": \"abc\", \"host\": \"-bad-\",\n  2 │  \"slug\": \"Not_A_Slug\", \"key\": \"pk-1\", \"status\": \"deleted\"}\n    │                                                 ^^^^^^^^^\n\n7 errors\n"
+    },
+    "cb.messages": {
+      "source": "{\"password\": \"short\", \"age\": 9}",
+      "render": "m.json:1:14: error: password pick something longer\n  1 │ {\"password\": \"short\", \"age\": 9}\n    │              ^^^^^^^\n\nm.json:1:30: error: age we can only accept teenagers and up\n  1 │ {\"password\": \"short\", \"age\": 9}\n    │                              ^\n\n2 errors\n"
+    },
+    "cb.preprocess": {
+      "source": "{\"email\": \"  JO@Example.COM  \", \"title\": \"a   spaced   title\"}",
+      "render": "Normalise(email: \"jo@example.com\", title: \"a spaced title\")"
+    },
+    "cb.coerce": {
+      "source": "{\"strict\": \"8080\", \"lenient\": \"8080\"}",
+      "render": "c.json:1:12: error: strict must be an integer, found \"8080\"\n  1 │ {\"strict\": \"8080\", \"lenient\": \"8080\"}\n    │            ^\n\n1 error\n"
+    },
+    "cb.checkField": {
+      "source": "{\"username\": \"admin\"}",
+      "render": "u.json:1:14: error: username is reserved\n  1 │ {\"username\": \"admin\"}\n    │              ^^^^^^^\n\n1 error\n"
+    },
+    "cb.checkCrossField": {
+      "source": "{\"start\": 10, \"end\": 3}",
+      "render": "r.json: error: end must be on or after start\n\n1 error\n"
+    },
+    "cb.transform": {
+      "source": "{\"tags\": [\"b\", \"a\", \"b\"], \"timeout_seconds\": 1500}",
+      "render": "Timeouts(tags: Set([\"b\", \"a\"]), timeoutSeconds: 1.5)"
+    },
+    "cb.transformBack": {
+      "source": "{\"tags\": [\"b\", \"a\", \"b\"], \"timeout_seconds\": 1500}",
+      "render": "{\"tags\":[\"a\",\"b\"],\"timeout_seconds\":1500}"
+    },
+    "cb.dates": {
+      "source": "{\"iso\": \"2026-09-11T12:00:00Z\", \"epoch\": 1700000000,\n \"http_date\": \"Wed, 21 Oct 2026 07:28:00 GMT\", \"day\": \"2026-01-31\", \"either\": 1700000000}",
+      "render": "Timestamps(iso: 2026-09-11 12:00:00 +0000, epoch: 2023-11-14 22:13:20 +0000, httpDate: 2026-10-21 07:28:00 +0000, day: 2026-01-31 00:00:00 +0000, either: 2023-11-14 22:13:20 +0000)"
+    },
+    "cb.datesBad": {
+      "source": "{\"iso\": \"yesterday\", \"epoch\": 1700000000, \"http_date\": \"Wed, 21 Oct 2026 07:28:00 GMT\",\n \"day\": \"31/01/2026\", \"either\": \"nope\"}",
+      "render": "d.json:1:10: error: iso must be an ISO-8601 date — expected a 4-digit year\n  1 │ {\"iso\": \"yesterday\", \"epoch\": 1700000000, \"http_date\": \"Wed, 21 Oct 2026 07:28:00 GMT\",\n    │          ^\n  2 │  \"day\": \"31/01/2026\", \"either\": \"nope\"}\n\nd.json:2:10: error: day must be a date matching \"yyyy-MM-dd\" — expected a 4-digit year\n  1 │ {\"iso\": \"yesterday\", \"epoch\": 1700000000, \"http_date\": \"Wed, 21 Oct 2026 07:28:00 GMT\",\n  2 │  \"day\": \"31/01/2026\", \"either\": \"nope\"}\n    │          ^\n\nd.json:2:34: error: either must be an ISO-8601 date, or unix timestamp (seconds) — expected a 4-digit year\n  1 │ {\"iso\": \"yesterday\", \"epoch\": 1700000000, \"http_date\": \"Wed, 21 Oct 2026 07:28:00 GMT\",\n  2 │  \"day\": \"31/01/2026\", \"either\": \"nope\"}\n    │                                  ^\n\n3 errors\n"
+    },
+    "cb.dateRules": {
+      "source": "{\"created_at\": \"2019-06-01T00:00:00Z\", \"effective\": \"2031-01-01T00:00:00Z\"}",
+      "render": "d.json:1:16: error: created_at must be after 2020-01-01\n  1 │ {\"created_at\": \"2019-06-01T00:00:00Z\", \"effective\": \"2031-01-01T00:00:00Z\"}\n    │                ^^^^^^^^^^^^^^^^^^^^^^\n\nd.json:1:53: error: effective must be between 2020-01-01 and 2030-01-01\n  1 │ {\"created_at\": \"2019-06-01T00:00:00Z\", \"effective\": \"2031-01-01T00:00:00Z\"}\n    │                                                     ^^^^^^^^^^^^^^^^^^^^^^\n\n2 errors\n"
+    },
+    "cb.enumClosed": {
+      "source": "{\"colour\": \"green\", \"priority\": 2}",
+      "render": "Label(colour: Colour.green, priority: Priority.high)"
+    },
+    "cb.enumBad": {
+      "source": "{\"colour\": \"chartreuse\", \"priority\": 9}",
+      "render": "e.json:1:12: error: colour \"chartreuse\" is not a recognised value; must be one of \"red\", \"green\", \"blue\"\n  1 │ {\"colour\": \"chartreuse\", \"priority\": 9}\n    │            ^^^^^^^^^^^^\n\ne.json:1:38: error: priority \"9\" is not a recognised value\n  1 │ {\"colour\": \"chartreuse\", \"priority\": 9}\n    │                                      ^\n\n2 errors\n"
+    },
+    "cb.enumOpen": {
+      "source": "{\"tier\": \"enterprise\"}",
+      "render": "Membership(tier: Plan.other(\"enterprise\"))"
+    },
+    "cb.oneOrMany": {
+      "source": "{\"tags\": \"swift\"}",
+      "render": "(Post(tags: [\"swift\"]), Post(tags: [\"swift\", \"json\"]))"
+    },
+    "cb.wraps": {
+      "source": "{\"contact\": \"not-an-email\", \"complete\": 150}",
+      "render": "w.json: error: contact must be a valid email address\n\nw.json: error: complete must be between 1 and 100\n\n2 errors\n"
+    },
+    "cb.unionTagged": {
+      "source": "{\"type\": \"page_view\", \"path\": \"/pricing\"}",
+      "render": "pageView(View(path: \"/pricing\"))"
+    },
+    "cb.unionTaggedBad": {
+      "source": "{\"type\": \"scroll\", \"path\": \"/pricing\"}",
+      "render": "ev.json: error: type must be one of click, page_view, found scroll\n\n1 error\n"
+    },
+    "cb.unionUntagged": {
+      "source": "{\"text\": \"hello\"}",
+      "render": "(Scalar.number(Number(value: 1.5)), Scalar.text(Text(text: \"hello\")))"
+    },
+    "cb.encodeJSON": {
+      "source": "Build(name: \"api\", version: 2, stable: true, notes: nil, tags: [\"a\", \"b\"])",
+      "render": "{\"name\":\"api\",\"version\":2,\"stable\":true,\"notes\":null,\"tags\":[\"a\",\"b\"]}"
+    },
+    "cb.encodeYAML": {
+      "source": "Build(name: \"api\", version: 2, stable: true, notes: nil, tags: [\"a\", \"b\"])",
+      "render": "name: api\nversion: 2\nstable: true\nnotes: null\ntags:\n  - a\n  - b\n"
+    },
+    "cb.encodeTOML": {
+      "source": "Build(name: \"api\", version: 2, stable: true, notes: nil, tags: [\"a\", \"b\"])",
+      "render": "name = \"api\"\nversion = 2\nstable = true\ntags = [\"a\", \"b\"]\n"
+    },
+    "cb.encodeXML": {
+      "source": "Build(name: \"api\", version: 2, stable: true, notes: nil, tags: [\"a\", \"b\"])",
+      "render": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Build><name>api</name><version>2</version><stable>true</stable><tags>a</tags><tags>b</tags></Build>"
+    },
+    "cb.roundTrip": {
+      "source": "encode, then decode, then compare",
+      "render": "true"
+    },
+    "cb.encodeErrors": {
+      "source": "Unwritable(label: \"x\", ratio: inf)",
+      "render": "bytes written: 26\nissues:\n  ratio: cannot be represented in JSON (Infinity)\n"
+    },
+    "cb.jsonSchema": {
+      "source": "Build.jsonSchema(for: .input).text()",
+      "render": "{\n    \"$schema\": \"https://json-schema.org/draft/2020-12/schema\",\n    \"title\": \"Build\",\n    \"type\": \"object\",\n    \"properties\": {\n      \"name\": {\n        \"type\": \"string\",\n        \"minLength\": 1,\n        \"maxLength\": 40\n      },\n      \"version\": {\n        \"type\": \"integer\",\n        \"minimum\": 1,\n        \"maximum\": 99\n      },\n      \"stable\": {\n        \"type\": \"boolean\"\n      },\n      \"notes\": {\n        \"type\": [\n          \"string\",\n          \"null\"\n        ]\n      },\n      \"tags\": {\n        \"type\": \"array\",\n        \"items\": {\n          \"type\": \"string\"\n        },\n        \"minItems\": 1,\n        \"maxItems\": 5\n      }\n    },\n    \"required\": [\n      \"name\",\n      \"version\",\n      \"stable\",\n      \"tags\"\n    ]\n  }"
+    },
+    "cb.jsonValue": {
+      "source": "{\"kind\": \"batch\", \"items\": [{\"id\": 1}, {\"id\": 2}], \"meta\": null}",
+      "render": "v[\"kind\"]?.string            -> batch\nv[\"items\"]?[1]?[\"id\"]?.int  -> 2\nv[\"items\"]?.array?.count    -> 2\nv[\"nope\"]                   -> nil"
+    },
+    "cb.assayer": {
+      "source": "{\"ticket\": \"TCK-00042\"}",
+      "render": "Booking(ticket: Ticket(raw: \"TCK-00042\"))"
+    },
+    "cb.assayerBad": {
+      "source": "{\"ticket\": \"XX-1\"}",
+      "render": "t.json: error: ticket must start with \"TCK-\"\n\nt.json: error: ticket must be exactly 9 characters\n\n2 errors\n"
+    },
+    "cb.columnar": {
+      "source": "ids:     [1, 2, 3]\nemails:  [\"a@example.com\", \"nope\", \"c@example.com\"]\nactives: [true, false, true]",
+      "render": "decoded 2 of 3\n  Row(id: 1, email: \"a@example.com\", active: true)\n  Row(id: 3, email: \"c@example.com\", active: true)\n\nissues:\n  [[1].email] must be a valid email address\n"
+    },
+    "cb.rowSink": {
+      "source": "Row(id: 7, email: \"jo@example.com\", active: true)",
+      "render": "columns: id, email, active\ncells:   7, jo@example.com, true"
     }
   }
 }

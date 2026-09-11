@@ -58,7 +58,7 @@ struct Cluster {
 ```
 
 ```text
-Cluster(name: "eu-prod", servers: [Server(host: "a.internal", port: 8080, tls: true), Server(host: "b.internal", port: 8081, tls: false)], labels: ["tier": "prod", "team": "platform"])
+Cluster(name: "eu-prod", servers: [Server(host: "a.internal", port: 8080, tls: true), Server(host: "b.internal", port: 8081, tls: false)], labels: ["team": "platform", "tier": "prod"])
 ```
 
 Note `tls` on the first server. It is absent in the document and `true` in the result,

@@ -1,0 +1,85 @@
+---
+title: Shapes
+description: Nested types, arrays, dictionaries, optionals, integer widths, byte arrays, and reading a nested type's fields from the same object.
+---
+
+## A nested type is just a field
+
+```swift
+@Schema(keys: .snakeCase) struct Point: Equatable { var x: Int; var y: Int }
+
+@Schema(keys: .snakeCase)
+struct Shape: Equatable {
+    var name: String
+    var origin: Point                       // nested
+    var vertices: [Point]                   // an array of them
+    var labels: [String: String] = [:]      // a String-keyed dictionary
+    var parent: Point?                      // optional nested
+}
+```
+
+{{example:cb.nested:json}}
+
+No `CodingKeys`, no `init(from:)`, no conformance to write. The nested type carries its own
+`@Schema` and that is all.
+
+## Errors keep the path
+
+{{example:cb.nestedErrors:json}}
+
+`vertices[1].x` is the path to the byte. Arrays carry their index, nested types carry their
+key, and it composes to any depth.
+
+## Integer widths and bytes
+
+```swift
+@Schema(keys: .snakeCase)
+struct Widths: Equatable {
+    var small: Int8
+    var medium: UInt16
+    var large: Int64
+    var ratio: Float
+    var payload: [UInt8]          // a byte array, not Data
+}
+```
+
+{{example:cb.widths:json}}
+
+Every fixed-width integer type decodes, and the width is checked against the **declared**
+type rather than against `Int64`:
+
+{{example:cb.widthsOverflow:json}}
+
+A well-formed number that does not fit is an overflow, not a type mismatch, and it says
+which.
+
+## Reading a nested type from the same object
+
+Sometimes the wire is flat and your types are not.
+
+```swift
+@Schema(keys: .snakeCase)
+struct Record: Equatable {
+    @Schema(keys: .snakeCase) struct Audit: Equatable { var createdBy: String; var revision: Int }
+    var id: Int
+    @Inline var audit: Audit
+}
+```
+
+{{example:cb.inline:json}}
+
+`created_by` and `revision` sat at the top level and landed in `audit`. The type has to be
+**nested inside** the one inlining it, which is how the macro can see both key sets and
+refuse a collision at build time.
+
+## What is refused
+
+`Set<T>`, `T??`, `[T?]`, tuples, `Any`, `T!`, `Character`, `Data`, `URL`, `Decimal` and
+generic types are build errors, each naming the alternative. A `Set` is
+[a transform](/recipes/checks/#change-the-type-after-decoding); `Data` is `[UInt8]`.
+[Advanced](/guides/advanced/#types-the-macro-refuses) has the table with reasons.
+
+## Next
+
+- [Presence](/recipes/presence/) — what absent means, per field.
+- [Names](/recipes/names/) — when the wire key is not the property name.

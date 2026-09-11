@@ -36,6 +36,7 @@ const SWIFT = readFileSync(join(HERE, 'samples.swift.txt'), 'utf8')
 // with their own types and helpers, and main.swift is already long. Top-level code only
 // belongs in main.swift, so this one exposes `runRecipes()` and main.swift calls it.
 const RECIPES = readFileSync(join(HERE, 'recipes.swift.txt'), 'utf8')
+const COOKBOOK = readFileSync(join(HERE, 'cookbook.swift.txt'), 'utf8')
 
 
 // ---------------------------------------------------------------------------
@@ -109,6 +110,7 @@ if (hasSwift) {
   mkdirSync(join(tmp, 'Sources', 'extract'), { recursive: true })
   writeFileSync(join(tmp, 'Sources', 'extract', 'main.swift'), SWIFT)
   writeFileSync(join(tmp, 'Sources', 'extract', 'recipes.swift'), RECIPES)
+  writeFileSync(join(tmp, 'Sources', 'extract', 'cookbook.swift'), COOKBOOK)
   writeFileSync(
     join(tmp, 'Package.swift'),
     `// swift-tools-version: 6.2
@@ -136,7 +138,12 @@ let package = Package(
   // does. Strip that one prefix. Nothing else about the output is touched: this is the
   // harness removing its own name, not the site editing the library's words.
   for (const r of Object.values(renders as Record<string, { render: string }>)) {
-    if (typeof r?.render === 'string') r.render = r.render.replaceAll('extract.', '')
+    if (typeof r?.render !== 'string') continue
+    // `extract.` is this harness's throwaway package; `AssayCore.` is where `RawValue`
+    // happens to live. Both are module qualification added by `String(describing:)`, and
+    // neither is something the library does. The type names either side of them are
+    // untouched.
+    r.render = r.render.replaceAll('extract.', '').replaceAll('AssayCore.', '')
   }
 } else if (renders) {
   console.log('  extract: no Swift toolchain — keeping the committed renders')

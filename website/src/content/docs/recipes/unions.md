@@ -1,0 +1,90 @@
+---
+title: Unions
+description: One field, several shapes. Tagged when the wire tells you which, untagged when it does not.
+---
+
+## Tagged, which is the one to reach for
+
+```swift
+@Schema(keys: .snakeCase) struct Click: Equatable { var x: Int; var y: Int }
+@Schema(keys: .snakeCase) struct View: Equatable { var path: String }
+
+@Schema(keys: .snakeCase, discriminator: "type")
+enum Event: Equatable {
+    case click(Click)
+    @Key("page_view") case pageView(View)
+}
+```
+
+```json
+{"type": "page_view", "path": "/pricing"}
+```
+
+```text
+pageView(View(path: "/pricing"))
+```
+
+A key in the object says which variant it is. `@Key` on a case overrides the tag spelling,
+exactly as it does for a field.
+
+An unrecognised tag says so, and lists what it knows:
+
+```json
+{"type": "scroll", "path": "/pricing"}
+```
+
+```text
+ev.json: error: type must be one of click, page_view, found scroll
+
+1 error
+```
+
+**Put the tag first when you write these documents.** Assay scans keys for it and skips
+values structurally, so a tag at the end means pre-scanning the whole object — including
+every document Assay itself wrote, if the encoder did not lead with it. It does.
+
+## Untagged, when the wire gives you nothing
+
+```swift
+@Schema(keys: .snakeCase) struct Number: Equatable { var value: Double }
+@Schema(keys: .snakeCase) struct Text: Equatable { var text: String }
+
+@Schema(discriminator: .untagged)
+enum Scalar: Equatable {
+    case number(Number)
+    case text(Text)
+}
+```
+
+```json
+{"text": "hello"}
+```
+
+```text
+(Scalar.number(Number(value: 1.5)), Scalar.text(Text(text: "hello")))
+```
+
+Each branch is tried in order and the first that decodes wins. Order is therefore
+semantics, not style.
+
+Two things to know before using it. A failure reports one summary plus the **closest**
+branch's detail, not four walls of text, and producing that detail means running the winner
+twice. And `maxUnionAttempts` is a global budget across the whole decode, not per union,
+because the blow-up is nested unions rather than one union with many branches — `[[U]]`
+with three branches costs three attempts per element and 3ⁿ for n levels, which `maxDepth`
+cannot see.
+
+Two variants that accept the same documents is a real hazard and the macro cannot catch
+it: it refuses only the same payload *token*. That is the fourth exception to the
+round-trip law.
+
+## JSON only
+
+Unions decode from JSON and nothing else, and this is refused at expansion rather than
+silently omitted. A union has no `RawValue` path to decode through: the tag scan and the
+rewind are both operations on bytes.
+
+## Next
+
+- [Encoding](/recipes/encoding/) — writing a union back out.
+- [Unions, explained](/guides/unions/) — the four hard questions and their answers.

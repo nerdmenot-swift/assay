@@ -73,13 +73,30 @@ export default defineConfig({
             { slug: 'start/cheatsheet' },
           ],
         },
-        // Recipes sit after Start, which is where someone lands once the first schema
-        // works and they want to do something real. Task-shaped, where everything below
-        // is feature-shaped.
+        // Recipes come in two halves. The catalogue is one small runnable example per
+        // feature, for a reader looking up a shape. The second group is whole jobs, for a
+        // reader who knows the features and wants them assembled.
         {
           label: 'Recipes',
           items: [
             { slug: 'recipes' },
+            { slug: 'recipes/shapes' },
+            { slug: 'recipes/presence' },
+            { slug: 'recipes/names' },
+            { slug: 'recipes/rules' },
+            { slug: 'recipes/checks' },
+            { slug: 'recipes/dates' },
+            { slug: 'recipes/enums' },
+            { slug: 'recipes/unions' },
+            { slug: 'recipes/encoding' },
+            { slug: 'recipes/unknown-shapes' },
+            { slug: 'recipes/rows' },
+          ],
+        },
+        {
+          label: 'Putting it together',
+          collapsed: true,
+          items: [
             { slug: 'recipes/api-endpoint' },
             { slug: 'recipes/config-file' },
             { slug: 'recipes/moving-api' },

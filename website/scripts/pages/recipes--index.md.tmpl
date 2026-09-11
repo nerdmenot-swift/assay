@@ -1,43 +1,49 @@
 ---
 title: Recipes
-description: Seven jobs, start to finish. Each one is a program that compiles against the library, and the output on the page is what it printed.
+description: Every feature as a small runnable example. A declaration, a document, the output. Scan it, copy it, move on.
 ---
 
-The rest of these docs are organised by feature: presence, keys, rules, checks, formats.
-Each page answers *what does this do*.
+One page per topic, one short example per thing you might want. Each is a declaration, a
+document and what the library printed for it — nothing else, because a reader looking up
+"how do I do X" should not have to read a paragraph first.
 
-These answer *I am building X, which of those do I combine, and in what order*. They are
-the pieces assembled, for seven jobs people actually have.
+The [guides](/guides/presence/) are where the reasoning lives. These are where the shape
+lives.
 
-| Recipe | What it pulls together |
+## The map
+
+| | |
 |---|---|
-| [A JSON API endpoint](/recipes/api-endpoint/) | Content negotiation, rules, problem details, status codes |
-| [An application config file](/recipes/config-file/) | TOML or YAML, defaults, unknown-key warnings, carets at boot |
-| [An API that keeps changing](/recipes/moving-api/) | Aliases, fallbacks, open enums, collected extras |
-| [A form with errors on the fields](/recipes/form-errors/) | Paths to field names, codes to your own wording |
-| [A CSV file](/recipes/csv/) | Row decoding, text cells, row-indexed failures |
+| [Shapes](/recipes/shapes/) | Nested types, arrays, dictionaries, integer widths, bytes, inlining |
+| [Presence](/recipes/presence/) | Required, optional, default, salvaged, ignored, null versus absent |
+| [Names](/recipes/names/) | Key styles, renaming, aliases, paths, extras, unknown keys |
+| [Rules](/recipes/rules/) | Every validator, custom messages, normalising, coercion |
+| [Checks and transforms](/recipes/checks/) | Your own logic, cross-field, changing the type |
+| [Dates](/recipes/dates/) | Formats, candidate chains, date rules |
+| [Enums](/recipes/enums/) | Closed, open, one-or-many, wrapping a scalar |
+| [Unions](/recipes/unions/) | Tagged and untagged |
+| [Encoding](/recipes/encoding/) | Writing all four formats, round-trip, JSON Schema |
+| [Unknown shapes](/recipes/unknown-shapes/) | Value models, and schemas with no declaration |
+| [Rows and columns](/recipes/rows/) | Column stores and the write side |
+
+Then, when you want a whole job rather than one feature:
+
+| | |
+|---|---|
+| [A JSON API endpoint](/recipes/api-endpoint/) | Negotiation, rules, problem details, status codes |
+| [An application config file](/recipes/config-file/) | Defaults, typos, carets at boot |
+| [An API that keeps changing](/recipes/moving-api/) | Aliases, fallbacks, open enums, extras |
+| [A form with errors on the fields](/recipes/form-errors/) | Paths to field names, your own wording |
+| [A CSV file](/recipes/csv/) | Text cells, row-indexed failures |
 | [A SQL result set](/recipes/sql-rows/) | The driver adapter, batching, global row numbers |
-| [A file you do not trust](/recipes/untrusted-input/) | Limits, the accepting list, what each budget stops |
+| [A file you do not trust](/recipes/untrusted-input/) | Limits, and what each one stops |
 
-## These are programs, not snippets
+## Everything here ran
 
-Every recipe is a target in this site's build. It compiles against the real package, it
-runs, and what you see on the page is what it printed — the same rule as the rest of the
-site, applied to whole programs rather than to single examples.
+Every example on these pages is a real program in this site's build: it compiles against
+the package, runs, and the page shows what it printed. Nothing is illustrative.
 
-That constraint does the editorial work. A recipe that cannot be written as a working
-program is not a recipe; it is a guide page that already exists. It also means these
-cannot rot quietly: if an API changes under them, the site stops building.
-
-It has already earned its keep. Writing the first one turned up an HTTP handler that
-answered 415 while the body it served said 422, and writing the CSV one turned up a
-documented capability that did not work at all. Both are fixed; the pages show the fixed
-behaviour, because they show whatever the library actually does.
-
-## What they are not
-
-Not a cheatsheet. [That exists](/start/cheatsheet/) and answers "remind me of the
-spelling". If a recipe here is only a list of syntax, it should be deleted.
-
-Not a tour of the API either. Each one solves one job and stops, and links to the guide
-when you want the full surface.
+That is not only a promise about accuracy. It has found four bugs so far — a handler
+answering 415 with a body claiming 422, a documented CSV path that did not work, a caret
+that went missing on four formats, and an example in the guides that does not compile.
+Examples that have to run are a test suite with a readership.

@@ -1,0 +1,536 @@
+// The cookbook: one small program per feature, graded from ordinary to advanced.
+//
+// Compiled and run by scripts/extract.ts. Every output on a /recipes/ page is what this
+// printed. Kept deliberately tiny — each entry is a declaration, a document and a result,
+// because a reader scanning for "how do I do X" should not have to read a paragraph first.
+//
+// `emit`, `emitTry` and `parts` are globals from main.swift (samples.swift.txt).
+
+import Assay
+import AssayYAML
+import AssayXML
+import AssayTOML
+import Foundation
+
+// ===========================================================================
+// SHAPES
+// ===========================================================================
+
+@Schema(keys: .snakeCase) struct Point: Equatable { var x: Int; var y: Int }
+
+@Schema(keys: .snakeCase)
+struct Shape: Equatable {
+    var name: String
+    var origin: Point                       // a nested @Schema type is just a field
+    var vertices: [Point]                   // and so is an array of them
+    var labels: [String: String] = [:]        // String-keyed dictionaries decode
+    var parent: Point?                      // optional nested
+}
+
+@Schema(keys: .snakeCase)
+struct Widths: Equatable {
+    var small: Int8
+    var medium: UInt16
+    var large: Int64
+    var ratio: Float
+    var payload: [UInt8]                      // a byte array, not Data
+}
+
+/// `@Inline` reads a nested type's fields from THIS object. The type must be nested
+/// inside, which is how the macro can prove no key collides.
+@Schema(keys: .snakeCase)
+struct Record: Equatable {
+    @Schema(keys: .snakeCase) struct Audit: Equatable { var createdBy: String; var revision: Int }
+    var id: Int
+    @Inline var audit: Audit
+}
+
+// ===========================================================================
+// PRESENCE
+// ===========================================================================
+
+@Schema(keys: .snakeCase)
+struct Presence: Equatable {
+    var required: String                      // absent -> an error
+    var optional: String?                     // absent -> nil
+    var defaulted: Int = 3                    // absent -> 3, still validated
+    @Fallback(0) var salvaged: Int            // absent OR invalid -> 0, with a warning
+    @Ignore var notAField: String? = nil      // never read from the document
+}
+
+@Schema(keys: .snakeCase)
+struct Nullable: Equatable {
+    var a: String?
+    var b: String?
+    var c: [String] = []
+}
+
+// ===========================================================================
+// NAMES
+// ===========================================================================
+
+@Schema(keys: .screamingSnakeCase)
+struct Env: Equatable { var databaseUrl: String; var maxRetries: Int }
+
+@Schema(keys: .snakeCase)
+struct Names: Equatable {
+    @Key("id") var identifier: Int
+    @Key("email", or: "email_address", "mail") var email: String
+    @Key(path: "profile.display_name") var displayName: String
+    var `default`: Bool = false               // a keyword is fine, backticks and all
+    @Extras var rest: [String: RawValue]
+}
+
+@Schema(keys: .snakeCase, unknownKeys: .reject)
+struct ApiConfig: Equatable { var apiKey: String; var timeoutSeconds: Int }
+
+// ===========================================================================
+// RULES
+// ===========================================================================
+
+@Schema(keys: .snakeCase)
+struct Bounds: Equatable {
+    @Validate(.min(1)) var replicas: Int
+    @Validate(.range(1...65535)) var port: Int
+    @Validate(.positive) var quantity: Int
+    @Validate(.multipleOf(15)) var minutes: Int
+    @Validate(.finite) var score: Double
+}
+
+@Schema(keys: .snakeCase)
+struct Sizes: Equatable {
+    @Validate(.notEmpty) var bio: String
+    @Validate(.length(6)) var code: String
+    @Validate(.count(1...3)) var tags: [String]
+    @Validate(.unique) var ids: [Int]
+    @Validate(.each(.min(2), .max(8))) var parts: [String]
+}
+
+@Schema(keys: .snakeCase)
+struct Strings: Equatable {
+    @Validate(.email) var email: String
+    @Validate(.url) var link: String
+    @Validate(.uuid) var id: String
+    @Validate(.hostname) var host: String
+    @Validate(.regex("^[a-z][a-z0-9-]*$")) var slug: String
+    @Validate(.prefix("sk-")) var key: String
+    @Validate(.oneOf(["draft", "published"])) var status: String
+}
+
+@Schema(keys: .snakeCase)
+struct Messages: Equatable {
+    @Validate(.min(8), "pick something longer") var password: String
+    @Validate(.range(13...120), "we can only accept teenagers and up") var age: Int
+}
+
+@Schema(keys: .snakeCase)
+struct Normalise: Equatable {
+    @Preprocess(.trim, .lowercase) @Validate(.email) var email: String
+    @Preprocess(.collapseWhitespace) @Validate(.isTrimmed) var title: String
+}
+
+@Schema(keys: .snakeCase)
+struct Coerce: Equatable {
+    var strict: Int
+    @Coerce var lenient: Int
+}
+
+// ===========================================================================
+// CHECKS AND TRANSFORMS
+// ===========================================================================
+
+@Schema(keys: .snakeCase)
+struct Handle: Equatable {
+    var username: String
+    @Check(\Handle.username)
+    static func notReserved(_ u: String) -> String? {
+        ["admin", "root"].contains(u) ? "is reserved" : nil
+    }
+}
+
+@Schema(keys: .snakeCase)
+struct Window: Equatable {
+    var start: Int
+    var end: Int
+    @Check
+    static func ordered(_ r: Window, _ issues: inout Issues<Window>) {
+        if r.end < r.start { issues.add("must be on or after start", at: \.end) }
+    }
+}
+
+@Schema(keys: .snakeCase, encodes: true)
+struct Timeouts: Equatable {
+    @Transform({ (a: [String]) in Set(a) })
+    @Inverse({ (s: Set<String>) in s.sorted() })
+    var tags: Set<String>
+
+    @Transform({ (ms: Int) in Double(ms) / 1000.0 })
+    @Inverse({ (s: Double) in Int(s * 1000) })
+    var timeoutSeconds: Double
+}
+
+// ===========================================================================
+// DATES
+// ===========================================================================
+
+@Schema(keys: .snakeCase)
+struct Timestamps: Equatable {
+    var iso: Date                                        // ISO-8601 by default
+    @DateFormat(.unixSeconds) var epoch: Date
+    @DateFormat(.rfc9110) var httpDate: Date
+    @DateFormat(.pattern("yyyy-MM-dd")) var day: Date
+    @DateFormat(.iso8601, .unixSeconds) var either: Date  // a candidate chain
+}
+
+@Schema(keys: .snakeCase)
+struct DateRules: Equatable {
+    @Validate(.after("2020-01-01")) var createdAt: Date
+    @Validate(.between("2020-01-01", "2030-01-01")) var effective: Date
+}
+
+func runCookbookPartOne() {
+    // --- shapes ---------------------------------------------------------
+    let shapeJSON = """
+    {
+      "name": "triangle",
+      "origin": {"x": 0, "y": 0},
+      "vertices": [{"x": 1, "y": 0}, {"x": 0, "y": 1}],
+      "labels": {"colour": "red"}
+    }
+    """
+    emitTry("cb.nested", shapeJSON) { try Shape.parse(json: shapeJSON) }
+
+    let badShape = """
+    {"name": "t", "origin": {"x": 0}, "vertices": [{"x": 1, "y": 0}, {"x": "two", "y": 1}]}
+    """
+    emit("cb.nestedErrors", badShape,
+         Shape.diagnose(json: badShape, sourceName: "shape.json").render(.plain))
+
+    let widths = """
+    {"small": 127, "medium": 65535, "large": 9007199254740993, "ratio": 0.5, "payload": [1, 2, 255]}
+    """
+    emitTry("cb.widths", widths) { try Widths.parse(json: widths) }
+
+    let widthsBad = """
+    {"small": 128, "medium": 65536, "large": 1, "ratio": 0.5, "payload": []}
+    """
+    emit("cb.widthsOverflow", widthsBad,
+         Widths.diagnose(json: widthsBad, sourceName: "widths.json").render(.plain))
+
+    let inlined = """
+    {"id": 7, "created_by": "jo", "revision": 3}
+    """
+    emitTry("cb.inline", inlined) { try Record.parse(json: inlined) }
+
+    // --- presence -------------------------------------------------------
+    let presentAll = """
+    {"required": "here", "optional": "also here", "defaulted": 9, "salvaged": 5}
+    """
+    emitTry("cb.presenceAll", presentAll) { try Presence.parse(json: presentAll) }
+
+    let presentNone = """
+    {"required": "here"}
+    """
+    let pd = Presence.diagnose(json: presentNone, sourceName: "p.json")
+    emit("cb.presenceAbsent", presentNone,
+         String(describing: pd.value!) + "\n\nwarnings: "
+         + (pd.warnings.map(\.code.codeString).joined(separator: ", ")).description)
+
+    let presentBad = """
+    {"salvaged": "not a number"}
+    """
+    let pb = Presence.diagnose(json: presentBad, sourceName: "p.json")
+    emit("cb.presenceSalvaged", presentBad,
+         pb.render(.plain) + "\nwarnings: " + pb.warnings.map(\.code.codeString).joined(separator: ", "))
+
+    let nulls = """
+    {"a": null, "c": null}
+    """
+    emit("cb.nullVsAbsent", nulls,
+         Nullable.diagnose(json: nulls, sourceName: "n.json").render(.plain)
+         + "\n" + String(describing: Nullable.diagnose(json: nulls).value as Any))
+
+    // --- names ----------------------------------------------------------
+    emitTry("cb.keyStyle", #"{"DATABASE_URL": "postgres://x", "MAX_RETRIES": 3}"#) {
+        try Env.parse(json: #"{"DATABASE_URL": "postgres://x", "MAX_RETRIES": 3}"#)
+    }
+
+    let named = """
+    {"id": 1, "mail": "jo@example.com", "profile": {"display_name": "Jo"},
+     "default": true, "extra_one": 1, "extra_two": "two"}
+    """
+    let nd = Names.diagnose(json: named, sourceName: "named.json")
+    emit("cb.keys", named,
+         String(describing: nd.value!) + "\n\nwarnings: "
+         + nd.warnings.map(\.code.codeString).joined(separator: ", "))
+
+    let typo = #"{"api_key": "sk-1", "timeout_secs": 30}"#
+    emit("cb.unknownKeyRejected", typo,
+         ApiConfig.diagnose(json: typo, sourceName: "cfg.json").render(.plain))
+
+    // --- rules ----------------------------------------------------------
+    let bounds = """
+    {"replicas": 0, "port": 70000, "quantity": -1, "minutes": 20, "score": 1e999}
+    """
+    emit("cb.bounds", bounds, Bounds.diagnose(json: bounds, sourceName: "b.json").render(.plain))
+
+    let sizes = """
+    {"bio": "", "code": "abc", "tags": [], "ids": [1, 1], "parts": ["a", "toolongvalue"]}
+    """
+    emit("cb.sizes", sizes, Sizes.diagnose(json: sizes, sourceName: "s.json").render(.plain))
+
+    let strings = """
+    {"email": "jo@localhost", "link": "not a url", "id": "abc", "host": "-bad-",
+     "slug": "Not_A_Slug", "key": "pk-1", "status": "deleted"}
+    """
+    emit("cb.strings", strings, Strings.diagnose(json: strings, sourceName: "s.json").render(.plain))
+
+    let messages = #"{"password": "short", "age": 9}"#
+    emit("cb.messages", messages, Messages.diagnose(json: messages, sourceName: "m.json").render(.plain))
+
+    let messy = #"{"email": "  JO@Example.COM  ", "title": "a   spaced   title"}"#
+    emitTry("cb.preprocess", messy) { try Normalise.parse(json: messy) }
+
+    let coerce = #"{"strict": "8080", "lenient": "8080"}"#
+    emit("cb.coerce", coerce, Coerce.diagnose(json: coerce, sourceName: "c.json").render(.plain))
+
+    // --- checks and transforms -------------------------------------------
+    emit("cb.checkField", #"{"username": "admin"}"#,
+         Handle.diagnose(json: #"{"username": "admin"}"#, sourceName: "u.json").render(.plain))
+
+    emit("cb.checkCrossField", #"{"start": 10, "end": 3}"#,
+         Window.diagnose(json: #"{"start": 10, "end": 3}"#, sourceName: "r.json").render(.plain))
+
+    let transformed = #"{"tags": ["b", "a", "b"], "timeout_seconds": 1500}"#
+    emitTry("cb.transform", transformed) { try Timeouts.parse(json: transformed) }
+    emitTry("cb.transformBack", transformed) {
+        try Timeouts.parse(json: transformed).jsonText()
+    }
+
+    // --- dates ------------------------------------------------------------
+    let dates = """
+    {"iso": "2026-09-11T12:00:00Z", "epoch": 1700000000,
+     "http_date": "Wed, 21 Oct 2026 07:28:00 GMT", "day": "2026-01-31", "either": 1700000000}
+    """
+    emitTry("cb.dates", dates) { try Timestamps.parse(json: dates) }
+
+    let badDates = """
+    {"iso": "yesterday", "epoch": 1700000000, "http_date": "Wed, 21 Oct 2026 07:28:00 GMT",
+     "day": "31/01/2026", "either": "nope"}
+    """
+    emit("cb.datesBad", badDates, Timestamps.diagnose(json: badDates, sourceName: "d.json").render(.plain))
+
+    let dateRules = #"{"created_at": "2019-06-01T00:00:00Z", "effective": "2031-01-01T00:00:00Z"}"#
+    emit("cb.dateRules", dateRules,
+         DateRules.diagnose(json: dateRules, sourceName: "d.json").render(.plain))
+}
+
+// ===========================================================================
+// ENUMS AND SCALAR-LIKE TYPES
+// ===========================================================================
+
+/// A closed enum needs no macro — declare the conformance and the implementation comes
+/// from a protocol extension. `CaseIterable` is optional and makes the error list the
+/// values it would have accepted.
+enum Colour: String, JSONAssayable, CaseIterable, Equatable { case red, green, blue }
+enum Priority: Int, JSONAssayable, Equatable { case low = 1, high = 2 }
+
+@Schema(keys: .snakeCase)
+struct Label: Equatable { var colour: Colour; var priority: Priority }
+
+/// An OPEN enum keeps a value it does not recognise instead of failing.
+@Schema enum Plan: Equatable {
+    case free, pro
+    @Unknown case other(String)
+}
+
+@Schema(keys: .snakeCase) struct Membership: Equatable { var tier: Plan }
+
+/// A wire that sometimes sends one and sometimes sends many.
+@Schema(keys: .snakeCase)
+struct Post: Equatable { @OneOrMany var tags: [String] }
+
+/// `@Wraps` makes a struct a constrained scalar. The issues are byte-identical to
+/// `@Validate(.email)` on a `String` — that equivalence is the feature.
+@Wraps(String.self, .email) struct EmailAddress {}
+@Wraps(Int64.self, .range(1...100)) struct Percent {}
+
+@Schema(keys: .snakeCase)
+struct Contact: Equatable { var contact: EmailAddress; var complete: Percent }
+
+// ===========================================================================
+// UNIONS
+// ===========================================================================
+
+@Schema(keys: .snakeCase) struct Click: Equatable { var x: Int; var y: Int }
+@Schema(keys: .snakeCase) struct View: Equatable { var path: String }
+
+/// Tagged: a key in the object says which variant it is. Prefer this.
+@Schema(keys: .snakeCase, discriminator: "type")
+enum Event: Equatable {
+    case click(Click)
+    @Key("page_view") case pageView(View)
+}
+
+@Schema(keys: .snakeCase) struct Number: Equatable { var value: Double }
+@Schema(keys: .snakeCase) struct Text: Equatable { var text: String }
+
+/// Untagged: try each in order, first match wins. Only when the wire gives you no tag.
+@Schema(discriminator: .untagged)
+enum Scalar: Equatable {
+    case number(Number)
+    case text(Text)
+}
+
+// ===========================================================================
+// ENCODING AND DESCRIBING
+// ===========================================================================
+
+@Schema(keys: .snakeCase, formats: .all, encodes: true, describes: true)
+struct Build: Equatable {
+    @Validate(.min(1), .max(40)) var name: String
+    @Validate(.range(1...99)) var version: Int
+    var stable: Bool
+    var notes: String?
+    @Validate(.count(1...5)) var tags: [String]
+}
+
+@Schema(keys: .snakeCase, encodes: true)
+struct Unwritable: Equatable { var label: String; var ratio: Double }
+
+// ===========================================================================
+// UNKNOWN SHAPES
+// ===========================================================================
+
+/// A runtime schema, for a shape with no declaration to attach a macro to.
+struct Ticket: Equatable, Sendable { var raw: String }
+extension Ticket: AssayerBacked {
+    nonisolated static let assaySchema =
+        Assayer.string.validate(.prefix("TCK-"), .length(9)).map(Ticket.init(raw:))
+}
+
+@Schema(keys: .snakeCase) struct Booking: Equatable { var ticket: Ticket }
+
+// ===========================================================================
+// ROWS AND COLUMNS
+// ===========================================================================
+
+@Schema(keys: .snakeCase, formats: [], encodes: true, sources: true)
+struct Row: Equatable {
+    var id: Int64
+    @Validate(.email) var email: String
+    var active: Bool
+}
+
+/// A column store that already holds one array per field — Parquet, Arrow.
+struct Store: ColumnarSource {
+    var ids: [Int64], emails: [String], actives: [Bool]
+    var rowCount: Int { ids.count }
+    borrowing func int64Column(_ key: StaticString, _ f: Int) -> [Int64]? { f == 0 ? ids : nil }
+    borrowing func stringColumn(_ key: StaticString, _ f: Int) -> [String]? { f == 1 ? emails : nil }
+    borrowing func boolColumn(_ key: StaticString, _ f: Int) -> [Bool]? { f == 2 ? actives : nil }
+    borrowing func doubleColumn(_ key: StaticString, _ f: Int) -> [Double]? { nil }
+}
+
+/// A sink that collects field values on the way out — the shape a CSV writer or an
+/// INSERT parameter binder has.
+struct PrintSink: RowSink {
+    var cells: [String] = []
+    mutating func write(int64 v: Int64, _ f: Int) { cells.append(String(v)) }
+    mutating func write(double v: Double, _ f: Int) { cells.append(String(v)) }
+    mutating func write(bool v: Bool, _ f: Int) { cells.append(String(v)) }
+    mutating func write(string v: String, _ f: Int) { cells.append(v) }
+    mutating func write(bytes v: UnsafeRawBufferPointer, _ f: Int) { cells.append("\(v.count) bytes") }
+    mutating func writeNull(_ f: Int) { cells.append("NULL") }
+}
+
+func runCookbookPartTwo() {
+    // --- enums ------------------------------------------------------------
+    emitTry("cb.enumClosed", #"{"colour": "green", "priority": 2}"#) {
+        try Label.parse(json: #"{"colour": "green", "priority": 2}"#)
+    }
+    let badEnum = #"{"colour": "chartreuse", "priority": 9}"#
+    emit("cb.enumBad", badEnum, Label.diagnose(json: badEnum, sourceName: "e.json").render(.plain))
+
+    emitTry("cb.enumOpen", #"{"tier": "enterprise"}"#) {
+        try Membership.parse(json: #"{"tier": "enterprise"}"#)
+    }
+
+    emitTry("cb.oneOrMany", #"{"tags": "swift"}"#) {
+        (try Post.parse(json: #"{"tags": "swift"}"#),
+         try Post.parse(json: #"{"tags": ["swift", "json"]}"#))
+    }
+
+    let wrapped = #"{"contact": "not-an-email", "complete": 150}"#
+    emit("cb.wraps", wrapped, Contact.diagnose(json: wrapped, sourceName: "w.json").render(.plain))
+
+    // --- unions -----------------------------------------------------------
+    let tagged = #"{"type": "page_view", "path": "/pricing"}"#
+    emitTry("cb.unionTagged", tagged) { try Event.parse(json: tagged) }
+    let taggedBad = #"{"type": "scroll", "path": "/pricing"}"#
+    emit("cb.unionTaggedBad", taggedBad,
+         Event.diagnose(json: taggedBad, sourceName: "ev.json").render(.plain))
+
+    emitTry("cb.unionUntagged", #"{"text": "hello"}"#) {
+        (try Scalar.parse(json: #"{"value": 1.5}"#), try Scalar.parse(json: #"{"text": "hello"}"#))
+    }
+
+    // --- encoding ---------------------------------------------------------
+    let release = Build(name: "api", version: 2, stable: true, notes: nil, tags: ["a", "b"])
+    emit("cb.encodeJSON", String(describing: release), try! release.jsonText())
+    emit("cb.encodeYAML", String(describing: release), try! release.yamlText())
+    emit("cb.encodeTOML", String(describing: release), try! release.tomlText())
+    emit("cb.encodeXML", String(describing: release), try! release.xmlText())
+    emitTry("cb.roundTrip", "encode, then decode, then compare") {
+        try Build.parse(json: release.jsonText()) == release
+    }
+
+    // Encoding does not re-run your rules — it reports what cannot be WRITTEN. A Double
+    // that is not finite has no JSON spelling, so this is the failure it can have.
+    let unwritable = Unwritable(label: "x", ratio: .infinity)
+    let ed = unwritable.diagnoseEncodeJSON()
+    var encOut = "bytes written: \(ed.bytes.count)\nissues:\n"
+    for issue in ed.issues { encOut += "  " + issue.path.pathDescription + ": " + issue.message + "\n" }
+    emit("cb.encodeErrors", String(describing: unwritable), encOut)
+
+    emit("cb.jsonSchema", "Build.jsonSchema(for: .input).text()",
+         Build.jsonSchema(for: .input).text(indent: 2))
+
+    // --- unknown shapes ----------------------------------------------------
+    let unknown = #"{"kind": "batch", "items": [{"id": 1}, {"id": 2}], "meta": null}"#
+    let jv = try! JSON.Value.parse(Array(unknown.utf8))
+    emit("cb.jsonValue", unknown,
+         "v[\"kind\"]?.string            -> \(jv["kind"]?.string ?? "nil")\n"
+         + "v[\"items\"]?[1]?[\"id\"]?.int  -> \(jv["items"]?[1]?["id"]?.int.map(String.init) ?? "nil")\n"
+         + "v[\"items\"]?.array?.count    -> \(jv["items"]?.array?.count.description ?? "nil")\n"
+         + "v[\"nope\"]                   -> \(jv["nope"].map { String(describing: $0) } ?? "nil")")
+
+    emitTry("cb.assayer", #"{"ticket": "TCK-00042"}"#) {
+        try Booking.parse(json: #"{"ticket": "TCK-00042"}"#)
+    }
+    emit("cb.assayerBad", #"{"ticket": "XX-1"}"#,
+         Booking.diagnose(json: #"{"ticket": "XX-1"}"#, sourceName: "t.json").render(.plain))
+
+    // --- rows and columns --------------------------------------------------
+    let store = Store(ids: [1, 2, 3],
+                        emails: ["a@example.com", "nope", "c@example.com"],
+                        actives: [true, false, true])
+    let batch = Row.batch(from: store)
+    var colSrc = "ids:     [1, 2, 3]\n"
+    colSrc += "emails:  [\"a@example.com\", \"nope\", \"c@example.com\"]\n"
+    colSrc += "actives: [true, false, true]"
+    var colOut = "decoded \(batch.values.count) of 3\n"
+    for v in batch.values { colOut += "  \(v)\n" }
+    colOut += "\nissues:\n"
+    for issue in batch.issues {
+        let where_ = issue.path.pathDescription
+        colOut += "  [" + where_ + "] " + issue.message + "\n"
+    }
+    emit("cb.columnar", colSrc, colOut)
+
+    var sink = PrintSink()
+    Row(id: 7, email: "jo@example.com", active: true).encodeRow(into: &sink)
+    emit("cb.rowSink", "Row(id: 7, email: \"jo@example.com\", active: true)",
+         "columns: " + Row._assayManifest.keys.joined(separator: ", ")
+         + "\ncells:   " + sink.cells.joined(separator: ", "))
+}

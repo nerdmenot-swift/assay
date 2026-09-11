@@ -133,11 +133,17 @@ conformance.
 A closed set of strings or integers needs no macro at all:
 
 ```swift
-enum Status: String, Codable { case active, archived }
+enum Status: String, JSONAssayable, CaseIterable { case active, archived }
 ```
 
-`RawRepresentable` with a `String` or `Int` raw value already decodes. Add `CaseIterable`
-and the error lists the valid values. `@Schema` on an enum is for
+Declare the conformance and the implementation comes from a protocol extension, for any
+`RawRepresentable` with a `String` or `Int` raw value. There is nothing to write in the
+body. Add `RawDecodable` too if the type decodes from YAML, XML, TOML or a plist, and
+`CaseIterable` to make the error list the values it would have accepted.
+
+(This example said `Codable` until 2026-09-11, which does not compile as a field —
+`Codable` is the protocol this library replaces, not one it reads. Caught by turning the
+guides into programs that have to run.) `@Schema` on an enum is for
 [unions](/guides/unions/) and `@Unknown` open enums.
 
 ## Validating without decoding

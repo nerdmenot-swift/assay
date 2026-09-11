@@ -138,8 +138,26 @@ wrong, and here is where.
 Zero-rule `@Schema` is a first-class mode, though. Assay is a complete serde with no
 validation at all, not an on-ramp to one.
 
+## It is not only JSON
+
+The struct you just wrote is the whole declaration. Add a format and the same struct, the
+same rules and the same errors work on YAML, XML, TOML, property lists, HTTP request bodies
+and database rows:
+
+```swift
+@Schema(keys: .snakeCase, formats: [.json, .yaml, .toml])
+struct Article { … }
+
+try Article.parse(yaml: text)
+try Article.parse(toml: text)
+```
+
+There is nothing else to learn per format. [Formats](/formats/) has a page each, with what
+every one of them genuinely does differently.
+
 ## Next
 
 - [Coming from Codable](/start/from-codable/) — every habit you have, and what it becomes.
+- [Formats](/formats/) — the same struct, on five formats and on database rows.
 - [Cheatsheet](/start/cheatsheet/) — one page, everything, no prose.
 - [Errors](/guides/errors/) — the part this library exists for.

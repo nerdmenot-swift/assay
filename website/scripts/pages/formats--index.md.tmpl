@@ -62,6 +62,11 @@ not pay for a capability it never calls.
 Calling `parse(yaml:)` on a type that did not list `.yaml` is a **compile** error, not a
 runtime one: the conformance that entry point needs simply is not there.
 
+Two things the list does not say out loud. Listing any of YAML, XML or TOML turns JSON
+*off* unless you also list it, because a type that only ever reads TOML should not carry a
+JSON body. And there is no `.plist` — property lists decode through the same projection
+those three use, so [any of them](/formats/plist/) brings `parse(plist:)` along.
+
 ## Everything hand-written
 
 No libyaml, no libxml2, nothing to vendor. Every parser here is pure Swift, and that is
@@ -80,7 +85,7 @@ not purism:
 ## Two decode paths
 
 JSON decodes **directly from bytes into your struct**. That is the fast path, and where the
-5–9× over Foundation comes from.
+8.7× mean over Foundation comes from.
 
 Every other format parses to its own value model, then decodes through a shared projection:
 

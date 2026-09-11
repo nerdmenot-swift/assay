@@ -154,10 +154,10 @@ func runSourceBenchmarks() {
     }
     print(pad("batch, in the app", 34, right: true)
           + pad(String(format: "%.0f", appBatchNs), 14)
-          + pad(String(format: "%.0f", appBatchNs / 200), 10))
+          + pad(String(format: "%.0f", appBatchNs / Double(n200)), 10))
     print(pad("batch, in the driver (T generic)", 34, right: true)
           + pad(String(format: "%.0f", driverBatchNs), 14)
-          + pad(String(format: "%.0f", driverBatchNs / 200), 10))
+          + pad(String(format: "%.0f", driverBatchNs / Double(n200)), 10))
     print(String(format: "batch generic-over-schema costs %.2fx", driverBatchNs / appBatchNs))
 
     print("")

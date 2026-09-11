@@ -91,7 +91,7 @@ team = "platform"
 ```
 
 ```text
-Cluster(name: "eu-prod", servers: [extract.Server(host: "a.internal", port: 8080, tls: true), extract.Server(host: "b.internal", port: 8081, tls: false)], labels: ["tier": "prod", "team": "platform"])
+Cluster(name: "eu-prod", servers: [Server(host: "a.internal", port: 8080, tls: true), Server(host: "b.internal", port: 8081, tls: false)], labels: ["tier": "prod", "team": "platform"])
 ```
 
 The same document written with inline tables, which is the compact spelling:
@@ -103,7 +103,7 @@ labels = {tier = "prod"}
 ```
 
 ```text
-Cluster(name: "eu-prod", servers: [extract.Server(host: "a.internal", port: 8080, tls: true)], labels: ["tier": "prod"])
+Cluster(name: "eu-prod", servers: [Server(host: "a.internal", port: 8080, tls: true)], labels: ["tier": "prod"])
 ```
 
 Both spellings land in the same struct, because your schema does not care how the file was
@@ -238,8 +238,8 @@ the time you read it — the radix was a spelling, not a type.
 ## A note on speed
 
 TOML is a tree decoder, like YAML and XML, so the argument that makes Assay's JSON path fast
-does not apply. The numbers are about parity with C: roughly 1.09× toml++ at building the
-tree, and 1.81× TOMLKit's `Codable` decoder end to end.
+does not apply. The numbers are about parity with C: roughly 1.17× toml++ at building the
+tree, and 1.95× TOMLKit's `Codable` decoder end to end.
 
 That second number is the familiar shape — the gap is the `Codable` boundary, not the
 parser. [Performance](/reference/performance/) has the rest.

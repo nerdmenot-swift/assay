@@ -137,13 +137,46 @@ same two-field schema, 100k rows, the only difference being how the field is dec
 
 | field type | ns/row |
 |---|---|
-| `Int64`, built in | 4.16 |
-| `Micros`, `ColumnDecodable` | 4.06 (0.97×) |
+| `Int64`, built in | 3.75–4.02 |
+| `Micros`, `ColumnDecodable` | 6.69–7.68 (**1.66–2.02×**) |
 
-(Re-measured 2026-09-10. Both rows read ~42 ns until a per-row diagnostic-path allocation
-was removed from the generated loop; the ratio — the claim this table makes — did not move.)
+**The hook costs about 3 ns/row.** This document said it was free until 2026-09-11, and
+that was wrong.
 
-Three runs: 0.99×, 0.99×, 1.02×. The hook is free; the spread is the measurement.
+### How a false "free" survived for ten days
+
+Both rows measured ~42 ns/row until 2026-09-10, when a per-row diagnostic-path allocation
+was removed from the generated loop. A 3 ns difference inside 42 ns is 7%, so the original
+three runs — 0.99×, 0.99×, 1.02× — were an honest reading of an instrument that could not
+resolve the thing being claimed. The re-measurement taken the day the allocation went
+(4.16 vs 4.06) kept the conclusion and is not reproducible: the first commit after that fix
+measures **1.80×**, and so does every run since.
+
+Two lessons, and the second is the useful one. A ratio is only evidence about a difference
+if the difference is large against the noise — and a large cost shared by both sides *is*
+noise for this purpose. And when a change makes a measurement newly capable of seeing
+something, the conclusions that predate it need re-deriving, not re-confirming.
+
+### Where the 3 ns goes
+
+It is structural and visible in the golden expansion. A built-in column's validity mask is
+hoisted to a `let` before the row loop. A `ColumnDecodable` column's is projected out of
+the column struct on every row, along with its metadata:
+
+```swift
+!Assay._assayIsNullAt(__n1, __r)                                  // built in, hoisted
+!Assay._assayIsNullAt(__col4.nulls, __r)                          // hook, per row
+Date(assayColumn: __col4, row: __r, metadata: __col4.metadata)    // and again
+```
+
+Hoisting those two, as the built-in path already does, is the obvious fix. It has not been
+made: it is a codegen change and wants goldens, tests and the compile-time gate behind it.
+
+### What the design claim still stands on
+
+The generic call is once per **column**, not per row. That is the thing `KeyedSource` got
+wrong, and it is why this shape works at all: 3 ns/row is a cost you can weigh, and a
+witness-table call per row was 1.6–4.7×.
 
 ## Why the carrier is an associated type and not a field attribute
 

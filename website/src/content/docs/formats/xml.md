@@ -7,13 +7,15 @@ description: Attributes, elements, text and wrapped arrays — plus the one thin
 import AssayXML
 
 @Schema(keys: .snakeCase, coerceScalars: true, formats: [.xml])
-struct Deployment {
-    var name: String
+struct XMLDeployment {
+    @Validate(.min(1), .max(63)) var name: String
     var image: String
-    var replicas: Int
+    @Validate(.min(1)) var replicas: Int
+    var region: String = "eu-west-1"
+    @Validate(.url) var healthCheck: String?
 }
 
-let deployment = try Deployment.parse(xml: bytes)
+let deployment = try XMLDeployment.parse(xml: bytes)
 ```
 
 Note `coerceScalars: true`. XML is the one format that makes you say it, and the reason is
@@ -26,7 +28,18 @@ Every leaf in an XML document is character data. There is no integer, no boolean
 beyond that.
 
 So a struct with an `Int` field decoding from XML has to agree that text may become a
-number. Without that, it does not:
+number. Here is the same shape **without** the flag:
+
+```swift
+@Schema(keys: .snakeCase, formats: .all)      // no coerceScalars
+struct Deployment {
+    @Validate(.min(1), .max(63)) var name: String
+    var image: String
+    @Validate(.min(1)) var replicas: Int
+    var region: String = "eu-west-1"
+    @Validate(.url) var healthCheck: String?
+}
+```
 
 ```xml
 <deployment><name>api</name><image>img:1</image><replicas>3</replicas></deployment>
@@ -40,16 +53,15 @@ deploy.xml:1:59: error: replicas must be an integer, found "3"
 1 error
 ```
 
-That error is correct, and it is the library refusing to guess. Add the flag and it decodes:
-
-```swift
-@Schema(keys: .snakeCase, coerceScalars: true, formats: [.xml])
-struct Deployment { var name: String; var image: String; var replicas: Int }
-```
+That error is correct, and it is the library refusing to guess. The identical document
+through `XMLDeployment`, which differs only by the flag:
 
 ```text
 XMLDeployment(name: "api", image: "img:1", replicas: 3, region: "eu-west-1", healthCheck: nil)
 ```
+
+Those two types are used side by side for the rest of this page, so you can always tell
+which behaviour is being shown by which name is in the output.
 
 ### Coercion is opt-in
 
@@ -101,10 +113,10 @@ The fix is to say it on both:
 
 ```swift
 @Schema(keys: .snakeCase, coerceScalars: true, formats: [.xml])
-struct Server { var host: String; var port: Int; var tls: Bool = true }
+struct XMLServer { var host: String; var port: Int; var tls: Bool = true }
 
 @Schema(keys: .snakeCase, coerceScalars: true, formats: [.xml])
-struct Cluster { var name: String; var servers: [Server] }
+struct XMLCluster { var name: String; var servers: [XMLServer] }
 ```
 
 ```xml
@@ -116,7 +128,7 @@ struct Cluster { var name: String; var servers: [Server] }
 ```
 
 ```text
-XMLCluster(name: "eu-prod", servers: [extract.XMLServer(host: "a.internal", port: 8080, tls: true), extract.XMLServer(host: "b.internal", port: 8081, tls: false)])
+XMLCluster(name: "eu-prod", servers: [XMLServer(host: "a.internal", port: 8080, tls: true), XMLServer(host: "b.internal", port: 8081, tls: false)])
 ```
 
 Which also shows how XML spells an array: **repeated sibling elements.** There is no list
@@ -221,6 +233,10 @@ Billion laughs is handled by the same node budget as YAML's aliases. See
 CDATA is text. It is the escape hatch for content full of angle brackets, and it arrives as
 the characters it holds:
 
+```swift
+@Schema(coerceScalars: true, formats: .all) struct Note { var title: String; var body: String }
+```
+
 ```xml
 <note><title>T</title><body><![CDATA[<b>raw</b> & unescaped]]></body></note>
 ```
@@ -276,7 +292,7 @@ nonsense.
 
 ## A note on speed
 
-Assay's XML parser measures about 2.4× Foundation's `XMLParser` on macOS. On Linux it
+Assay's XML parser measures about 2.3× Foundation's `XMLParser` on macOS. On Linux it
 measures 0.96× — parity — because `FoundationXML` there is libxml2, and matching a mature C
 parser while building a full tree its SAX interface never builds is a fine result to stop at.
 

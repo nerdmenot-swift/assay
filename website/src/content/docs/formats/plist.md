@@ -8,13 +8,20 @@ import AssayPlist
 
 @Schema(keys: .snakeCase, formats: .all)
 struct Deployment {
-    var name: String
+    @Validate(.min(1), .max(63)) var name: String
     var image: String
-    var replicas: Int
+    @Validate(.min(1)) var replicas: Int
+    var region: String = "eu-west-1"
+    @Validate(.url) var healthCheck: String?
 }
 
 let settings = try Deployment.parse(plist: bytes)     // either flavour
 ```
+
+There is no `.plist` in the `formats:` list, and that is not an oversight. A property list
+reaches your struct through the same projection YAML, XML and TOML use, so **any type that
+lists one of those three can also parse a plist.** `formats: [.yaml]` is enough; `.all` is
+just the common spelling.
 
 `PropertyListSerialization` is not linked, not referenced, and not needed. This decodes the
 same way on Linux and Windows as it does on a Mac.
@@ -44,7 +51,7 @@ the end of the file, an offset table, and every value resolved by index through 
 
 ```text
 // 'bplist00' + 86 bytes, written by PropertyListSerialization
-62 70 6c 69 73 74 30 30 d3 01 02 03 04 05 06 54 …
+62 70 6c 69 73 74 30 30 d3 01 02 03 04 05 06 58 …
 ```
 
 ```text
@@ -54,9 +61,9 @@ Deployment(name: "api", image: "img:1", replicas: 3, region: "eu-west-1", health
 Same call, same struct, same result. If you have a reason to require one encoding, say so:
 
 ```swift
-try Settings.parse(plist: bytes)          // either
-try Settings.parse(binaryPlist: bytes)    // binary only
-try Settings.parse(xmlPlist: bytes)       // XML only
+try Deployment.parse(plist: bytes)          // either
+try Deployment.parse(binaryPlist: bytes)    // binary only
+try Deployment.parse(xmlPlist: bytes)       // XML only
 ```
 
 ### This is not sniffing, and the distinction matters
@@ -65,10 +72,11 @@ Elsewhere on this site there is a hard rule: Assay never guesses a format from b
 [Content negotiation](/formats/http/) makes you pass `accepting:` with no default, precisely
 so no one can hand your server an XML bomb by writing a different `Content-Type`.
 
-A plist is the exception that proves the rule, because it is not an exception. You already
-said "this is a property list". Binary and XML are two *encodings* of the one format you
-named, the same way UTF-8 and UTF-16 are two encodings inside XML, which every XML parser
-resolves from the bytes without anyone calling it sniffing.
+A plist looks like an exception and is not one. You already said "this is a property list".
+Binary and XML are two *encodings* of the one format you named, the same way UTF-8 and
+UTF-16 are two encodings inside XML — which every XML parser resolves from the bytes without
+anyone calling it sniffing. The rule being kept is "do not guess the format", and the format
+was not guessed.
 
 The discriminator is also exact rather than heuristic: `bplist00`, eight magic bytes at
 offset zero. Not a shape somebody recognised.

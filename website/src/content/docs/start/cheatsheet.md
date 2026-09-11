@@ -101,6 +101,9 @@ try T.parse(yaml: text)               // AssayYAML
 try T.parse(xml: bytes)               // AssayXML
 try T.parse(toml: text)               // AssayTOML
 try T.parse(plist: bytes)             // AssayPlist, either flavour
+try T.parse(binaryPlist: bytes)       // require binary
+try T.parse(xmlPlist: bytes)          // require XML
+try T.parseAll(yaml: text)            // → [T], multi-document stream
 try T.parse(mmapped: url)             // AssayFoundation, for large files
 try T.parse(body: bytes, contentType: ct, accepting: [.json, .yaml])
 
@@ -187,3 +190,15 @@ enum Value { case number(Num); case text(Text) }    // first match wins
 ```
 
 JSON only, and encoding needs `encodes: true`. [Unions](/guides/unions/) says why.
+
+## Where each format is documented
+
+| | page |
+|---|---|
+| JSON, and the value model | [JSON](/formats/json/) |
+| YAML, anchors, the Norway problem | [YAML](/formats/yaml/) |
+| XML, placement, XXE | [XML](/formats/xml/) |
+| TOML, tables, date-times | [TOML](/formats/toml/) |
+| Property lists, both flavours | [Property lists](/formats/plist/) |
+| SQL rows, CSV, Parquet | [Rows and columns](/formats/rows-and-columns/) |
+| `Content-Type` negotiation | [HTTP bodies](/formats/http/) |

@@ -15,77 +15,77 @@
   "numbers": [
     {
       "arm": "struct decode, full corpus",
-      "number": "8.93× mean over 25 files (4.92–18.98)",
+      "number": "8.65× mean over 25 files (5.19–18.29)",
       "against": "JSONDecoder"
     },
     {
       "arm": "prefix decode + unknown-key skip",
-      "number": "6.34× over 45 files",
+      "number": "6.23× over 45 files",
       "against": "JSONDecoder"
     },
     {
       "arm": "generic value model",
-      "number": "3.11× over 75 files",
+      "number": "3.16× over 75 files",
       "against": "JSONSerialization"
     },
     {
       "arm": "falsification arm (apimodel, 5 sizes)",
-      "number": "5.27× mean",
+      "number": "5.44× mean (8.22× float-dense)",
       "against": "JSONDecoder"
     },
     {
       "arm": "vs ZippyJSON (simdjson + Codable)",
-      "number": "2.97–3.81× faster",
-      "against": "ZippyJSON, which is 1.76–2.08× over Foundation here"
+      "number": "2.97–3.74× faster",
+      "against": "ZippyJSON, which is 1.77–2.03× over Foundation here"
     },
     {
       "arm": "vs yyjson, use-case shape",
-      "number": "0.69× (loses)",
+      "number": "0.66× (loses)",
       "against": "yyjson parse + extraction"
     },
     {
       "arm": "vs yyjson, float-dense",
-      "number": "0.78× (loses)",
+      "number": "0.74× (loses)",
       "against": "same"
     },
     {
       "arm": "vs yyjson, DOM vs DOM",
-      "number": "0.13× (loses)",
+      "number": "0.14× (loses)",
       "against": "yyjson_read"
     },
     {
       "arm": "YAML node parse",
-      "number": "6.59×",
+      "number": "6.63×",
       "against": "Yams compose"
     },
     {
       "arm": "YAML struct decode",
-      "number": "11.05×",
+      "number": "11.04×",
       "against": "Yams YAMLDecoder"
     },
     {
       "arm": "XML tree parse",
-      "number": "2.37× (macOS; 0.96× on Linux)",
+      "number": "2.34× (macOS; 0.96× on Linux)",
       "against": "Foundation XMLParser"
     },
     {
       "arm": "TOML node parse",
-      "number": "1.09×",
+      "number": "1.17×",
       "against": "toml++ via TOMLKit"
     },
     {
       "arm": "TOML struct decode",
-      "number": "1.81×",
+      "number": "1.95×",
       "against": "TOMLKit TOMLDecoder"
     },
     {
       "arm": "rows in through RowBatch, 8 columns",
-      "number": "~40 ns/row (old route 70; hand transpose 28; floor 11)",
+      "number": "37.4 ns/row (old route 75.1; hand transpose 29.8; floor 12.8)",
       "against": "a RawValue per row"
     },
     {
       "arm": "field values out, encodeRow",
-      "number": "1.3 ns/row (tree: 59)",
+      "number": "1.3 ns/row (tree: 64.0)",
       "against": "_assayEncodeRaw"
     },
     {
@@ -95,32 +95,32 @@
     },
     {
       "arm": "[String: T] dictionaries",
-      "number": "7.38× over 10 rows",
+      "number": "6.93× over 10 rows",
       "against": "JSONDecoder"
     },
     {
       "arm": "encoding, 50 / 200 items",
-      "number": "2.91× / 2.93×",
+      "number": "2.95× / 2.83×",
       "against": "JSONEncoder"
     },
     {
       "arm": "cold start, 60 types",
-      "number": "8.6× first decode (median); 7.0× steady",
+      "number": "7.8× first decode (median); 6.3× steady",
       "against": "JSONDecoder"
     },
     {
       "arm": "multi-megabyte documents",
-      "number": "6.78–6.92×, ~710 MB/s, flat",
+      "number": "6.79–6.89×, ~700 MB/s, flat",
       "against": "JSONDecoder"
     },
     {
       "arm": "columnar batch fill",
-      "number": "8.0–8.9× the tree path, ~10 ns/row",
+      "number": "6.6–7.1× the tree path, ~11 ns/row",
       "against": "Assay's own tree path"
     },
     {
       "arm": "T.validate(_:)",
-      "number": "76 ns per value, 1 block",
+      "number": "76 ns per value, 1 block; 84 ns/row batched",
       "against": "—"
     },
     {
@@ -145,7 +145,7 @@
     },
     "json.nested": {
       "source": "{\n  \"name\": \"eu-prod\",\n  \"servers\": [\n    {\"host\": \"a.internal\", \"port\": 8080},\n    {\"host\": \"b.internal\", \"port\": 8081, \"tls\": false}\n  ],\n  \"labels\": {\"tier\": \"prod\", \"team\": \"platform\"}\n}",
-      "render": "Cluster(name: \"eu-prod\", servers: [extract.Server(host: \"a.internal\", port: 8080, tls: true), extract.Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"tier\": \"prod\", \"team\": \"platform\"])"
+      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"tier\": \"prod\", \"team\": \"platform\"])"
     },
     "collect": {
       "source": "{\n  \"username\": \"jo\",\n  \"email\": \"jo@localhost\",\n  \"age\": \"fourteen\",\n  \"newsleter\": true\n}",
@@ -219,15 +219,15 @@
     },
     "yaml.nested": {
       "source": "name: eu-prod\nservers:\n  - host: a.internal\n    port: 8080\n  - host: b.internal\n    port: 8081\n    tls: false\nlabels:\n  tier: prod\n  team: platform",
-      "render": "Cluster(name: \"eu-prod\", servers: [extract.Server(host: \"a.internal\", port: 8080, tls: true), extract.Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"team\": \"platform\", \"tier\": \"prod\"])"
+      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"team\": \"platform\", \"tier\": \"prod\"])"
     },
     "yaml.flow": {
       "source": "name: eu-prod\nservers: [{host: a.internal, port: 8080}, {host: b.internal, port: 8081}]\nlabels: {tier: prod}",
-      "render": "Cluster(name: \"eu-prod\", servers: [extract.Server(host: \"a.internal\", port: 8080, tls: true), extract.Server(host: \"b.internal\", port: 8081, tls: true)], labels: [\"tier\": \"prod\"])"
+      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: true)], labels: [\"tier\": \"prod\"])"
     },
     "yaml.anchors": {
       "source": "defaults: &defaults\n  port: 8080\n  tls: true\nname: eu-prod\nservers:\n  - <<: *defaults\n    host: a.internal\n  - <<: *defaults\n    host: b.internal\n    port: 9090",
-      "render": "Cluster(name: \"eu-prod\", servers: [extract.Server(host: \"a.internal\", port: 8080, tls: true), extract.Server(host: \"b.internal\", port: 9090, tls: true)], labels: [:])"
+      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 9090, tls: true)], labels: [:])"
     },
     "yaml.norway": {
       "source": "code: NO\nenabled: false",
@@ -275,7 +275,7 @@
     },
     "xml.repeated": {
       "source": "<cluster>\n  <name>eu-prod</name>\n  <servers><host>a.internal</host><port>8080</port></servers>\n  <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>\n</cluster>",
-      "render": "XMLCluster(name: \"eu-prod\", servers: [extract.XMLServer(host: \"a.internal\", port: 8080, tls: true), extract.XMLServer(host: \"b.internal\", port: 8081, tls: false)])"
+      "render": "XMLCluster(name: \"eu-prod\", servers: [XMLServer(host: \"a.internal\", port: 8080, tls: true), XMLServer(host: \"b.internal\", port: 8081, tls: false)])"
     },
     "xml.nestedNoCoerce": {
       "source": "<cluster>\n  <name>eu-prod</name>\n  <servers><host>a.internal</host><port>8080</port></servers>\n  <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>\n</cluster>",
@@ -307,11 +307,11 @@
     },
     "toml.tables": {
       "source": "name = \"eu-prod\"\n\n[[servers]]\nhost = \"a.internal\"\nport = 8080\n\n[[servers]]\nhost = \"b.internal\"\nport = 8081\ntls = false\n\n[labels]\ntier = \"prod\"\nteam = \"platform\"",
-      "render": "Cluster(name: \"eu-prod\", servers: [extract.Server(host: \"a.internal\", port: 8080, tls: true), extract.Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"tier\": \"prod\", \"team\": \"platform\"])"
+      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"tier\": \"prod\", \"team\": \"platform\"])"
     },
     "toml.inline": {
       "source": "name = \"eu-prod\"\nservers = [{host = \"a.internal\", port = 8080}]\nlabels = {tier = \"prod\"}",
-      "render": "Cluster(name: \"eu-prod\", servers: [extract.Server(host: \"a.internal\", port: 8080, tls: true)], labels: [\"tier\": \"prod\"])"
+      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true)], labels: [\"tier\": \"prod\"])"
     },
     "toml.dates": {
       "source": "name = \"release\"\ncreated_at = 1979-05-27T07:32:00Z\nseen_at = 1700000000",
@@ -338,7 +338,7 @@
       "render": "Deployment(name: \"api\", image: \"img:1\", replicas: 3, region: \"eu-west-1\", healthCheck: nil)"
     },
     "plist.binary": {
-      "source": "// 'bplist00' + 86 bytes, written by PropertyListSerialization\n62 70 6c 69 73 74 30 30 d3 01 02 03 04 05 06 54 …",
+      "source": "// 'bplist00' + 86 bytes, written by PropertyListSerialization\n62 70 6c 69 73 74 30 30 d3 01 02 03 04 05 06 58 …",
       "render": "Deployment(name: \"api\", image: \"img:1\", replicas: 3, region: \"eu-west-1\", healthCheck: nil)"
     },
     "plist.badType": {

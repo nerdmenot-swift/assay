@@ -185,15 +185,17 @@ rule engine, called from a second place.
 
 | | ns |
 |---|---|
-| decode, schema with rules | 444 |
-| decode, same schema no rules | 350 |
-| **validate a constructed value** | **79** |
+| decode, schema with rules | 462 |
+| decode, same schema no rules | 376 |
+| **validate a constructed value** | **76** |
 
-Over a batch it is **87 ns/row**, flat from 64 rows to 100,000 — 79 for the rules plus the
-array element copy. That is about 8× this machine's columnar batch decode (~10 ns/row since
-2026-09-10; it was 53 and the ratio 1.6× when this was written), which is the honest way
-to read the seam: a row's rules cost more than its decode, because the rules are the work,
-and it is not in the same universe as decoding it twice.
+Over a batch it is **84 ns/row**, flat from 64 rows to 100,000 — 76 for the rules plus the
+array element copy. That is **7.9×** this machine's columnar batch decode, which the
+benchmark now measures in the same run rather than quoting (it divided by a hard-coded 53
+until 2026-09-11, and printed 1.6× for months after the columnar arm went to 11). That
+ratio is the honest way to read the seam: a row's rules cost more than its decode, because
+the rules are the work. It is still nowhere near re-decoding the document, which is the
+alternative this entry point exists to avoid.
 
 Two things had to be right for that number, and neither was obvious:
 

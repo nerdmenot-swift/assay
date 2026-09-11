@@ -36,12 +36,34 @@
 // same two-field schema, 100k rows; the only difference is whether the field is declared
 // `Int64` or a `ColumnDecodable` type carried by `Int64` (`runColumnDecodableBenchmarks`):
 //
-//     Int64, built in                                   4.16 ns/row
-//     Micros, ColumnDecodable                           4.06 ns/row     0.97x
-//     (42.65 / 42.29 until 2026-09-10 — a per-row diagnostic allocation, now gone)
+//     Int64, built in                                   3.75-4.02 ns/row
+//     Micros, ColumnDecodable                           6.69-7.68 ns/row   1.66-2.02x
 //
-// Three runs put it at 0.99x, 0.99x and 1.02x -- which is to say the hook is free, and the
-// spread is the measurement, not the feature.
+// THE HOOK IS NOT FREE, and this comment said it was until 2026-09-11. It costs about
+// 3 ns/row, which is 1.7-2.0x a built-in column at these absolute numbers.
+//
+// The history is worth keeping because the mistake is repeatable. Both sides measured
+// ~42 ns/row until 2026-09-10, when a per-row diagnostic-path allocation was removed from
+// the generated loop. A 3 ns difference inside 42 ns is 7% and reads as noise, so the
+// original "0.99x, 0.99x, 1.02x -- the hook is free" was a true reading of a measurement
+// that could not see the thing it was claiming about. The re-measurement recorded that day
+// (4.16 vs 4.06) kept the conclusion and was not reproducible: the first commit after the
+// fix measures 1.80x, as does every run since.
+//
+// The cost is structural and visible in the expansion. For a BUILT-IN column the validity
+// mask is hoisted to a `let` before the row loop; for a ColumnDecodable one the generated
+// body projects `.nulls` and `.metadata` out of the column struct on every row:
+//
+//     !Assay._assayIsNullAt(__n1, __r)                          // built in, hoisted
+//     !Assay._assayIsNullAt(__col4.nulls, __r)                  // hook, per row
+//     Date(assayColumn: __col4, row: __r, metadata: __col4.metadata)
+//
+// Hoisting those two the way the built-in path already does is the obvious fix and has not
+// been made; it is a codegen change and wants goldens, tests and the compile-time gate.
+//
+// What the design claim DOES survive on: the generic call is still once per COLUMN, not
+// per row, which is the thing `KeyedSource` got wrong and the reason this shape works at
+// all. 3 ns/row is a cost; a witness-table call per row was 1.6-4.7x.
 //
 // WHY THE BYTES COLUMN IS FLAT-PLUS-OFFSETS. `[[UInt8]]` would be one heap allocation per
 // row, charged to every reader whether or not it wants a copy, and a parquet or Arrow

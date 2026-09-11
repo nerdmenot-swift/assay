@@ -110,7 +110,7 @@ labels:
 ```
 
 ```text
-Cluster(name: "eu-prod", servers: [extract.Server(host: "a.internal", port: 8080, tls: true), extract.Server(host: "b.internal", port: 8081, tls: false)], labels: ["team": "platform", "tier": "prod"])
+Cluster(name: "eu-prod", servers: [Server(host: "a.internal", port: 8080, tls: true), Server(host: "b.internal", port: 8081, tls: false)], labels: ["team": "platform", "tier": "prod"])
 ```
 
 Flow style, which is JSON wearing a hat:
@@ -122,7 +122,7 @@ labels: {tier: prod}
 ```
 
 ```text
-Cluster(name: "eu-prod", servers: [extract.Server(host: "a.internal", port: 8080, tls: true), extract.Server(host: "b.internal", port: 8081, tls: true)], labels: ["tier": "prod"])
+Cluster(name: "eu-prod", servers: [Server(host: "a.internal", port: 8080, tls: true), Server(host: "b.internal", port: 8081, tls: true)], labels: ["tier": "prod"])
 ```
 
 ## Anchors, aliases and merge keys
@@ -144,7 +144,7 @@ servers:
 ```
 
 ```text
-Cluster(name: "eu-prod", servers: [extract.Server(host: "a.internal", port: 8080, tls: true), extract.Server(host: "b.internal", port: 9090, tls: true)], labels: [:])
+Cluster(name: "eu-prod", servers: [Server(host: "a.internal", port: 8080, tls: true), Server(host: "b.internal", port: 9090, tls: true)], labels: [:])
 ```
 
 `a.internal` took `port: 8080` from the anchor. `b.internal` overrode it with `9090`.

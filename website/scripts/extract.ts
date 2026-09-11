@@ -124,6 +124,14 @@ let package = Package(
   console.log('  extract: building the examples against the real library…')
   const json = await $`swift run -c release --package-path ${tmp} extract`.quiet().text()
   renders = JSON.parse(json)
+  // `String(describing:)` qualifies a type with the module it came from, so a nested
+  // value prints as `extract.Server` — the name of this harness's throwaway package,
+  // which is an artefact of how the samples are built and not something the library
+  // does. Strip that one prefix. Nothing else about the output is touched: this is the
+  // harness removing its own name, not the site editing the library's words.
+  for (const r of Object.values(renders as Record<string, { render: string }>)) {
+    if (typeof r?.render === 'string') r.render = r.render.replaceAll('extract.', '')
+  }
 } else if (renders) {
   console.log('  extract: no Swift toolchain — keeping the committed renders')
 } else {

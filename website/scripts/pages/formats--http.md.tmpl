@@ -3,9 +3,19 @@ title: HTTP bodies
 description: Choose the parser from a Content-Type header, safely — with an accepting list that has no default, on purpose.
 ---
 
-When the format arrives in a header rather than in your code:
+Sometimes the format is not a decision you made in the code. It arrives in a header, and
+your endpoint has to cope with more than one.
 
 ```swift
+@Schema(keys: .snakeCase, formats: .all)
+struct Deployment {
+    @Validate(.min(1), .max(63)) var name: String
+    var image: String
+    @Validate(.min(1)) var replicas: Int
+    var region: String = "eu-west-1"
+    @Validate(.url) var healthCheck: String?
+}
+
 let deployment = try Deployment.parse(
     body: request.body,
     contentType: request.headers["content-type"],
@@ -76,7 +86,24 @@ a closed enum listing every format would drag every parser into every build. A s
 only ever writes `accepting: [.json]` never links a YAML parser at all.
 
 You can write your own, too. A `WireFormat` is a name, a predicate over the parsed media
-type, and a closure producing a `RawValue`.
+type, and a closure that produces a `RawValue`:
+
+```swift
+extension WireFormat {
+    static let csv = WireFormat(
+        name: "csv",
+        matches: { $0.type == "text" && $0.subtype == "csv" },
+        decode: { bytes, sink, limits in
+            // your reader, producing a RawValue
+            MyCSV.decode(bytes, into: &sink, limits: limits)
+        })
+}
+
+try Report.parse(body: bytes, contentType: ct, accepting: [.json, .csv])
+```
+
+Everything downstream — your rules, your keys, your presence states, your errors — works
+unchanged, because it all runs on the far side of `RawValue`.
 
 ## JSON keeps its fast path
 

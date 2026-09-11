@@ -62,7 +62,7 @@ If your source is already column-first, skip the transpose entirely: conform it 
 let batch = User.batch(from: store)
 ```
 
-About 10 ns per row — flat from 64 rows to 100,000, because the win is the access pattern
+About 11 ns per row — flat from 64 rows to 100,000, because the win is the access pattern
 rather than cache residency. Row-by-row over a column store is strided by construction: N
 records over M columns is N×M jumps between M separate allocations. Inverting the loop makes
 each column one sequential pass, which is what the format was laid out for and what the
@@ -117,9 +117,15 @@ struct Micros: ColumnDecodable {
 }
 ```
 
-The carrier is an associated type, so the per-row call is concrete in your module — no
-witness table, and measured at 0.97× of a built-in column. That is the shape that matters:
-the generic call happens once per *column*, and the per-row work is direct.
+The carrier is an associated type, so the per-row call is concrete in your module and there
+is no witness table. That is the shape that matters: the generic call happens once per
+*column*, and the per-row work is direct.
+
+It is not quite free. Your own type costs about **3 ns per row** over a built-in column, at
+these absolute numbers 1.7–2.0×, because the generated loop reads the validity mask and the
+metadata off the column for every row where a built-in column has them hoisted. Worth
+knowing and small enough to stop worrying about: the alternative shape, a protocol call per
+row, measured 1.6–4.7× and was deleted for it.
 
 The unit arrives as **data** (`ColumnMetadata`), not as part of the type. A Parquet
 timestamp column is millis or micros or nanos according to its own metadata, and a schema
@@ -145,7 +151,7 @@ for user in users { user.encodeRow(into: &sink) }
 ```
 
 One typed call per field in manifest order, no tree — about 1.3 ns per row for the handoff
-against 59 for the tree route. The column names are `T._assayManifest.keys`, so the header
+against 64 for the tree route. The column names are `T._assayManifest.keys`, so the header
 row and the field list come from the same declaration as the properties. That last point
 is the real one: restating the field list is how a writer ends up emitting columns in a
 different order than its header claims.

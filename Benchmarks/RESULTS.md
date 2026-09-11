@@ -1,36 +1,41 @@
 # Current numbers
 
 **One machine, one run: macOS 26.5.2, Apple silicon (arm64), Apple Swift 6.3.3, `-O`, warm,
-minimum of 5 rounds — 2026-09-10, commit `bd1b4f8`.** None of these is a claim about
+minimum of 5 rounds — 2026-09-11, commit `2267c9d`.** None of these is a claim about
 another platform (`CLAUDE.md`'s honesty rules); Linux and x86-64 have their own sections
 below. Each row links to the journal entry that explains what it measures and what it does
 not. Regenerate with `swift run -c release AssayBench` and replace this table — the numbers
 are machine-specific by design, so this is pasted, not automated.
 
+Run-to-run spread on this machine is a few percent on every ratio here. A row that moved
+from the previous table by less than that has not changed; the two that moved by more —
+the value model and the yyjson tree arm — moved because of the fix journalled on
+2026-09-11, not because of noise.
+
 | arm | number | against | journal |
 |---|---|---|---|
-| struct decode, full corpus | **8.93×** mean over 25 files (4.92–18.98) | `JSONDecoder` | [three passes](#three-passes-because-one-number-cannot-answer-three-questions) |
-| prefix decode + unknown-key skip | **6.34×** over 45 files | `JSONDecoder` | same |
-| generic value model | **3.11×** over 75 files | `JSONSerialization` | same |
-| falsification arm (`apimodel`, 5 sizes) | **5.27×** mean | `JSONDecoder` | [Phase 1](#phase-1--the-falsification-check) |
-| vs ZippyJSON (simdjson + Codable) | **2.97–3.81×** faster | ZippyJSON, which is 1.76–2.08× over Foundation here | [the owed number](#the-owed-loss-assay-against-yyjson) |
-| vs yyjson, use-case shape | **0.69×** (loses) | yyjson parse + extraction | same |
-| vs yyjson, float-dense | **0.78×** (loses) | same | same |
-| vs yyjson, DOM vs DOM | **0.13×** (loses) | `yyjson_read` | same |
-| YAML node parse | **6.59×** | Yams `compose` | [YAML and XML](#yaml-and-xml-timed-for-the-first-time) |
-| YAML struct decode | **11.05×** | Yams `YAMLDecoder` | same |
-| XML tree parse | **2.37×** (macOS; **0.96×** on Linux) | Foundation `XMLParser` | [XML, made faster](#making-the-xml-parser-faster-by-profiling-rather-than-by-admiring-libxml2) |
-| TOML node parse | **1.09×** | toml++ via TOMLKit | [TOML](#toml-a-fourth-tree-decoder-against-c) |
-| TOML struct decode | **1.81×** | TOMLKit `TOMLDecoder` | same |
-| rows in through `RowBatch`, 8 columns | **~40 ns/row** (old route 70; hand transpose 28; floor 11) | a `RawValue` per row | [Rows](#rows-the-transpose-measured-seven-times) |
-| field values out, `encodeRow` | **1.3 ns/row** (tree: 59) | `_assayEncodeRaw` | same |
+| struct decode, full corpus | **8.65×** mean over 25 files (5.19–18.29) | `JSONDecoder` | [three passes](#three-passes-because-one-number-cannot-answer-three-questions) |
+| prefix decode + unknown-key skip | **6.23×** over 45 files | `JSONDecoder` | same |
+| generic value model | **3.16×** over 75 files | `JSONSerialization` | same |
+| falsification arm (`apimodel`, 5 sizes) | **5.44×** mean (8.22× float-dense) | `JSONDecoder` | [Phase 1](#phase-1--the-falsification-check) |
+| vs ZippyJSON (simdjson + Codable) | **2.97–3.74×** faster | ZippyJSON, which is 1.77–2.03× over Foundation here | [the owed number](#the-owed-loss-assay-against-yyjson) |
+| vs yyjson, use-case shape | **0.66×** (loses) | yyjson parse + extraction | same |
+| vs yyjson, float-dense | **0.74×** (loses) | same | same |
+| vs yyjson, DOM vs DOM | **0.14×** (loses) | `yyjson_read` | same |
+| YAML node parse | **6.63×** | Yams `compose` | [YAML and XML](#yaml-and-xml-timed-for-the-first-time) |
+| YAML struct decode | **11.04×** | Yams `YAMLDecoder` | same |
+| XML tree parse | **2.34×** (macOS; **0.96×** on Linux) | Foundation `XMLParser` | [XML, made faster](#making-the-xml-parser-faster-by-profiling-rather-than-by-admiring-libxml2) |
+| TOML node parse | **1.17×** | toml++ via TOMLKit | [TOML](#toml-a-fourth-tree-decoder-against-c) |
+| TOML struct decode | **1.95×** | TOMLKit `TOMLDecoder` | same |
+| rows in through `RowBatch`, 8 columns | **37.4 ns/row** (old route 75.1; hand transpose 29.8; floor 12.8) | a `RawValue` per row | [Rows](#rows-the-transpose-measured-seven-times) |
+| field values out, `encodeRow` | **1.3 ns/row** (tree: 64.0) | `_assayEncodeRaw` | same |
 | `Date` fields | **6.07×** | `JSONDecoder` + `.iso8601` | [Dates](#dates-the-unclaimed-win-claimed) |
-| `[String: T]` dictionaries | **7.38×** over 10 rows | `JSONDecoder` | [Dictionaries](#dictionaries-the-stated-worst-case-measured) |
-| encoding, 50 / 200 items | **2.91× / 2.93×** | `JSONEncoder` | `docs/ENCODING.md` |
-| cold start, 60 types | **8.6×** first decode (median); 7.0× steady | `JSONDecoder` | `ColdStartBench.swift` |
-| multi-megabyte documents | **6.78–6.92×**, ~710 MB/s, flat | `JSONDecoder` | `LargeDocBench.swift` |
-| columnar batch fill | **8.0–8.9×** the tree path, ~10 ns/row | Assay's own tree path | [Columnar, fixed](#columnar-the-per-row-allocation-that-was-wrongly-closed) |
-| `T.validate(_:)` | **76 ns** per value, 1 block | — | [Validating a value](#validating-a-value-you-already-have) |
+| `[String: T]` dictionaries | **6.93×** over 10 rows | `JSONDecoder` | [Dictionaries](#dictionaries-the-stated-worst-case-measured) |
+| encoding, 50 / 200 items | **2.95× / 2.83×** | `JSONEncoder` | `docs/ENCODING.md` |
+| cold start, 60 types | **7.8×** first decode (median); 6.3× steady | `JSONDecoder` | `ColdStartBench.swift` |
+| multi-megabyte documents | **6.79–6.89×**, ~700 MB/s, flat | `JSONDecoder` | `LargeDocBench.swift` |
+| columnar batch fill | **6.6–7.1×** the tree path, ~11 ns/row | Assay's own tree path | [Columnar, fixed](#columnar-the-per-row-allocation-that-was-wrongly-closed) |
+| `T.validate(_:)` | **76 ns** per value, 1 block; **84 ns/row** batched | — | [Validating a value](#validating-a-value-you-already-have) |
 | live allocations, `apimodel-8k` struct | gated, **PASS** | absolute thresholds | [Allocations](#allocations) |
 | compile time, 10 fields | **79.0 ms/type** (gate 100) | `Codable`: 4.1× | `docs/COMPILE-TIME.md` |
 
@@ -735,6 +740,14 @@ the field is declared `Int64` or a `ColumnDecodable` type carried by `Int64`.
 **0.99×.** Three runs gave 0.99×, 0.99× and 1.02×, so the hook is free and the spread is the
 measurement rather than the feature.
 
+> **That conclusion is wrong, and the numbers above are why it took ten days to see.**
+> Corrected 2026-09-11 — the hook costs about **3 ns/row, 1.66–2.02×**. Both columns above
+> carry a per-row diagnostic-path allocation of ~38 ns that was removed on 2026-09-10; a
+> 3 ns difference inside 42 ns is 7%, which is exactly what "the spread is the measurement"
+> looks like. The section at the end of this file has the re-measurement and the mechanism.
+> The rest of this entry — the shape table below, and why the generic call belongs once per
+> column — stands unchanged, and is the part that was actually being argued.
+
 That is not luck, and the shape it avoids was measured first, in isolation, across a real
 module boundary, converting one `Int64` per value:
 
@@ -829,31 +842,46 @@ rules and one without. That difference is exactly what `validate` re-runs.
 
 | operation | ns |
 |---|---|
-| decode, schema WITH rules | 444 |
-| decode, same schema NO rules | 350 |
-| **validate a constructed value** | **79** |
+| decode, schema WITH rules | 462 |
+| decode, same schema NO rules | 376 |
+| **validate a constructed value** | **76** |
 
-94 ns of rules inside a decode; 79 ns standing alone. The entry point is the rule engine
+87 ns of rules inside a decode; 76 ns standing alone. The entry point is the rule engine
 called from a second place, and adds no overhead of its own.
 
 ## Over a batch
 
-| rows | ns | per row | vs 53 ns/row columnar decode |
+| rows | ns | per row | vs the columnar floor, 11 ns/row |
 |---|---|---|---|
-| 64 | 5,673 | 89 | 1.67× |
-| 1,000 | 88,417 | 88 | 1.67× |
-| 20,000 | 1,738,842 | 87 | 1.64× |
-| 100,000 | 8,647,864 | 86 | 1.63× |
+| 64 | 5,367 | 84 | 7.91× |
+| 1,000 | 85,049 | 85 | 8.02× |
+| 20,000 | 1,653,110 | 83 | 7.79× |
+| 100,000 | 8,413,958 | 84 | 7.93× |
 
-Flat, and 79 ns of it is the rules — the remainder is the array element copy. Validating a
-row costs somewhat more than the fastest decode Assay has, and is nowhere near decoding it
-twice, which is the bar the seam had to clear.
+Flat, and 76 ns of it is the rules — the remainder is the array element copy. Validating a
+row costs about **eight times** the fastest decode Assay has, which is the honest way to
+read the seam: on a column store the rules, not the decode, are the work. It is still
+nowhere near re-decoding the document, which is the alternative the seam exists to avoid
+and which costs 462 ns here.
+
+### That last column was wrong for a day, and the reason generalises
+
+It read 1.6× until 2026-09-11, against a **hard-coded 53**. The columnar arm had gone from
+53 ns/row to 11 on 2026-09-10, and this arm divided by a constant somebody had copied out
+of that arm's output months earlier. Nothing failed: the table still printed, the ratio
+still looked plausible, and the conclusion drawn from it — "validating a row costs somewhat
+more than decoding it" — was off by 5×.
+
+**A constant copied out of another arm's output is a number with no owner.** The floor is
+now re-measured inside this arm, from the same store the columnar arm builds, and printed
+with the ratio so the two cannot drift again. `docs/VALIDATE.md` had already been corrected
+by hand; the benchmark that is supposed to be the source of truth had not.
 
 ### Two things that were not obvious
 
 **`@inlinable` on the four entry points is worth 2×.** They are generic over `Self` and over
 the sequence, they live in a source package, and the call site is in the user's module —
-hard constraint 5's exact case. Without it the batch measured **176 ns/row**; with it, 87,
+hard constraint 5's exact case. Without it the batch measured **176 ns/row**; with it, 84,
 which is the single-value cost plus the copy. The gap was the unspecialized loop running
 through witness tables, not the rules.
 
@@ -1636,3 +1664,147 @@ The write side: field values out of a @Schema value, 200k rows
        _assayEncodeRaw (a RawValue tree per row)      59.3
                   encodeRow into a counting sink       1.3
 ```
+
+---
+
+# A full re-run, and the constant that had no owner
+
+**2026-09-11.** The table at the top of this file was regenerated from one complete
+`swift run -c release AssayBench`, because two of its rows had been amended by hand after
+the value-model fix while the header still credited the older run. A table whose rows come
+from different runs is a table nobody can reproduce.
+
+Everything moved by a few percent, which is this machine's run-to-run spread, and nothing
+changed its conclusion. The rows worth naming:
+
+| arm | was | now | why |
+|---|---|---|---|
+| generic value model | 3.11× | 3.16× | noise; the real move was 1.51 → 3.11 the day before |
+| yyjson, DOM vs DOM | 0.13× | 0.14× | noise |
+| TOML node parse | 1.09× | 1.17× | noise, and the arm is close to parity either way |
+| TOML struct decode | 1.81× | 1.95× | noise |
+| `T.validate(_:)` batched | 1.6× the columnar floor | **7.9×** | **not noise — see below** |
+
+## The bug this run found
+
+`ValidateBench` prints validation cost as a multiple of "a fast decode", which is the
+question the whole entry point turns on: a column store that decodes a row in tens of
+nanoseconds will not call a validator that costs hundreds.
+
+It computed that multiple by dividing by **53**, a literal, copied out of the columnar
+arm's output when both were written. The columnar arm went to ~11 ns/row on 2026-09-10 when
+a per-row path allocation was removed. This arm kept dividing by 53.
+
+So it printed `1.57×` where the truth was `7.91×`, and it did that in a table headed "As a
+fraction of a fast decode — the seam this entry point exists for". Nothing failed. No test
+covers a benchmark's own arithmetic, the ratio looked plausible, and the sentence drawn
+from it in this file — *"validating a row costs somewhat more than the fastest decode Assay
+has"* — read as a finding rather than as a division by a stale literal.
+
+`docs/VALIDATE.md` had already been fixed by hand on 2026-09-10, which is the part worth
+sitting with: **the prose was corrected and the instrument was not.** The next person to run
+the arm would have got 1.57× again and had every reason to trust it over the document.
+
+The fix is not "update the 53". The arm now measures the columnar floor in the same run,
+from the same `makeStore` the columnar arm uses, and prints the measured value in the column
+header so the two cannot silently disagree:
+
+```
+As a fraction of a fast decode — the seam this entry point exists for
+rows         validate ns   per row  vs 11 ns/row
+--------------------------------------------------
+64                  5367        84         7.91x
+1000               85049        85         8.02x
+20000            1653110        83         7.79x
+100000           8413958        84         7.93x
+```
+
+**A constant copied out of another arm's output is a number with no owner.** It belongs to
+neither arm: the one that produced it does not know it was copied, and the one that uses it
+cannot tell when it went stale. This is the same family as the three eager-diagnostic-path
+allocations — a cost nothing asserts on — with the twist that here the wrong number was
+being *printed*, in a table, under a heading that said what it meant.
+
+Worth grepping for the next time: any benchmark arm dividing by a literal it did not
+measure.
+
+---
+
+# `ColumnDecodable` was never free, and the instrument said it was
+
+**2026-09-11.** The full re-run above was supposed to be bookkeeping. One row did not
+reproduce.
+
+| | recorded 2026-09-10 | three runs, 2026-09-11 |
+|---|---|---|
+| `Int64`, built in | 4.16 ns/row | 3.75 / 4.02 / 3.75 |
+| `Micros`, `ColumnDecodable` | 4.06 ns/row | 6.69 / 7.68 / 7.30 |
+| ratio | **0.97×** | **1.66× / 2.02× / 1.95×** |
+
+The built-in column agrees. The hook does not, and not by a little.
+
+## It is not a regression
+
+The obvious suspect was the row work — `RowBatch`, text cells, `@Check` on the batch path —
+all of which edited the columnar emitter after that measurement. It is not that. Checked out
+`1fef8b6`, the first commit after the per-row allocation fix and before any of it:
+
+```
+                   Int64, built in      407778      4.08
+           Micros, ColumnDecodable      733834      7.34
+the hook costs 3.27 ns/row over the built-in column (1.80x)
+```
+
+**1.80×, at the commit the 0.97× was supposed to describe.** Nothing regressed. The number
+in the documents was not reproducible when it was written.
+
+(A second worktree, at a commit from before the allocation fix, measured 41.04 vs 41.61 —
+1.01×. That is the honest version of the old claim: with 38 ns of malloc on both sides, the
+two are genuinely indistinguishable.)
+
+## Where the 3 ns actually goes
+
+In the expansion, and it has been there since the feature shipped. A built-in column's
+validity mask is pulled once, before the row loop. A `ColumnDecodable` column's is projected
+out of the column struct inside it — and so is the metadata, a second time, as an argument:
+
+```swift
+// Tests/AssayTests/Goldens/sources.swift.golden, inside `for __r in ...`
+if let __col1 = __c1, __r < __col1.count,
+   !Assay._assayIsNullAt(__n1, __r) {                       // built in — __n1 is hoisted
+    __f1 = __col1[__r]
+
+if let __col4 = __c4, __r < __col4.count,
+   !Assay._assayIsNullAt(__col4.nulls, __r) {               // hook — per row
+    __f4 = Date(assayColumn: __col4, row: __r, metadata: __col4.metadata)
+```
+
+`SourceGen.swift` chooses between them in one ternary, and the custom arm simply never got
+the hoist. Adding it is the obvious fix and is **not** made here: it is a codegen change and
+wants goldens, tests and the compile-time gate, none of which belong in a documentation
+pass. A field that already has a text fallback is emitted a hoisted `__n` it then does not
+use in the typed branch, which is a hint at how small the change is.
+
+## The lesson, which is the reason this entry exists
+
+Three separate wrong numbers turned up in one afternoon of regenerating a table:
+
+1. `ValidateBench` divided by a hard-coded `53` after the thing it named went to 11.
+2. `ColumnarBench` divided by a repeated literal `200` rather than by its own row count.
+3. This one — a ratio that was never reproducible, kept because it agreed with the design.
+
+The first two are stale constants. **This one is different and worse**, because the original
+reading was *correct for the instrument that took it*: with 38 ns of allocation on both
+sides, 0.99× is what the arm genuinely reported. Removing that allocation made the
+measurement newly capable of resolving a 3 ns difference — and nobody re-derived the
+conclusions that predated it. They were re-confirmed instead, by a measurement recorded the
+same day that does not reproduce on the same commit.
+
+**When a fix makes an instrument more sensitive, every conclusion that instrument produced
+before the fix is unverified again.** Not wrong — unverified. The columnar allocation fix
+made four arms sharper; this is the one that had a claim resting on the blur.
+
+And the claim that mattered is unharmed. The argument for `ColumnDecodable` was never "the
+hook is free"; it was "the generic call happens once per column instead of once per row",
+against a `KeyedSource` shape measured at 57× the concrete call. 3 ns/row is a price. A
+witness call per row was the reason the other path was deleted.

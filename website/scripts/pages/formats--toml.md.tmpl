@@ -142,8 +142,8 @@ the time you read it — the radix was a spelling, not a type.
 ## A note on speed
 
 TOML is a tree decoder, like YAML and XML, so the argument that makes Assay's JSON path fast
-does not apply. The numbers are about parity with C: roughly 1.09× toml++ at building the
-tree, and 1.81× TOMLKit's `Codable` decoder end to end.
+does not apply. The numbers are about parity with C: roughly 1.17× toml++ at building the
+tree, and 1.95× TOMLKit's `Codable` decoder end to end.
 
 That second number is the familiar shape — the gap is the `Codable` boundary, not the
 parser. [Performance](/reference/performance/) has the rest.

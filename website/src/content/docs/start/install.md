@@ -72,4 +72,5 @@ check that nothing else in your dependency graph has pulled a different major li
 
 ## Next
 
-[Your first schema](/start/first-schema/) — five minutes, one struct, one error.
+- [Your first schema](/start/first-schema/) — five minutes, one struct, one error.
+- [Formats](/formats/) — what each of those products actually gives you, with examples.

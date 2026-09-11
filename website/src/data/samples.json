@@ -25,7 +25,7 @@
     },
     {
       "arm": "generic value model",
-      "number": "1.51× over 75 files (0.56–2.25)",
+      "number": "3.11× over 75 files",
       "against": "JSONSerialization"
     },
     {
@@ -50,7 +50,7 @@
     },
     {
       "arm": "vs yyjson, DOM vs DOM",
-      "number": "0.06× (loses)",
+      "number": "0.13× (loses)",
       "against": "yyjson_read"
     },
     {
@@ -183,7 +183,7 @@
     },
     "json.valueModel": {
       "source": "{\"kind\": \"batch\", \"items\": [{\"id\": 1}, {\"id\": 2}], \"meta\": null}",
-      "render": "v[\"kind\"]?.string      → batch\nv[\"items\"]?[1]?[\"id\"]?.int → 2\nv[\"meta\"]            → null\nv[\"absent\"]          → nil"
+      "render": "v[\"kind\"]?.string              → batch\nv[\"items\"]?[1]?[\"id\"]?.int    → 2\nv[\"meta\"]                     → null\nv[\"items\"]?.array?.count      → 2\nv[\"absent\"]                   → nil"
     },
     "formats.json": {
       "source": "{\n  \"name\": \"api\",\n  \"image\": \"registry.internal/api:2.4.1\",\n  \"replicas\": 0,\n  \"health_check\": \"https://api.internal/healthz\"\n}",

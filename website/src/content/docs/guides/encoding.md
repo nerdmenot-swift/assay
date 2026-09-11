@@ -151,7 +151,7 @@ T._assayManifest.keys             // the column names
 ```
 
 About 1.3 ns per row for the handoff, against 59 for the tree.
-[Rows and columns](/guides/rows-and-columns/#the-write-side) has the sink protocol.
+[Rows and columns](/formats/rows-and-columns/#the-write-side) has the sink protocol.
 
 ## Describing the shape
 
@@ -171,4 +171,4 @@ an approximate `pattern` that would reject documents the type would take.
 ## Next
 
 - [Unions](/guides/unions/) — including the encoding exception above.
-- [Rows and columns](/guides/rows-and-columns/) — the write side without a tree.
+- [Rows and columns](/formats/rows-and-columns/) — the write side without a tree.

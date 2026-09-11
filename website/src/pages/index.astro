@@ -16,12 +16,27 @@ import '../styles/home.css'
 
 const { stats, renders, numbers } = samples
 
-/** The four formats, in the order a reader meets them. */
+/** The four formats with a live error render, in the order a reader meets them. */
 const FORMATS = [
   ['json', 'JSON'],
   ['yaml', 'YAML'],
   ['toml', 'TOML'],
   ['xml', 'XML'],
+] as const
+
+/** Everything the library reads, for the rail under the hero. The second claim on this
+ *  site is "it is not only JSON", and a claim you have to scroll to find is one the
+ *  reader does not hear. Each is a link to that format's page. */
+const READS = [
+  ['JSON', '/formats/json/'],
+  ['YAML', '/formats/yaml/'],
+  ['XML', '/formats/xml/'],
+  ['TOML', '/formats/toml/'],
+  ['plists', '/formats/plist/'],
+  ['SQL rows', '/formats/rows-and-columns/'],
+  ['CSV', '/formats/rows-and-columns/'],
+  ['Parquet', '/formats/rows-and-columns/'],
+  ['HTTP bodies', '/formats/http/'],
 ] as const
 
 /** The rows worth leading with, pulled by name out of the RESULTS.md table so the
@@ -118,7 +133,7 @@ function caret(text: string): string {
     <title>Assay — a decoder for Swift that tells you what went wrong</title>
     <meta
       name="description"
-      content="Decode JSON, YAML, XML, TOML and database rows into ordinary Swift structs. Every failure points at the byte that caused it, and you get all of them at once — about 9× faster than Codable while it does."
+      content="One struct decodes from JSON, YAML, XML, TOML, property lists, HTTP bodies, SQL rows, CSV and Parquet — with the same rules and the same errors. Every failure points at the byte that caused it, and you get all of them at once, about 9× faster than Codable."
     />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -140,6 +155,7 @@ function caret(text: string): string {
       <nav class="top-nav">
         <a href="/start/install/">Install</a>
         <a href="/start/first-schema/">Start</a>
+        <a href="/formats/">Formats</a>
         <a href="/guides/errors/">Errors</a>
         <a href="/reference/attributes/">Reference</a>
         <a href="https://github.com/nerdmenot-swift/assay">GitHub</a>
@@ -160,9 +176,17 @@ function caret(text: string): string {
             <em>where</em>. Not "expected Int, found String, somewhere" — the file, the line,
             the column, and a caret under the byte.
           </p>
+          <p class="voice">
+            Then it does the same for <em>eight more</em> kinds of input. One struct, one set
+            of rules, one kind of error, whether it arrived as YAML, as XML, or as a
+            thousand rows from Postgres.
+          </p>
           <div class="cta">
             <a class="btn" href="/start/first-schema/">Start here</a>
             <a class="btn btn-ghost" href="/start/from-codable/">Coming from Codable &rarr;</a>
+          </div>
+          <div class="rail">
+            {READS.map(([label, href]) => <a href={href}>{label}</a>)}
           </div>
         </div>
 
@@ -252,11 +276,11 @@ function caret(text: string): string {
       <!-- Formats. The same struct, the same mistake, four parsers, four carets. -->
       <section class="reg">
         <p class="doc-label">Same struct, same rules, same errors</p>
-        <h2>It is not only JSON</h2>
+        <h2>Five formats. One declaration.</h2>
         <p class="voice wide">
-          YAML, XML, TOML and property lists are hand-written parsers in this package — no
-          libyaml, no libxml2, nothing to vendor. Which means the carets work there too.
-          Click a format.
+          Below is one mistake — <code>replicas: 0</code> against a <code>.min(1)</code> rule —
+          in four documents. Same rule, same message, same issue code, same caret. Only the
+          file extension moved. Click a format.
         </p>
 
         <div class="tabs" role="tablist" aria-label="Format">
@@ -270,14 +294,38 @@ function caret(text: string): string {
             <Fragment>
               <figure class="render fmt" data-fmt={id} hidden={i !== 0}>
                 <figcaption class="code-head">deploy.{id}</figcaption>
-                <pre class="src"><code>{renders.formats[id].source}</code></pre>
+                <pre class="src"><code>{renders[`formats.${id}`].source}</code></pre>
               </figure>
               <figure class="render fmt" data-fmt={id} hidden={i !== 0}>
                 <figcaption class="code-head">the same rule, the same message</figcaption>
-                <pre class="out"><code set:html={caret(renders.formats[id].render)} /></pre>
+                <pre class="out"><code set:html={caret(renders[`formats.${id}`].render)} /></pre>
               </figure>
             </Fragment>
           ))}
+        </div>
+
+        <div class="knobs">
+          <p>
+            Every parser here is hand-written Swift. No libyaml, no libxml2, nothing to
+            vendor — which is why the same code runs on macOS, Linux and Windows, why the
+            carets work in all five, and why XXE is refused by construction rather than by a
+            flag you have to remember.
+          </p>
+          <p>
+            Formats are opt-in per type, so a JSON-only app never links a YAML parser and
+            never pays the build time for one. Calling <code>parse(yaml:)</code> on a type
+            that did not ask for YAML is a compile error, not a runtime one.
+          </p>
+        </div>
+
+        <div class="fmt-links">
+          <a href="/formats/json/">JSON &rarr;</a>
+          <a href="/formats/yaml/">YAML &rarr;</a>
+          <a href="/formats/xml/">XML &rarr;</a>
+          <a href="/formats/toml/">TOML &rarr;</a>
+          <a href="/formats/plist/">Property lists &rarr;</a>
+          <a href="/formats/http/">HTTP bodies &rarr;</a>
+          <a href="/formats/">All of them, compared &rarr;</a>
         </div>
       </section>
 
@@ -329,7 +377,7 @@ for row in resultSet {
 let batch = dec.finish()     // values, issues with row indices, warnings`}</code></pre>
         </figure>
         <p class="fineprint">
-          <a href="/guides/rows-and-columns/">How to wire a driver up &rarr;</a>
+          <a href="/formats/rows-and-columns/">How to wire a driver up &rarr;</a>
         </p>
       </section>
 
@@ -343,9 +391,9 @@ let batch = dec.finish()     // values, issues with row indices, warnings`}</cod
           <h3>Come from Codable</h3>
           <p>Every Codable habit, and what it turns into here. Ten minutes.</p>
         </a>
-        <a class="end" href="/guides/errors/">
-          <h3>Read the errors</h3>
-          <p>Codes, paths, spans, the four renderers, and wiring them into your own UI.</p>
+        <a class="end" href="/formats/">
+          <h3>Pick a format</h3>
+          <p>A page each for JSON, YAML, XML, TOML, plists, rows and HTTP bodies.</p>
         </a>
       </section>
     </main>

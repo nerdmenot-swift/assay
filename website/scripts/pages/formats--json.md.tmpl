@@ -1,0 +1,149 @@
+---
+title: JSON
+description: The fast path. Straight from bytes into your struct, with every failure pointing at the byte that caused it.
+---
+
+JSON is the one format Assay does not build a tree for. The macro writes decode code for
+your type at compile time, and that code reads the bytes and fills your fields. Nothing in
+between.
+
+That is where the speed comes from, and it is the only format where the speed argument
+applies at all. Everything else on this site parses to a value model first.
+
+```swift
+@Schema(keys: .snakeCase)
+struct Article {
+    var title: String
+    var link: String
+    var readingMinutes: Int
+    var tags: [String] = []
+}
+```
+
+No `formats:` argument needed. JSON is the default, and the only one you get for free.
+
+{{example:json.happy:json}}
+
+## Nesting, arrays, dictionaries
+
+A nested `@Schema` type is just a field. So is an array of them, and so is a dictionary
+with `String` keys.
+
+```swift
+@Schema(keys: .snakeCase) struct Server { var host: String; var port: Int; var tls: Bool = true }
+
+@Schema(keys: .snakeCase)
+struct Cluster {
+    var name: String
+    var servers: [Server]
+    var labels: [String: String] = [:]
+}
+```
+
+{{example:json.nested:json}}
+
+Note `tls` on the first server. It is absent in the document and `true` in the result,
+because the declaration said so. See [presence](/guides/presence/) for the five states and
+what each one means.
+
+## Numbers are checked, not coerced
+
+JSON distinguishes `1` from `1.5` from `"1"`, so Assay does too. A `Double` field accepts
+an integer literal, because every JSON integer is a valid number. Nothing else widens.
+
+```swift
+@Schema struct Metrics { var count: Int32; var ratio: Double; var enabled: Bool }
+```
+
+{{example:json.numbers:json}}
+
+Three mistakes, three carets, one pass. The third is the interesting one: `"yes"` is a
+string, and a string is not a boolean, so it is an error rather than a quiet `true`.
+
+Overflow is checked against the *declared* width, not against `Int64`:
+
+{{example:json.overflow:json}}
+
+`count` is an `Int32`. The value fits in an `Int64` comfortably and the document is
+perfectly well-formed, so this is a schema error rather than a parse error.
+
+If you want `"8080"` to decode into an `Int`, that is
+[`coerceScalars`](/formats/xml/#coercion-is-opt-in) and it is opt-in per type or per field.
+
+## Duplicate keys
+
+RFC 8259 leaves duplicates undefined. Assay takes the last one:
+
+{{example:json.duplicate:json}}
+
+The value model is the other answer. `JSON.Value` keeps every member in document order,
+duplicates included, because throwing one away silently is worse than handing you both.
+
+## When the document itself is broken
+
+Parse errors come from the parser and read differently from schema errors. They still
+carry a caret.
+
+A trailing comma, which is the one everybody hits:
+
+{{example:json.trailingComma:json}}
+
+An unquoted key, which is JavaScript and not JSON:
+
+{{example:json.unquoted:json}}
+
+A truncated document, where there is no byte to point at because the bytes ran out:
+
+{{example:json.truncated:json}}
+
+That last render is worth reading twice. The schema reports what it was missing *and* the
+parser reports that the document never ended, because both are true and you would want to
+know both.
+
+## Unknown keys
+
+By default they are ignored, which is what you want for an API that adds fields without
+telling you. Three other policies exist:
+
+```swift
+@Schema(unknownKeys: .warn)      // decode, but say so
+@Schema(unknownKeys: .reject)    // an error, with a did-you-mean
+@Schema(unknownKeys: .collect)   // into an @Extras dictionary
+```
+
+`.reject` and `.warn` both run a Damerau edit-distance check against the keys the schema
+knows, so a typo gets named rather than merely counted. [Keys](/guides/keys/) has the
+whole story, including aliases and paths.
+
+## Large documents
+
+```swift
+import AssayFoundation
+let report = try Report.parse(mmapped: url)
+```
+
+Maps the file and decodes in place rather than reading it into `Data` first. On a large
+document that is a fraction of the memory footprint and meaningfully faster. Throughput
+stays flat into the multi-megabyte range.
+
+## When you do not know the shape
+
+`JSON.Value` is the hand-walkable model. Ordered members, duplicates preserved, integers
+and doubles kept distinct.
+
+{{example:json.valueModel:json}}
+
+Subscripts are optional-chaining all the way down, so a wrong guess at any level gives you
+`nil` rather than a trap.
+
+One honest note, because it is the opposite of the rest of this page: **the value model is
+not the fast path.** Building a tree has no Codable boundary to delete, so the argument
+that makes `@Schema` fast does not apply. It measures about 3× `JSONSerialization` and
+loses badly to a C DOM parser. [Performance](/reference/performance/) has the numbers and
+the reasoning. When you know the shape, declare it.
+
+## Next
+
+- [YAML](/formats/yaml/) — the same struct, a format that will not guess for you.
+- [Errors](/guides/errors/) — codes, paths, spans, and the four renderers.
+- [Rows and columns](/formats/rows-and-columns/) — the same struct, from a database.

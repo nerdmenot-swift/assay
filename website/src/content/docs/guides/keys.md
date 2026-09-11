@@ -168,4 +168,4 @@ message says `default`.
 ## Next
 
 - [Rules](/guides/rules/) — validating what you decoded.
-- [Formats](/guides/formats/) — the same keys, in YAML, XML and TOML.
+- [Formats](/formats/) — the same keys, in YAML, XML, TOML and property lists.

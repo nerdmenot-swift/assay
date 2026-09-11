@@ -223,10 +223,11 @@ let jsonUnknownShape = """
 """
 let jv = try! JSON.Value.parse(Array(jsonUnknownShape.utf8))
 emit("json.valueModel", jsonUnknownShape,
-     "v[\"kind\"]?.string      → \(jv["kind"]?.string ?? "nil")\n"
-     + "v[\"items\"]?[1]?[\"id\"]?.int → \(jv["items"]?[1]?["id"]?.int.map(String.init) ?? "nil")\n"
-     + "v[\"meta\"]            → \(jv["meta\"" == "" ? "" : "meta"].map { String(describing: $0) } ?? "nil")\n"
-     + "v[\"absent\"]          → \(jv["absent"].map { String(describing: $0) } ?? "nil")")
+     "v[\"kind\"]?.string              → \(jv["kind"]?.string ?? "nil")\n"
+     + "v[\"items\"]?[1]?[\"id\"]?.int    → \(jv["items"]?[1]?["id"]?.int.map(String.init) ?? "nil")\n"
+     + "v[\"meta\"]                     → \(jv["meta"].map { String(describing: $0) } ?? "nil")\n"
+     + "v[\"items\"]?.array?.count      → \(jv["items"]?.array?.count.description ?? "nil")\n"
+     + "v[\"absent\"]                   → \(jv["absent"].map { String(describing: $0) } ?? "nil")")
 
 // ===========================================================================
 // The same struct, four formats

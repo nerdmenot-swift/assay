@@ -19,14 +19,16 @@ than a bespoke build: sidebar, search, keyboard navigation, heading anchors and
 accessibility.
 
 ```
-scripts/extract.ts         builds a Swift program against the real package, runs it,
-                           writes src/data/samples.json and two generated pages
+scripts/extract.ts           builds a Swift program against the real package, runs it,
+                             writes src/data/samples.json and every generated page
+scripts/samples.swift.txt    the example program — every render on the site comes from it
+scripts/pages/*.md.tmpl      docs pages whose examples are real output (see below)
 scripts/performance.md.tmpl  prose for the performance page; {{TABLE}} is substituted
-src/pages/index.astro      the landing page
-src/styles/theme.css       tokens + Starlight overrides (docs and landing page share them)
-src/styles/home.css        the landing page only
-src/components/            Header and PageTitle overrides, theme and ToC toggles
-src/content/docs/          start/, guides/, reference/
+src/pages/index.astro        the landing page
+src/styles/theme.css         tokens + Starlight overrides (docs and landing page share them)
+src/styles/home.css          the landing page only
+src/components/              Header and PageTitle overrides, theme and ToC toggles
+src/content/docs/            start/, guides/, formats/, reference/
 ```
 
 ## Nothing on this site is typed by hand
@@ -37,10 +39,27 @@ saves the output — so a message that changes in the library changes here on th
 rather than drifting silently. The numbers come from the files that hold them:
 `Benchmarks/RESULTS.md`, `CHANGELOG.md`, the test target, `IssueCode+Names.swift`.
 
-Two pages are generated in full and should not be edited:
+These pages are generated in full and **should not be edited** — edit the template instead:
 
-- `src/content/docs/reference/issue-codes.md` — from `Sources/AssayCore/IssueCode+Names.swift`
-- `src/content/docs/reference/performance.md` — prose from the template, table from `RESULTS.md`
+| page | from |
+|---|---|
+| `reference/issue-codes.md` | `Sources/AssayCore/IssueCode+Names.swift` |
+| `reference/performance.md` | `scripts/performance.md.tmpl`, table from `RESULTS.md` |
+| `formats/*.md` | `scripts/pages/formats--*.md.tmpl` |
+
+`scripts/pages/<name>.md.tmpl` becomes `src/content/docs/<name>.md`, with `--` in the
+filename meaning a directory separator. Four placeholders pull real output in by render key:
+
+```
+{{in:key:lang}}       the input document, fenced as `lang`
+{{out:key}}           what the library printed, fenced as `text`
+{{value:key}}         the decoded value, fenced as `swift`
+{{example:key:lang}}  both: input, then output
+```
+
+A placeholder naming a key that does not exist fails the build rather than printing
+`{{out:typo}}` on the page. The keys are whatever `scripts/samples.swift.txt` emits — add a
+render there first, then reference it.
 
 The generated output is committed, so CI and a fresh clone work without a Swift toolchain.
 Without Swift, `extract` says so and keeps what is committed.
@@ -54,10 +73,14 @@ platform-specific, the page says which platform.
 
 ## Adding a page
 
-1. Write it in `src/content/docs/<section>/<slug>.md` with `title` and `description`.
+1. Write it in `src/content/docs/<section>/<slug>.md` with `title` and `description`. If it
+   shows library output, write `scripts/pages/<section>--<slug>.md.tmpl` instead and add the
+   renders it needs to `scripts/samples.swift.txt`.
 2. Add its slug to the `sidebar` in `astro.config.mjs` — order is editorial, not
    alphabetical.
-3. `bun run astro build` and check the link gate passes.
+3. `bun run build` (or `bun run astro build` without Swift) and check the link gate passes.
+   It checks anchors as well as pages: a reworded heading breaks `#fragment` links silently
+   otherwise, and has.
 
 ## Deploying
 

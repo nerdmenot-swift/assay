@@ -96,7 +96,7 @@ One was built, measured and removed. Three findings, all in `docs/KEYED-SOURCE.m
 
 The lesson was about direction rather than about rows: per-row calls must go *into* concrete
 code, and the generic call must happen once per batch.
-[`RowBatch`](/guides/rows-and-columns/) is that, built later and measured against a
+[`RowBatch`](/formats/rows-and-columns/) is that, built later and measured against a
 hand-written transpose.
 
 ## Why streaming is out of scope

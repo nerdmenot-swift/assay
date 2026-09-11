@@ -13,9 +13,10 @@ export default defineConfig({
     starlight({
       title: 'Assay',
       description:
-        'A decoder for Swift that tells you what went wrong. JSON, YAML, XML, TOML and ' +
-        'rows into ordinary structs, with every error pointing at the byte — and faster ' +
-        'than Codable while it does it.',
+        'A decoder for Swift that tells you what went wrong. JSON, YAML, XML, TOML, ' +
+        'property lists, HTTP bodies and database rows into ordinary structs — one set of ' +
+        'rules, one kind of error, every error pointing at the byte, and faster than ' +
+        'Codable while it does it.',
       logo: { src: './src/assets/icon.svg', alt: 'Assay', replacesTitle: false },
       favicon: '/icon.svg',
       customCss: ['./src/styles/theme.css'],
@@ -80,12 +81,26 @@ export default defineConfig({
             { slug: 'guides/rules' },
             { slug: 'guides/checks' },
             { slug: 'guides/errors' },
-            { slug: 'guides/formats' },
             { slug: 'guides/dates' },
             { slug: 'guides/encoding' },
-            { slug: 'guides/rows-and-columns' },
             { slug: 'guides/unions' },
             { slug: 'guides/advanced' },
+          ],
+        },
+        // Formats get their own section rather than one page. Five parsers plus rows and
+        // content negotiation is more than a guide holds, and "it reads more than JSON"
+        // is the thing a reader is most likely to arrive not knowing.
+        {
+          label: 'Formats',
+          items: [
+            { slug: 'formats' },
+            { slug: 'formats/json' },
+            { slug: 'formats/yaml' },
+            { slug: 'formats/xml' },
+            { slug: 'formats/toml' },
+            { slug: 'formats/plist' },
+            { slug: 'formats/rows-and-columns' },
+            { slug: 'formats/http' },
           ],
         },
         {

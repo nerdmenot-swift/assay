@@ -15,12 +15,12 @@ it is said so.
 |---|---|---|
 | struct decode, full corpus | **8.93× mean over 25 files (4.92–18.98)** | JSONDecoder |
 | prefix decode + unknown-key skip | **6.34× over 45 files** | JSONDecoder |
-| generic value model | **1.51× over 75 files (0.56–2.25)** | JSONSerialization |
+| generic value model | **3.11× over 75 files** | JSONSerialization |
 | falsification arm (apimodel, 5 sizes) | **5.27× mean** | JSONDecoder |
 | vs ZippyJSON (simdjson + Codable) | **2.97–3.81× faster** | ZippyJSON, which is 1.76–2.08× over Foundation here |
 | vs yyjson, use-case shape | **0.69× (loses)** | yyjson parse + extraction |
 | vs yyjson, float-dense | **0.78× (loses)** | same |
-| vs yyjson, DOM vs DOM | **0.06× (loses)** | yyjson_read |
+| vs yyjson, DOM vs DOM | **0.13× (loses)** | yyjson_read |
 | YAML node parse | **6.59×** | Yams compose |
 | YAML struct decode | **11.05×** | Yams YAMLDecoder |
 | XML tree parse | **2.37× (macOS; 0.96× on Linux)** | Foundation XMLParser |
@@ -54,22 +54,55 @@ was cited at — so the result is not a matter of hobbling it.
 
 ## What it does not mean
 
-**It is not faster than C.** Against yyjson, Assay loses: 0.69× on the use-case shape, 0.06×
-DOM-to-DOM. Those rows are in the table above, published rather than omitted, because a
+**It is not faster than C.** Against yyjson, Assay loses: 0.69× on the use-case shape, 0.13×
+building a tree. Those rows are in the table above, published rather than omitted, because a
 benchmark page that lists only its wins is an advertisement.
 
-**The value-model path has no thesis behind it.** `JSON.Value` measures about 1.5× over
-`JSONSerialization` — building a tree has no Codable boundary to delete. Use `@Schema` when
-you know the shape; that is where the argument applies.
+The two rows measure different things and the gap between them is the interesting part. The
+use-case arm makes yyjson do the *whole* job — parse, then walk the tree and pull the fields
+out — because a document you must still walk is not a decoded value. There Assay is about
+two thirds of hand-tuned C. The tree-against-tree arm is the one where Assay loses 7×, and
+it is a comparison of two different products: yyjson writes one arena with its strings
+pointing into the input buffer, and `JSON.Value` is a Swift enum tree of real `String`s and
+`Array`s that you can store, compare and hash. Closing that gap means a type that cannot do
+any of those things.
+
+**The value-model path has no thesis behind it.** `JSON.Value` measures about 3× over
+`JSONSerialization` — comfortably ahead of the thing you would otherwise reach for, and
+nowhere near the struct path, because building a tree has no Codable boundary to delete. Use
+`@Schema` when you know the shape; that is where the argument applies.
 
 **XML is a Darwin-only claim.** Assay's XML parser measures 2.37× over Foundation on macOS
 and 0.96× on Linux, where `FoundationXML` is libxml2. Parity with libxml2 while building a
 tree its SAX path never builds is a fine result — but "faster than Foundation's XML" is not
 a portable sentence, so it is not said here.
 
-**Encoding is a measurement, not a thesis.** 2.85× over `JSONEncoder`. The decode multiple
-has an argument behind it; this one does not. It exists so the cost is known and a
+**Encoding is a measurement, not a thesis.** About 2.9× over `JSONEncoder`. The decode
+multiple has an argument behind it; this one does not. It exists so the cost is known and a
 regression is visible.
+
+## The other formats are tree decoders, and the thesis does not transfer
+
+JSON decodes straight from bytes into your fields. YAML, XML, TOML and property lists all
+parse to a value model first and decode through a shared projection, so there is no Codable
+boundary being deleted and no 9× to be had. What those numbers measure is a hand-written
+Swift parser against whatever the ecosystem already offers.
+
+| Format | Tree | End to end into a struct |
+|---|---|---|
+| YAML | 6.59× Yams `compose` | 11.05× Yams `YAMLDecoder` |
+| XML | 2.37× Foundation on macOS, 0.96× on Linux | — |
+| TOML | 1.09× toml++ | 1.81× TOMLKit's decoder |
+
+The pattern in the right-hand column is the familiar one. Where a baseline goes through
+`Codable`, the gap widens; where it does not, the gap is parity with C. That is the same
+finding as the JSON thesis, arrived at from the other direction.
+
+Rows and columns are a third shape again. A column store that already hands over one array
+per field decodes at about 10 ns per row; a row-shaped source going through `RowBatch` is
+about 40, against about 70 for the value-model route it replaces. The gate written before
+that work was 1.2× over a hand-written transpose and it came in at 1.45×, which is a miss
+and is recorded as one in the repository journal.
 
 ## Compile time is the second axis
 

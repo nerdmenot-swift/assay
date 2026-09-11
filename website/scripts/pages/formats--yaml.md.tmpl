@@ -1,0 +1,170 @@
+---
+title: YAML
+description: Block and flow, anchors and merge keys, block scalars, multi-document streams — and a parser that refuses to guess what NO means.
+---
+
+```swift
+import AssayYAML
+
+@Schema(keys: .snakeCase, formats: [.json, .yaml])
+struct Deployment {
+    @Validate(.min(1), .max(63)) var name: String
+    var image: String
+    @Validate(.min(1)) var replicas: Int
+    var region: String = "eu-west-1"
+    @Validate(.url) var healthCheck: String?
+}
+
+let deployment = try Deployment.parse(yaml: text)
+```
+
+The parser is hand-written Swift. No libyaml, nothing to vendor, and it runs everywhere the
+rest of the package runs. It is also about 6.6× faster than the Swift binding to libyaml at
+building a node tree, and about 11× faster end to end into a struct, which was not the
+point but is a pleasant place to end up.
+
+## The Norway problem, and why you do not have it
+
+YAML 1.1 said `NO` was a boolean. Norway's country code is `NO`. Every few years somebody
+loses an afternoon to this.
+
+Assay's parser **does not resolve plain scalars at all.** A scalar keeps its text, its
+style, its tag and its anchor, and stays that way until something asks it a typed question.
+Your field declaration is that question.
+
+```swift
+@Schema(formats: [.yaml]) struct Country { var code: String; var enabled: Bool }
+```
+
+{{example:yaml.norway:yaml}}
+
+`NO` asked as a `String` is the string. Now the other half, which surprises people more:
+
+{{example:yaml.norwayBad:yaml}}
+
+`no` is **not** a boolean. YAML 1.2's core schema lists exactly `true` and `false`, and
+Assay follows 1.2 rather than the 1.1 grammar that made this famous. Writing `enabled: no`
+in a config file gets you an error with a caret under it, rather than a value you did not
+mean quietly winning.
+
+If your input genuinely comes from a YAML 1.1 world, opt in:
+
+```swift
+@Schema(coerceScalars: true, formats: [.yaml])
+struct LooseCountry { var code: String; var enabled: Bool }
+```
+
+{{out:yaml.norwayCoerced}}
+
+That is a decision you made, in the declaration, in one place. Which is the whole idea.
+
+## Block and flow
+
+Both spellings work everywhere, and they nest inside each other.
+
+```swift
+@Schema(keys: .snakeCase, formats: [.yaml]) struct Server { var host: String; var port: Int; var tls: Bool = true }
+
+@Schema(keys: .snakeCase, formats: [.yaml])
+struct Cluster {
+    var name: String
+    var servers: [Server]
+    var labels: [String: String] = [:]
+}
+```
+
+Block style:
+
+{{example:yaml.nested:yaml}}
+
+Flow style, which is JSON wearing a hat:
+
+{{example:yaml.flow:yaml}}
+
+## Anchors, aliases and merge keys
+
+Anchors are the reason people choose YAML for config, so they work properly — including
+the `<<` merge key, which is not in the spec but is in everyone's CI file.
+
+{{example:yaml.anchors:yaml}}
+
+`a.internal` took `port: 8080` from the anchor. `b.internal` overrode it with `9090`.
+Both took `tls: true`. The merge is resolved before your schema sees anything, so rules and
+presence behave exactly as they would on a document written out longhand.
+
+Aliases are also where a YAML parser can be attacked: a handful of nested anchors can
+expand to gigabytes. The node budget in [Limits](/reference/limits-and-security/) is what
+stops that, and it stops it during expansion rather than after.
+
+## Block scalars
+
+```swift
+@Schema(coerceScalars: true, formats: [.yaml]) struct Note { var title: String; var body: String }
+```
+
+Literal, with `|` — newlines kept:
+
+{{example:yaml.block:yaml}}
+
+Folded, with `>` — newlines become spaces:
+
+{{example:yaml.folded:yaml}}
+
+Chomping indicators (`|-`, `|+`, `>-`) work as specified. The trailing newline in both
+results above is the default "clip" behaviour, which is what you get when you write neither.
+
+## Multi-document streams
+
+Three dashes, one file, many values.
+
+```swift
+let all = try Deployment.parseAll(yaml: text)
+```
+
+{{example:yaml.multi:yaml}}
+
+`parseAll` gives you `[T]`. A document that fails does not stop the ones after it: every
+document is decoded, the issues accumulate, and you get one error carrying all of them at
+the end. The path on each issue starts with the document's index, so you know which one.
+
+## When the YAML is wrong
+
+A type mismatch, which is a schema error and points at the scalar:
+
+{{example:yaml.typeError:yaml}}
+
+Bad indentation, which is a parse error and points at where the parser gave up:
+
+{{example:yaml.badIndent:yaml}}
+
+An unterminated flow collection, where there is no position to point at because the input
+ended:
+
+{{example:yaml.unclosed:yaml}}
+
+Every one of those carries a source span, which is worth saying because most YAML libraries
+lose them. Assay's YAML nodes carry byte spans through the projection into the schema, so a
+rule failure three levels deep still gets a caret in the original file. That costs about 2%
+on parse and it is the best 2% in the library.
+
+## When you do not know the shape
+
+`YAML.Node` keeps everything the format expressed, including the things a value model
+usually throws away.
+
+{{example:yaml.valueModel:yaml}}
+
+Four things to notice. `content` is the raw text, always available. `resolvedBool` is `nil`
+rather than `false`, because `NO` is not a boolean and the model will not pretend
+otherwise. The quoting style survived, so you can tell `"NO"` from `NO`. And an explicit
+`!!str` tag survived too.
+
+`resolvedInt` and `resolvedDouble` sit beside `resolvedBool` and answer `nil` the same way
+when the scalar is not that thing. `isNull` is the fourth, and it is a `Bool` because
+"this is null" and "this is not a null" are the only two answers it can give.
+
+## Next
+
+- [XML](/formats/xml/) — attributes, placement, and a format with no types at all.
+- [TOML](/formats/toml/) — the opposite philosophy, typed on the wire.
+- [Limits](/reference/limits-and-security/) — alias expansion, depth, and byte budgets.

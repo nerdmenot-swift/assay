@@ -214,6 +214,25 @@ h3 {
 .end p { margin: 0; color: var(--assay-muted); font-size: .9rem; }
 .end h3 { color: var(--assay-accent); }
 
+/* The format rail under the hero. The site's second claim is "it reads more than JSON",
+   and a claim a reader has to scroll to find is a claim they do not hear. Links, not
+   badges: each one goes to that format's page. */
+.rail { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: var(--space-2); }
+.rail a {
+  font-family: var(--assay-mono); font-size: .76rem; letter-spacing: .02em;
+  padding: .28rem .55rem; border: 1px solid var(--assay-rule); border-radius: 3px;
+  color: var(--assay-muted); text-decoration: none; background: var(--assay-card);
+}
+.rail a:hover { color: var(--assay-accent); border-color: var(--assay-accent); }
+.rail .rail-more { border-style: dashed; }
+
+/* A row of links under the format tabs, so the section is a door as well as a demo. */
+.fmt-links { display: flex; flex-wrap: wrap; gap: .35rem 1.1rem; }
+.fmt-links a {
+  color: var(--assay-accent); text-decoration: none; font-weight: 500; font-size: .9rem;
+}
+.fmt-links a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
 @media (max-width: 56rem) {
   .hero { grid-template-columns: 1fr; }
 }

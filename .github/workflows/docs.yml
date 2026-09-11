@@ -45,30 +45,40 @@ jobs:
           echo "pages: $n"
           test "$n" -ge 20
       # Internal links, because a docs site whose sidebar 404s is worse than no site.
+      # Anchors too: a heading gets reworded far more often than a page gets deleted, and
+      # a dead #fragment lands the reader at the top of a long page with no idea why.
       - name: No broken internal links
         run: |
           python3 - <<'PY'
           import re, os, sys
           root = 'dist'
-          pages = set()
+          pages, ids = set(), {}
           for d, _, fs in os.walk(root):
               for f in fs:
-                  if f == 'index.html':
-                      rel = os.path.relpath(d, root).replace('.', '').strip('/')
-                      pages.add(('/' + rel + '/').replace('//', '/'))
+                  if f != 'index.html':
+                      continue
+                  rel = os.path.relpath(d, root).replace('.', '').strip('/')
+                  slug = ('/' + rel + '/').replace('//', '/')
+                  pages.add(slug)
+                  ids[slug] = set(re.findall(r'id="([^"]+)"', open(os.path.join(d, f)).read()))
           bad = []
           for d, _, fs in os.walk(root):
               for f in fs:
                   if not f.endswith('.html'):
                       continue
-                  for href in re.findall(r'href="(/[^"#?]*)"', open(os.path.join(d, f)).read()):
+                  src = open(os.path.join(d, f)).read()
+                  here = os.path.join(d, f)
+                  for href in re.findall(r'href="(/[^"?]*)"', src):
                       if href.startswith('/_') or href.endswith(('.svg', '.png', '.xml', '.js', '.css', '.ico')):
                           continue
-                      h = href if href.endswith('/') else href + '/'
+                      page, _, anchor = href.partition('#')
+                      h = page if page.endswith('/') else page + '/'
                       if h not in pages:
-                          bad.append((os.path.join(d, f), href))
-          for src, h in sorted(set(bad)):
-              print(f'BROKEN {h} in {src}')
+                          bad.append((here, href, 'no such page'))
+                      elif anchor and anchor not in ids[h]:
+                          bad.append((here, href, 'no such anchor'))
+          for src, h, why in sorted(set(bad)):
+              print(f'BROKEN {h} in {src} ({why})')
           sys.exit(1 if bad else 0)
           PY
 

@@ -83,7 +83,7 @@ on macOS, Linux and Windows — no ICU version to differ. And it is fast: about 
 
 ## Dates from columns and rows
 
-On the [column path](/guides/rows-and-columns/), a `Date` field takes whichever of these the
+On the [column path](/formats/rows-and-columns/), a `Date` field takes whichever of these the
 source offers:
 
 - an `Int64` column with a unit in its metadata — Parquet's `TIMESTAMP`, Postgres binary;
@@ -100,9 +100,9 @@ schema that hardcodes one is wrong against files that use another.
 If you have a `Timestamp` of your own, `Date` is not special — the macro keys on the type
 *name* and emits an initializer call. A type named `Date` in scope gets the date treatment;
 anything else goes through [`@Transform`](/guides/advanced/#transform) or, for column
-stores, [`ColumnDecodable`](/guides/rows-and-columns/#your-own-scalar-types).
+stores, [`ColumnDecodable`](/formats/rows-and-columns/#your-own-scalar-types).
 
 ## Next
 
 - [Encoding](/guides/encoding/) — dates on the way out.
-- [Rows and columns](/guides/rows-and-columns/) — timestamps from a database.
+- [Rows and columns](/formats/rows-and-columns/) — timestamps from a database.

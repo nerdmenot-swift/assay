@@ -128,7 +128,7 @@ onto your form fields — none of which is practical with `DecodingError`'s asso
 `Set`, `Data`, `URL`, `Decimal`, tuples, `Any` and a few others are refused at expansion
 with a message naming the alternative — usually "decode as `String` and convert with
 `@Transform`". Codable would accept several of these and then behave in a way you did not
-intend. [Advanced](/guides/advanced/#types-that-are-refused) lists them all with the reason
+intend. [Advanced](/guides/advanced/#types-the-macro-refuses) lists them all with the reason
 and the fix.
 
 ## Migrating a type, in order

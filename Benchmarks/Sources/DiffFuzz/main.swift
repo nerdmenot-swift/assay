@@ -166,6 +166,11 @@ func runFuzz(corpus: URL) throws -> Int {
         mark("TOML")
         var sink4 = IssueSink(limits: limits)
         _ = TOML.decode(bytes, into: &sink4, limits: limits)
+        // The generated code, on the same bytes. Four value models above and none of them
+        // is where most of Assay's code comes from — `SchemaOracle.swift` says why, and
+        // asserts three laws rather than settling for "it did not crash".
+        mark("SCHEMA")
+        for f in ["json", "yaml", "xml", "toml"] { fuzzSchema(bytes, f) }
     }
 
     for seed in seeds {
@@ -193,6 +198,27 @@ func runFuzz(corpus: URL) throws -> Int {
             exercise(Array(original[0..<cut]))
             iterations += 1
         }
+    }
+
+    // The schema seeds, mutated against their own format. These are the only inputs in
+    // the whole arm that decode successfully often enough to exercise law 2.
+    for (format, seed) in schemaSeeds {
+        for _ in 0..<500 {
+            var mutated = seed
+            switch rng.int(3) {
+            case 0:
+                if !mutated.isEmpty { mutated[rng.int(mutated.count)] = UInt8(rng.int(256)) }
+            case 1:
+                mutated.insert(UInt8(rng.int(256)), at: rng.int(mutated.count + 1))
+            default:
+                if !mutated.isEmpty { mutated.remove(at: rng.int(mutated.count)) }
+            }
+            fuzzSchema(mutated, format)
+            iterations += 1
+        }
+        // And the unmutated seed, which must decode — if it does not, the seed has rotted
+        // and every mutation of it is testing the wrong thing.
+        fuzzSchema(seed, format)
     }
 
     for seed in yamlSeeds + xmlSeeds + tomlSeeds {
@@ -407,8 +433,16 @@ let oracles: [Oracle] = [
     Oracle(name: "plist-fuzz", summary: "mutated/truncated/random plists, no crashes or traps") {
         print("plist fuzz: \(try runPlistFuzz()) mutated/truncated/random documents, no crashes, no traps")
     },
-    Oracle(name: "fuzz", summary: "mutated/truncated JSON, YAML, XML and TOML, no crashes or hangs") {
-        print("fuzz: \(try runFuzz(corpus: corpus)) mutated/truncated inputs, no crashes, no hangs")
+    Oracle(name: "fuzz", summary: "mutated/truncated JSON, YAML, XML, TOML and @Schema decode") {
+        let n = try runFuzz(corpus: corpus)
+        print("fuzz: \(n) mutated/truncated inputs, no crashes, no hangs")
+        // Reported, not just counted: a law that only ever sees rejected documents is a
+        // law nothing checks, and `accepted` is how you see that it does.
+        print("      \(schemaChecks) @Schema decodes checked against three laws, "
+              + "\(schemaAccepted) of them accepted")
+        if schemaAccepted == 0 {
+            fail("schema fuzz: nothing decoded, so the validate-its-own-output law never ran")
+        }
     },
 ]
 

@@ -98,9 +98,25 @@ input it was written for is half a fix.
 ## 4. What I got wrong, recorded because it is the point
 
 I predicted `.each`'s 63 ns/element was the per-element path allocation. I hoisted it and
-**measured no change.** The bare `.min(3) on String` rule costs 16.1 ns, so ~47 ns of
-`.each` machinery is still unexplained and is an open finding, not a fixed one. The hoist
-is kept because it is strictly less work, and it is claimed as nothing.
+measured no change, and wrote down "~47 ns unexplained" as an open finding.
+
+**The finding was my probe.** It timed `parse(json:)` end to end, so most of what it
+measured was JSON-decoding every element — nothing to do with `.each`. Isolating
+`_assayValidate` and calling it three ways gives the real shape:
+
+| | ns/element |
+|---|---|
+| `.each(.min(1))` over the array | 29.9 |
+| the same rule called once per element | 22.7 |
+| `.min(1)` on the array (element count) | 0.0 |
+
+So `.each` costs **7.2 ns of machinery**, not 47, and the other 22.7 is simply what a
+`.min` on a `String` costs — which the `rules` arm already published as 16.1 ns plus a
+3 ns fixed cost. Nothing was unexplained; the measurement was wrong.
+
+Hoisting `r.message ?? override` out of the element loop as well takes it to **4.0 ns**.
+The finding is closed, and the lesson is the ordinary one: an end-to-end A/B cannot
+attribute a cost to a component, and I should not have written down a number it produced.
 
 Two claims from readers were also wrong and were caught by testing rather than by reading:
 unbounded XML entity recursion (did not reproduce at 200,000 chained entities or on a 512 KB

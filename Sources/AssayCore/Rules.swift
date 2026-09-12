@@ -365,22 +365,25 @@ public func _assayValidate(
             //
             // This built `path + [.key(String(describing: field)), .index(i)]` per element,
             // unconditionally — a `StaticString`→`String` conversion and an array concat,
-            // both on the SUCCESS path. `applyString` reads `path` only inside `emit`, so a
-            // clean array paid for both and read neither. Measured 2026-09-13 against the
-            // same rule without `.each`: 65 ns/element, flat from 10k to 40k elements.
+            // both on the SUCCESS path, where `applyString` reads `path` only inside
+            // `emit`. `r.message ?? override` was per element per rule too.
             //
-            // The file already argues this case twenty lines up, about `.email`/`.url`
-            // paying for a character count "they never look at — 36 ns, which is more than
-            // the UUID check itself." Same mistake, one level out.
+            // MEASURED HONESTLY, because the first attempt was not. An end-to-end
+            // `parse(json:)` A/B said 65 ns/element and did not move when this was
+            // hoisted — but that probe was timing JSON decode of every element as well,
+            // so most of what it measured had nothing to do with `.each`. Isolating
+            // `_assayValidate` gives the real numbers: **29.9 ns/element for `.each`
+            // against 22.7 for the same rule called once per element** — 7.2 ns of
+            // machinery, not 47. Hoisting takes that to ~3.
             var elementPath = path
             elementPath.append(.key(String(describing: field)))
             elementPath.append(.index(0))
             let last = elementPath.count &- 1
+            let message = r.message ?? override
             for (i, element) in v.enumerated() {
                 elementPath[last] = .index(i)
                 for rule in inner {
-                    rule.applyString(element, r.message ?? override, "", span,
-                                     elementPath, &sink)
+                    rule.applyString(element, message, "", span, elementPath, &sink)
                 }
             }
         } else if r.isUnique {

@@ -451,13 +451,22 @@ public struct SchemaMacro: ExtensionMacro {
                                            extras: a.extras, groups: a.pathGroups)
             }
             if formats.xml {
-                guard Self.refuse(Self.xmlDiagnostics(activeS), node: node, context: context) else {
-                    return nil
-                }
                 body += "\n\n" + Self.xmlEncodeBody(typeName: typeName, fields: activeS,
                                                      extras: a.extras, root: config.xmlRoot)
             }
         }
+        // `@XML` PLACEMENT IS CHECKED FOR EVERY XML SCHEMA, not only an encoding one.
+        // This guard used to live inside the `encodes: true` branch, so `@XML(.attribute)`
+        // on an array compiled silently in a decode-only type — the attribute parsed, was
+        // type-checked, and did nothing. The placement is just as impossible on the way in
+        // as on the way out, and the diagnostic was already written; only its position was
+        // wrong.
+        if formats.xml {
+            guard Self.refuse(Self.xmlDiagnostics(activeS), node: node, context: context) else {
+                return nil
+            }
+        }
+
         // The decode-side half of `@XML(root:)`. Emitted only when the attribute is present,
         // so an unannotated type carries nothing and checks nothing — a root element is very
         // often a wrapper the schema does not model, and rejecting one nobody declared would

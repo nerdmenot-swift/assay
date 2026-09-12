@@ -303,6 +303,61 @@ struct RefusalTests {
         #expect(d.isEmpty, "got \(d)")
     }
 
+    // FOUR COMBINATIONS THAT USED TO COMPILE AND DO NOTHING, found by the audit on
+    // 2026-09-12. Each parsed, type-checked, and was silently dropped — which is the
+    // failure mode this suite is named after. The fourth is the interesting one: its
+    // diagnostic already existed and was correct, and ran only under `encodes: true`,
+    // so a decode-only XML schema never saw it.
+
+    @Test("@Key on an @Extras bag — the bag has no wire key of its own")
+    func keyOnExtras() {
+        let d = diags("""
+            @Schema struct S { var a: Int
+                @Key("bag") @Extras var rest: [String: RawValue] = [:] }
+            """)
+        #expect(d.contains { $0.contains("@Extras collects the keys") }, "got \(d)")
+    }
+
+    @Test("@Key(path:) beside @Inline — two answers for one location")
+    func keyPathWithInline() {
+        let d = diags("""
+            @Schema struct S { @Schema struct In: Equatable { var a: String }
+                @Key(path: "x.y") @Inline var inner: In }
+            """)
+        #expect(d.contains { $0.contains("@Inline splices") }, "got \(d)")
+    }
+
+    @Test("@Coerce on something that is not a coercible scalar")
+    func coerceOnNonScalar() {
+        let d = diags("""
+            @Schema struct S { @Schema struct In: Equatable { var a: String }
+                @Coerce var inner: In }
+            """)
+        #expect(d.contains { $0.contains("@Coerce accepts a scalar") }, "got \(d)")
+    }
+
+    @Test("@Coerce on a scalar, and through a @Transform's WIRE type, still compiles")
+    func coerceStillLegal() {
+        #expect(diags("@Schema struct S { @Coerce var port: Int }").isEmpty)
+        // The declared type is String and the wire type is Int; the wire type is the one
+        // that coerces, so reading the declared type here would refuse the exact pairing
+        // the two attributes exist for.
+        #expect(diags("""
+            @Schema struct S { @Coerce @Transform({ (s: Int) in String(s) }) var port: String }
+            """).isEmpty)
+    }
+
+    @Test("@XML(.attribute) on an array is refused when DECODING, not only when encoding")
+    func xmlAttributeOnArrayDecodeOnly() {
+        let d = diags("@Schema(formats: .xml) struct S { @XML(.attribute) var tags: [String] }")
+        #expect(d.contains { $0.contains("applies to scalar fields") }, "got \(d)")
+        // And it still fires on the encoding side, which is where it always did.
+        let e = diags("""
+            @Schema(formats: .xml, encodes: true) struct S { @XML(.attribute) var tags: [String] }
+            """)
+        #expect(e.contains { $0.contains("applies to scalar fields") }, "got \(e)")
+    }
+
     /// The sink is the declaration of intent, so it implies `.collect` rather than being
     /// refused — the expansion must carry the collecting arm.
     @Test("@Extras implies unknownKeys: .collect")

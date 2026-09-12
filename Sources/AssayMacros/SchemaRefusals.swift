@@ -102,6 +102,42 @@ enum SchemaRefusals {
                 + "'\(typeName)' is not an array. Remove it, or declare `[\(base)]`.")
         }
 
+        // `@Key` beside `@Extras`. `@Extras` is the bag for keys the schema does NOT name,
+        // so naming a wire key for it is a contradiction: there is no single key to read.
+        // It compiled and the `@Key` was dropped on the floor.
+        if set.contains("Extras"), set.contains("Key") {
+            return refuse("@Extras collects the keys the schema does not name, so it has no "
+                + "wire key of its own and @Key cannot apply to it. Remove the @Key.")
+        }
+
+        // `@Key(path:)` beside `@Inline`. `@Inline` splices the nested type's fields into
+        // THIS type's dispatch table — the inlined fields sit where this type's own fields
+        // sit — and a path moves the whole field somewhere else. One of them has to be
+        // wrong, and until now the answer was silently "the path".
+        if set.contains("Inline"), pathKey {
+            return refuse("@Inline splices the nested type's fields into this type's own "
+                + "keys, so there is no single location for @Key(path:) to name. Use one: "
+                + "@Inline for a flattened type, or @Key(path:) for a nested one.")
+        }
+
+        // `@Coerce` on something that is not a coercible scalar. Coercion is the "\"8080\" is
+        // an Int" policy and it is implemented by the `…Coercing` reader primitives, which
+        // exist for exactly the fifteen scalar spellings below. On anything else — a nested
+        // @Schema type, an array, a dictionary, a Date — the attribute parsed, type-checked
+        // and did nothing at all.
+        let coercible: Set<String> = ["String", "Int", "Int64", "Int32", "Int16", "Int8",
+                                      "UInt", "UInt64", "UInt32", "UInt16", "UInt8",
+                                      "Double", "Float", "Bool"]
+        if set.contains("Coerce") {
+            let wire = SchemaMacro.stripOptional(wireTypeName.trimmingWhitespace())
+            if !coercible.contains(wire) {
+                return refuse("@Coerce accepts a scalar written as the wrong JSON type — "
+                    + "\"8080\" for an Int, \"true\" for a Bool — and '\(typeName)' is not one "
+                    + "of the scalars it applies to. Remove it; a nested type coerces its "
+                    + "own fields, and an array coerces through its element's declaration.")
+            }
+        }
+
         // `@Preprocess` ops are string operations on the WIRE value — which is the
         // `@Transform` closure's parameter type when there is one, and the declared type
         // otherwise. The first version of this check read the declared type and refused

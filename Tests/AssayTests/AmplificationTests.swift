@@ -520,3 +520,48 @@ struct MergeKeyAmplification {
         #expect(docs.first?["target"]?["k"]?.content == "first")
     }
 }
+
+
+/// Attribute count is the third quantity no YAML/XML guard watches.
+///
+/// `maxDepth` sees 1, the node budget sees one node, and the duplicate-attribute check was
+/// an O(a²) linear scan over every attribute appended so far. 64,000 attributes on one
+/// element — legal XML, 676 KB, no entities, no nesting — took **3.27 s**, quadrupling for
+/// every doubling. It is 0.004 s now, because the scan hands over to a `Set` past a
+/// threshold while keeping the allocation-free scan for the handful-of-attributes case the
+/// original comment was written for.
+@Suite("Amplification — attribute width")
+struct AttributeWidthAmplification {
+
+    static func element(attributes k: Int) -> [UInt8] {
+        var s = "<e"
+        for i in 0..<k { s += " a\(i)=\"v\"" }
+        return Array((s + "/>").utf8)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func wideElementIsNotQuadratic() {
+        let bytes = Self.element(attributes: 64_000)
+        let start = ContinuousClock.now
+        var sink = IssueSink(limits: .default)
+        let doc = XML.decode(bytes, into: &sink, limits: .default)
+        let d = ContinuousClock.now - start
+        let seconds = Double(d.components.seconds) + Double(d.components.attoseconds) / 1e18
+        #expect(sink.isValid, "\(sink.issues)")
+        #expect(doc?.root.attributes.count == 64_000)
+        #expect(seconds < 2.0, "a wide element took \(seconds)s — the quadratic scan is back")
+    }
+
+    @Test("duplicates are still caught, below and above the threshold")
+    func duplicatesStillDetected() {
+        for k in [2, 40] {
+            var s = "<e"
+            for i in 0..<k { s += " a\(i)=\"v\"" }
+            s += " a0=\"again\"/>"                 // a duplicate of the first
+            var sink = IssueSink(limits: .default)
+            _ = XML.decode(Array(s.utf8), into: &sink, limits: .default)
+            #expect(sink.issues.contains { $0.code == .duplicateKey },
+                    "k=\(k) missed the duplicate: \(sink.issues.map(\.code))")
+        }
+    }
+}

@@ -322,7 +322,8 @@ extension RawValue {
         known: [String], reject: Bool, span: SourceSpan? = nil
     ) {
         var params: [String: IssueValue] = [:]
-        if let suggestion = AssayReader._didYouMean(name, in: known) {
+        // See `Collectible._reportUnknownKey`: not computed once the sink is full.
+        if !sink.isFull, let suggestion = AssayReader._didYouMean(name, in: known) {
             params["didYouMean"] = .string(suggestion)
         }
         params["received"] = .string(name)

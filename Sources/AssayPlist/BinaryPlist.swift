@@ -476,9 +476,18 @@ enum Base64 {
 
     /// Decoding, for the XML flavour's `<data>` element, which arrives as text.
     /// Whitespace is skipped — Apple's writer wraps at 68 columns.
-    static func decode(_ text: String) -> [UInt8]? {
+    /// Built once, not per call. It was `var rev = [Int8](repeating: -1, count: 256)`
+    /// inside `decode`, so every `<data>` element paid a 256-byte allocation and 64 stores
+    /// to decode as few as four characters — measured 2026-09-13 at ~2x the cost of the
+    /// same document with `<string>` in place of `<data>`.
+    static let reverseTable: [Int8] = {
         var rev = [Int8](repeating: -1, count: 256)
         for (i, c) in alphabet.enumerated() { rev[Int(c)] = Int8(i) }
+        return rev
+    }()
+
+    static func decode(_ text: String) -> [UInt8]? {
+        let rev = Self.reverseTable
         var acc: UInt32 = 0
         var nbits = 0
         var out: [UInt8] = []

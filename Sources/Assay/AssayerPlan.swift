@@ -145,8 +145,18 @@ extension AssayerPlan {
             }
             var out: [RawValue] = []
             out.reserveCapacity(xs.count)
+            // One path, index rewritten in place. `path + [.index(i)]` allocated and
+            // copied per element on the SUCCESS path, for a diagnostic nothing reads
+            // unless the document is malformed. Measured 2026-09-13: an array of 200,000
+            // ints ran 7x the cost of the same bytes with no per-element path. Fourth
+            // instance of this pattern — `JSON.Value.parse` and `CodeGen.arrayDecode`
+            // carry the same shape and say so.
+            var ep = path
+            ep.append(.index(0))
+            let epLast = ep.count &- 1
             for (i, x) in xs.enumerated() {
-                guard let v = element.run(x, &sink, path + [.index(i)], limits, depth + 1)
+                ep[epLast] = .index(i)
+                guard let v = element.run(x, &sink, ep, limits, depth + 1)
                 else { return nil }
                 out.append(v)
             }
@@ -158,9 +168,29 @@ extension AssayerPlan {
             }
             var out: [RawValue.Member] = []
             out.reserveCapacity(fields.count)
+            // `members.first(where:)` per field was O(fields x members) — the one place in
+            // the library that resolves keys by scanning, where every generated body does a
+            // single pass with a length switch. An index makes it one pass plus a hash.
+            // Built only when it can pay for itself; a handful of fields keeps the scan.
+            var index: [String: Int]? = nil
+            if fields.count > 8 && members.count > 8 {
+                var m = [String: Int](minimumCapacity: members.count)
+                for (i, mem) in members.enumerated() where m[mem.key] == nil { m[mem.key] = i }
+                index = m
+            }
+            // And one path buffer for the whole object, the key rewritten per field.
+            var p = path
+            p.append(.key(""))
+            let pLast = p.count &- 1
             for f in fields {
-                let p = path + [.key(f.key)]
-                guard let member = members.first(where: { $0.key == f.key }) else {
+                p[pLast] = .key(f.key)
+                let found: RawValue.Member?
+                if let index {
+                    found = index[f.key].map { members[$0] }
+                } else {
+                    found = members.first(where: { $0.key == f.key })
+                }
+                guard let member = found else {
                     if !f.isOptional {
                         sink.add(Issue(code: .missing, path: p))
                     }

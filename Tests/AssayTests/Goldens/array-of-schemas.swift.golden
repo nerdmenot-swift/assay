@@ -1,0 +1,117 @@
+extension GoldenArrayOfSchemas: Assay.JSONAssayable {nonisolated static let __assayKeyTable: [UInt8] = {
+    var t = [UInt8](repeating: 2, count: 256)
+        t[105] = 1
+        t[110] = 0
+    return t
+}()
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathComponent]
+) -> GoldenArrayOfSchemas? {
+    Assay._assayRequireJSON(GoldenArrayElement.self)
+    guard reader.tryConsume(0x7B) else {
+        reader.reportTypeMismatch(&sink, path, expected: "object")
+        return nil
+    }
+    guard reader.enterContainer(&sink) else { return nil }
+    // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+    // anything ever failed?", which is wrong the moment one sink spans more than
+    // one decode — a driver collecting every issue from a result set would find
+    // one bad row silently discarding every good row after it.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: String? = nil
+    var __f1: [GoldenArrayElement]? = nil
+    var __presence: UInt64 = 0
+
+    if !reader.tryConsume(0x7D) {
+        while true {
+            guard let __key = reader.scanKey() else {
+                reader.reportMalformed(&sink, path)
+                reader.leaveContainer()
+                return nil
+            }
+            guard reader.expect(0x3A) else {
+                reader.reportMalformed(&sink, path)
+                reader.leaveContainer()
+                return nil
+            }
+                let __w = reader._keyWindow(
+                    __key,
+                    byteOffset: 0,
+                    shift: 0)
+                switch Self.__assayKeyTable[Int(__w)] {
+                case 0:
+                    if reader.keyMatches(__key, "name") {
+                        __presence |= 1
+                        __f0 = reader._decodeString(&sink, path, "name")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 1:
+                    if reader.keyMatches(__key, "items") {
+                        __presence |= 2
+                        if reader.tryConsume(0x5B) {
+                            var __arr1_0: [GoldenArrayElement] = []
+                            var __ap1_0 = path
+                            __ap1_0.append(.key("items"))
+                            __ap1_0.append(.index(0))
+                            if !reader.tryConsume(0x5D) {
+                                while true {
+                                __ap1_0[__ap1_0.count &- 1] = .index(__arr1_0.count)
+                                if let __e1_0 = GoldenArrayElement._assay(
+                                    from: &reader, into: &sink, at: __ap1_0) { __arr1_0.append(__e1_0) }
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x5D) else {
+                                    reader.reportMalformed(&sink, path)
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            __f1 = __arr1_0
+                        } else if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "items", "array")
+                        } else {
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                        // whole-value mismatch on a collection reported an issue whose path
+                        // was EMPTY at the top level -- worse than the missing element index
+                        // this change set out to fix, and found by a test written for that.
+                        reader.reportTypeMismatch(&sink, path + [.key("items")], expected: "array")
+                        }
+
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                default:
+                    _ = reader.skipValue(&sink)
+                }
+            if reader.tryConsume(0x2C) { continue }
+            break
+        }
+        guard reader.tryConsume(0x7D) else {
+            reader.reportMalformed(&sink, path)
+            reader.leaveContainer()
+            return nil
+        }
+    }
+    reader.leaveContainer()
+
+        if __presence & 1 == 0 {
+            reader._missingRequired(&sink, path, "name")
+        }
+        if __presence & 2 == 0 {
+            reader._missingRequired(&sink, path, "items")
+        }
+
+
+        guard let __v0 = __f0 else { return nil }
+        guard let __v1 = __f1 else { return nil }
+    let __result = GoldenArrayOfSchemas(name: __v0, items: __v1)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}}

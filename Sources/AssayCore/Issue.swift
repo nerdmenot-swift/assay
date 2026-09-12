@@ -160,6 +160,14 @@ public struct IssueSink: Sendable {
     @inlinable
     public var isValid: Bool { issues.isEmpty }
 
+    /// Whether `add` would now discard rather than record.
+    ///
+    /// For callers that do expensive work only to hand it to `add` — the did-you-mean
+    /// search is the one that matters, being a Damerau distance against every declared
+    /// key. Cheap to ask, and it turns a report nobody sees into a branch.
+    @inlinable
+    public var isFull: Bool { issues.count >= limits.maxIssues }
+
     /// Cold: never inlined into the field loop, where it would bloat the hot function
     /// past the escape-analysis complexity budget (`1_000_000 / estimatedFunctionSize`,
     /// divided by a further 10 for ARC queries — and exhaustion is indistinguishable

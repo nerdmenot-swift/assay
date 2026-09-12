@@ -361,8 +361,23 @@ public func _assayValidate(
 ) {
     for r in rules {
         if let inner = r.eachRules {
+            // ONE PATH PER FIELD, NOT ONE PER ELEMENT, and the index written in place.
+            //
+            // This built `path + [.key(String(describing: field)), .index(i)]` per element,
+            // unconditionally — a `StaticString`→`String` conversion and an array concat,
+            // both on the SUCCESS path. `applyString` reads `path` only inside `emit`, so a
+            // clean array paid for both and read neither. Measured 2026-09-13 against the
+            // same rule without `.each`: 65 ns/element, flat from 10k to 40k elements.
+            //
+            // The file already argues this case twenty lines up, about `.email`/`.url`
+            // paying for a character count "they never look at — 36 ns, which is more than
+            // the UUID check itself." Same mistake, one level out.
+            var elementPath = path
+            elementPath.append(.key(String(describing: field)))
+            elementPath.append(.index(0))
+            let last = elementPath.count &- 1
             for (i, element) in v.enumerated() {
-                let elementPath = path + [.key(String(describing: field)), .index(i)]
+                elementPath[last] = .index(i)
                 for rule in inner {
                     rule.applyString(element, r.message ?? override, "", span,
                                      elementPath, &sink)

@@ -97,7 +97,12 @@ extension AssayReader {
     ) {
         let name = _keyString(key)
         var params: [String: IssueValue] = [:]
-        if let suggestion = Self._didYouMean(name, in: known) {
+        // Only when the sink will actually keep it. Past `maxIssues` every report is
+        // dropped, and computing a Damerau distance against every declared key to throw it
+        // away made `unknownKeys: .warn/.reject` — the HARDENED settings — 30x the cost of
+        // `.ignore` on a document full of unknown keys. Measured 2026-09-13: 23 ms for
+        // 1.1 MB against 0.8 ms.
+        if !sink.isFull, let suggestion = Self._didYouMean(name, in: known) {
             params["didYouMean"] = .string(suggestion)
         }
         params["received"] = .string(name)
@@ -121,10 +126,13 @@ extension AssayReader {
         guard !known.isEmpty else { return nil }
         let threshold = name.count <= 4 ? 1 : 2
         var best: (key: String, distance: Int)?
+        // Hoisted: this was `Array(name.utf8)` INSIDE the loop, so the key being reported
+        // was re-materialised once per declared key.
+        let nameBytes = Array(name.utf8)
         for candidate in known {
             // Cheap rejects before the O(n*m) matrix.
             if abs(candidate.count - name.count) > threshold { continue }
-            let d = editDistance(Array(name.utf8), Array(candidate.utf8), limit: threshold)
+            let d = editDistance(nameBytes, Array(candidate.utf8), limit: threshold)
             guard d <= threshold else { continue }
             if best == nil || d < best!.distance { best = (candidate, d) }
         }

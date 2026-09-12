@@ -105,10 +105,17 @@ extension StringProtocol {
         String(decoding: utf8.map { $0 >= 65 && $0 <= 90 ? $0 + 32 : $0 }, as: UTF8.self)
     }
 
+    /// Index-based, for the reason `Preprocess.swift:34` already records: `removeFirst()`
+    /// shifts every remaining byte, so trimming in a loop is O(n²). This was the same bug
+    /// in the same shape, on the `Content-Type` header — attacker-supplied in any server
+    /// using `parse(body:contentType:)`. Measured 2026-09-13 before the fix: 10k leading
+    /// spaces 0.6 ms, 80k 30.7 ms, quadrupling per doubling.
     fileprivate func trimmedASCII() -> String {
-        var b = Array(utf8)
-        while let f = b.first, f == 0x20 || f == 0x09 { b.removeFirst() }
-        while let l = b.last, l == 0x20 || l == 0x09 { b.removeLast() }
-        return String(decoding: b, as: UTF8.self)
+        let b = Array(utf8)
+        var lo = 0
+        var hi = b.count
+        while lo < hi, b[lo] == 0x20 || b[lo] == 0x09 { lo &+= 1 }
+        while hi > lo, b[hi &- 1] == 0x20 || b[hi &- 1] == 0x09 { hi &-= 1 }
+        return String(decoding: b[lo..<hi], as: UTF8.self)
     }
 }

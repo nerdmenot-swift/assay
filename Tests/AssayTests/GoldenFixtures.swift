@@ -39,6 +39,16 @@ struct GoldenB: Equatable { var y: String }
 @Schema(keys: .snakeCase, formats: .all) struct GoldenAllFormats { var aB: Int; var c: [String]; var m: [String: Int] }
 
 // GOLDEN: encodes-path-extras
+/// An array of nested schemas — the hottest emitted shape, and the one nothing pinned.
+///
+/// Every other fixture's arrays hold scalars, which take a different arm. When the
+/// per-element diagnostic path was hoisted out of this loop on 2026-09-13 (a 2.5x win),
+/// the golden suite did not notice, because no fixture reached that emitter branch.
+@Schema struct GoldenArrayElement { var x: Int; var y: String }
+
+// GOLDEN: array-of-schemas
+@Schema struct GoldenArrayOfSchemas { var name: String; var items: [GoldenArrayElement] }
+
 @Schema(encodes: true) struct GoldenEncodes { var a: Int; @Key(path: "p.q") var q: Int; @Key("k", or: "kk") var k: String; @Extras var rest: [String: RawValue] }
 
 // GOLDEN: rules-checks-async

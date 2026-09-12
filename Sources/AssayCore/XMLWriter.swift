@@ -54,7 +54,7 @@ public struct XMLWriter: ~Copyable {
     }
 
     @inlinable @inline(__always)
-    mutating func raw(_ s: String) { out.append(contentsOf: Array(s.utf8)) }
+    mutating func raw(_ s: String) { out.append(contentsOf: s.utf8) }
 
     /// Close the start tag if one is open, so content can follow.
     @inlinable

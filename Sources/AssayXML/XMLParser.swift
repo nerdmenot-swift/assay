@@ -81,6 +81,15 @@ extension XML {
 
     /// The parser state. A struct, and never escaping, so it stays on the stack.
     struct Parser {
+
+        /// Where the duplicate-attribute check stops scanning and starts hashing.
+        ///
+        /// Below this a linear scan over a contiguous array beats a `Set` and allocates
+        /// nothing — the original reasoning, which holds. Above it the scan is quadratic.
+        /// 16 is comfortably past "a handful"; the crossover is not sharp, and what
+        /// matters is that one exists at all.
+        static let attributeSetThreshold = 16
+
         let limits: Limits
         /// Internal general entities from the DOCTYPE internal subset.
         var entities: [String: String] = [:]
@@ -213,11 +222,40 @@ extension XML {
             // Set. Elements have a handful of attributes, where a linear scan over a
             // contiguous array beats hashing — and the Set was a heap allocation per
             // element for a check that almost never fires.
+            //
+            // THAT IS RIGHT FOR THE COMMON CASE AND WAS UNBOUNDED FOR THE HOSTILE ONE.
+            // The scan is O(a²) in the attribute count, and `XML.Name ==` is a full
+            // `String ==` on two fields, so one element with many attributes — legal XML,
+            // depth 1, no entities — walks away with the parse. Measured 2026-09-13:
+            //
+            //     16,000 attrs   161 KB   0.165 s
+            //     32,000 attrs   332 KB   0.663 s
+            //     64,000 attrs   676 KB   2.651 s        4.0x per doubling
+            //
+            // Neither guard sees it: `maxDepth` is 1 here and the node budget counts
+            // nodes, of which this is one. Same blind spot as the YAML merge key fixed the
+            // same day — both bombs are WIDE, and both guards measure depth or count.
+            //
+            // So: keep the linear scan exactly where it was justified, and build the set
+            // once the count passes the point where hashing wins. Below the threshold this
+            // is byte-for-byte the old path, allocation included (none).
+            var seen: Set<XML.Name>? = nil
             for (nameRange, v, span, valueSpan) in rawAttributes {
                 let resolved = resolve(r, nameRange, isAttribute: true)
+                if seen == nil, attributes.count == Self.attributeSetThreshold {
+                    var s = Set<XML.Name>(minimumCapacity: rawAttributes.count)
+                    for a in attributes { s.insert(a.name) }
+                    seen = s
+                }
+                let duplicate: Bool
+                if seen != nil {
+                    duplicate = !seen!.insert(resolved).inserted
+                } else {
+                    duplicate = attributes.contains(where: { $0.name == resolved })
+                }
                 // Duplicate attributes are a well-formedness error in XML, unlike
                 // duplicate child elements which are ordinary.
-                if attributes.contains(where: { $0.name == resolved }) {
+                if duplicate {
                     // Cold: build the reported name only when there is something to report.
                     let n = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
                     sink.add(Issue(code: .duplicateKey,

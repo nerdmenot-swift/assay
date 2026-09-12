@@ -495,6 +495,7 @@ import gets caught rather than accidentally working.
 | [`docs/VALIDATE.md`](docs/VALIDATE.md) | validating a value you already have, and the law that decides what it can check |
 | [`docs/CONFORMANCE.md`](docs/CONFORMANCE.md) | what each parser accepts and refuses, and how that is checked |
 | [`docs/PLIST.md`](docs/PLIST.md) | property lists, and the two amplification attacks the binary format carries |
+| [`docs/AUDIT-2026-09-13-efficiency.md`](docs/AUDIT-2026-09-13-efficiency.md) | the efficiency audit: two denial-of-service fixes, a 2.5× on the generated body, and why SIMD and concurrency stay out |
 | [`docs/AUDIT-2026-09-12.md`](docs/AUDIT-2026-09-12.md) | the second full audit: what was fixed, what was recorded, and the class of bug behind both |
 | [`ROADMAP.md`](ROADMAP.md) | what is deferred, and why |
 | [`CLAUDE.md`](CLAUDE.md) | settled decisions and hard constraints on generated code |

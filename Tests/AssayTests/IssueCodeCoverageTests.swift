@@ -309,3 +309,55 @@ struct IssueCodeCoverageTests {
             """)
     }
 }
+
+//===----------------------------------------------------------------------===//
+// The malformed-document message. The 2026-09-12 audit called this "the single worst
+// sentence the library produces, in the case its headline is about": every JSON syntax
+// error was the bare predicate `is not a well-formed document` — no subject, no
+// expectation — truncated input got a caret one byte past the end (which renders as
+// nothing), and `trailingContent` fired as a redundant second error at the same column on
+// nearly every syntax failure.
+//===----------------------------------------------------------------------===//
+
+@Suite("Malformed documents say what was expected")
+struct MalformedMessageTests {
+
+    @Schema struct User: Equatable { var name: String; var age: Int }
+
+    // `Issue` alone is ambiguous here: swift-testing exports one too.
+    private func issues(_ doc: String) -> [AssayCore.Issue] {
+        User.diagnose(json: Array(doc.utf8)).issues
+    }
+
+    @Test("a missing colon names the colon")
+    func missingColon() {
+        let i = issues(#"{"name": "a", "age" 1}"#)
+        #expect(i.count == 1, "\(i.map(\.message))")
+        #expect(i.first?.message.contains("expected ':' after the key") == true,
+                "\(i.map(\.message))")
+    }
+
+    @Test("truncated input says the input ended, and carries a position")
+    func truncated() {
+        let i = issues(#"{"name": "a","#)
+        #expect(i.first?.message.contains("the input ended") == true, "\(i.map(\.message))")
+        // The caret lands on the LAST byte. One past the end is outside the source and the
+        // renderer draws nothing there, which is how truncated input had no position.
+        #expect(i.first?.location?.lo == 12, "\(String(describing: i.first?.location))")
+    }
+
+    @Test("one mistake is one error — trailingContent no longer doubles it")
+    func noRedundantTrailing() {
+        for doc in [#"{"name": "a", "age" 1}"#, #"{"name" "#, #"{"name": "a","#] {
+            let codes = issues(doc).map(\.code)
+            #expect(!codes.contains(.trailingContent),
+                    "\(doc) reported trailing content beside its syntax error: \(codes)")
+        }
+    }
+
+    @Test("trailing content after a COMPLETE value is still an error")
+    func realTrailingContent() {
+        let codes = issues(#"{"name": "a", "age": 1}x"#).map(\.code)
+        #expect(codes.contains(.trailingContent), "\(codes)")
+    }
+}

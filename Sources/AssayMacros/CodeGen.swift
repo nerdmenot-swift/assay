@@ -195,12 +195,12 @@ extension SchemaMacro {
             if !reader.tryConsume(0x7D) {
                 while true {
                     guard let __key = reader.scanKey() else {
-                        reader.reportMalformed(&sink, path)
+                        reader.reportMalformed(&sink, path, expected: "a key in double quotes")
                         reader.leaveContainer()
                         return nil
                     }
                     guard reader.expect(0x3A) else {
-                        reader.reportMalformed(&sink, path)
+                        reader.reportMalformed(&sink, path, expected: "':' after the key")
                         reader.leaveContainer()
                         return nil
                     }
@@ -209,7 +209,7 @@ extension SchemaMacro {
                     break
                 }
                 guard reader.tryConsume(0x7D) else {
-                    reader.reportMalformed(&sink, path)
+                    reader.reportMalformed(&sink, path, expected: "',' or '}'")
                     reader.leaveContainer()
                     return nil
                 }
@@ -349,7 +349,7 @@ extension SchemaMacro {
         \(pad)    if !reader.tryConsume(0x7D) {
         \(pad)        while true {
         \(pad)            guard let \(key) = reader.scanKey(), reader.expect(0x3A) else {
-        \(pad)                reader.reportMalformed(&sink, path)
+        \(pad)                reader.reportMalformed(&sink, path, expected: "a key and ':'")
         \(pad)                reader.leaveContainer()
         \(pad)                return nil
         \(pad)            }
@@ -360,7 +360,7 @@ extension SchemaMacro {
         \(pad)            break
         \(pad)        }
         \(pad)        guard reader.tryConsume(0x7D) else {
-        \(pad)            reader.reportMalformed(&sink, path)
+        \(pad)            reader.reportMalformed(&sink, path, expected: "',' or '}'")
         \(pad)            reader.leaveContainer()
         \(pad)            return nil
         \(pad)        }
@@ -706,7 +706,7 @@ extension SchemaMacro {
         \(pad)            break
         \(pad)        }
         \(pad)        guard reader.tryConsume(0x5D) else {
-        \(pad)            reader.reportMalformed(&sink, path)
+        \(pad)            reader.reportMalformed(&sink, path, expected: "',' or ']'")
         \(pad)            reader.leaveContainer()
         \(pad)            return nil
         \(pad)        }
@@ -797,7 +797,7 @@ extension SchemaMacro {
         \(pad)    if !reader.tryConsume(0x7D) {
         \(pad)        while true {
         \(pad)            guard let \(kTok) = reader.scanKey(), reader.expect(0x3A) else {
-        \(pad)                reader.reportMalformed(&sink, path)
+        \(pad)                reader.reportMalformed(&sink, path, expected: "a key and ':'")
         \(pad)                reader.leaveContainer()
         \(pad)                return nil
         \(pad)            }
@@ -806,7 +806,7 @@ extension SchemaMacro {
         \(pad)            break
         \(pad)        }
         \(pad)        guard reader.tryConsume(0x7D) else {
-        \(pad)            reader.reportMalformed(&sink, path)
+        \(pad)            reader.reportMalformed(&sink, path, expected: "',' or '}'")
         \(pad)            reader.leaveContainer()
         \(pad)            return nil
         \(pad)        }

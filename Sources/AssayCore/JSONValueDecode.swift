@@ -41,21 +41,23 @@ extension AssayReader {
     ) -> JSON.Value? {
         skipWhitespace()
         guard !atEnd else {
-            reportMalformed(&sink, path)
+            reportMalformed(&sink, path, expected: "a value")
             return nil
         }
 
         switch current {
         case 0x6E:                                   // n(ull)
-            guard scanNull() else { reportMalformed(&sink, path); return nil }
+            guard scanNull() else { reportMalformed(&sink, path, expected: "null"); return nil }
             return .null
 
         case 0x74, 0x66:                             // t(rue) / f(alse)
-            guard let b = scanBool() else { reportMalformed(&sink, path); return nil }
+            guard let b = scanBool() else {
+                reportMalformed(&sink, path, expected: "true or false"); return nil }
             return .bool(b)
 
         case 0x22:                                   // "
-            guard let s = scanString() else { reportMalformed(&sink, path); return nil }
+            guard let s = scanString() else {
+                reportMalformed(&sink, path, expected: "a string"); return nil }
             return .string(s)
 
         case 0x5B:                                   // [
@@ -80,7 +82,7 @@ extension AssayReader {
     ) -> JSON.Value? {
         if let i = scanInt64() { return .int(i) }
         if let d = scanDouble() { return .double(d) }
-        reportMalformed(&sink, path)
+        reportMalformed(&sink, path, expected: "a value")
         return nil
     }
 
@@ -89,7 +91,7 @@ extension AssayReader {
         _ sink: inout IssueSink,
         _ path: inout [PathComponent]
     ) -> JSON.Value? {
-        guard tryConsume(0x5B) else { reportMalformed(&sink, path); return nil }
+        guard tryConsume(0x5B) else { reportMalformed(&sink, path, expected: "'['"); return nil }
         guard enterContainer(&sink) else { return nil }
         defer { leaveContainer() }
 
@@ -109,7 +111,8 @@ extension AssayReader {
             if tryConsume(0x2C) { continue }
             break
         }
-        guard tryConsume(0x5D) else { reportMalformed(&sink, path); return nil }
+        guard tryConsume(0x5D) else {
+            reportMalformed(&sink, path, expected: "',' or ']'"); return nil }
         return .array(items)
     }
 
@@ -118,7 +121,7 @@ extension AssayReader {
         _ sink: inout IssueSink,
         _ path: inout [PathComponent]
     ) -> JSON.Value? {
-        guard tryConsume(0x7B) else { reportMalformed(&sink, path); return nil }
+        guard tryConsume(0x7B) else { reportMalformed(&sink, path, expected: "'{'"); return nil }
         guard enterContainer(&sink) else { return nil }
         defer { leaveContainer() }
 
@@ -130,8 +133,10 @@ extension AssayReader {
             // window dispatcher compares bytes against compile-time literals and never
             // materialises one. That difference is most of why the document path is
             // slower, and it is unavoidable when the key set is unknown.
-            guard let key = scanString() else { reportMalformed(&sink, path); return nil }
-            guard expect(0x3A) else { reportMalformed(&sink, path); return nil }
+            guard let key = scanString() else {
+                reportMalformed(&sink, path, expected: "a key in double quotes"); return nil }
+            guard expect(0x3A) else {
+                reportMalformed(&sink, path, expected: "':' after the key"); return nil }
             path.append(.key(key))
             guard let v = _scanJSONValue(&sink, &path) else { return nil }
             path.removeLast()
@@ -143,7 +148,8 @@ extension AssayReader {
             if tryConsume(0x2C) { continue }
             break
         }
-        guard tryConsume(0x7D) else { reportMalformed(&sink, path); return nil }
+        guard tryConsume(0x7D) else {
+            reportMalformed(&sink, path, expected: "',' or '}'"); return nil }
         return .object(members)
     }
 }

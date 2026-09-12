@@ -30,12 +30,12 @@ nonisolated public static func _assay(
     if !reader.tryConsume(0x7D) {
         while true {
             guard let __key = reader.scanKey() else {
-                reader.reportMalformed(&sink, path)
+                reader.reportMalformed(&sink, path, expected: "a key in double quotes")
                 reader.leaveContainer()
                 return nil
             }
             guard reader.expect(0x3A) else {
-                reader.reportMalformed(&sink, path)
+                reader.reportMalformed(&sink, path, expected: "':' after the key")
                 reader.leaveContainer()
                 return nil
             }
@@ -63,7 +63,7 @@ nonisolated public static func _assay(
                                     break
                                 }
                                 guard reader.tryConsume(0x5D) else {
-                                    reader.reportMalformed(&sink, path)
+                                    reader.reportMalformed(&sink, path, expected: "',' or ']'")
                                     reader.leaveContainer()
                                     return nil
                                 }
@@ -90,7 +90,7 @@ nonisolated public static func _assay(
                             if !reader.tryConsume(0x7D) {
                                 while true {
                                     guard let __dk2_0 = reader.scanKey(), reader.expect(0x3A) else {
-                                        reader.reportMalformed(&sink, path)
+                                        reader.reportMalformed(&sink, path, expected: "a key and ':'")
                                         reader.leaveContainer()
                                         return nil
                                     }
@@ -102,7 +102,7 @@ nonisolated public static func _assay(
                                     break
                                 }
                                 guard reader.tryConsume(0x7D) else {
-                                    reader.reportMalformed(&sink, path)
+                                    reader.reportMalformed(&sink, path, expected: "',' or '}'")
                                     reader.leaveContainer()
                                     return nil
                                 }
@@ -128,7 +128,7 @@ nonisolated public static func _assay(
             break
         }
         guard reader.tryConsume(0x7D) else {
-            reader.reportMalformed(&sink, path)
+            reader.reportMalformed(&sink, path, expected: "',' or '}'")
             reader.leaveContainer()
             return nil
         }

@@ -102,6 +102,11 @@ extension JSONAssayable {
         let v = Self._assay(from: &reader, into: &sink, at: [])
 
         // Trailing content is an error, not a shrug.
+        // TRAILING CONTENT IS ONLY MEANINGFUL AFTER A VALUE PARSED. When decode failed the
+        // reader stopped wherever the syntax error was, so bytes always remain — and this
+        // fired as a second, redundant error at the same column on nearly every syntax
+        // failure, reporting two problems for one mistake.
+        guard v != nil else { return nil }
         reader.skipWhitespace()
         if !reader.atEnd {
             sink.add(Issue(code: .trailingContent,

@@ -359,12 +359,34 @@ public struct AssayReader: ~Copyable {
 
     // MARK: - Diagnostics
 
+    /// A syntax error, saying WHAT WAS EXPECTED where it can.
+    ///
+    /// This reported the bare predicate `is not a well-formed document` for every JSON
+    /// syntax error there is — no subject, no expectation — and truncated input got a caret
+    /// one byte past the end, which renders as nothing. For a library whose headline is
+    /// that it tells you what went wrong, that was the worst sentence it produced, in the
+    /// case the headline is about.
+    ///
+    /// `expected` is a `StaticString` so a call site cannot allocate to describe itself;
+    /// every caller has a literal. It stays optional because `Discriminator` reports a
+    /// malformed document from a position where no single token was expected.
     @inline(never)
-    public mutating func reportMalformed(_ sink: inout IssueSink, _ path: [PathComponent]) {
+    public mutating func reportMalformed(
+        _ sink: inout IssueSink, _ path: [PathComponent], expected: StaticString? = nil
+    ) {
+        var params: [String: IssueValue] = [:]
+        if let e = expected { params["expected"] = .string("\(e)") }
+        // AT THE END IS A DIFFERENT MISTAKE from a wrong byte, and it reads differently:
+        // "the input ended" rather than "found `x`". The caret goes on the LAST byte —
+        // one past the end is outside the source and the renderer draws nothing there,
+        // which is how truncated input came to have no position at all.
+        let ended = cursor >= count
+        if ended { params["atEnd"] = .bool(true) }
         sink.add(Issue(
             code: .malformedDocument,
             path: path,
-            location: SourceSpan(lo: cursor, len: 1)))
+            params: params,
+            location: SourceSpan(lo: ended ? Swift.max(0, count - 1) : cursor, len: 1)))
     }
 
     @inline(never)

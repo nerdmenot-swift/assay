@@ -143,6 +143,14 @@ extension Issue {
             return "must be \(article) \(expected)"
 
         case .malformedDocument:
+            let expected = params["expected"]?.displayString
+            if params["atEnd"] != nil {
+                return expected.map { "is not well-formed: the input ended where \($0) was expected" }
+                    ?? "is not well-formed: the input ended early"
+            }
+            if let expected {
+                return "is not well-formed: expected \(expected)"
+            }
             return "is not a well-formed document"
 
         case .numberOverflow:

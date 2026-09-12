@@ -332,7 +332,25 @@ enum BinaryPlist {
                 guard width <= 8, p + 1 + width <= limit else {
                     return fail(&sink, "UID runs past the end", .plistTruncated)
                 }
-                return .int(Int64(readBE(p + 1, width)))
+                // A UID is UNSIGNED, unlike the 8-byte integer three cases up, so a
+                // width-8 value with the top bit set has no `Int64` to land in.
+                //
+                // This was `Int64(readBE(…))` until 2026-09-12 and **trapped**: a 50-byte
+                // file with the bytes `87 FF FF FF FF FF FF FF FF` killed the process, in
+                // release as well as debug. Found by an audit; the fuzz arm never reached
+                // it because it mutates documents Foundation WROTE, and Foundation's
+                // writer does not emit UIDs outside `NSKeyedArchiver` output.
+                //
+                // Refusing is the only answer the file's own rule allows — the integer
+                // case above says "a number read as a different number is the one failure
+                // a decoder must never have", and `Int64(bitPattern:)` would turn a large
+                // UID into a negative one.
+                let raw = readBE(p + 1, width)
+                guard raw <= UInt64(Int64.max) else {
+                    return fail(&sink, "UID exceeds the representable range",
+                                .plistIntOutOfRange)
+                }
+                return .int(Int64(raw))
 
             case 0xA, 0xC:
                 guard let (n, start) = count(at: p, low: low, &sink),

@@ -125,6 +125,61 @@ struct BinaryPlistTests {
     }
 }
 
+/// A UID whose value does not fit `Int64`.
+///
+/// `Int64(readBE(…))` **trapped** until 2026-09-12 — a 50-byte file killed the process, in
+/// release as well as debug. The fuzz arm could not reach it: it mutates documents
+/// Foundation wrote, and Foundation only emits UIDs from `NSKeyedArchiver`, never with the
+/// top bit set. Found by reading the arm beside the integer one, which handles the same
+/// width correctly.
+@Suite("plists — the UID arm")
+struct PlistUIDTests {
+
+    /// `87` is a UID marker with a low nibble of 7, so the width is 8 and every bit is set.
+    static let hugeUID: [UInt8] = {
+        var b: [UInt8] = Array("bplist00".utf8)
+        let objOffset = b.count
+        b.append(0x87)
+        b.append(contentsOf: [UInt8](repeating: 0xFF, count: 8))
+        let table = b.count
+        b.append(UInt8(objOffset))
+        b.append(contentsOf: [UInt8](repeating: 0, count: 6))
+        b.append(1)                                   // offsetIntSize
+        b.append(1)                                   // objectRefSize
+        for v in [UInt64(1), UInt64(0), UInt64(table)] {
+            withUnsafeBytes(of: v.bigEndian) { b.append(contentsOf: $0) }
+        }
+        return b
+    }()
+
+    @Test("a UID above Int64.max is refused, not a trap")
+    func hugeUIDIsRefused() {
+        #expect(Self.hugeUID.count == 50)
+        var sink = IssueSink(limits: .default)
+        #expect(Plist.decode(Self.hugeUID, into: &sink) == nil)
+        #expect(sink.issues.contains { $0.code == .plistIntOutOfRange },
+                "got \(sink.issues.map(\.code))")
+    }
+
+    @Test("a UID that does fit decodes as the integer it is")
+    func smallUIDDecodes() {
+        var b: [UInt8] = Array("bplist00".utf8)
+        let objOffset = b.count
+        b.append(0x81)                                // width 2
+        b.append(contentsOf: [0x01, 0x2C])            // 300
+        let table = b.count
+        b.append(UInt8(objOffset))
+        b.append(contentsOf: [UInt8](repeating: 0, count: 6))
+        b.append(1); b.append(1)
+        for v in [UInt64(1), UInt64(0), UInt64(table)] {
+            withUnsafeBytes(of: v.bigEndian) { b.append(contentsOf: $0) }
+        }
+        var sink = IssueSink(limits: .default)
+        #expect(Plist.decode(b, into: &sink)?.int == 300)
+        #expect(sink.isValid)
+    }
+}
+
 @Suite("plists — amplification")
 struct PlistAmplification {
 

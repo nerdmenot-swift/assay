@@ -143,11 +143,28 @@ extension YAML.Parser {
     }
 
     /// `<<: *base` and `<<: [*a, *b]`. Earlier sources win, and an explicit key in the
-    /// mapping always beats a merged one.
+    /// mapping always beats a merged one — which the set preserves, because a key is
+    /// inserted the first time it is seen and every later duplicate is skipped.
+    ///
+    /// THE SET IS NOT AN OPTIMISATION, IT IS THE DIFFERENCE BETWEEN LINEAR AND QUADRATIC.
+    /// This was `pairs.contains(where: { $0.key == p.key })` — a scan of every accumulated
+    /// pair for every merged pair, so a mapping with n of its own keys merging n more cost
+    /// O(n²) `YAML.Node` comparisons. Measured 2026-09-13: a 1 MB document with one `<<:`
+    /// took **3.5 s**, against 5 ms for the same document with the merge line removed, and
+    /// the time quadrupled for every doubling. Nothing saw it: the node count stays small,
+    /// so neither the alias-expansion budget nor `maxDepth` fires, and the amplification
+    /// tests cover alias bombs rather than merge width.
+    ///
+    /// `YAML.Node` is `Hashable`, and the set uses the same `==` the scan did, so this is
+    /// the identical predicate rather than an approximation of it. Keys are almost always
+    /// scalars; the hashing cost is the string hash the comparison would have done anyway.
     func mergeInto(_ pairs: inout [YAML.Pair], from value: YAML.Node) {
+        var present = Set<YAML.Node>(minimumCapacity: pairs.count)
+        for p in pairs { present.insert(p.key) }
+
         func merge(_ node: YAML.Node) {
             guard case .mapping(let source) = node else { return }
-            for p in source where !pairs.contains(where: { $0.key == p.key }) {
+            for p in source where present.insert(p.key).inserted {
                 pairs.append(p)
             }
         }

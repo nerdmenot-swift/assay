@@ -445,3 +445,78 @@ struct XMLEntityTests {
         #expect(!sink.isValid)
     }
 }
+
+
+/// The merge key's cost is in the WIDTH of the mapping, which no existing budget watches.
+///
+/// `mergeInto` linear-scanned the accumulated pairs for every merged pair, so a mapping
+/// with n of its own keys merging n more did O(n²) node comparisons. Measured 2026-09-13:
+/// 3.5 s for a 1 MB document with one `<<:`, against 5 ms for the same document without
+/// it, quadrupling for every doubling. The node count stays small throughout, so the
+/// alias-expansion budget never fires and `maxDepth` never fires — the two guards that
+/// exist for YAML both look at the wrong quantity.
+///
+/// A wall-clock assertion, like the rest of this file: the ceiling is absurd on purpose,
+/// so it detects a return to quadratic rather than a slow machine. Before the fix this
+/// document took seconds; it now takes about fifteen milliseconds.
+@Suite("Amplification — the merge key")
+struct MergeKeyAmplification {
+
+    static func document(keys n: Int, merge: Bool) -> [UInt8] {
+        var s = "base: &b\n"
+        for i in 0..<n { s += "  k\(i): \(i)\n" }
+        s += "target:\n"
+        if merge { s += "  <<: *b\n" }
+        for i in 0..<n { s += "  m\(i): \(i)\n" }
+        return Array(s.utf8)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func wideMergeIsLinear() {
+        let bytes = Self.document(keys: 32_000, merge: true)
+        let start = ContinuousClock.now
+        var sink = IssueSink(limits: .default)
+        let docs = YAML.decodeAll(bytes, into: &sink, limits: .default)
+        let seconds = Double((ContinuousClock.now - start).components.seconds)
+            + Double((ContinuousClock.now - start).components.attoseconds) / 1e18
+        #expect(sink.isValid, "\(sink.issues)")
+        #expect(docs.count == 1)
+        #expect(seconds < 2.0, "a wide merge took \(seconds)s — the quadratic scan is back")
+    }
+
+    @Test("the merged keys are all present, and the mapping's own keys win")
+    func mergeSemanticsUnchanged() {
+        let yaml = """
+        base: &b
+          a: 1
+          b: 2
+          c: 3
+        target:
+          <<: *b
+          b: 99
+        """
+        var sink = IssueSink(limits: .default)
+        let docs = YAML.decodeAll(Array(yaml.utf8), into: &sink, limits: .default)
+        #expect(sink.isValid, "\(sink.issues)")
+        let target = docs.first?["target"]
+        #expect(target?["a"]?.content == "1")
+        #expect(target?["b"]?.content == "99", "an explicit key must beat a merged one")
+        #expect(target?["c"]?.content == "3")
+    }
+
+    @Test("earlier merge sources win over later ones")
+    func earlierSourceWins() {
+        let yaml = """
+        one: &x
+          k: first
+        two: &y
+          k: second
+        target:
+          <<: [*x, *y]
+        """
+        var sink = IssueSink(limits: .default)
+        let docs = YAML.decodeAll(Array(yaml.utf8), into: &sink, limits: .default)
+        #expect(sink.isValid, "\(sink.issues)")
+        #expect(docs.first?["target"]?["k"]?.content == "first")
+    }
+}

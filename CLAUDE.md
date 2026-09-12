@@ -87,7 +87,7 @@ A Zod-inspired decoding-and-validation library for Swift, built on a macro rathe
 > Assay is not a validation library that also decodes. It is the decoder that tells you what
 > went wrong.
 
-```swift
+```swift-check
 import Assay
 import Foundation          // a `Date` field needs it; nothing else here does
 

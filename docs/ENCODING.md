@@ -131,7 +131,7 @@ features are mutually exclusive in the language. So the construct changed rather
 transliterated, which is `CLAUDE.md`'s governing principle applied to a case it was written
 for. The raw type goes away and `@Schema` supplies the mapping:
 
-```swift
+```swift-check
 @Schema enum Status {
     case active, suspended
     @Unknown case other(String)

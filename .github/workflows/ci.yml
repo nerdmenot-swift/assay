@@ -222,6 +222,28 @@ jobs:
             exit 1
           fi
 
+  # The examples in the front-door documents, COMPILED. The website has compiled its
+  # examples since 2026-09-11 and that rule caught five bugs in two days; README.md,
+  # CLAUDE.md and docs/EXPERIENCE.md compiled nothing, and that is exactly where the
+  # flagship example rotted — `var published: Date` under `import Assay` alone, in three
+  # documents, for as long as it had a `Date` in it.
+  #
+  # A block opts in by being fenced ```swift-check rather than ```swift, because most
+  # blocks in these documents are fragments — a field list, an attribute, half a function —
+  # and a checker that pretended to cover them would be the "check that cannot fail" this
+  # project keeps finding. 27 blocks are marked; the count is in the job's output, so a
+  # marker deleted to silence a failure shows up as the number going down.
+  doc-examples:
+    timeout-minutes: 30
+    name: Documented examples compile
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select the newest Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+      - name: Compile every ```swift-check block
+        run: swift Scripts/check-doc-examples.swift
+
   # Public API against the pull request's base. `diagnose-api-breaking-changes` builds both
   # trees and diffs the module interfaces. A PR that breaks API on purpose carries the
   # `api-break` label and a CHANGELOG line; the label skips the job so the break is never

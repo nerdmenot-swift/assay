@@ -76,7 +76,12 @@ import WinSDK
 public final class MappedFile: @unchecked Sendable {
 
     /// Base address of the mapping. Valid while this object is alive.
-    public let base: UnsafeRawPointer
+    /// INTERNAL, not public. Hard constraint 11: unsafe code lives below the dispatch
+    /// seam, and the seam's signature must be expressible in `Span`, `RawSpan` and values
+    /// — "an `UnsafeRawBufferPointer` in a public signature means the design is wrong".
+    /// This and `withUnsafeBytes` were public until 2026-09-13 and had no consumer outside
+    /// this module; `MappedParsing.swift` is the only caller and is a file away.
+    let base: UnsafeRawPointer
     /// Length in bytes.
     public let count: Int
 
@@ -168,7 +173,7 @@ public final class MappedFile: @unchecked Sendable {
     }
 
     /// Scoped access to the mapped bytes.
-    public func withUnsafeBytes<R>(_ body: (UnsafeRawBufferPointer) throws -> R) rethrows -> R {
+    func withUnsafeBytes<R>(_ body: (UnsafeRawBufferPointer) throws -> R) rethrows -> R {
         let buffer = unsafe UnsafeRawBufferPointer(start: base, count: count)
         defer { withExtendedLifetime(self) {} }
         return try unsafe body(buffer)

@@ -50,7 +50,7 @@ Also settled by the same rule that makes qualification necessary: a client type 
 
 Here is the smallest complete program. Note what is *not* in it.
 
-```swift
+```swift-check
 import Assay
 import Foundation          // a `Date` field needs it; nothing else here does
 
@@ -92,7 +92,7 @@ What you get for the plain struct above, with zero annotations:
 
 And when a field genuinely has a constraint, you write it in the same place:
 
-```swift
+```swift-check
 @Validate(.min(1)) var title: String
 ```
 
@@ -259,14 +259,14 @@ Assay converts at *compile time*, from the real declared identifier, with the ac
 
 ### Per-field override
 
-```swift
+```swift-check
 @Key("id")           var userID: String
 @Key("e-mail")       var email: String
 ```
 
 ### Aliases, with a record of which one matched
 
-```swift
+```swift-check
 @Key("email", or: "email_address", "mail")  var email: String
 ```
 
@@ -280,7 +280,7 @@ This is the piece Pydantic gets right with `AliasChoices` and serde gets right w
 
 ### Reaching into nested shapes
 
-```swift
+```swift-check
 @Key(path: "profile.display_name")  var displayName: String
 @Key(path: "profile.avatar")        var avatar: String?
 ```
@@ -307,7 +307,7 @@ serde's `flatten`. The macro knows `Pagination`'s keys at compile time, so unkno
 
 ### Keeping what you didn't declare
 
-```swift
+```swift-check
 @Extras var extras: [String: RawValue]
 ```
 
@@ -352,7 +352,7 @@ Rather than mangle the syntax into `@Validate(.min(12), message: "…")`, `Rule`
 
 Per-rule messages are also available when one attribute has several rules that need different wording:
 
-```swift
+```swift-check
 @Validate(.min(3, or: "too short"), .max(20, or: "too long"))
 var username: String
 ```
@@ -387,7 +387,7 @@ The first edition had `.custom { $0.hasSuffix("@acme.com") }`. That does not com
 
 Arbitrary logic is a function instead:
 
-```swift
+```swift-check
 @Schema
 struct Signup {
     var workEmail: String
@@ -413,7 +413,7 @@ Losing the inline closure is a genuine cost in brevity. It buys types.
 
 Anything you write twice becomes a value:
 
-```swift
+```swift-check
 extension Rule {
     static let companySlug = Rule.all(.min(3), .max(40), .regex(#"^[a-z][a-z0-9-]*$"#))
 }
@@ -429,7 +429,7 @@ Because `Rule` is non-generic, `static let` on a plain extension works and leadi
 
 Most decoding bugs are a conflation of these. Assay keeps them apart in the declaration, and the distinction is visible in the error.
 
-```swift
+```swift-check
 @Schema
 struct Settings {
     var name: String                    // required — absent is an error
@@ -479,7 +479,7 @@ The second because a `let` with an initializer is already assigned and no genera
 
 One more thing worth knowing: `lazy var cache: [String: Int] = [:]` looks exactly like a defaulted stored property from the macro's point of view. It is skipped, along with `static`, computed properties, and anything with a `willSet`/`didSet`-only accessor block. If you want a stored property excluded for a reason the macro can't see, say so:
 
-```swift
+```swift-check
 @Ignore var scratch: [String] = []
 ```
 
@@ -499,7 +499,7 @@ Wire formats lie about types. YAML says `port: "8080"`. A form sends `active=tru
 
 Coercion is never implicit and never global.
 
-```swift
+```swift-check
 @Schema
 struct ServerConfig {
     @Coerce var port: Int          // "8080" → 8080, and the coercion is recorded
@@ -509,7 +509,7 @@ struct ServerConfig {
 
 Or once, for a whole type, when the source is a format that has no types at all:
 
-```swift
+```swift-check
 @Schema(coerceScalars: true)
 struct EnvConfig {
     var port: Int
@@ -550,7 +550,7 @@ Errors still land in the right place with the right path, because the outer sche
 
 There is sugar for the extremely common wrapper case:
 
-```swift
+```swift-check
 @Wraps(String.self, .email)
 struct EmailAddress {}
 ```
@@ -559,7 +559,7 @@ which generates the storage, the `Assayable` conformance, `Equatable`, `Hashable
 
 ### Enums are free
 
-```swift
+```swift-check
 enum Priority: String, Assayable {
     case low, medium, high
 }
@@ -627,7 +627,7 @@ enum Event {
 
 Untagged unions exist for wire formats you don't control:
 
-```swift
+```swift-check
 @Schema(discriminator: .untagged)
 enum StringOrNumber { case text(String), number(Double) }
 ```
@@ -774,7 +774,7 @@ Two attributes, at two different times, and the distinction is which side of val
 
 `@Preprocess` runs on the raw value **before** rules, and its job is normalising input:
 
-```swift
+```swift-check
 @Preprocess(.trim, .lowercase) @Validate(.email)
 var email: String
 ```
@@ -913,7 +913,7 @@ need any of that, parse to `YAML.Node` or `XML.Node` directly and work with the 
 Every XML leaf is text — there is no number and no boolean. So a schema with an `Int` field
 **will not decode from XML** unless it opts into coercion:
 
-```swift
+```swift-check
 @Schema(coerceScalars: true, formats: [.xml])
 struct ServerConfig {
     var port: Int          // "8080" -> 8080

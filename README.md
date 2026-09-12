@@ -2,7 +2,7 @@
 
 **A decoder for Swift that tells you what went wrong.**
 
-```swift
+```swift-check
 @Schema
 struct Article {
     var title: String
@@ -115,7 +115,7 @@ cannot re-check and why each one follows from that law.
 
 An `Issue` is a code plus parameters, never a rendered string:
 
-```swift
+```swift-check
 Issue(code: .tooSmall, path: [.key("replicas")], params: ["min": .int(1)])
 ```
 
@@ -148,7 +148,7 @@ struct Signup {
 because it is `ExpressibleByStringLiteral`, a bare string in the list is a message override for
 that attribute. Rules compose, and they are values:
 
-```swift
+```swift-check
 extension Rule {
     static let companySlug = Rule.all(.min(3), .max(40), .regex("^[a-z][a-z0-9-]*$"))
 }
@@ -188,7 +188,7 @@ refuses it by name.
 
 ### Checks: validation with a debugger attached
 
-```swift
+```swift-check
 @Schema
 struct DateRange {
     var start: Int
@@ -213,7 +213,7 @@ schemas that never need it never see an `await`.
 
 ### Forward compatibility
 
-```swift
+```swift-check
 @Schema enum Status {
     case active, suspended
     @Unknown case other(String)     // a v2 server's new variant, captured not rejected
@@ -231,7 +231,7 @@ that reads as a closed set is how a proxy launders attacker input — and
 Missing, null, defaulted, salvaged and ignored are five different things, and Assay spells all
 five:
 
-```swift
+```swift-check
 var required: String              // must be present
 var optional: String?             // may be absent or null
 var withDefault: Int = 3          // absent -> 3, still validated
@@ -306,7 +306,7 @@ Encoding is deliberately **unbenchmarked**, so no speed claim is made for it.
 
 ## Keys
 
-```swift
+```swift-check
 @Schema(keys: .snakeCase, unknownKeys: .warn)
 struct User {
     var displayName: String                                // display_name

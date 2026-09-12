@@ -43,6 +43,20 @@ first step for any non-trivial change is reading the documents the change touche
 
 ## Running everything
 
+One command, before you push:
+
+```sh
+bash Scripts/check.sh
+```
+
+It runs the build (warning-free, with a forced recompile — an incremental build reports no
+warning for a file it did not rebuild), the tests, the documented examples, the benchmark
+package's build, and the differentials. It reports every step and exits with the number of
+failures, so a partial pass is visible instead of being whatever the last command returned.
+
+It deliberately leaves out the two slow gates, which must not run at the same time as each
+other — see the note below the list. Individually:
+
 ```sh
 swift test                                        # ~700 tests, includes macro tests
 cd Benchmarks

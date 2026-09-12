@@ -45,7 +45,7 @@ That output is a golden test, not a mock-up. Decoding failures and validation fa
 identically, because to the person reading them they are the same thing: the data is wrong, and
 here is where.
 
-And it is **faster** — not despite the error reporting but alongside it. Roughly **5–9×
+And it is **faster** — not despite the error reporting but alongside it. Roughly **6–10×
 Foundation** on the corpus below, from scalar Swift with no SIMD and no C.
 
 ---
@@ -370,12 +370,12 @@ Foundation, the thesis is wrong and the SIMD work is moot.*
 | Falsification arm (API-shaped, 512 B – 64 kB) | Foundation | **5.44×** |
 | Float-dense (canada.json-shaped) | Foundation | **8.64×** |
 | Date decode (`[Date]`, corpus date strings) | `JSONDecoder` `.iso8601` | **6.06×** |
-| Dictionary decode (`[String: T]`, the stated worst case) | Foundation | **6.95×** |
-| YAML node parse | Yams (`compose`, libyaml) | **6.62×** |
-| YAML struct decode | Yams `YAMLDecoder` (Codable) | **11.36×** |
+| Dictionary decode (`[String: T]`, the stated worst case) | Foundation | **7.38×** |
+| YAML node parse | Yams (`compose`, libyaml) | **6.56×** |
+| YAML struct decode | Yams `YAMLDecoder` (Codable) | **11.09×** |
 | XML tree parse (asymmetric, and **macOS only** — read `RESULTS.md`) | Foundation `XMLParser` | **1.30×** |
-| TOML node parse | toml++ (`TOMLTable(string:)`, C++) | **1.09×** |
-| TOML struct decode | TOMLKit `TOMLDecoder` (Codable) | **1.81×** |
+| TOML node parse | toml++ (`TOMLTable(string:)`, C++) | **1.20×** |
+| TOML struct decode | TOMLKit `TOMLDecoder` (Codable) | **1.97×** |
 
 The thesis in one line: **the parser was never the bottleneck; the `Codable` container boundary
 was.** ZippyJSON bolted simdjson — the fastest JSON parser in existence — onto `Decodable` and

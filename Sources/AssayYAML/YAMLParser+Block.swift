@@ -142,6 +142,21 @@ extension YAML.Parser {
         return .mapping(pairs)
     }
 
+    /// How many pairs a merge source would contribute, without merging it.
+    static func mergedPairCount(_ value: YAML.Node) -> Int {
+        switch value {
+        case .mapping(let p): return p.count
+        case .sequence(let xs):
+            var n = 0
+            for x in xs { if case .mapping(let p) = x { n += p.count } }
+            return n
+        default: return 0
+        }
+    }
+
+    /// Where the merge stops scanning and starts hashing. See `mergeInto`.
+    static var mergeSetThreshold: Int { 24 }
+
     /// `<<: *base` and `<<: [*a, *b]`. Earlier sources win, and an explicit key in the
     /// mapping always beats a merged one — which the set preserves, because a key is
     /// inserted the first time it is seen and every later duplicate is skipped.
@@ -159,7 +174,31 @@ extension YAML.Parser {
     /// the identical predicate rather than an approximation of it. Keys are almost always
     /// scalars; the hashing cost is the string hash the comparison would have done anyway.
     func mergeInto(_ pairs: inout [YAML.Pair], from value: YAML.Node) {
-        var present = Set<YAML.Node>(minimumCapacity: pairs.count)
+        // THRESHOLDED, because the first version of this fix was not and that was the same
+        // mistake in the other direction. A config file's mapping has a handful of keys,
+        // and building a `Set` for it is a heap allocation and a hash per key to replace
+        // three or four pointer comparisons — exactly what `XMLParser`'s attribute comment
+        // warns against. Trading the common case to fix the adversarial one is not a fix.
+        //
+        // Below the threshold: the original scan, allocation-free, byte-for-byte.
+        // Above it: the set, and the quadratic goes away.
+        let total = pairs.count + Self.mergedPairCount(value)
+        guard total > Self.mergeSetThreshold else {
+            func mergeSmall(_ node: YAML.Node) {
+                guard case .mapping(let source) = node else { return }
+                for p in source where !pairs.contains(where: { $0.key == p.key }) {
+                    pairs.append(p)
+                }
+            }
+            if case .sequence(let sources) = value {
+                for s in sources { mergeSmall(s) }
+            } else {
+                mergeSmall(value)
+            }
+            return
+        }
+
+        var present = Set<YAML.Node>(minimumCapacity: total)
         for p in pairs { present.insert(p.key) }
 
         func merge(_ node: YAML.Node) {

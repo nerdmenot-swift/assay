@@ -1,8 +1,8 @@
 {
   "stats": {
     "version": "0.1.0",
-    "tests": 689,
-    "suites": 115,
+    "tests": 696,
+    "suites": 118,
     "codes": 119,
     "formats": [
       "JSON",
@@ -15,102 +15,97 @@
   "numbers": [
     {
       "arm": "struct decode, full corpus",
-      "number": "8.65× mean over 25 files (5.19–18.29)",
+      "number": "9.79× mean over 25 files (5.64–18.62)",
       "against": "JSONDecoder"
     },
     {
       "arm": "prefix decode + unknown-key skip",
-      "number": "6.23× over 45 files",
+      "number": "6.12× over 45 files",
       "against": "JSONDecoder"
     },
     {
       "arm": "generic value model",
-      "number": "3.16× over 75 files",
+      "number": "3.06× over 75 files",
       "against": "JSONSerialization"
     },
     {
       "arm": "falsification arm (apimodel, 5 sizes)",
-      "number": "5.44× mean (8.22× float-dense)",
+      "number": "5.84× mean (8.36× float-dense)",
       "against": "JSONDecoder"
     },
     {
       "arm": "vs ZippyJSON (simdjson + Codable)",
-      "number": "2.97–3.74× faster",
-      "against": "ZippyJSON, which is 1.77–2.03× over Foundation here"
+      "number": "3.58× faster",
+      "against": "ZippyJSON, which is 2.08× over Foundation here"
     },
     {
       "arm": "vs yyjson, use-case shape",
-      "number": "0.66× (loses)",
+      "number": "0.73× (loses)",
       "against": "yyjson parse + extraction"
     },
     {
       "arm": "vs yyjson, float-dense",
-      "number": "0.74× (loses)",
+      "number": "0.73× (loses)",
       "against": "same"
     },
     {
       "arm": "vs yyjson, DOM vs DOM",
-      "number": "0.14× (loses)",
+      "number": "0.13× (loses)",
       "against": "yyjson_read"
     },
     {
       "arm": "YAML node parse",
-      "number": "6.63×",
+      "number": "6.56×",
       "against": "Yams compose"
     },
     {
       "arm": "YAML struct decode",
-      "number": "11.04×",
+      "number": "11.09×",
       "against": "Yams YAMLDecoder"
     },
     {
       "arm": "XML tree parse",
-      "number": "2.34× (macOS; 0.96× on Linux)",
+      "number": "2.33× (macOS; 0.96× on Linux)",
       "against": "Foundation XMLParser"
     },
     {
       "arm": "TOML node parse",
-      "number": "1.17×",
+      "number": "1.20×",
       "against": "toml++ via TOMLKit"
     },
     {
       "arm": "TOML struct decode",
-      "number": "1.95×",
+      "number": "1.97×",
       "against": "TOMLKit TOMLDecoder"
     },
     {
       "arm": "Date fields",
-      "number": "6.07×",
+      "number": "6.06×",
       "against": "JSONDecoder + .iso8601"
     },
     {
-      "arm": "[String: T] dictionaries",
-      "number": "6.93× over 10 rows",
-      "against": "JSONDecoder"
-    },
-    {
       "arm": "encoding, 50 / 200 items",
-      "number": "2.95× / 2.83×",
+      "number": "2.98× / 2.80×",
       "against": "JSONEncoder"
     },
     {
       "arm": "cold start, 60 types",
-      "number": "7.8× first decode (median); 6.3× steady",
+      "number": "7.8× first decode (median); 6.4× steady",
       "against": "JSONDecoder"
     },
     {
       "arm": "multi-megabyte documents",
-      "number": "6.79–6.89×, ~700 MB/s, flat",
+      "number": "10.0–10.3×, ~1,050 MB/s, flat",
+      "against": "JSONDecoder"
+    },
+    {
+      "arm": "total allocations, 50 items",
+      "number": "159 against Foundation's 378",
       "against": "JSONDecoder"
     },
     {
       "arm": "T.validate(_:)",
       "number": "72 ns per value, 1 block; 82 ns/row batched, 0.17× a decode",
-      "against": "—"
-    },
-    {
-      "arm": "~~rows and columns~~",
-      "number": "removed 2026-09-11 — nothing depended on it",
       "against": "—"
     },
     {
@@ -120,8 +115,8 @@
     },
     {
       "arm": "compile time, 10 fields",
-      "number": "79.0 ms/type (gate 100)",
-      "against": "Codable: 4.1×"
+      "number": "79.4 ms/type (gate 100)",
+      "against": "Codable: 4.75×"
     }
   ],
   "renders": {
@@ -297,7 +292,7 @@
     },
     "toml.tables": {
       "source": "name = \"eu-prod\"\n\n[[servers]]\nhost = \"a.internal\"\nport = 8080\n\n[[servers]]\nhost = \"b.internal\"\nport = 8081\ntls = false\n\n[labels]\ntier = \"prod\"\nteam = \"platform\"",
-      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"tier\": \"prod\", \"team\": \"platform\"])"
+      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"team\": \"platform\", \"tier\": \"prod\"])"
     },
     "toml.inline": {
       "source": "name = \"eu-prod\"\nservers = [{host = \"a.internal\", port = 8080}]\nlabels = {tier = \"prod\"}",
@@ -457,7 +452,7 @@
     },
     "cb.keys": {
       "source": "id = 1\nmail = \"jo@example.com\"\ndefault = true\nextra_one = 1\nextra_two = \"two\"\n\n[profile]\ndisplay_name = \"Jo\"",
-      "render": "Names(identifier: 1, email: \"jo@example.com\", displayName: \"Jo\", default: true, rest: [\"extra_one\": RawValue.int(1), \"extra_two\": RawValue.string(\"two\")])\n\nwarnings: alias_matched"
+      "render": "Names(identifier: 1, email: \"jo@example.com\", displayName: \"Jo\", default: true, rest: [\"extra_two\": RawValue.string(\"two\"), \"extra_one\": RawValue.int(1)])\n\nwarnings: alias_matched"
     },
     "cb.unknownKeyRejected": {
       "source": "api_key = \"sk-1\"\ntimeout_secs = 30",

@@ -52,7 +52,7 @@ display_name = "Jo"
 ```
 
 ```text
-Names(identifier: 1, email: "jo@example.com", displayName: "Jo", default: true, rest: ["extra_one": RawValue.int(1), "extra_two": RawValue.string("two")])
+Names(identifier: 1, email: "jo@example.com", displayName: "Jo", default: true, rest: ["extra_two": RawValue.string("two"), "extra_one": RawValue.int(1)])
 
 warnings: alias_matched
 ```

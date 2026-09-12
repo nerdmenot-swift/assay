@@ -1,41 +1,40 @@
 # Current numbers
 
 **One machine, one run: macOS 26.5.2, Apple silicon (arm64), Apple Swift 6.3.3, `-O`, warm,
-minimum of 5 rounds — 2026-09-11, commit `2267c9d`.** None of these is a claim about
+minimum of 5 rounds — 2026-09-13, commit `1487e38`.** None of these is a claim about
 another platform (`CLAUDE.md`'s honesty rules); Linux and x86-64 have their own sections
 below. Each row links to the journal entry that explains what it measures and what it does
 not. Regenerate with `swift run -c release AssayBench` and replace this table — the numbers
 are machine-specific by design, so this is pasted, not automated.
 
-Run-to-run spread on this machine is a few percent on every ratio here. A row that moved
-from the previous table by less than that has not changed; the two that moved by more —
-the value model and the yyjson tree arm — moved because of the fix journalled on
-2026-09-11, not because of noise.
+**The struct rows moved on 2026-09-13** and the reason is one line of the emitter: the
+generated body built a diagnostic path per array element, for a path read only when the
+document is malformed. Total allocations at fifty items went 257 → **159**, so this is less
+work rather than more memory — see [the efficiency audit](#doing-less-not-spending-more).
 
 | arm | number | against | journal |
 |---|---|---|---|
-| struct decode, full corpus | **8.65×** mean over 25 files (5.19–18.29) | `JSONDecoder` | [three passes](#three-passes-because-one-number-cannot-answer-three-questions) |
-| prefix decode + unknown-key skip | **6.23×** over 45 files | `JSONDecoder` | same |
-| generic value model | **3.16×** over 75 files | `JSONSerialization` | same |
-| falsification arm (`apimodel`, 5 sizes) | **5.44×** mean (8.22× float-dense) | `JSONDecoder` | [Phase 1](#phase-1--the-falsification-check) |
-| vs ZippyJSON (simdjson + Codable) | **2.97–3.74×** faster | ZippyJSON, which is 1.77–2.03× over Foundation here | [the owed number](#the-owed-loss-assay-against-yyjson) |
-| vs yyjson, use-case shape | **0.66×** (loses) | yyjson parse + extraction | same |
-| vs yyjson, float-dense | **0.74×** (loses) | same | same |
-| vs yyjson, DOM vs DOM | **0.14×** (loses) | `yyjson_read` | same |
-| YAML node parse | **6.63×** | Yams `compose` | [YAML and XML](#yaml-and-xml-timed-for-the-first-time) |
-| YAML struct decode | **11.04×** | Yams `YAMLDecoder` | same |
-| XML tree parse | **2.34×** (macOS; **0.96×** on Linux) | Foundation `XMLParser` | [XML, made faster](#making-the-xml-parser-faster-by-profiling-rather-than-by-admiring-libxml2) |
-| TOML node parse | **1.17×** | toml++ via TOMLKit | [TOML](#toml-a-fourth-tree-decoder-against-c) |
-| TOML struct decode | **1.95×** | TOMLKit `TOMLDecoder` | same |
-| `Date` fields | **6.07×** | `JSONDecoder` + `.iso8601` | [Dates](#dates-the-unclaimed-win-claimed) |
-| `[String: T]` dictionaries | **6.93×** over 10 rows | `JSONDecoder` | [Dictionaries](#dictionaries-the-stated-worst-case-measured) |
-| encoding, 50 / 200 items | **2.95× / 2.83×** | `JSONEncoder` | `docs/ENCODING.md` |
-| cold start, 60 types | **7.8×** first decode (median); 6.3× steady | `JSONDecoder` | `ColdStartBench.swift` |
-| multi-megabyte documents | **6.79–6.89×**, ~700 MB/s, flat | `JSONDecoder` | `LargeDocBench.swift` |
+| struct decode, full corpus | **9.79×** mean over 25 files (5.64–18.62) | `JSONDecoder` | [three passes](#three-passes-because-one-number-cannot-answer-three-questions) |
+| prefix decode + unknown-key skip | **6.12×** over 45 files | `JSONDecoder` | same |
+| generic value model | **3.06×** over 75 files | `JSONSerialization` | same |
+| falsification arm (`apimodel`, 5 sizes) | **5.84×** mean (8.36× float-dense) | `JSONDecoder` | [Phase 1](#phase-1--the-falsification-check) |
+| vs ZippyJSON (simdjson + Codable) | **3.58×** faster | ZippyJSON, which is 2.08× over Foundation here | [the owed number](#the-owed-loss-assay-against-yyjson) |
+| vs yyjson, use-case shape | **0.73×** (loses) | yyjson parse + extraction | same |
+| vs yyjson, float-dense | **0.73×** (loses) | same | same |
+| vs yyjson, DOM vs DOM | **0.13×** (loses) | `yyjson_read` | same |
+| YAML node parse | **6.56×** | Yams `compose` | [YAML and XML](#yaml-and-xml-timed-for-the-first-time) |
+| YAML struct decode | **11.09×** | Yams `YAMLDecoder` | same |
+| XML tree parse | **2.33×** (macOS; **0.96×** on Linux) | Foundation `XMLParser` | [XML, made faster](#making-the-xml-parser-faster-by-profiling-rather-than-by-admiring-libxml2) |
+| TOML node parse | **1.20×** | toml++ via TOMLKit | [TOML](#toml-a-fourth-tree-decoder-against-c) |
+| TOML struct decode | **1.97×** | TOMLKit `TOMLDecoder` | same |
+| `Date` fields | **6.06×** | `JSONDecoder` + `.iso8601` | [Dates](#dates-the-unclaimed-win-claimed) |
+| encoding, 50 / 200 items | **2.98× / 2.80×** | `JSONEncoder` | `docs/ENCODING.md` |
+| cold start, 60 types | **7.8×** first decode (median); 6.4× steady | `JSONDecoder` | `ColdStartBench.swift` |
+| multi-megabyte documents | **10.0–10.3×**, ~1,050 MB/s, flat | `JSONDecoder` | `LargeDocBench.swift` |
+| total allocations, 50 items | **159** against Foundation's 378 | `JSONDecoder` | [doing less](#doing-less-not-spending-more) |
 | `T.validate(_:)` | **72 ns** per value, 1 block; **82 ns/row** batched, 0.17× a decode | — | [Validating a value](#validating-a-value-you-already-have) |
-| ~~rows and columns~~ | **removed 2026-09-11** — nothing depended on it | — | [why](#decoding-from-rows-and-columns-removed-in-full) |
 | live allocations, `apimodel-8k` struct | gated, **PASS** | absolute thresholds | [Allocations](#allocations) |
-| compile time, 10 fields | **79.0 ms/type** (gate 100) | `Codable`: 4.1× | `docs/COMPILE-TIME.md` |
+| compile time, 10 fields | **79.4 ms/type** (gate 100) | `Codable`: 4.75× | `docs/COMPILE-TIME.md` |
 
 ---
 
@@ -1935,3 +1934,40 @@ noise** — and a large cost shared by both sides is noise for that purpose. `Co
 read as free for ten days because both sides of the comparison carried a 38 ns/row
 allocation that hid a 3 ns difference. When a fix makes an instrument more sensitive, the
 conclusions that predate it are unverified again. Not wrong: unverified.
+
+
+---
+
+# Doing less, not spending more
+
+**2026-09-13.** The efficiency audit (`docs/AUDIT-2026-09-13-efficiency.md`) moved the
+headline arms, and the first question to ask of that is whether speed was bought with
+memory. It was not, and `totalalloc` is the instrument that can say so — it counts every
+allocate and free exactly, and both decoders retain the same output, so the retained part
+cancels and what is left is transient work.
+
+| items | Foundation | Assay before | Assay after |
+|---|---|---|---|
+| 1 | 25 | 6 | 6 |
+| 10 | 94 | 55 | **37** |
+| 50 | 378 | 257 | **159** |
+
+38% fewer allocations at fifty items. Live blocks are unchanged at 118.7, which is the
+point: every allocation removed was allocated and freed inside the decode, the class the
+live-block gate structurally cannot see.
+
+Multi-megabyte throughput went from ~700 MB/s to **~1,050 MB/s** for the same reason — a
+large document is mostly arrays of structs, and that body was spending well over half its
+time building diagnostics for a document that decodes cleanly.
+
+## The trade that went the wrong way first
+
+Three of the fixes replace a linear scan with a hash. That buys O(n) time with O(n) memory,
+which is right only when n is large — and the first version of the YAML merge fix built its
+`Set` unconditionally. A config file's mapping has a handful of keys: measured on a
+realistic small config with two merge keys, **1,954 ns/parse with the set against 1,481
+without**. I had made the common case 24% worse in order to fix the adversarial one.
+
+All three are thresholded now — 16 attributes, 24 merged pairs, 8×8 fields — with the
+original allocation-free scan below and the hash above, and both ends measured. A hash is
+not free, and a fix measured only against the input it was written for is half a fix.

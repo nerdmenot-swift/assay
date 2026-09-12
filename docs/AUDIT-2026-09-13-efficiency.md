@@ -59,6 +59,42 @@ shape, same two guards missing it.
 | `Assayer` array element | 7× a path-free run | hoisted | same per-element path, fourth instance |
 | `Assayer` object field lookup | O(fields × members) | indexed past 8×8 | the one place in the library that resolved keys by scanning |
 
+## 3b. The gains are fewer allocations, not more — measured
+
+The obvious worry about a set of "make it faster" changes is that speed was bought with
+memory. It was not. Same instrument (`totalalloc`, `malloc_logger`, counts every allocate
+and free exactly), same corpus, before and after today:
+
+| items | Foundation | Assay before | Assay after |
+|---|---|---|---|
+| 1 | 25 | 6 | 6 |
+| 10 | 94 | 55 | **37** |
+| 50 | 378 | 257 | **159** |
+
+**38% fewer allocations at fifty items**, and the ratio against Foundation went 1.47× to
+2.38×. Live blocks are unchanged at 118.7 — which is the point: every allocation removed
+today was transient, allocated and freed inside the decode, exactly the class the live-block
+gate structurally cannot see and `totalalloc` exists for.
+
+### And one change where I got that trade wrong
+
+Three fixes replace a linear scan with a hash: XML attributes, the YAML merge key, and the
+`Assayer` field lookup. Each buys O(n) time with O(n) memory, which is only correct when n
+is large — and the first version of the YAML one built a `Set` **unconditionally**.
+
+A config file's mapping has a handful of keys. Measured on a realistic small config with two
+merge keys: **1,954 ns/parse with the unconditional set, 1,481 without** — I had made the
+common case 24% worse to fix the adversarial one. That is not a fix, and it is the same
+mistake `XMLParser`'s own attribute comment warns about in the other direction.
+
+All three are thresholded now (16 attributes, 24 merged pairs, 8×8 fields). Below the
+threshold the original scan runs, allocation-free and byte-for-byte as it was; above it the
+hash takes over. Both ends measured: the 1 MB merge is still 0.0094 s against the original
+3.498 s, and 20,000 three-attribute elements parse in 0.0056 s.
+
+**The general rule this leaves behind:** a hash is not free, and a fix that only measures the
+input it was written for is half a fix.
+
 ## 4. What I got wrong, recorded because it is the point
 
 I predicted `.each`'s 63 ns/element was the per-element path allocation. I hoisted it and

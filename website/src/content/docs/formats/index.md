@@ -152,7 +152,7 @@ not purism:
 ## Two decode paths
 
 JSON decodes **directly from bytes into your struct**. That is the fast path, and where the
-8.7× mean over Foundation comes from.
+9.8× mean over Foundation comes from.
 
 Every other format parses to its own value model, then decodes through a shared projection:
 

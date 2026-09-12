@@ -37,7 +37,7 @@ deploy.json:3:13: error: replicas must be at least 1
 
 The generated decoder is concrete, per-field code emitted into your module. There is no
 `KeyedDecodingContainer` to cross, which is where most of a `Codable` decode's time goes;
-measured, that is roughly 5–9× Foundation on the published corpus (`Benchmarks/RESULTS.md`).
+measured, that is roughly 6–10× Foundation on the published corpus (`Benchmarks/RESULTS.md`).
 
 ## Topics
 

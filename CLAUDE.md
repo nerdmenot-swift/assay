@@ -407,7 +407,7 @@ counts every allocate and deallocate exactly, with none of the nano zone's batch
 **reported and never gated** — total traffic has no a-priori right answer and would fail CI on a
 change to `String`'s growth policy — but it is the one measurement that can compare the two
 decoders honestly, because the retained output is identical on both sides and cancels, leaving
-only transient work. 25 vs 6 allocations at one item, 378 vs 257 at fifty. Linux has no exact
+only transient work. 25 vs 6 allocations at one item, 378 vs **159** at fifty — 257 until 2026-09-13, when the generated body stopped building a diagnostic path per array element. The speed came from allocating 38% less, not from spending more. Linux has no exact
 counter and the arm says "unavailable" rather than guessing.
 
 Every number in the docs belongs to someone else's C, C++, Rust or Go, cited as evidence about

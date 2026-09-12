@@ -9,6 +9,32 @@ change public API, a patch version never does. Every public-API break is caught 
 with its reason. `1.0.0` will be tagged when the API in `docs/EXPERIENCE.md` has been
 stable for two minor versions with no entry under **Breaking**.
 
+## Unreleased
+
+### Breaking
+
+- **`AssayReader.reportMalformed(_:_:)` gained an `expected:` parameter** (defaulted, so
+  every existing *source* call still compiles — but the mangled symbol changes, so this is
+  an ABI break and `diagnose-api-breaking-changes` reports it). It is public because
+  generated code calls it, and the parameter is what lets a syntax error say what it was
+  expecting instead of the bare `is not a well-formed document`. A caller with no single
+  expected token passes nothing and gets the old sentence.
+
+### Changed
+
+- **Malformed JSON says what was expected and where the input ended.** `is not well-formed:
+  expected ':' after the key` rather than `is not a well-formed document`; truncated input
+  now carries a caret (it pointed one byte past the end, which renders as nothing).
+- **One syntax error is one issue.** `trailing_content` no longer fires as a redundant
+  second error beside a syntax failure — it is reported only when a complete value parsed.
+
+### Added
+
+- **Four attribute combinations are now refused** instead of being silently ignored:
+  `@Key` on an `@Extras` bag, `@Key(path:)` beside `@Inline`, `@Coerce` on a non-scalar,
+  and `@XML(.attribute)`/`@XML(.text)` on an array or dictionary in a decode-only schema
+  (that last diagnostic existed but ran only under `encodes: true`).
+
 ## 0.1.0 — 2026-09-10
 
 The first public release. Everything below is "added" by definition; the highlights

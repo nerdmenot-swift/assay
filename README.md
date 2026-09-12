@@ -495,6 +495,7 @@ import gets caught rather than accidentally working.
 | [`docs/VALIDATE.md`](docs/VALIDATE.md) | validating a value you already have, and the law that decides what it can check |
 | [`docs/CONFORMANCE.md`](docs/CONFORMANCE.md) | what each parser accepts and refuses, and how that is checked |
 | [`docs/PLIST.md`](docs/PLIST.md) | property lists, and the two amplification attacks the binary format carries |
+| [`docs/AUDIT-2026-09-12.md`](docs/AUDIT-2026-09-12.md) | the second full audit: what was fixed, what was recorded, and the class of bug behind both |
 | [`ROADMAP.md`](ROADMAP.md) | what is deferred, and why |
 | [`CLAUDE.md`](CLAUDE.md) | settled decisions and hard constraints on generated code |
 | [`LICENSE`](LICENSE) / [`NOTICE`](NOTICE) | Apache 2.0, and third-party attribution |

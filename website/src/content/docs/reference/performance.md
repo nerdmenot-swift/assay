@@ -31,7 +31,7 @@ it is said so.
 | encoding, 50 / 200 items | **2.95× / 2.83×** | JSONEncoder |
 | cold start, 60 types | **7.8× first decode (median); 6.3× steady** | JSONDecoder |
 | multi-megabyte documents | **6.79–6.89×, ~700 MB/s, flat** | JSONDecoder |
-| T.validate(_:) | **76 ns per value, 1 block; 84 ns/row batched** | — |
+| T.validate(_:) | **72 ns per value, 1 block; 82 ns/row batched, 0.17× a decode** | — |
 | live allocations, apimodel-8k struct | **gated, PASS** | absolute thresholds |
 | compile time, 10 fields | **79.0 ms/type (gate 100)** | Codable: 4.1× |
 

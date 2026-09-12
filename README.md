@@ -165,6 +165,9 @@ ICU, no locale, identical on every platform.
 
 ### Dates
 
+A `Date` field needs `import Foundation` in the file that declares it — the core is
+Foundation-free by design, and `AssayFoundation` does not re-export it.
+
 ```swift
 var createdAt: Date                                   // ISO-8601, the default
 @DateFormat(.unixSeconds)           var ts: Date

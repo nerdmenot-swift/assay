@@ -86,7 +86,7 @@ struct Timeouts: Equatable {
 ```
 
 ```text
-Timeouts(tags: Set(["b", "a"]), timeoutSeconds: 1.5)
+Timeouts(tags: Set(["a", "b"]), timeoutSeconds: 1.5)
 ```
 
 The closure's **parameter** type is what gets decoded; the field keeps its own type. That

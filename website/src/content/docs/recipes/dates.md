@@ -10,6 +10,8 @@ JSON, YAML, XML and property lists, where a date is text.
 ## The formats
 
 ```swift
+import Foundation          // a `Date` field needs it
+
 @Schema(keys: .snakeCase, formats: .all)
 struct Timestamps: Equatable {
     var iso: Date                                         // ISO-8601 by default

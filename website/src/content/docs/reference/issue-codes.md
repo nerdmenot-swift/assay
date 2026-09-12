@@ -89,12 +89,6 @@ wording.
 | `unreadable_charset` | Params: `charset`, `reason`. |
 | `unsupported_media_type` | Media type … is not in the accepted list. |
 
-### Column sources
-
-| Code | Meaning |
-|---|---|
-| `missing_column` | Is not a column in this source (expected …). Params: `expected`. |
-
 ### Mapped files (AssayFoundation)
 
 | Code | Meaning |

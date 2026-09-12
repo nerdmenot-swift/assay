@@ -6,6 +6,8 @@ description: ISO-8601 by default, four other formats, candidate chains — and n
 `Date` is a field type. No strategy to configure on a decoder, no formatter to hold.
 
 ```swift
+import Foundation          // a `Date` field needs it; the core is Foundation-free
+
 @Schema(keys: .snakeCase)
 struct Event {
     var name: String

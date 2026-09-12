@@ -37,7 +37,7 @@ let arms: [Arm] = [
     Arm(name: "formats", summary: "YAML and XML vs Yams / Foundation") { runFormatBenchmarks(corpusDir: corpusDir, sizes: sizes); return true },
     Arm(name: "toml", summary: "TOML vs toml++ (TOMLKit)") { runTOMLBenchmarks(corpusDir: corpusDir, sizes: sizes); return true },
     Arm(name: "encode", summary: "JSON/YAML/XML encoding vs JSONEncoder") { runEncodeBenchmarks(); return true },
-    Arm(name: "keypath", summary: "@Key(path:) vs nested @Schema") { runKeyPathBenchmarks(); return true },
+    Arm(name: "keypath", summary: "@Key(path:) vs nested @Schema") { runKeyPathBenchmarks() },
     Arm(name: "coldstart", summary: "first decode per type, 60 types") { runColdStartBenchmarks(); return true },
     Arm(name: "largedoc", summary: "0.2–8 MB documents") { runLargeDocumentBenchmarks(); return true },
     Arm(name: "totalalloc", summary: "total malloc traffic (Darwin only)") { runTotalAllocationBenchmarks(); return true },

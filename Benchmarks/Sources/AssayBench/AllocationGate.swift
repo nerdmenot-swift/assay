@@ -68,10 +68,17 @@ func runAllocationGate() -> Bool {
         let dec = JSONDecoder()
         // apimodel-8k holds ~28 items x 10 fields. Absolute thresholds, not ratios: a ratio
         // gate passes silently when both sides regress together.
-        allocRow("apimodel-8k struct", limitBlocks: 400,
+        //
+        // TIGHTENED 2026-09-12, from 400 and 900. Those were set against a stated ~10-15%
+        // undercount on Darwin's nano zone, and the self-check now reads exactly 2.00 and
+        // 4.00 where it once read 1.70 and 1.73 — so the reason for the looseness had gone
+        // and nobody had revisited the numbers. At 400 the struct row measures 119 and
+        // could have TRIPLED before CI said anything. 200 and 300 still leave ~1.6x and
+        // ~2.1x of room for a hosted runner, and now catch a doubling.
+        allocRow("apimodel-8k struct", limitBlocks: 200,
                  assay: { Payload.diagnose(json: bytes).value.map { Box($0) } },
                  foundation: { (try? dec.decode(CodablePayload.self, from: data)).map { Box($0) } })
-        allocRow("apimodel-8k value model", limitBlocks: 900,
+        allocRow("apimodel-8k value model", limitBlocks: 300,
                  assay: { (try? JSON.Value.parse(bytes)).map { Box($0) } },
                  foundation: { (try? JSONSerialization.jsonObject(with: data)).map { Box($0) } })
     }

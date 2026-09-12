@@ -32,7 +32,7 @@ the value model and the yyjson tree arm — moved because of the fix journalled 
 | encoding, 50 / 200 items | **2.95× / 2.83×** | `JSONEncoder` | `docs/ENCODING.md` |
 | cold start, 60 types | **7.8×** first decode (median); 6.3× steady | `JSONDecoder` | `ColdStartBench.swift` |
 | multi-megabyte documents | **6.79–6.89×**, ~700 MB/s, flat | `JSONDecoder` | `LargeDocBench.swift` |
-| `T.validate(_:)` | **76 ns** per value, 1 block; **84 ns/row** batched | — | [Validating a value](#validating-a-value-you-already-have) |
+| `T.validate(_:)` | **72 ns** per value, 1 block; **82 ns/row** batched, 0.17× a decode | — | [Validating a value](#validating-a-value-you-already-have) |
 | ~~rows and columns~~ | **removed 2026-09-11** — nothing depended on it | — | [why](#decoding-from-rows-and-columns-removed-in-full) |
 | live allocations, `apimodel-8k` struct | gated, **PASS** | absolute thresholds | [Allocations](#allocations) |
 | compile time, 10 fields | **79.0 ms/type** (gate 100) | `Codable`: 4.1× | `docs/COMPILE-TIME.md` |
@@ -849,20 +849,17 @@ called from a second place, and adds no overhead of its own.
 
 ## Over a batch
 
-| rows | ns | per row | vs the columnar floor, 11 ns/row |
+| rows | ns | per row | vs a full decode, 471 ns |
 |---|---|---|---|
-| 64 | 5,367 | 84 | 7.91× |
-| 1,000 | 85,049 | 85 | 8.02× |
-| 20,000 | 1,653,110 | 83 | 7.79× |
-| 100,000 | 8,413,958 | 84 | 7.93× |
+| 64 | 5,229 | 82 | 0.174× |
+| 1,000 | 82,170 | 82 | 0.175× |
+| 20,000 | 1,634,600 | 82 | 0.174× |
 
-Flat, and 76 ns of it is the rules — the remainder is the array element copy. Validating a
-row costs about **eight times** the fastest decode Assay has, which is the honest way to
-read the seam: on a column store the rules, not the decode, are the work. It is still
-nowhere near re-decoding the document, which is the alternative the seam exists to avoid
-and which costs 462 ns here.
+Flat, and 72 ns of it is the rules — the remainder is the array element copy. Validating a
+row costs **a sixth of decoding the document again**, which is the comparison that matters:
+re-decoding is the alternative this entry point exists to avoid.
 
-### That last column was wrong for a day, and the reason generalises
+### That last column has now been wrong twice, and the reason generalises
 
 It read 1.6× until 2026-09-11, against a **hard-coded 53**. The columnar arm had gone from
 53 ns/row to 11 on 2026-09-10, and this arm divided by a constant somebody had copied out
@@ -870,10 +867,20 @@ of that arm's output months earlier. Nothing failed: the table still printed, th
 still looked plausible, and the conclusion drawn from it — "validating a row costs somewhat
 more than decoding it" — was off by 5×.
 
-**A constant copied out of another arm's output is a number with no owner.** The floor is
-now re-measured inside this arm, from the same store the columnar arm builds, and printed
-with the ratio so the two cannot drift again. `docs/VALIDATE.md` had already been corrected
-by hand; the benchmark that is supposed to be the source of truth had not.
+**A constant copied out of another arm's output is a number with no owner.** The floor was
+re-measured inside this arm, from the same store the columnar arm built, so the two could
+not drift again.
+
+**Then the columnar arm was deleted on 2026-09-12 and took the baseline with it** — and
+this table went on being quoted in the headline as "84 ns/row batched" when no arm printed
+a per-row figure at all. The paragraph above described a fix that was no longer in place.
+Same screw, third turn, one day later, in the document that had just finished explaining
+the lesson.
+
+The baseline is now the one thing that cannot be deleted out from under this arm: a full
+decode of the same document, measured four lines higher in the same run. It is also the
+comparison a reader wanted — *is validating cheaper than decoding again?* — rather than one
+borrowed from a feature that no longer exists.
 
 ### Two things that were not obvious
 
@@ -1703,9 +1710,14 @@ has"* — read as a finding rather than as a division by a stale literal.
 sitting with: **the prose was corrected and the instrument was not.** The next person to run
 the arm would have got 1.57× again and had every reason to trust it over the document.
 
-The fix is not "update the 53". The arm now measures the columnar floor in the same run,
-from the same `makeStore` the columnar arm uses, and prints the measured value in the column
-header so the two cannot silently disagree:
+The fix is not "update the 53". The arm measured the columnar floor in the same run, from
+the same `makeStore` the columnar arm used, and printed the measured value in the column
+header so the two could not silently disagree:
+
+> **That fix did not survive the week.** The columnar arm was deleted on 2026-09-12 and
+> `makeStore` went with it, so the baseline vanished and the headline kept quoting a number
+> nothing printed. The arm now divides by a full decode it measures itself. A baseline
+> borrowed from another arm is safe only while that arm exists.
 
 ```
 As a fraction of a fast decode — the seam this entry point exists for

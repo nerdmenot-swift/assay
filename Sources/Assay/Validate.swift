@@ -21,9 +21,9 @@
 //     let trips = try Table("trips.parquet").rows(of: Trip.self)   // their decode
 //     try Trip.validate(trips)                                     // our rules
 //
-// Neither side pays for the other. This is deliberately NOT a decode path — an earlier
-// attempt to make one general enough to serve such readers was built, measured, and
-// removed; Sources/AssayCore/ColumnarSource.swift's header records why.
+// Neither side pays for the other. This is deliberately NOT a decode path — two attempts
+// to make one general enough to serve such readers were built, measured, and removed;
+// ROADMAP.md's "Decoding from rows and columns" records both.
 //
 // WHAT RUNS, AND WHAT CANNOT. The governing law is
 //

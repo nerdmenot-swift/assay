@@ -135,8 +135,6 @@ extension IssueCode {
 
     // MARK: Column sources
 
-    /// `missing_column` — "is not a column in this source (expected …)". Params: `expected`.
-    public static let missingColumn = IssueCode.custom("missing_column")
 
     // MARK: Mapped files (AssayFoundation)
 

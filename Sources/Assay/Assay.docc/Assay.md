@@ -5,7 +5,7 @@ A decoder for Swift that tells you what went wrong.
 ## Overview
 
 Assay decodes JSON, YAML, XML, TOML and property lists into ordinary Swift structs through
-the ``Schema(keys:unknownKeys:coerceScalars:formats:encodes:sources:describes:discriminator:)``
+the ``Schema(keys:unknownKeys:coerceScalars:formats:encodes:describes:discriminator:)``
 macro — no `Codable`, no `CodingKeys` — and reports every failure with a code, a path and a
 caret into the source.
 
@@ -50,7 +50,7 @@ measured, that is roughly 5–9× Foundation on the published corpus (`Benchmark
 
 ### The macro and its attributes
 
-- ``Schema(keys:unknownKeys:coerceScalars:formats:encodes:sources:describes:discriminator:)``
+- ``Schema(keys:unknownKeys:coerceScalars:formats:encodes:describes:discriminator:)``
 - ``Key(_:or:)``
 - ``Key(path:)``
 - ``Validate(_:)``
@@ -96,7 +96,6 @@ measured, that is roughly 5–9× Foundation on the published corpus (`Benchmark
 - ``Assayable``
 - ``JSONAssayable``
 - ``RawDecodable``
-- ``SourceDecodable``
 - ``ContextualAssayable``
 - ``ContextualJSONAssayable``
 - ``ContextualRawDecodable``

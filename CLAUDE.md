@@ -88,6 +88,9 @@ A Zod-inspired decoding-and-validation library for Swift, built on a macro rathe
 > went wrong.
 
 ```swift
+import Assay
+import Foundation          // a `Date` field needs it; nothing else here does
+
 @Schema
 struct Article {
     var title: String

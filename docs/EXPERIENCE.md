@@ -52,6 +52,7 @@ Here is the smallest complete program. Note what is *not* in it.
 
 ```swift
 import Assay
+import Foundation          // a `Date` field needs it; nothing else here does
 
 @Schema
 struct Article {

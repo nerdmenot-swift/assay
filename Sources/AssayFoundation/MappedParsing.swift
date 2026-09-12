@@ -16,6 +16,12 @@
 
 public import Assay
 public import AssayCore
+// NOT re-exported, and that is a decision rather than an oversight. `public import` does
+// not re-export symbols (that is `@_exported`, which is underscored), and a library that
+// pulls Foundation into every file importing it is doing something its name does not
+// entitle it to. A `Date` FIELD therefore needs `import Foundation` in the file that
+// declares it — which every document showing one now says, and none did until 2026-09-12,
+// when the flagship example was compiled verbatim for the first time and did not build.
 import Foundation
 
 extension JSONAssayable {

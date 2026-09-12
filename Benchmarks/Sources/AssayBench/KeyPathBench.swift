@@ -76,7 +76,13 @@ struct WidePathCard {
     @Key(path: "meta.stats.likes") var likes: Int
 }
 
-func runKeyPathBenchmarks() {
+/// Returns false when the ship-or-refuse gate is missed, so `main` can exit non-zero.
+///
+/// It printed "GATE FAILED" and exited 0 until 2026-09-12: the arm was wired as
+/// `{ runKeyPathBenchmarks(); return true }`, so the one arm besides `allocations` that
+/// states a limit could not enforce it. A gate that prints its own failure and passes is
+/// worse than no gate, because the line in the log reads like a check that ran.
+func runKeyPathBenchmarks() -> Bool {
     let doc = Array(#"""
         {"id":"card-00000000","profile":{"display_name":"A name of ordinary length",\
         "avatar":"https://example.com/avatars/00000000.png"},\
@@ -105,7 +111,7 @@ func runKeyPathBenchmarks() {
           let p = try? PathCard.parse(json: doc),
           n.profile.displayName == p.displayName, n.meta.stats.likes == p.likes else {
         print("  SKIPPED — the two schemas disagree, so the comparison is meaningless")
-        return
+        return false          // a comparison that could not run is not a gate that passed
     }
 
     let reps = 20_000
@@ -123,8 +129,10 @@ func runKeyPathBenchmarks() {
           + pad(String(format: "%.2fx", widePaths / paths), 10))
 
     let ratio = paths / nested
+    let passed = ratio <= 1.15
     print("")
-    print(ratio <= 1.15
+    print(passed
           ? String(format: "GATE PASSED — %.2fx of the nested alternative (limit 1.15x)", ratio)
           : String(format: "GATE FAILED — %.2fx, over the 1.15x limit. ROADMAP §3's fallback stands.", ratio))
+    return passed
 }

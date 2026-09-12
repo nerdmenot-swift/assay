@@ -3,7 +3,7 @@
     "version": "0.1.0",
     "tests": 689,
     "suites": 115,
-    "codes": 120,
+    "codes": 119,
     "formats": [
       "JSON",
       "YAML",
@@ -105,7 +105,7 @@
     },
     {
       "arm": "T.validate(_:)",
-      "number": "76 ns per value, 1 block; 84 ns/row batched",
+      "number": "72 ns per value, 1 block; 82 ns/row batched, 0.17× a decode",
       "against": "—"
     },
     {
@@ -135,7 +135,7 @@
     },
     "json.nested": {
       "source": "{\n  \"name\": \"eu-prod\",\n  \"servers\": [\n    {\"host\": \"a.internal\", \"port\": 8080},\n    {\"host\": \"b.internal\", \"port\": 8081, \"tls\": false}\n  ],\n  \"labels\": {\"tier\": \"prod\", \"team\": \"platform\"}\n}",
-      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"team\": \"platform\", \"tier\": \"prod\"])"
+      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"tier\": \"prod\", \"team\": \"platform\"])"
     },
     "collect": {
       "source": "{\n  \"username\": \"jo\",\n  \"email\": \"jo@localhost\",\n  \"age\": \"fourteen\",\n  \"newsleter\": true\n}",
@@ -209,7 +209,7 @@
     },
     "yaml.nested": {
       "source": "name: eu-prod\nservers:\n  - host: a.internal\n    port: 8080\n  - host: b.internal\n    port: 8081\n    tls: false\nlabels:\n  tier: prod\n  team: platform",
-      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"team\": \"platform\", \"tier\": \"prod\"])"
+      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"tier\": \"prod\", \"team\": \"platform\"])"
     },
     "yaml.flow": {
       "source": "name: eu-prod\nservers: [{host: a.internal, port: 8080}, {host: b.internal, port: 8081}]\nlabels: {tier: prod}",
@@ -328,7 +328,7 @@
       "render": "Deployment(name: \"api\", image: \"img:1\", replicas: 3, region: \"eu-west-1\", healthCheck: nil)"
     },
     "plist.binary": {
-      "source": "// 'bplist00' + 86 bytes, written by PropertyListSerialization\n62 70 6c 69 73 74 30 30 d3 01 02 03 04 05 06 55 …",
+      "source": "// 'bplist00' + 86 bytes, written by PropertyListSerialization\n62 70 6c 69 73 74 30 30 d3 01 02 03 04 05 06 58 …",
       "render": "Deployment(name: \"api\", image: \"img:1\", replicas: 3, region: \"eu-west-1\", healthCheck: nil)"
     },
     "plist.badType": {
@@ -497,7 +497,7 @@
     },
     "cb.transform": {
       "source": "{\"tags\": [\"b\", \"a\", \"b\"], \"timeout_seconds\": 1500}",
-      "render": "Timeouts(tags: Set([\"b\", \"a\"]), timeoutSeconds: 1.5)"
+      "render": "Timeouts(tags: Set([\"a\", \"b\"]), timeoutSeconds: 1.5)"
     },
     "cb.transformBack": {
       "source": "{\"tags\": [\"b\", \"a\", \"b\"], \"timeout_seconds\": 1500}",

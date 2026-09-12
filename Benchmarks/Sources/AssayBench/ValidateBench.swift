@@ -90,6 +90,36 @@ func runValidateBenchmarks() {
     print(String(format: "validating separately:      %.0f ns (%.2fx a full decode)",
                  validateNs, validateNs / ruledNs))
 
+    // OVER A BATCH, against a baseline this arm measures ITSELF.
+    //
+    // This table used to divide by the columnar decode's ns/row, first as a hard-coded 53
+    // (wrong for ten days after that arm went to 11) and then as a figure re-measured in
+    // this run — which was the right fix until the columnar arm was deleted on 2026-09-12
+    // and took the baseline with it. `RESULTS.md` kept quoting "84 ns/row batched" that
+    // nothing printed any more, which is the third turn of the same screw.
+    //
+    // The baseline is now the thing that cannot be deleted out from under it: a full
+    // decode of the same value's document, measured four lines above. That is also the
+    // comparison a reader actually wants — "is validating cheaper than decoding again?"
+    print("")
+    print("Over a batch — per row, against a full decode measured in this same run")
+    print(pad("rows", 10, right: true) + pad("total ns", 14) + pad("per row", 10)
+          + pad(String(format: "vs %.0f ns decode", ruledNs), 18))
+    print(String(repeating: "-", count: 52))
+    for n in [64, 1_000, 20_000] {
+        let batch = Array(repeating: value, count: n)
+        let reps = Swift.max(1, 200_000 / n)
+        let ns = measure(iterations: reps) {
+            let d = RuledAccount.diagnose(batch)
+            precondition(d.isValid)
+        }
+        let perRow = ns / Double(n)
+        print(pad("\(n)", 10, right: true)
+              + pad(String(format: "%.0f", ns), 14)
+              + pad(String(format: "%.0f", perRow), 10)
+              + pad(String(format: "%.3fx", perRow / ruledNs), 18))
+    }
+
     // The failing path, which is the one a real dataset takes. Reporting must not be so
     // much more expensive than accepting that a bad file becomes a denial of service.
     print("")

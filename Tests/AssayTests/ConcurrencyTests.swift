@@ -41,8 +41,12 @@ struct ConcurrencyStress {
                     case 2:
                         return (try? ConcDoc.parse(yaml: yaml))?.name == "a"
                     default:
-                        return (try? ConcDoc.parse(xml: xml)) != nil
-                            || (try? ConcDoc.parse(xml: xml)) == nil   // XML needs coercion
+                        // `ConcDoc` does not coerce, so XML — whose every leaf is text —
+                        // must FAIL here, and fail the same way on every task. Asserting
+                        // that is the point; `!= nil || == nil` was always true and made
+                        // this quarter of the stress loop check nothing.
+                        let d = ConcDoc.diagnose(xml: Array(xml.utf8))
+                        return d.value == nil && d.issues.allSatisfy { $0.code == .typeMismatch }
                     }
                 }
             }

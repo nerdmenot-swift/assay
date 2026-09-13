@@ -33,13 +33,26 @@ import Foundation
 /// This is the one place Assay and toml++ still disagree about the number grammar, and the
 /// disagreement is narrow and deliberate. **Assay accepts subnormals; toml++ rejects them.**
 ///
-/// toml++ parses floats with `strtod` and treats `ERANGE` as an error, and C sets `ERANGE`
-/// for a subnormal result as well as for overflow. That catches real errors and this too.
-/// The TOML specification says floats "should be implemented as IEEE 754 binary64 values",
-/// and a subnormal IS a binary64 value: `5e-324` is the least positive one, it has an exact
-/// bit pattern, and Foundation's `JSONDecoder` decodes it happily. Refusing it would throw
-/// away a representable number, which is the same class of mistake as accepting `1e309` —
-/// pointing the other way.
+/// **Where exactly toml++ draws the line, measured rather than assumed.** It accepts
+/// `2.2250738585072014e-308`, the least positive NORMAL double, and rejects every subnormal
+/// including `5e-324`, the least positive double there is. The mechanism is
+/// `std::from_chars` returning `result_out_of_range` (toml.hpp:14375), which toml++ reports
+/// as "is not representable in 64 bits" — a claim that is not true of a subnormal: `5e-324`
+/// has an exact bit pattern and Foundation's `JSONDecoder` decodes it.
+///
+/// **Neither implementation is violating the specification, and that is the point.** TOML
+/// 1.0.0 says integers must error when they cannot be represented losslessly — in those
+/// words — and says nothing of the sort about floats. The float section is one sentence:
+/// "Floats should be implemented as IEEE 754 binary64 values." The official 710-case suite
+/// never goes near the boundary either; its largest exponent is `3e2`. So there is no
+/// arbiter, and both readings are available:
+///
+///   * Assay's: a subnormal is a binary64 value, so accepting it is what the sentence says.
+///   * toml++'s: subnormals carry fewer significand bits, so they are lossy, and the
+///     integer rule's spirit is that lossy is an error.
+///
+/// The second reading does not generalise — `0.1` is lossy too, and no one rejects it —
+/// which is why Assay takes the first. But it is a reading, not a mistake.
 ///
 /// **What used to be here was much larger.** Until 2026-09-13 this held out 101 literals
 /// covering overflow and underflow as well, because Assay read `1e309` as `+infinity` and

@@ -2081,8 +2081,14 @@ so this moved Assay from outlier to majority. The JSON check sits in `slowDouble
 the hot path is untouched, and the falsification arm confirms it at 6.00× (float-dense
 8.27×), inside its usual spread.
 
-What is left is 26 SUBNORMAL literals, and that one is a real difference of opinion rather
-than a bug: toml++ parses with `strtod` and treats `ERANGE` as an error, which catches
-subnormals as well as overflow. A subnormal is a binary64 value — `5e-324` is the least
-positive one and Foundation decodes it — so Assay keeps them. That is the whole held-out
-list now, down from 101.
+What is left is 26 SUBNORMAL literals, and that one is unsettled rather than wrong. Measured:
+toml++ accepts `2.2250738585072014e-308` (the least positive *normal*) and rejects every
+subnormal, `5e-324` included, via `std::from_chars` returning `result_out_of_range` — which
+it reports as "not representable in 64 bits", though a subnormal plainly is. **TOML 1.0.0
+requires an error for an integer that cannot be represented losslessly, in those words, and
+says nothing equivalent about floats**; the float section is the single sentence "Floats
+should be implemented as IEEE 754 binary64 values", and the official suite's largest
+exponent is `3e2`. With no arbiter, both readings stand: a subnormal is a binary64 value
+(Assay, and Foundation), or subnormals are lossy and lossy is an error (toml++). Assay takes
+the first, because the second does not generalise — `0.1` is lossy too. Held-out list: 26,
+down from 101.

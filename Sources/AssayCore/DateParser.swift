@@ -59,9 +59,20 @@ public enum DateParser {
     public static func parse(
         _ text: String, as format: DateFormat
     ) -> Result<Double, DateParseFailure> {
-        // A date is a couple of dozen bytes; the copy into a safe container is noise
-        // next to the String the scanner already materialised.
-        parse(Array(text.utf8), as: format)
+        // NO `Array(text.utf8)`. A native Swift String already stores contiguous UTF-8, so
+        // this hands the parsers that storage directly; the copy it replaces was a second
+        // heap allocation per date on top of the String the scanner materialised, and an
+        // ISO-8601 timestamp is ~20 bytes — past the 15-byte small-string limit — so both
+        // of them really did allocate. `withContiguousStorageIfAvailable` returns nil only
+        // for a bridged NSString, which is what the fallback is for.
+        //
+        // The parsers became generic over `RandomAccessCollection<UInt8>` with `Index ==
+        // Int` to make this possible; `Array` and `UnsafeBufferPointer` both qualify and
+        // the integer arithmetic inside them is unchanged.
+        let viaStorage = text.utf8.withContiguousStorageIfAvailable { buffer in
+            parse(buffer, as: format)
+        }
+        return viaStorage ?? parse(Array(text.utf8), as: format)
     }
 
     /// The number entry: `.unixSeconds` / `.unixMillis` fed from a JSON number token.
@@ -91,9 +102,11 @@ public enum DateParser {
     }
 
     @usableFromInline
-    static func parse(
-        _ b: [UInt8], as format: DateFormat
-    ) -> Result<Double, DateParseFailure> {
+    static func parse<Bytes>(
+        _ b: Bytes, as format: DateFormat
+    ) -> Result<Double, DateParseFailure>
+        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
+    {
         switch format {
         case .iso8601:        return parseISO8601(b)
         case .unixSeconds:    return parseUnixText(b, millis: false)
@@ -107,9 +120,11 @@ public enum DateParser {
 
     /// `YYYY-MM-DD` `[Tt ]` `hh:mm:ss` `[.fff…]` `(Z|z|±hh[[:]mm])`, nothing after.
     @usableFromInline
-    static func parseISO8601(
-        _ b: [UInt8]
-    ) -> Result<Double, DateParseFailure> {
+    static func parseISO8601<Bytes>(
+        _ b: Bytes
+    ) -> Result<Double, DateParseFailure>
+        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
+    {
         var i = 0
 
         func digits(_ n: Int, _ what: String) -> Int? {
@@ -246,9 +261,11 @@ public enum DateParser {
     /// Some APIs quote their epochs. `[-]digits[.digits]` and nothing else — this is not
     /// a general number parser, and "1e9" is not a timestamp.
     @usableFromInline
-    static func parseUnixText(
-        _ b: [UInt8], millis: Bool
-    ) -> Result<Double, DateParseFailure> {
+    static func parseUnixText<Bytes>(
+        _ b: Bytes, millis: Bool
+    ) -> Result<Double, DateParseFailure>
+        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
+    {
         var i = 0
         var negative = false
         if i < b.count, b[i] == 0x2D { negative = true; i += 1 }
@@ -303,9 +320,11 @@ public enum DateParser {
     /// obsolete RFC 850, and C's asctime. The day name is validated as a name but not
     /// cross-checked against the date — the spec's own leniency.
     @usableFromInline
-    static func parseHTTPDate(
-        _ b: [UInt8]
-    ) -> Result<Double, DateParseFailure> {
+    static func parseHTTPDate<Bytes>(
+        _ b: Bytes
+    ) -> Result<Double, DateParseFailure>
+        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
+    {
         // Dispatch on the first comma: after 3 bytes → IMF-fixdate; later → RFC 850;
         // absent → asctime.
         var comma: Int? = nil
@@ -318,7 +337,9 @@ public enum DateParser {
     }
 
     @usableFromInline
-    static func matchMonth(_ b: [UInt8], _ i: Int) -> Int? {
+    static func matchMonth<Bytes>(_ b: Bytes, _ i: Int) -> Int?
+        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
+    {
         guard i + 3 <= b.count else { return nil }
         for (m, name) in monthNames.enumerated()
         where b[i] == name[0] && b[i + 1] == name[1] && b[i + 2] == name[2] {
@@ -328,7 +349,9 @@ public enum DateParser {
     }
 
     @usableFromInline
-    static func fixedDigits(_ b: [UInt8], _ i: inout Int, _ n: Int) -> Int? {
+    static func fixedDigits<Bytes>(_ b: Bytes, _ i: inout Int, _ n: Int) -> Int?
+        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
+    {
         guard i + n <= b.count else { return nil }
         var v = 0
         for k in i..<(i + n) {
@@ -342,9 +365,11 @@ public enum DateParser {
 
     /// `Sun, 06 Nov 1994 08:49:37 GMT`
     @usableFromInline
-    static func parseIMFFixdate(
-        _ b: [UInt8]
-    ) -> Result<Double, DateParseFailure> {
+    static func parseIMFFixdate<Bytes>(
+        _ b: Bytes
+    ) -> Result<Double, DateParseFailure>
+        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
+    {
         guard b.count == 29 else {
             return .failure(.init("IMF-fixdate is exactly 29 characters", at: b.count))
         }
@@ -381,9 +406,11 @@ public enum DateParser {
 
     /// `Sunday, 06-Nov-94 08:49:37 GMT` — the obsolete RFC 850 form.
     @usableFromInline
-    static func parseRFC850(
-        _ b: [UInt8]
-    ) -> Result<Double, DateParseFailure> {
+    static func parseRFC850<Bytes>(
+        _ b: Bytes
+    ) -> Result<Double, DateParseFailure>
+        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
+    {
         var i = 0
         while i < b.count, b[i] != 0x2C { i += 1 }
         let dayName = String(decoding: b[0..<i], as: UTF8.self)
@@ -430,9 +457,11 @@ public enum DateParser {
 
     /// `Sun Nov  6 08:49:37 1994` — asctime, day-of-month space-padded.
     @usableFromInline
-    static func parseAsctime(
-        _ b: [UInt8]
-    ) -> Result<Double, DateParseFailure> {
+    static func parseAsctime<Bytes>(
+        _ b: Bytes
+    ) -> Result<Double, DateParseFailure>
+        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
+    {
         guard b.count == 24 else {
             return .failure(.init("asctime is exactly 24 characters", at: b.count))
         }
@@ -476,9 +505,11 @@ public enum DateParser {
     /// `hh:mm:ss` with range checks. Returns nil if the shape is absent; a non-nil
     /// failure if the shape is present but a field is out of range.
     @usableFromInline
-    static func clock(
-        _ b: [UInt8], _ i: inout Int
-    ) -> (Int, Int, Int, DateParseFailure?)? {
+    static func clock<Bytes>(
+        _ b: Bytes, _ i: inout Int
+    ) -> (Int, Int, Int, DateParseFailure?)?
+        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
+    {
         let at = i
         guard let h = fixedDigits(b, &i, 2), i < b.count, b[i] == 0x3A else { return nil }
         i += 1
@@ -584,9 +615,11 @@ public enum DateParser {
     }
 
     @usableFromInline
-    static func parsePattern(
-        _ b: [UInt8], pattern: String
-    ) -> Result<Double, DateParseFailure> {
+    static func parsePattern<Bytes>(
+        _ b: Bytes, pattern: String
+    ) -> Result<Double, DateParseFailure>
+        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
+    {
         let tokens: [PatternToken]
         switch compilePattern(pattern) {
         case .success(let t): tokens = t

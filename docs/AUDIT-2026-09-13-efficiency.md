@@ -189,8 +189,14 @@ exactly what makes the caller-side parallelism in §6 free.
 ## 9. Still open
 
 - `.each`'s ~47 ns/element of unexplained machinery (§4).
-- `Date` decode allocates a `String` and then an `Array` per format tried; the byte-taking
-  parser already exists and is internal.
+- ~~`Date` decode allocates a `String` and then an `Array` per format tried~~ — **FIXED
+  2026-09-13.** The date parsers are generic over `RandomAccessCollection<UInt8>` with
+  `Index == Int` now, and `parse(_ text: String, as:)` hands them the String's own
+  contiguous UTF-8 through `withContiguousStorageIfAvailable` instead of copying it into an
+  `Array`. An ISO-8601 timestamp is ~20 bytes, past the 15-byte small-string limit, so both
+  allocations were real. **The `dates` arm went 6.05× → 8.04×** (8k: 8,291 → 6,148 ns for 92
+  dates), the 2,279-instant differential against Foundation is unchanged, and the allocation
+  gate is unmoved.
 - TOML basic strings accumulate byte-by-byte where `scanString` does one sized copy; TOML
   numbers re-accumulate digits rather than using `scanDouble`.
 - `YAML.Node → RawValue` re-destructures the scalar payload five times per node.

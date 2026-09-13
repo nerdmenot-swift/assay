@@ -159,6 +159,9 @@ for pretty-printed input (~8% there, ~40 lines); not worth it either.
 - **A trap worth documenting:** the identical task group driven from `@MainActor` measures
   0.77× at 8 documents — a *loss*, because each result hops back to the actor. Someone
   parallelising decodes from a view model will make it slower and not know why.
+  **CLOSED 2026-09-13:** `EXPERIENCE.md` §11 carries it, beside the async-check ordering,
+  with the three scaling numbers and the fix (leave the actor: `nonisolated`, or a detached
+  task awaited once).
 - **Within one document: no.** Splitting a large array needs a structural index this library
   deliberately does not build, and the 8 MB arm is already flat at ~700 MB/s.
 - **YAML `parseAll`: no.** `---` is only recognisable by parsing, so finding the split points
@@ -179,6 +182,9 @@ path is async.
 Called from an async function it blocks a cooperative thread for the file's entire I/O —
 measurable at 8 MB, a liveness problem on a multi-gigabyte mapping. Swift has no
 blocking-I/O executor, so the honest answer is a documented `Task.detached`, not an API.
+**CLOSED 2026-09-13:** `diagnose(mmapped:)`'s doc comment carries it, with the reason
+`Task.detached` and not `Task { }` (a child task inherits the executor and blocks the same
+pool).
 
 ## 8. `Sendable` costs nothing
 

@@ -766,6 +766,8 @@ Ordering, stated precisely — the first edition contradicted itself here:
 
 **Async checks run afterwards, and only if the synchronous pass was clean.** Not because collecting more errors is bad, but because an async check almost always means a network or database round trip, and spending one to ask "is this email registered?" about a value you already know is not an email address is waste you'd be paying on every malformed request. Once the sync pass is clean, all async checks run **concurrently** and all their issues are collected.
 
+**A trap if you parallelise decoding yourself.** Decoding is a static function over `[UInt8]` with no shared state and `Assayable: Sendable`, so a task group over independent documents scales without the library providing anything — measured at 2.24× over 8 documents, 3.58× over 64 and 7.09× over 512. But **the identical task group driven from `@MainActor` measures 0.77× at 8 documents — slower than doing it serially** — because every result hops back to the actor. If you are parallelising decodes from a view model, the work has to leave the actor: mark the function `nonisolated`, or hand the batch to a detached task and await one result. This is a property of actor hop costs, not of Assay, and it is written here because someone will otherwise make their app slower and have no way to know why.
+
 ---
 
 ## 11. Transformations

@@ -47,6 +47,24 @@ extension JSONAssayable {
     /// The returned `Diagnosis` **retains the mapping**, not a copy of the bytes, so
     /// rendering a caret faults the relevant page back in rather than requiring the file
     /// to have been read into an array. That is what `SourceBytes.borrowed` exists for.
+    ///
+    /// ## Calling this from an async function: wrap it
+    ///
+    /// This is synchronous and it page-faults on first touch of every page, so it performs
+    /// the file's entire I/O on the calling thread. In an `async` function that thread is a
+    /// cooperative-pool thread, and blocking it is measurable at 8 MB and a liveness problem
+    /// on a multi-gigabyte mapping — the pool is sized to the core count and has no spare
+    /// threads to donate.
+    ///
+    /// Swift has no blocking-I/O executor to hand this to, so the answer is a detached task
+    /// rather than an API:
+    ///
+    /// ```swift
+    /// let diagnosis = await Task.detached { Ledger.diagnose(mmapped: url) }.value
+    /// ```
+    ///
+    /// `Task.detached`, not `Task { }`: a child task inherits the current executor and
+    /// would block the same pool. Nothing here needs the caller's actor.
     public static func diagnose(
         mmapped url: URL,
         limits: Limits = .mapped

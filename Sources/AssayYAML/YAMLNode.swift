@@ -214,16 +214,58 @@ extension YAML.Node {
 
 extension RawValue {
 
+    /// The core-schema resolution for one plain scalar, with the payload already in hand.
+    ///
+    /// The order is load-bearing and is the order the five accessors were called in: null,
+    /// bool, int, float, then string. Each of the typed forms requires `style == .plain`
+    /// and either no tag or its own tag, which is why a quoted `"true"` stays a string —
+    /// the tests below are the accessors' guards, inlined, not a reinterpretation of them.
+    @inlinable
+    init(resolving s: YAML.Scalar) {
+        guard s.style == .plain else { self = .string(s.content); return }
+        let tag = s.tag
+        let c = s.content
+
+        if tag == nil || tag == "!!null" {
+            if c.isEmpty || c == "null" || c == "Null" || c == "NULL" || c == "~" {
+                self = .null
+                return
+            }
+        }
+        if tag == nil || tag == "!!bool" {
+            switch c {
+            case "true", "True", "TRUE": self = .bool(true); return
+            case "false", "False", "FALSE": self = .bool(false); return
+            default: break
+            }
+        }
+        if tag == nil || tag == "!!int" {
+            if let i = Int64(c) { self = .int(i); return }
+        }
+        if tag == nil || tag == "!!float" {
+            switch c {
+            case ".inf", ".Inf", ".INF", "+.inf": self = .double(.infinity); return
+            case "-.inf", "-.Inf", "-.INF": self = .double(-.infinity); return
+            case ".nan", ".NaN", ".NAN": self = .double(.nan); return
+            default:
+                if let d = Double(c) { self = .double(d); return }
+            }
+        }
+        self = .string(c)
+    }
+
     /// Returns nil when the node contains a mapping key that is not a plain scalar, since
     /// `RawValue.mapping` is `String`-keyed by construction.
     public init?(_ node: YAML.Node) {
         switch node {
-        case .scalar:
-            if node.isNull { self = .null }
-            else if let b = node.resolvedBool { self = .bool(b) }
-            else if let i = node.resolvedInt { self = .int(i) }
-            else if let d = node.resolvedDouble { self = .double(d) }
-            else { self = .string(node.content ?? "") }
+        case .scalar(let s):
+            // ONE DESTRUCTURE. This read `node.isNull`, `node.resolvedBool`,
+            // `node.resolvedInt`, `node.resolvedDouble` and `node.content` in turn, and
+            // every one of those re-matched `case .scalar(let s)` and re-retained the
+            // `YAML.Scalar` — five enum matches and five ARC pairs per scalar node, on the
+            // path every YAML struct decode goes through. The resolver below takes the
+            // payload once and applies the same tests in the same order.
+            self = RawValue(resolving: s)
 
         case .sequence(let items):
             var out: [RawValue] = []

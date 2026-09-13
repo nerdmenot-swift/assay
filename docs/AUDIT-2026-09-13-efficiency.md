@@ -210,7 +210,16 @@ exactly what makes the caller-side parallelism in §6 free.
   this machine** (it needs a checkout `TOML_TEST_DIR` points at; CI has one). Making a
   grammar-sensitive change whose only validation is in CI is the wrong order, so the number
   path is unchanged and this note is the reason.
-- `YAML.Node → RawValue` re-destructures the scalar payload five times per node.
+- ~~`YAML.Node → RawValue` re-destructures the scalar payload five times per node~~ — **done
+  2026-09-13, and it bought nothing measurable.** The projection read `isNull`,
+  `resolvedBool`, `resolvedInt`, `resolvedDouble` and `content` in turn, each re-matching
+  `case .scalar(let s)` and re-retaining the payload; there is one destructure and one
+  `RawValue(resolving:)` now. **The YAML struct-decode arm did not move**: 11.20× → 11.36×
+  mean, 8k 41,770 → ~41,350 ns, against a run-to-run spread of ±2.3% measured over three
+  runs on unchanged code. The change is kept because it is less work and simpler, not
+  because it is faster — five enum matches and five ARC pairs per scalar turn out not to be
+  where YAML decode time goes. Recorded this way on purpose: an unmeasured "optimisation"
+  that is really a refactor should not be filed as a win.
 - `MappedFile` exposes `UnsafeRawPointer` and `withUnsafeBytes` publicly — hard constraint 11
   says unsafe stays below the seam. Nothing outside the module uses them.
 - No benchmark arm covers the XML→`RawValue` projection, which is why a 4× regression there

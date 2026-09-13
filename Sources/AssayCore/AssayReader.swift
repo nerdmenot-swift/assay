@@ -573,7 +573,7 @@ extension AssayReader {
         let n = hi &- lo
         guard n > 0 else { return }
         let src = unsafe base + lo
-        out.append(contentsOf: unsafe UnsafeBufferPointer(start: src, count: n))
+        unsafe out.append(contentsOf: UnsafeBufferPointer(start: src, count: n))
     }
 
     /// `keyMatches` for a `@Key(_:or:)` alias: on a match, records the warning that says

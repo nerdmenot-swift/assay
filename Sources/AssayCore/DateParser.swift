@@ -69,8 +69,8 @@ public enum DateParser {
         // The parsers became generic over `RandomAccessCollection<UInt8>` with `Index ==
         // Int` to make this possible; `Array` and `UnsafeBufferPointer` both qualify and
         // the integer arithmetic inside them is unchanged.
-        let viaStorage = text.utf8.withContiguousStorageIfAvailable { buffer in
-            parse(buffer, as: format)
+        let viaStorage = unsafe text.utf8.withContiguousStorageIfAvailable { buffer in
+            unsafe parse(buffer, as: format)
         }
         return viaStorage ?? parse(Array(text.utf8), as: format)
     }

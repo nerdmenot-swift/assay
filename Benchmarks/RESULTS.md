@@ -25,8 +25,8 @@ work rather than more memory — see [the efficiency audit](#doing-less-not-spen
 | YAML node parse | **6.56×** | Yams `compose` | [YAML and XML](#yaml-and-xml-timed-for-the-first-time) |
 | YAML struct decode | **11.09×** | Yams `YAMLDecoder` | same |
 | XML tree parse | **2.33×** (macOS; **0.96×** on Linux) | Foundation `XMLParser` | [XML, made faster](#making-the-xml-parser-faster-by-profiling-rather-than-by-admiring-libxml2) |
-| TOML node parse | **1.42×** | toml++ via TOMLKit | [TOML](#toml-a-fourth-tree-decoder-against-c) |
-| TOML struct decode | **2.30×** | TOMLKit `TOMLDecoder` | same |
+| TOML node parse | **1.51×** | toml++ via TOMLKit | [TOML](#toml-a-fourth-tree-decoder-against-c) |
+| TOML struct decode | **2.41×** | TOMLKit `TOMLDecoder` | same |
 | `Date` fields | **8.04×** | `JSONDecoder` + `.iso8601` | [Dates](#dates-the-unclaimed-win-claimed) |
 | binary plist | **~5.7×** | Foundation `PropertyListDecoder` | [coverage](#the-arms-that-did-not-exist) |
 | XML plist | **~1.4×** | Foundation `PropertyListDecoder` | same |
@@ -2023,3 +2023,52 @@ and not a defect. On a hot path, spell the field out.
 The plist rows are the first numbers property lists have ever had. Binary is where the
 work went (a random-access object graph, no text to scan); the XML flavour rides the
 XXE-refusing XML parser and lands where that parser lands.
+
+
+---
+
+## The TOML number path, and the oracle it needed
+
+**2026-09-13.** `scanNumberBody` built a `[UInt8]` accumulator for every decimal literal —
+one heap allocation per number — because `1_000` puts the digits out of contiguity. The
+first pass of the day declined to touch it and said why: removing the accumulator means
+re-implementing the digit grammar, and the 710-case official `toml-test` suite that catches
+exactly that could not be run locally.
+
+The suite can be run locally. `TOML_TEST_DIR` wants a clone of `toml-lang/toml-test`, and
+with one in place the baseline is 210/210 valid and 501/501 invalid before any change.
+
+So the fast path exists now, and the property that makes it safe is written into it: **it
+may only ever DECLINE, never accept something the general path would reject.** It reports
+nothing into the sink and returns nil on an underscore, an overflow, a leading zero or a
+missing digit, after which the cursor rewinds and the unchanged general path re-derives the
+input and produces the diagnostic. The two paths cannot disagree about validity; the worst a
+mistake costs is a rewind.
+
+  TOML struct decode   1.96× → **2.41×** over TOMLKit   (8k: 77,182 → 66,918 ns)
+  TOML node parse      1.18× → **1.51×** over toml++
+
+Both numbers include the string fast path landed earlier the same day.
+
+**A new oracle, because 710 cases across the whole language is not 710 cases across the
+number grammar.** `DiffFuzz toml-numbers` generates ~4,900 documents — every literal in
+bare, array and inline-table position — heavy on the boundaries a hand-written scanner gets
+wrong: separator placement, leading zeros, `Int64` limits in both directions, every
+exponent sign spelling, and the shapes that look numeric and are not. **4,227 agree, 687 are
+rejected by both, none disagree.**
+
+It also found something that has nothing to do with the fast path. **toml++ rejects float
+literals that overflow to infinity or underflow to zero — `1e309`, `1e-400`, `0.5e-308` —
+and Assay accepts them.** Verified pre-existing by reverting the parser change and getting
+the identical 276 disagreements. 101 literals are held out of the gate with the count
+printed, and the reason recorded rather than filtered:
+
+* It is not a TOML question. Assay's JSON path accepts `1e309` too, and a struct meaning
+  different things depending on which format its bytes came from is the one property this
+  library refuses to have. Fixing TOML alone would *create* that.
+* Subnormals are valid binary64 values; toml++ goes through `strtod` and treats `ERANGE` as
+  an error, which is arguably stricter than "floats should be implemented as IEEE 754
+  binary64".
+* The overflow half is the weaker of the two — a finite literal becoming `inf` is a number
+  read as a different number, which this codebase refuses elsewhere. **Open question**, and
+  the answer belongs on the JSON path first.

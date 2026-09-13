@@ -209,13 +209,14 @@ exactly what makes the caller-side parallelism in §6 free.
   and the general loop copies RUNS of ordinary bytes rather than appending one at a time.
   **Struct decode 1.96× → 2.30× over TOMLKit, the tree 1.18× → 1.42× over toml++** (8k:
   77,182 → 66,397 ns). 218 documents still agree with toml++.
-- **TOML numbers: not done, deliberately.** The `[UInt8]` accumulator exists because `1_000`
-  puts the digits out of contiguity, so removing it means a fast path that re-implements the
-  digit grammar — leading zeros, separator placement, float/integer fork. That is precisely
-  what the 710-case official `toml-test` suite exists to catch, and **that suite cannot run on
-  this machine** (it needs a checkout `TOML_TEST_DIR` points at; CI has one). Making a
-  grammar-sensitive change whose only validation is in CI is the wrong order, so the number
-  path is unchanged and this note is the reason.
+- ~~TOML numbers re-accumulate digits~~ — **FIXED 2026-09-13**, after the local
+  `toml-test` checkout that the first pass lacked turned up. The decimal fast path decides
+  an integer without an accumulator and hands a float its own source text; it may only
+  DECLINE, never accept, so the general path still owns every diagnostic. **Struct decode
+  1.96× → 2.41×, node parse 1.18× → 1.51×** (both including the string work). Validated by
+  710/710 on the official suite plus a new `toml-numbers` oracle — ~4,900 documents, 4,227
+  agreeing, 687 rejected by both, none disagreeing — which also surfaced a pre-existing
+  float range divergence against toml++ that is now documented as an open question.
 - ~~`YAML.Node → RawValue` re-destructures the scalar payload five times per node~~ — **done
   2026-09-13, and it bought nothing measurable.** The projection read `isNull`,
   `resolvedBool`, `resolvedInt`, `resolvedDouble` and `content` in turn, each re-matching

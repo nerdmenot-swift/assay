@@ -376,6 +376,13 @@ let oracles: [Oracle] = [
                assayOnly: xmlGen.assayOnlyRejected, oracleOnly: xmlGen.foundationOnlyRejected,
                disagreed: xmlGen.disagreed)
     },
+    Oracle(name: "toml-numbers", summary: "~4,000 numeric literals vs toml++ — the decimal fast path") {
+        let r = runTOMLNumberDifferential()
+        report("TOML numbers", "toml++",
+               agreed: r.agreed, bothRejected: r.bothRejected,
+               assayOnly: r.assayOnlyRejected, oracleOnly: r.oracleOnlyRejected,
+               disagreed: r.disagreed)
+    },
     Oracle(name: "toml", summary: "TOML vs toml++ (TOMLKit), hand-written and generated; encode round trip") {
         let hand = runTOMLDifferential(handWrittenTOML)
         report("TOML hand-written", "toml++",

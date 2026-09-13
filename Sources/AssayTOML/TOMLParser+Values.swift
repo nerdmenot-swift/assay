@@ -371,7 +371,23 @@ extension TOML.Parser {
             return scanPrefixedInteger(&r, &sink, radix: radix, start: start)
         }
 
-        // Decimal: the integer part, then an optional fraction and exponent make a float.
+        // Decimal. THE FAST PATH FIRST: a literal with no `_` in it needs no accumulator at
+        // all, and that is very nearly every number anyone writes.
+        //
+        // THE SAFETY PROPERTY, which is what makes this worth doing at all: the fast path
+        // may only ever DECLINE, never accept something the general path would reject. It
+        // reports nothing into the sink and returns nil on anything it is not certain of —
+        // an underscore, an overflow, a leading zero, a missing digit — and the general
+        // path below then re-derives the same input and produces the same diagnostic. So
+        // the two paths cannot disagree about what is valid; the worst a mistake here can
+        // cost is a rewind.
+        let digitsStart = r.byteOffset
+        if let fast = scanDecimalFast(&r, tokenStart: start, negative: negative) {
+            return fast
+        }
+        r.seek(to: digitsStart)
+
+        // The general path, unchanged: it owns every diagnostic and every `_`.
         var text: [UInt8] = []
         if negative { text.append(UInt8(ascii: "-")) }
         let intStart = text.count
@@ -416,6 +432,71 @@ extension TOML.Parser {
                 return nil
             }
             value = a
+        }
+        return .int(value)
+    }
+
+    /// A decimal literal with no digit separator, decided and returned without building an
+    /// accumulator. Returns nil to DECLINE — see `scanNumberBody` for why declining is the
+    /// only failure mode this function has.
+    ///
+    /// The cursor is left wherever it got to; the caller rewinds on nil.
+    ///
+    /// Integers accumulate straight into `Int64` as the digits are read. Floats are handed
+    /// to the stdlib as the source text itself — `r.string(from:to:)` over the literal,
+    /// which is exactly the bytes the general path would have copied one at a time into
+    /// `text`, including a leading `+` and an upper-case `E`, both of which `Double.init`
+    /// accepts. Correct rounding stays the stdlib's job on either path.
+    mutating func scanDecimalFast(
+        _ r: inout AssayReader, tokenStart: Int, negative: Bool
+    ) -> TOML.Node? {
+        // Integer part.
+        var value: Int64 = 0
+        var digits = 0
+        while let c = r.currentByte, c >= 0x30, c <= 0x39 {
+            let (m, o1) = value.multipliedReportingOverflow(by: 10)
+            let d = Int64(c - 0x30)
+            let (a, o2) = negative ? m.subtractingReportingOverflow(d)
+                                   : m.addingReportingOverflow(d)
+            guard !o1, !o2 else { return nil }         // overflow: the general path reports
+            value = a
+            digits += 1
+            r.advanceBy(1)
+        }
+        guard digits > 0 else { return nil }            // no digits, or a `_` led
+        // `01` is not a TOML integer; `0` alone is. Same test the general path makes.
+        if digits > 1, r.byte(at: -digits) == UInt8(ascii: "0") { return nil }
+        // A separator anywhere means the accumulated value is not the literal's value.
+        if r.currentByte == UInt8(ascii: "_") { return nil }
+
+        var isFloat = false
+        if r.currentByte == UInt8(ascii: ".") {
+            isFloat = true
+            r.advanceBy(1)
+            var frac = 0
+            while let c = r.currentByte, c >= 0x30, c <= 0x39 { frac += 1; r.advanceBy(1) }
+            guard frac > 0 else { return nil }
+            if r.currentByte == UInt8(ascii: "_") { return nil }
+        }
+        if let e = r.currentByte, e == UInt8(ascii: "e") || e == UInt8(ascii: "E") {
+            isFloat = true
+            r.advanceBy(1)
+            if let sgn = r.currentByte, sgn == UInt8(ascii: "+") || sgn == UInt8(ascii: "-") {
+                r.advanceBy(1)
+            }
+            var exp = 0
+            while let c = r.currentByte, c >= 0x30, c <= 0x39 { exp += 1; r.advanceBy(1) }
+            guard exp > 0 else { return nil }
+            if r.currentByte == UInt8(ascii: "_") { return nil }
+        }
+
+        if isFloat {
+            // FROM `tokenStart`, NOT FROM THE FIRST DIGIT: the sign was consumed before
+            // this was called, and slicing after it turns `-1.5` into `1.5`. The integer
+            // arm does not care — it applies `negative` as it accumulates — which is
+            // exactly the sort of asymmetry that makes a fast path wrong in one arm only.
+            guard let d = Double(r.string(from: tokenStart, to: r.byteOffset)) else { return nil }
+            return .double(d)
         }
         return .int(value)
     }

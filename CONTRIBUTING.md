@@ -62,7 +62,10 @@ swift test                                        # ~700 tests, includes macro t
 cd Benchmarks
 swift run -c release CorpusGen                    # regenerate the corpus (deterministic)
 swift run -c release DiffFuzz                     # differentials + fuzz — CI-gated
-TOML_TEST_DIR=~/src/toml-test swift run -c release DiffFuzz toml-test   # needs a checkout
+swift run -c release DiffFuzz toml-numbers         # ~4,900 numeric literals vs toml++
+# The official 710-case suite. The checkout is one command and worth having locally:
+#   git clone --depth 1 https://github.com/toml-lang/toml-test ~/src/toml-test
+TOML_TEST_DIR=~/src/toml-test swift run -c release DiffFuzz toml-test
 swift run -c release AssayBench --list            # the benchmark arms
 swift run -c release AssayBench allocations       # the one arm CI gates on
 swift run -c release AssayBench encode zippy      # any arms you touched, in under a minute

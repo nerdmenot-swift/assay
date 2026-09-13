@@ -197,8 +197,19 @@ exactly what makes the caller-side parallelism in §6 free.
   allocations were real. **The `dates` arm went 6.05× → 8.04×** (8k: 8,291 → 6,148 ns for 92
   dates), the 2,279-instant differential against Foundation is unchanged, and the allocation
   gate is unmoved.
-- TOML basic strings accumulate byte-by-byte where `scanString` does one sized copy; TOML
-  numbers re-accumulate digits rather than using `scanDouble`.
+- ~~TOML basic strings accumulate byte-by-byte~~ — **FIXED 2026-09-13.** A single-line basic
+  string with no escape in it — very nearly every one anyone writes — now reaches the closing
+  quote and takes one sized `String` copy out of the source, building no `[UInt8]` at all;
+  and the general loop copies RUNS of ordinary bytes rather than appending one at a time.
+  **Struct decode 1.96× → 2.30× over TOMLKit, the tree 1.18× → 1.42× over toml++** (8k:
+  77,182 → 66,397 ns). 218 documents still agree with toml++.
+- **TOML numbers: not done, deliberately.** The `[UInt8]` accumulator exists because `1_000`
+  puts the digits out of contiguity, so removing it means a fast path that re-implements the
+  digit grammar — leading zeros, separator placement, float/integer fork. That is precisely
+  what the 710-case official `toml-test` suite exists to catch, and **that suite cannot run on
+  this machine** (it needs a checkout `TOML_TEST_DIR` points at; CI has one). Making a
+  grammar-sensitive change whose only validation is in CI is the wrong order, so the number
+  path is unchanged and this note is the reason.
 - `YAML.Node → RawValue` re-destructures the scalar payload five times per node.
 - `MappedFile` exposes `UnsafeRawPointer` and `withUnsafeBytes` publicly — hard constraint 11
   says unsafe stays below the seam. Nothing outside the module uses them.

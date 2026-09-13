@@ -561,6 +561,21 @@ extension AssayReader {
         }
     }
 
+    /// Append the bytes in `lo..<hi` to `out` in ONE copy.
+    ///
+    /// The companion to `string(from:to:)`, for a parser that is building a `[UInt8]`
+    /// rather than a `String` — TOML's string scanner, which appended one byte at a time
+    /// through a `while` loop where the no-escape run is almost always the whole literal.
+    /// Same pointer-hoisting reason as above: the closure captures two trivial values and
+    /// not `self`, which is `~Copyable`.
+    @inlinable
+    public func appendBytes(from lo: Int, to hi: Int, into out: inout [UInt8]) {
+        let n = hi &- lo
+        guard n > 0 else { return }
+        let src = unsafe base + lo
+        out.append(contentsOf: unsafe UnsafeBufferPointer(start: src, count: n))
+    }
+
     /// `keyMatches` for a `@Key(_:or:)` alias: on a match, records the warning that says
     /// which alias the field was read from. The generated dispatch arm is
     /// `keyMatches(primary) || _aliasMatched(alias, …)`, so the warning costs nothing on

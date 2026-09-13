@@ -111,6 +111,32 @@ extension TOML.Parser {
     ) -> String? {
         r.advanceBy(multiline ? 3 : 1)
         if multiline { _ = consumeNewline(&r) }
+
+        // THE WHOLE-LITERAL FAST PATH, for a single-line basic string with no escape in it
+        // — which is very nearly every basic string anyone writes. It reaches the closing
+        // quote without building the `[UInt8]` at all: one sized `String` copy out of the
+        // source, the same shape `AssayReader.scanString` uses for JSON. The loop below
+        // appended one byte at a time and then copied the accumulator into a `String`, so
+        // this replaces two passes and an intermediate allocation with one pass.
+        if !multiline {
+            let start = r.byteOffset
+            var k = 0
+            while let b = r.byte(at: k) {
+                if b == 0x22 {
+                    let text = r.string(from: start, to: start + k)
+                    r.advanceBy(k + 1)
+                    return text
+                }
+                // Anything that needs transforming or rejecting ends the fast path and
+                // hands the whole literal back to the general loop, which starts over from
+                // `start`. Re-scanning a literal that has an escape in it is cheaper than
+                // carrying a partial accumulator across the two paths.
+                if b == 0x5C || b == 0x0A || b == 0x0D || b == 0x7F
+                    || (b < 0x20 && b != 0x09) { break }
+                k += 1
+            }
+        }
+
         var out: [UInt8] = []
         while true {
             guard let c = r.currentByte else {
@@ -163,8 +189,15 @@ extension TOML.Parser {
                 r.report(&sink, .tomlControlCharacter)
                 return nil
             }
-            out.append(c)
-            r.advanceBy(1)
+            // A RUN of ordinary bytes in one copy rather than one append per byte. `c` is
+            // already known ordinary here — every other case returned or continued above —
+            // so this consumes at least one byte and cannot spin.
+            let runStart = r.byteOffset
+            var k = 0
+            while let b = r.byte(at: k), b != 0x22, b != 0x5C, b != 0x0A, b != 0x0D,
+                  b != 0x7F, !(b < 0x20 && b != 0x09) { k += 1 }
+            r.advanceBy(k)
+            r.appendBytes(from: runStart, to: r.byteOffset, into: &out)
         }
     }
 

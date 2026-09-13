@@ -2070,5 +2070,19 @@ printed, and the reason recorded rather than filtered:
   an error, which is arguably stricter than "floats should be implemented as IEEE 754
   binary64".
 * The overflow half is the weaker of the two — a finite literal becoming `inf` is a number
-  read as a different number, which this codebase refuses elsewhere. **Open question**, and
-  the answer belongs on the JSON path first.
+  read as a different number, which this codebase refuses elsewhere.
+
+**Closed the same day, on every format.** `1e309` and `1e-400` are refused now: JSON and
+TOML report `number_overflow`, YAML leaves the scalar unresolved so the schema says `must be
+a number, found "1e309"`. Foundation's `JSONDecoder` throws on both and toml++ rejects both,
+so this moved Assay from outlier to majority. The JSON check sits in `slowDouble`, which is
+`@inline(never)` and reachable only by subnormals, >19 significant digits and huge exponents
+— the integer-shaped and Clinger paths are bounded by construction and cannot overflow — so
+the hot path is untouched, and the falsification arm confirms it at 6.00× (float-dense
+8.27×), inside its usual spread.
+
+What is left is 26 SUBNORMAL literals, and that one is a real difference of opinion rather
+than a bug: toml++ parses with `strtod` and treats `ERANGE` as an error, which catches
+subnormals as well as overflow. A subnormal is a binary64 value — `5e-324` is the least
+positive one and Foundation decodes it — so Assay keeps them. That is the whole held-out
+list now, down from 101.

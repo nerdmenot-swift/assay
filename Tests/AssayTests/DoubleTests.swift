@@ -57,13 +57,46 @@ struct DoubleTests {
             "123456789012345678901234567890",        // >19 significant digits
             "0.1000000000000000055511151231257827",  // exactly 0.1's neighbour
             "5e-324",                                // smallest subnormal
-            "2.4703282292062327e-324",               // subnormal rounding edge
-            "1.7976931348623159e308",                // overflows to inf
             "9007199254740993",                      // 2^53 + 1, not representable
             "1.0000000000000002",                    // 1 + 1ulp
             "4.9406564584124654e-324",
         ] {
             check(s)
+        }
+    }
+
+    // OUT OF RANGE IS NOT A VALUE, and this is where that contract lives.
+    //
+    // `check` above compares Assay against the stdlib bit-for-bit, and for these literals
+    // the stdlib is not the authority: `Double("1e309")` is `+infinity`, and returning that
+    // from a decoder means reading a number as a different number. `1.7976931348623159e308`
+    // used to sit in `slowPathExact` with the comment "overflows to inf", asserting exactly
+    // the behaviour this replaces.
+    //
+    // Foundation's `JSONDecoder` throws on every literal in the first list and accepts every
+    // one in the second; so does toml++ on the TOML side. Assay was the outlier.
+    @Test("a literal that cannot be represented is refused, not rounded to infinity or zero")
+    func outOfRangeRefused() {
+        for s in ["1e309", "-1e309", "1e400", "1.8e308", "1.7976931348623159e308",
+                  "1e-400", "1e-999", "2e-324",
+                  // Exactly half the least subnormal, so it rounds to 0. It lived in
+                  // `slowPathExact` as a "subnormal rounding edge"; it is not an edge of
+                  // the representable range, it is just outside it.
+                  "2.4703282292062327e-324"] {
+            #expect(assayParse(s) == nil, "\"\(s)\" should be refused")
+        }
+    }
+
+    /// The boundary on both sides. Subnormals are values and must survive — refusing them
+    /// would be the same mistake pointing the other way.
+    @Test("the representable edges still decode")
+    func edgesStillDecode() {
+        for s in ["1.7976931348623157e308",   // greatest finite Double
+                  "5e-324",                   // least positive subnormal
+                  "4.9406564584124654e-324",  // the same value spelled exactly
+                  "2.2250738585072014e-308",  // least positive normal
+                  "0.0", "-0.0", "0e999", "0.0e-400"] {   // honestly zero, at any exponent
+            #expect(assayParse(s) != nil, "\"\(s)\" should decode")
         }
     }
 

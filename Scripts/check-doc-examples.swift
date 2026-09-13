@@ -111,9 +111,20 @@ let package = Package(
     ])
 """.write(to: tmp.appendingPathComponent("Package.swift"), atomically: true, encoding: .utf8)
 
+// REUSE THE ROOT PACKAGE'S RESOLVED VERSIONS. Without this the scratch package resolves
+// swift-syntax from scratch on every run, which makes a local correctness check depend on
+// GitHub being reachable — it failed exactly that way on 2026-09-13, with 75-second connect
+// timeouts. Copying `Package.resolved` pins the versions the repository already uses, so
+// the shared cache answers and the network is not consulted.
+try? FileManager.default.copyItem(
+    at: root.appendingPathComponent("Package.resolved"),
+    to: tmp.appendingPathComponent("Package.resolved"))
+
 let p = Process()
 p.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-p.arguments = ["swift", "build", "--package-path", tmp.path]
+p.arguments = ["swift", "build", "--package-path", tmp.path,
+               // With Package.resolved copied in, this makes the build fully offline.
+               "--only-use-versions-from-resolved-file"]
 let pipe = Pipe()
 p.standardOutput = pipe
 p.standardError = pipe

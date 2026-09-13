@@ -159,6 +159,16 @@ extension AssayReader {
         var p = path
         p.append(.key(String(describing: key)))
         if element >= 0 { p.append(.index(element)) }
+        if numberRangeErrorAt >= 0 {
+            // Syntactically a number, and not representable. Saying "must be a double"
+            // would be false — it IS a double-shaped literal — and saying nothing would
+            // ship infinity.
+            sink.add(Issue(code: .numberOverflow, path: p,
+                           location: SourceSpan(lo: numberRangeErrorAt,
+                                                len: numberRangeErrorLength)))
+            numberRangeErrorAt = -1
+            return
+        }
         if escapeErrorAt >= 0 {
             // The string was scanned to its closing quote already; say what was wrong
             // with it rather than that it was not a string.

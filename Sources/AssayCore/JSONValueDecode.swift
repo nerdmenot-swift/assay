@@ -82,6 +82,15 @@ extension AssayReader {
     ) -> JSON.Value? {
         if let i = scanInt64() { return .int(i) }
         if let d = scanDouble() { return .double(d) }
+        // The value model gets the same verdict as the struct path: a literal that is a
+        // number and cannot be represented is an error, not `inf` and not `malformed`.
+        if numberRangeErrorAt >= 0 {
+            sink.add(Issue(code: .numberOverflow, path: path,
+                           location: SourceSpan(lo: numberRangeErrorAt,
+                                                len: numberRangeErrorLength)))
+            numberRangeErrorAt = -1
+            return nil
+        }
         reportMalformed(&sink, path, expected: "a value")
         return nil
     }

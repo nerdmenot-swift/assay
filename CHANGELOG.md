@@ -13,6 +13,16 @@ stable for two minor versions with no entry under **Breaking**.
 
 ### Breaking
 
+- **A number that cannot be represented as a `Double` is now an error, on every format.**
+  `1e309` decoded to `+infinity` and `1e-400` to zero; both are refused with
+  `number_overflow` on the JSON and TOML paths, and on the YAML path resolve to a string so
+  the schema reports `must be a number, found "1e309"`. Reading a number as a different
+  number is the one failure a decoder must not have, and this codebase refuses it elsewhere
+  (a 128-bit plist integer is refused rather than truncated). Foundation's `JSONDecoder`
+  throws on every one of these and toml++ rejects them, so Assay was the outlier.
+  **Subnormals are values and still decode** — `5e-324` is the least positive `Double`, has
+  an exact bit pattern, and is accepted. A document relying on a literal silently becoming
+  infinity or zero will now get an issue.
 - **`IssueCode.xml_expected_element` is removed.** It was unreachable: both of the XML
   parser's `parseElement` call sites already establish that the current byte is `<` before
   calling, so the guard inside it could never fail. The guard is gone too — a check that

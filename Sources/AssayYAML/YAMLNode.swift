@@ -248,7 +248,26 @@ extension RawValue {
             case "-.inf", "-.Inf", "-.INF": self = .double(-.infinity); return
             case ".nan", ".NaN", ".NAN": self = .double(.nan); return
             default:
-                if let d = Double(c) { self = .double(d); return }
+                // OUT OF RANGE DOES NOT RESOLVE. `Double("1e309")` is `+infinity` and
+                // `Double("1e-400")` is zero, and neither is what the document says — the
+                // same refusal the JSON and TOML paths make, so a struct means the same
+                // thing whichever format its bytes arrived in.
+                //
+                // Here the answer is to leave it UNRESOLVED rather than to raise an issue:
+                // the core schema's rule, stated at the top of this file, is that a plain
+                // scalar it cannot resolve stays a `.string`. The schema then reports
+                // `must be a double, found "1e309"` with the literal in hand, which is a
+                // better sentence than anything this function could produce without a sink.
+                // The explicit `.inf` and `.nan` spellings are handled above and unaffected.
+                // The SIGNIFICAND decides whether a zero result underflowed — scanning the
+                // whole literal makes `0.0e-400` look significant because of the `4`, and
+                // that one is honestly zero.
+                if let d = Double(c), d.isFinite,
+                   d != 0 || !c.prefix(while: { $0 != "e" && $0 != "E" })
+                               .contains(where: { $0 >= "1" && $0 <= "9" }) {
+                    self = .double(d)
+                    return
+                }
             }
         }
         self = .string(c)

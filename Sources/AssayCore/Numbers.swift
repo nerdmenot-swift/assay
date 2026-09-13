@@ -259,8 +259,53 @@ extension AssayReader {
             cursor = start
             return nil
         }
+        // OUT OF RANGE IS NOT A VALUE. `1e309` is syntactically a JSON number and its
+        // `Double` is `+infinity`; returning that means the decoder read a number as a
+        // different number, which is the one failure this codebase refuses everywhere else
+        // (the 128-bit plist integer is refused rather than truncated for the same reason).
+        // `1e-400` is the same mistake pointing down: not zero, and zero is what it becomes.
+        //
+        // Foundation's `JSONDecoder` throws on both, and toml++ rejects both, so this is
+        // the majority behaviour rather than a new opinion — Assay was the outlier.
+        //
+        // THIS COSTS THE HOT PATH NOTHING. Only `slowDouble` can produce an out-of-range
+        // result: the integer-shaped and Clinger paths above are bounded by construction
+        // (significand ≤ 2^53, |exponent| ≤ 22), so they cannot overflow or underflow. This
+        // function is `@inline(never)` and is reached only by subnormals, >19 significant
+        // digits and huge exponents.
+        //
+        // Subnormals are values and stay values: `5e-324` is the smallest positive Double
+        // and decodes. Only a literal whose significand is non-zero and whose result IS
+        // zero has underflowed.
+        let underflowed = d == 0 && hasNonZeroSignificand(from: start, to: cursor)
+        if !d.isFinite || underflowed {
+            numberRangeErrorAt = start
+            numberRangeErrorLength = cursor - start
+            // The cursor stays PAST the token. The value was well-formed, so the document
+            // continues here; rewinding would make the next read fail on the same bytes.
+            return nil
+        }
         return d
     }
+
+    /// Whether the part before the exponent contains a digit other than zero. `0.0e-400` is
+    /// zero because it is zero; `1e-400` is zero because it underflowed.
+    ///
+    /// Indexed rather than iterated over an `UnsafeBufferPointer`: a `for-in` over one is an
+    /// unsafe construct under `StrictMemorySafety` and cannot be marked, and this file
+    /// already reads bytes as `base[i]` everywhere else.
+    @usableFromInline
+    func hasNonZeroSignificand(from lo: Int, to hi: Int) -> Bool {
+        var i = lo
+        while i < hi {
+            let b = unsafe base[i]
+            if b == 0x65 || b == 0x45 { return false }      // e / E — significand ended
+            if b >= 0x31, b <= 0x39 { return true }
+            i &+= 1
+        }
+        return false
+    }
+
 
     @inlinable
     public mutating func scanBool() -> Bool? {

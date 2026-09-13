@@ -420,6 +420,26 @@ extension TOML.Parser {
                 r.report(&sink, .tomlBadNumber, span: SourceSpan(lo: start, len: r.byteOffset - start))
                 return nil
             }
+            // OUT OF RANGE IS NOT A VALUE — the same verdict the JSON path reaches in
+            // `slowDouble`, and reached here for the same reason: a struct must not mean
+            // different things depending on which format its bytes came from. `1e309` is
+            // `+infinity` and `1e-400` is zero, and neither is what the file says.
+            // toml++ rejects both; so does Foundation's JSONDecoder.
+            //
+            // Underflow is only underflow when the significand was non-zero: `0.0e-400` is
+            // zero because it is zero.
+            // The significand ONLY. `text` holds the exponent too — the general path
+            // appends a lower-case `e` and the exponent digits — so scanning all of it made
+            // `0.0e-400` look significant because of the `4`, and rejected a literal that
+            // is honestly zero.
+            let significandEnd = text.firstIndex(of: UInt8(ascii: "e")) ?? text.endIndex
+            let underflowed = d == 0
+                && text[..<significandEnd].contains { $0 >= 0x31 && $0 <= 0x39 }
+            if !d.isFinite || underflowed {
+                r.report(&sink, .numberOverflow,
+                         span: SourceSpan(lo: start, len: r.byteOffset - start))
+                return nil
+            }
             return .double(d)
         }
         var value: Int64 = 0
@@ -495,7 +515,13 @@ extension TOML.Parser {
             // this was called, and slicing after it turns `-1.5` into `1.5`. The integer
             // arm does not care — it applies `negative` as it accumulates — which is
             // exactly the sort of asymmetry that makes a fast path wrong in one arm only.
-            guard let d = Double(r.string(from: tokenStart, to: r.byteOffset)) else { return nil }
+            // DECLINE ON ZERO AS WELL AS ON NON-FINITE. A zero result is either a literal
+            // that is genuinely zero or one that underflowed, and telling those apart means
+            // inspecting the significand — which the general path already does. Handing it
+            // over keeps the "may only decline" property intact and costs a rewind on a
+            // float literal that is exactly zero, which is rare.
+            guard let d = Double(r.string(from: tokenStart, to: r.byteOffset)),
+                  d.isFinite, d != 0 else { return nil }
             return .double(d)
         }
         return .int(value)

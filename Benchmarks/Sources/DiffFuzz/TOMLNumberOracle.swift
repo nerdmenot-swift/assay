@@ -21,40 +21,34 @@
 // Both sides must agree on the VERDICT and, when both accept, on the VALUE — which for a
 // float means the exact bit pattern, because "close enough" is how a decoder ships a
 // number that is not the number in the file.
+//
+// This arm is also what found the out-of-range bug: `1e309` decoded to `+infinity` and
+// `1e-400` to zero, on the JSON path as well as this one. Both are refused now.
 //===----------------------------------------------------------------------===//
 
 import Foundation
 
-/// A float literal whose IEEE 754 binary64 value is not finite, or is zero (or subnormal)
-/// for a literal that is not itself zero — `1e309`, `1e-400`, `0.5e-308`.
+/// A float literal whose value is SUBNORMAL — `1e-308`, `0.5e-308`, `5e-324`.
 ///
-/// **toml++ REJECTS these and Assay accepts them, and that divergence PRE-DATES the fast
-/// path** — verified by reverting the parser change and getting the identical 276
-/// disagreements. It is reported below rather than gated, for three reasons:
+/// This is the one place Assay and toml++ still disagree about the number grammar, and the
+/// disagreement is narrow and deliberate. **Assay accepts subnormals; toml++ rejects them.**
 ///
-///   * It is not a TOML question. Assay's JSON path accepts `1e309` too, and a struct
-///     meaning different things depending on which format its bytes came from is the one
-///     property this library refuses to have. Changing TOML alone would create exactly
-///     that; changing both is a different piece of work on the hottest path in the library.
-///   * Subnormals are valid binary64 values. toml++ goes through `strtod` and treats
-///     `ERANGE` as an error, which catches underflow-to-subnormal as well as overflow —
-///     that is arguably stricter than the specification, which says floats "should be
-///     implemented as IEEE 754 binary64".
-///   * The overflow half is the weaker of the two: a finite literal becoming `inf` is a
-///     number read as a different number, which this codebase refuses elsewhere (the
-///     128-bit plist integer). It is written down here as an open question rather than
-///     quietly filtered.
+/// toml++ parses floats with `strtod` and treats `ERANGE` as an error, and C sets `ERANGE`
+/// for a subnormal result as well as for overflow. That catches real errors and this too.
+/// The TOML specification says floats "should be implemented as IEEE 754 binary64 values",
+/// and a subnormal IS a binary64 value: `5e-324` is the least positive one, it has an exact
+/// bit pattern, and Foundation's `JSONDecoder` decodes it happily. Refusing it would throw
+/// away a representable number, which is the same class of mistake as accepting `1e309` —
+/// pointing the other way.
+///
+/// **What used to be here was much larger.** Until 2026-09-13 this held out 101 literals
+/// covering overflow and underflow as well, because Assay read `1e309` as `+infinity` and
+/// `1e-400` as zero. Both are now refused, on the JSON path and the TOML path, so those
+/// literals agree with toml++ and have left this list. What remains is the genuine
+/// difference of opinion.
 func isKnownRangeDivergence(_ literal: String) -> Bool {
     guard let d = Double(literal) else { return false }
-    if !d.isFinite { return true }
-    if d == 0 || d.isSubnormal {
-        // A literal that is GENUINELY zero is not a divergence — `0e0` is zero because its
-        // mantissa is zero, not because it underflowed. Testing the whole literal for
-        // non-zero characters got this wrong: the `e` made `0e0` look significant.
-        let mantissa = literal.prefix { $0 != "e" && $0 != "E" }
-        return Double(mantissa) != 0
-    }
-    return false
+    return d != 0 && d.isSubnormal
 }
 
 /// Every literal worth trying.
@@ -152,8 +146,8 @@ func tomlNumberHeldOut() -> [String] {
 func runTOMLNumberDifferential() -> YAMLOracleResult {
     let held = tomlNumberHeldOut()
     if !held.isEmpty {
-        print("  \(held.count) literals held out as the documented range divergence "
-              + "(overflow/underflow); see TOMLNumberOracle.swift. e.g. "
+        print("  \(held.count) subnormal literals held out — Assay accepts them and toml++ "
+              + "does not; see TOMLNumberOracle.swift. e.g. "
               + held.prefix(3).joined(separator: ", "))
     }
     return runTOMLDifferential(tomlNumberDocuments())

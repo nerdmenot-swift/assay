@@ -78,6 +78,13 @@ public struct AssayReader: ~Copyable {
     /// `invalid_escape` at that byte instead of a type mismatch. One Int, so the reader
     /// stays transitively trivial.
     @usableFromInline var escapeErrorAt: Int = -1
+
+    /// Where a number was syntactically fine and OUT OF RANGE for a `Double`, and how long
+    /// it was. Same out-of-band shape as `escapeErrorAt`, for the same reason: `scanDouble`
+    /// returns `Double?`, so "this is not a number" and "this number cannot be represented"
+    /// arrive at the caller identically unless one of them is recorded on the side.
+    @usableFromInline var numberRangeErrorAt: Int = -1
+    @usableFromInline var numberRangeErrorLength: Int = 0
     @usableFromInline let limits: Limits
 
     /// The limits this reader was created with. Public because generated code consults

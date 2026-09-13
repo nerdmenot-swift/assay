@@ -99,7 +99,14 @@ extension AssayReader {
             // escape
             let escapeStart = cursor
             cursor &+= 1
-            guard cursor < count else { return nil }
+            // A backslash as the last byte of the input. There is no closing quote to scan
+            // to, so `skipString` cannot consume the value — but naming the escape is still
+            // a better answer than `must be a string`, and it stops the caller adding a
+            // type mismatch on top of the malformed-document error the truncation earns.
+            guard cursor < count else {
+                escapeErrorAt = escapeStart
+                return nil
+            }
             let e = unsafe base[cursor]
             cursor &+= 1
             switch e {
@@ -124,6 +131,16 @@ extension AssayReader {
                 }
                 appendUTF8(scalar, to: &out)
             default:
+                // ANY OTHER ESCAPE IS INVALID, and it gets the same treatment the `\u`
+                // arm got on 2026-09-10 — which was written for exactly this and applied
+                // to one arm of two. Returning with the cursor mid-string made the caller
+                // report `must be a string, found y"`: the wrong problem, quoting the
+                // garbage that followed the bad escape. Remember where, rewind, and scan
+                // on to the closing quote so the value is consumed and `failed` can say
+                // `invalid_escape` instead.
+                escapeErrorAt = escapeStart
+                cursor = escapeStart
+                _ = skipString()
                 return nil
             }
         }

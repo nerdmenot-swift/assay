@@ -34,6 +34,14 @@ struct ValidationAttr {
     var ruleNames: [String]
     /// Attribute-level message override from a bare string literal.
     var override: String?
+    /// THE `@Validate` ATTRIBUTE ITSELF, so a refusal points at it.
+    ///
+    /// Every diagnostic in `checkValidations` used to be attached to the `@Schema` node,
+    /// which put the caret on the type's first line no matter which property was wrong —
+    /// alone among this macro's refusals, all of which name the property. On a type with
+    /// thirty fields that is the difference between a fix and a search. Optional because
+    /// the golden/expansion tests construct fields directly.
+    var attribute: AttributeSyntax?
 }
 
 enum RuleTypeCheck {
@@ -132,7 +140,8 @@ extension SchemaMacro {
         var out: [ValidationAttr] = []
         for attr in attributes where attr.attributeName.trimmedDescription == "Validate" {
             guard let args = attr.arguments?.as(LabeledExprListSyntax.self) else { continue }
-            var parsed = ValidationAttr(ruleExprs: [], ruleNames: [], override: nil)
+            var parsed = ValidationAttr(ruleExprs: [], ruleNames: [], override: nil,
+                                        attribute: attr)
             for arg in args where arg.label == nil {
                 if let literal = arg.expression.as(StringLiteralExprSyntax.self) {
                     // The message-as-a-rule trick: a bare literal overrides the message
@@ -169,14 +178,16 @@ extension SchemaMacro {
         for f in fields {
             let category = RuleTypeCheck.FieldCategory(stripOptional(f.typeName))
             for attr in f.validations {
+                // The attribute when we have it, the `@Schema` node when we do not.
+                let at = attr.attribute.map(Syntax.init) ?? Syntax(node)
                 if attr.ruleExprs.isEmpty, attr.override != nil {
-                    context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
+                    context.diagnose(Diagnostic(node: at, message: SimpleDiagnostic(
                         "@Validate(\"\(attr.override!)\") has a message but no rule; a lone message does nothing")))
                     ok = false
                 }
                 for name in attr.ruleNames {
                     if let wanted = RuleTypeCheck.expectedCategory(rule: name, on: category) {
-                        context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
+                        context.diagnose(Diagnostic(node: at, message: SimpleDiagnostic(
                             "rule '.\(name)' applies to \(wanted), but '\(f.identifier)' is declared \(f.typeName)")))
                         ok = false
                     }
@@ -184,7 +195,7 @@ extension SchemaMacro {
                     if name == "unique" || name == "each",
                        case .array(let element) = category,
                        !["String", "Int", "Double"].contains(element) {
-                        context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
+                        context.diagnose(Diagnostic(node: at, message: SimpleDiagnostic(
                             "rule '.\(name)' supports elements of String, Int or Double, but '\(f.identifier)' is declared \(f.typeName)")))
                         ok = false
                     }

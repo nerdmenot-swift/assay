@@ -361,3 +361,50 @@ struct MalformedMessageTests {
         #expect(codes.contains(.trailingContent), "\(codes)")
     }
 }
+
+@Suite("Invalid escapes name the escape")
+struct InvalidEscapeTests {
+
+    @Schema struct S: Equatable { var a: String; var b: Int = 0 }
+
+    private func issues(_ doc: String) -> [AssayCore.Issue] {
+        S.diagnose(json: Array(doc.utf8)).issues
+    }
+
+    /// The `\uXXXX` arm got this treatment on 2026-09-10 and the `default:` arm did not,
+    /// so an ordinary bad escape reported the WRONG PROBLEM: `must be a string, found y"`,
+    /// quoting the garbage that happened to follow the backslash.
+    @Test("an unknown escape is invalid_escape, not a type mismatch")
+    func unknownEscape() {
+        let i = issues(#"{"a":"x\qy"}"#)
+        #expect(i.map(\.code) == [.invalidEscape], "\(i.map(\.message))")
+    }
+
+    @Test("a bad \\u escape is unchanged")
+    func badUnicodeEscape() {
+        #expect(issues(#"{"a":"x\u00GG"}"#).map(\.code) == [.invalidEscape])
+    }
+
+    @Test("the string is consumed, so a later field still decodes")
+    func resynchronises() {
+        // The rewind-and-skipString is what makes this one issue rather than a cascade:
+        // the bad value is consumed to its closing quote, so `b` is read normally.
+        let i = issues(#"{"a":"x\qy","b":2}"#)
+        #expect(i.map(\.code) == [.invalidEscape], "\(i.map(\.message))")
+    }
+
+    /// A backslash as the LAST byte has no closing quote to scan to, so the value cannot
+    /// be consumed and the truncation earns its own error. Two issues here are two
+    /// different facts — the escape is cut off AND the document ended — rather than the
+    /// same mistake counted twice, which is what `type_mismatch` + `malformed` was.
+    @Test("truncated mid-escape names the escape and the truncation, and nothing else")
+    func truncatedMidEscape() {
+        let codes = issues(#"{"a":"x\"#).map(\.code)
+        #expect(codes == [.invalidEscape, .malformedDocument], "\(codes)")
+    }
+
+    @Test("a valid document is unaffected")
+    func valid() {
+        #expect(issues(#"{"a":"ok\n","b":2}"#).isEmpty)
+    }
+}

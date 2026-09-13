@@ -303,6 +303,39 @@ struct RefusalTests {
         #expect(d.isEmpty, "got \(d)")
     }
 
+    // WHERE THE CARET LANDS. Every refusal in this macro names the property — except the
+    // three in `checkValidations`, which were attached to the `@Schema` node and so put the
+    // caret on the type's first line whatever property was wrong. On a type with thirty
+    // fields that is the difference between a fix and a search.
+    //
+    // `expandSchemaForTesting` returns messages, not positions, so the assertion here is
+    // that the diagnostic is attached to the `@Validate` attribute node. The position is
+    // checked end-to-end by compiling the case in a consumer package.
+
+    @Test("a rule/type mismatch is attached to the @Validate attribute, not to @Schema")
+    func ruleRefusalPointsAtTheAttribute() {
+        let src = """
+            @Schema struct S {
+                var b: Int
+                @Validate(.email) var a: Int
+            }
+            """
+        let file = Parser.parse(source: src)
+        let context = BasicMacroExpansionContext(
+            sourceFiles: [file: .init(moduleName: "Test", fullFilePath: "test.swift")])
+        let structDecl = file.statements.compactMap { $0.item.as(StructDeclSyntax.self) }.first!
+        let attribute = structDecl.attributes.first!.as(AttributeSyntax.self)!
+        _ = try? SchemaMacro.expansion(of: attribute,
+                                       attachedTo: structDecl,
+                                       providingExtensionsOf: TypeSyntax(stringLiteral: "S"),
+                                       conformingTo: [], in: context)
+        let d = context.diagnostics.first { $0.message.contains("applies to String") }
+        // The node it points at is the attribute itself — `@Validate(.email)` — so its
+        // description is the attribute source, not the whole struct.
+        #expect(d?.node.trimmedDescription == "@Validate(.email)",
+                "diagnostic is attached to: \(String(describing: d?.node.trimmedDescription))")
+    }
+
     // FOUR COMBINATIONS THAT USED TO COMPILE AND DO NOTHING, found by the audit on
     // 2026-09-12. Each parsed, type-checked, and was silently dropped — which is the
     // failure mode this suite is named after. The fourth is the interesting one: its

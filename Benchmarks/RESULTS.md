@@ -2092,3 +2092,99 @@ exponent is `3e2`. With no arbiter, both readings stand: a subnormal is a binary
 (Assay, and Foundation), or subnormals are lossy and lossy is an error (toml++). Assay takes
 the first, because the second does not generalise — `0.1` is lossy too. Held-out list: 26,
 down from 101.
+
+
+---
+
+## A profiling matrix: one property per fixture, one verb per task
+
+**2026-09-13.** Every arm in `AssayBench` grew one at a time, each against one corpus shape,
+so a number told you how fast that shape was and nothing about why. The corpus cannot answer
+"why" even in principle: `apimodel` differs from `short-strings` in field count, key length,
+value type, nesting and value width all at once, so when two shapes disagree there is
+nothing to attribute it to.
+
+Two of this week's findings were luck rather than method. The XML→`RawValue` projection had
+regressed **4×** and nothing timed that step. `@Wraps` costs **2×** the plain field it is
+sugar for, and that surfaced only when an arm was finally written for it. `AssayMatrix`
+makes the method the method.
+
+    swift run -c release AssayMatrix run [--baseline f.json] [--save f.json] [--gate]
+    swift run -c release AssayMatrix run --shapes base,fields-20 --only struct,value
+
+Eighteen fixtures, each moving exactly ONE property off a base of five fields, short keys,
+short string values, flat, minified, no nulls, all valid. Seven verbs. Every cell runs in its
+own process — that keeps allocator state and page cache from leaking between measurements and
+is the only way to attribute peak memory — with time taking the best of nine 100 ms reps and
+memory the worst.
+
+### What it is not
+
+**It does not gate CI, and must not.** `CLAUDE.md`'s honesty rules say to gate on allocation
+counts with absolute thresholds and never on wall clock, and a hosted runner has no business
+deciding a 20% question. Five runs of the unchanged matrix on this machine spread by a median
+of 3.4%, a p90 of 8.0% and a worst case of 15%. So 5% is worth PRINTING — a human can tell a
+real move from a jittery cell by looking at whether the shape's other verbs moved too — and
+the `--gate` threshold is 20%, above everything the noise produced. It is a wide net for
+structural surprises, not an instrument for resolving 5%; that is what the individual arms
+are for, with a named competitor beside each number.
+
+**The detector is verified in both directions.** Forcing every JSON string through the escape
+slow path turns the table red — `base/struct` +431%, 60 cells past the gate, exit 1 — and
+reverting it returns the gate to silence against three separate baselines. More usefully, the
+injection did *not* move `values-int`, `values-bool`, `values-double` or `optional-absent`,
+and moved `escapes-100` by only 7% because that fixture was already on the slow path. The
+table says **where**, which is the entire claim.
+
+### What the first run found
+
+| axis | measured |
+|---|---|
+| escape density, value width held equal | `escapes-0` 74.5 → `escapes-100` **403.0 ns/element, 5.4×** |
+| value type, five fields each | bool 36.1 · int 44.5 · double 52.7 · string 63.2 · **Date 190.8** |
+| pretty-printed input | **+7%** over minified |
+| error density (`diagnose`) | clean 65.2 · 1% 65.0 · 10% 75.6 · **100% 177.6 (2.7×)** |
+| verbs on the base shape | `diagnose` 1.03× `struct` · `validate` 0.85× · `raw` 0.86× · `encode` 1.89× · `value` **3.21×** |
+
+Three of these were not known before. The escape fork is the largest single multiplier in
+the table and had a corpus shape but never a gradient. `Date` at 3× a string field is the
+price of the hand-written parser, now per element. And **`+7%` for pretty-printed input
+confirms the efficiency audit's estimate of ~8% for a whitespace skipper** — a prediction
+made in August and never checked, which turns out to have been right and to describe an
+opportunity too small to take.
+
+### Two anomalies the matrix exists to surface, and neither is explained yet
+
+**Per-field cost is not monotonic in field count.**
+
+| fields | ns/element | ns/field |
+|---|---|---|
+| 2 | 28.1 | 14.05 |
+| 5 | 63.2 | 12.64 |
+| 20 | 296.1 | **14.81** |
+| 100 | 918.4 | **9.18** |
+
+Twenty fields is the worst point per field — worse than five and much worse than a hundred.
+Experiment #1 found that a switch over a `UInt8` candidate index becomes a real arm64 jump
+table at N ≥ 10 and a balanced search tree below it, so twenty fields is the *first* shape in
+this repository that has ever exercised the table a benchmark, and it is not faster per field
+for it. The axis is not perfectly controlled — `f10`…`f99` are three bytes where `f0`…`f9`
+are two, and per-element overhead amortises differently — so this is a question, not a
+verdict. It is the question nobody could have asked before, because no benchmark here had
+more than nine fields.
+
+**The unknown-key skip does not scale the way it should.**
+
+| shape | struct | skip (2 fields declared) | saved |
+|---|---|---|---|
+| base (5) | 63.2 | 45.5 | 28% |
+| fields-20 | 296.1 | 140.0 | 53% |
+| fields-100 | 918.4 | 678.4 | **26%** |
+
+Skipping 98 of 100 fields saves less than skipping 18 of 20. Some of this is real — the key
+still has to be scanned and matched whether or not the value is wanted — but the shape of the
+curve is wrong for a path whose whole purpose is to make undeclared fields cheap, and it is
+listed in `CLAUDE.md` build order phase 2 as one of "the unclaimed wins".
+
+Both are recorded here rather than chased, because the matrix's job today was to exist and to
+be trustworthy. Neither would have been visible without it.

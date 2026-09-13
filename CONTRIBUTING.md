@@ -70,8 +70,17 @@ swift run -c release AssayBench --list            # the benchmark arms
 swift run -c release AssayBench allocations       # the one arm CI gates on
 swift run -c release AssayBench encode zippy      # any arms you touched, in under a minute
 swift run -c release AssayBench                   # every arm — about eight minutes
+swift run -c release AssayMatrix run             # the profiling matrix, ~3 minutes
+swift run -c release AssayMatrix run --baseline matrix-baseline.json   # against the saved run
 bash ../Experiments/03-compile-time/gate.sh       # compile-time budget
 ```
+
+`AssayMatrix` is the wide net: eighteen fixtures that each move ONE property off a base,
+crossed with seven verbs, so a number that moves points at the property responsible. Reach
+for it when you have changed something whose blast radius you are unsure of, and for
+`AssayBench` when you have a specific question with a named competitor. It deliberately does
+not run in CI — wall clock on a hosted runner is not something to gate on — and its own
+measured noise floor is recorded in `Benchmarks/RESULTS.md`.
 
 Run only the arms your change can affect while iterating, and the whole set once before
 you commit a number. Two arms running at once measure each other's contention, so never

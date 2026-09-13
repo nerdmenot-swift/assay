@@ -92,6 +92,16 @@ let package = Package(
             path: "Sources/DiffFuzz",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        // One property per fixture, one verb per task. See Sources/AssayMatrix/main.swift.
+        .executableTarget(
+            name: "AssayMatrix",
+            dependencies: [
+                .product(name: "Assay", package: "assay"),
+                .product(name: "AssayCore", package: "assay"),
+            ],
+            path: "Sources/AssayMatrix",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
         .executableTarget(
             name: "AssayBench",
             dependencies: [

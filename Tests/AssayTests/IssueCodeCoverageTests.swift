@@ -251,13 +251,11 @@ struct IssueCodeCoverageTests {
     ///   - `regex_unavailable` needs a platform WITHOUT `Regex` — below macOS 13 / iOS 16.
     ///     Every machine in CI is above that floor, so the branch is correct, deliberate
     ///     and untestable here. `Rules.swift` `applyRegex` is where it lives.
-    ///   - `xml_expected_element` is unreachable from either of `parseElement`'s two call
-    ///     sites (XMLParser.swift:159 and :340): both already check `currentByte == "<"`
-    ///     before calling, so the `guard r.consume("<")` inside it cannot fail. The guard
-    ///     is worth keeping — it is a recursive function's precondition — but the code is
-    ///     dead as the parser stands, and that is a fact about the parser, not a gap in
-    ///     this suite.
-    static let unreachableHere: Set<String> = ["regex_unavailable", "xml_expected_element"]
+    /// `xml_expected_element` used to be here too. It was unreachable from either of
+    /// `parseElement`'s call sites — both already check `currentByte == "<"` — so on
+    /// 2026-09-13 the guard and the code were deleted rather than documented forever. An
+    /// entry on this list is a standing invitation to ask whether the code should exist.
+    static let unreachableHere: Set<String> = ["regex_unavailable"]
 
 
     @Test("every declared issue code is named by some test")
@@ -468,5 +466,44 @@ struct AsyncCheckFormTests {
     func syncGatesAsync() async {
         let d = await Signup.diagnose(json: Array(#"{"email":"taken@x.com"}"#.utf8))
         #expect(d.issues.map(\.code) == [.missing], "\(d.issues.map(\.message))")
+    }
+}
+
+//===----------------------------------------------------------------------===//
+// The capability refusals must not shadow the real doors.
+//
+// `CapabilityRefusals.swift` and the per-format `*Refusals.swift` put an `unavailable`
+// sibling of every capability door on `Assayable`, so a schema that did not opt in gets a
+// sentence naming the `@Schema` argument to add instead of a conformance error against an
+// internal protocol. The risk that buys is the opposite failure: an `unavailable` overload
+// winning for a type that DOES have the capability, which would make the feature
+// uncallable. A signature that drifts from the real one is how that happens — it nearly
+// did, with `encodedXML`'s third parameter.
+//
+// The refusal direction is a COMPILE error and so cannot be asserted here; it is checked by
+// hand and recorded in the commit. This is the direction a test can hold.
+//===----------------------------------------------------------------------===//
+
+@Suite("Capability doors resolve to the real member")
+struct CapabilityDoorTests {
+
+    @Schema(formats: .all, encodes: true, describes: true)
+    struct Full: Equatable { var a: String }
+
+    @Test("every door on a fully-capable schema reaches its implementation")
+    func realMembersWin() throws {
+        let v = Full(a: "x")
+        #expect(String(decoding: try v.encodedJSON(), as: UTF8.self) == #"{"a":"x"}"#)
+        #expect(String(decoding: try v.encodedYAML(), as: UTF8.self).contains("a: x"))
+        // The root element name comes from the type's own name, which is nested here.
+        #expect(String(decoding: try v.encodedXML(declaration: false), as: UTF8.self)
+                    .contains("<a>x</a>"))
+        #expect(String(decoding: try v.encodedTOML(), as: UTF8.self).contains(#"a = "x""#))
+        #expect(Full.jsonSchemaText().contains("\"a\""))
+        #expect(try Full.parse(yaml: "a: z") == Full(a: "z"))
+        #expect(try Full.parse(toml: #"a = "t""#) == Full(a: "t"))
+        #expect(try Full.parse(body: Array(#"{"a":"y"}"#.utf8),
+                               contentType: "application/json",
+                               accepting: [.json]) == Full(a: "y"))
     }
 }

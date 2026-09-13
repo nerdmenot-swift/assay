@@ -258,8 +258,6 @@ extension IssueCode {
     public static let xmlBadPiTarget = IssueCode.custom("xml_bad_pi_target")
     /// `xml_entity_expansion_limit` — "entity expansion limit exceeded".
     public static let xmlEntityExpansionLimit = IssueCode.custom("xml_entity_expansion_limit")
-    /// `xml_expected_element` — "expected an element".
-    public static let xmlExpectedElement = IssueCode.custom("xml_expected_element")
     /// `xml_expected_equals` — "expected '=' after attribute name".
     public static let xmlExpectedEquals = IssueCode.custom("xml_expected_equals")
     /// `xml_external_dtd_ignored` — "external DTD subset ignored (never fetched)".

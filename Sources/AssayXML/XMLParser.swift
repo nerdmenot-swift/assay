@@ -186,10 +186,13 @@ extension XML {
                 r.report(&sink, .depthExceeded, params: ["maxDepth": .int(limits.maxDepth)])
                 return nil
             }
-            guard r.consume("<") else {
-                r.report(&sink, .xmlExpectedElement)
-                return nil
-            }
+            // NO `guard r.consume("<")` HERE, and that is deliberate. Both call sites
+            // (the root, above, and the child loop below) already establish that the
+            // current byte is `<` before calling, so the guard could not fail — and a
+            // check that cannot fail reads exactly like a check that passed. It was
+            // removed on 2026-09-13 along with its `xml_expected_element` code, which
+            // `IssueCodeCoverageTests` had listed as unprovokable for that reason.
+            r.advanceBy(1)
 
             let nameStart = r.byteOffset
             guard let nameRange = scanNameRange(&r) else {

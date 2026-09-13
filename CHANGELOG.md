@@ -13,6 +13,11 @@ stable for two minor versions with no entry under **Breaking**.
 
 ### Breaking
 
+- **`IssueCode.xml_expected_element` is removed.** It was unreachable: both of the XML
+  parser's `parseElement` call sites already establish that the current byte is `<` before
+  calling, so the guard inside it could never fail. The guard is gone too — a check that
+  cannot fail reads exactly like a check that passed. No document ever produced this code,
+  so nothing that switches on codes can regress; a `case` for it becomes dead.
 - **`AssayReader.reportMalformed(_:_:)` gained an `expected:` parameter** (defaulted, so
   every existing *source* call still compiles — but the mangled symbol changes, so this is
   an ABI break and `diagnose-api-breaking-changes` reports it). It is public because

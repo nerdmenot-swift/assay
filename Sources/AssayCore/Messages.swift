@@ -55,7 +55,6 @@ extension IssueValue {
 func internalCustomMessage(_ code: String) -> String? {
     switch code {
     case "xml_no_root": return "document has no root element"
-    case "xml_expected_element": return "expected an element"
     case "xml_bad_name": return "invalid name"
     case "xml_bad_attribute_name": return "invalid attribute name"
     case "xml_expected_equals": return "expected '=' after attribute name"

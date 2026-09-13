@@ -34,8 +34,16 @@ step() {
 warnings() {
     find Sources -name '*.swift' -exec touch {} +
     local log
-    log=$(swift build --build-tests 2>&1) || { echo "$log"; return 1; }
-    if grep -q "warning:" <<<"$log"; then grep "warning:" <<<"$log"; return 1; fi
+    # On failure print the WHOLE log: the reason is in there, and a caller grepping the
+    # script's output for "ok/FAILED" will otherwise see a failure with no cause.
+    log=$(swift build --build-tests 2>&1) || { printf '%s\n' "$log"; return 1; }
+    # `ld: warning:` is the linker complaining about deployment targets in the toolchain's
+    # own dylibs. It is environmental, says nothing about this package, and is not something
+    # a contributor can act on — so it must not fail the check that exists for SOURCE
+    # warnings. A bare grep for "warning:" catches it.
+    local w
+    w=$(grep "warning:" <<<"$log" | grep -v "^ld: warning:") || true
+    if [ -n "$w" ]; then printf '%s\n' "$w"; return 1; fi
 }
 
 step "build (warning-free, forced)"   warnings

@@ -102,6 +102,8 @@ let package = Package(
                 // differential: Yams is what a Swift project would otherwise use.
                 .product(name: "Yams", package: "Yams"),
                 .product(name: "AssayTOML", package: "assay"),
+                // Added 2026-09-13 for the `coverage` arm: plists had no benchmark at all.
+                .product(name: "AssayPlist", package: "assay"),
                 .product(name: "TOMLKit", package: "TOMLKit"),
                 // The comparison the falsification condition names. See the dependency note.
                 .product(name: "ZippyJSON", package: "ZippyJSON"),

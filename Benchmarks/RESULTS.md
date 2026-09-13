@@ -25,9 +25,14 @@ work rather than more memory — see [the efficiency audit](#doing-less-not-spen
 | YAML node parse | **6.56×** | Yams `compose` | [YAML and XML](#yaml-and-xml-timed-for-the-first-time) |
 | YAML struct decode | **11.09×** | Yams `YAMLDecoder` | same |
 | XML tree parse | **2.33×** (macOS; **0.96×** on Linux) | Foundation `XMLParser` | [XML, made faster](#making-the-xml-parser-faster-by-profiling-rather-than-by-admiring-libxml2) |
-| TOML node parse | **1.20×** | toml++ via TOMLKit | [TOML](#toml-a-fourth-tree-decoder-against-c) |
-| TOML struct decode | **1.97×** | TOMLKit `TOMLDecoder` | same |
-| `Date` fields | **6.06×** | `JSONDecoder` + `.iso8601` | [Dates](#dates-the-unclaimed-win-claimed) |
+| TOML node parse | **1.42×** | toml++ via TOMLKit | [TOML](#toml-a-fourth-tree-decoder-against-c) |
+| TOML struct decode | **2.30×** | TOMLKit `TOMLDecoder` | same |
+| `Date` fields | **8.04×** | `JSONDecoder` + `.iso8601` | [Dates](#dates-the-unclaimed-win-claimed) |
+| binary plist | **~5.7×** | Foundation `PropertyListDecoder` | [coverage](#the-arms-that-did-not-exist) |
+| XML plist | **~1.4×** | Foundation `PropertyListDecoder` | same |
+| union vs its variant | **1.17×** (the tag scan) | the variant decoded directly | same |
+| `@Inline` vs nesting | **0.82×** (faster) | the nested `@Schema` it replaces | same |
+| `@Wraps` vs `@Validate` | **2.03×** (slower) | the plain field + rule it is sugar for | same |
 | encoding, 50 / 200 items | **2.98× / 2.80×** | `JSONEncoder` | `docs/ENCODING.md` |
 | cold start, 60 types | **7.8×** first decode (median); 6.4× steady | `JSONDecoder` | `ColdStartBench.swift` |
 | multi-megabyte documents | **10.0–10.3×**, ~1,050 MB/s, flat | `JSONDecoder` | `LargeDocBench.swift` |
@@ -1971,3 +1976,50 @@ without**. I had made the common case 24% worse in order to fix the adversarial 
 All three are thresholded now — 16 attributes, 24 merged pairs, 8×8 fields — with the
 original allocation-free scan below and the hash above, and both ends measured. A hash is
 not free, and a fix measured only against the input it was written for is half a fix.
+
+
+---
+
+## The arms that did not exist
+
+**2026-09-13.** The audit on 09-12 listed five surfaces with no benchmark arm — property
+lists, the XML→`RawValue` projection, unions, `@Inline`, `@Wraps` — and the point was not
+that they were slow. It was that nothing would move if they became slow.
+
+The XML projection is the proof. It had no arm, and a profile the next day found it
+building the full member list for a **leaf** element and then discarding it: 0.0123 s
+against 0.0030 s over 100,000 leaves. A 4× regression had shipped in a step nobody timed.
+
+`swift run -c release AssayBench coverage`. Every number has an owner in the same run —
+Foundation where a competitor exists, and otherwise the alternative a developer would
+write instead, because a bare ns/op has no reader.
+
+| | number | against |
+|---|---|---|
+| binary plist, 200 rows | **5.55–6.03×** | `PropertyListDecoder` |
+| XML plist, 200 rows | **1.33–1.49×** | `PropertyListDecoder` |
+| XML→`RawValue`, 2,000 leaves | **93 µs** on top of 180 µs of parse | the parse alone |
+| XML→`RawValue`, 2,000 nested | **165 µs** on top of 344 µs of parse | same |
+| tagged union | **1.15–1.20×** | the variant decoded directly |
+| `@Inline` | **0.81–0.83×** | the nested `@Schema` it replaces |
+| `@Wraps` | **1.99–2.08×** | the plain field plus the rule it is sugar for |
+
+Three of these say something worth reading.
+
+**`@Inline` is faster than the nesting it replaces**, at 0.82×. That is the design claim
+holding: one table, one mask, one pass, against a nested type's own dispatch.
+
+**The projection is about half the cost of the parse that feeds it** — on the leaf shape,
+93 µs against 180 µs. It is the step every YAML, XML, TOML and plist struct decode goes
+through, and it now has a number that would move.
+
+**`@Wraps` costs 2× the plain field plus rule it is sugar for**, and that is the one
+number here that a reader should act on. It is not a contradiction of `EXPERIENCE.md` §8,
+which claims the two produce *identical issues* and says nothing about cost — but "sugar"
+reads as "free" and this one is not. `@Wraps` is sugar over `AssayerBacked`, which is a
+runtime plan rather than the monomorphic body `@Schema` emits, so the gap is the design's
+and not a defect. On a hot path, spell the field out.
+
+The plist rows are the first numbers property lists have ever had. Binary is where the
+work went (a random-access object graph, no text to scan); the XML flavour rides the
+XXE-refusing XML parser and lands where that parser lands.

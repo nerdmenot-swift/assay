@@ -48,6 +48,7 @@ let arms: [Arm] = [
     Arm(name: "simd", summary: "the SIMD-tier baseline (yyjson)") { runSIMDBaselineBenchmarks(corpusDir: corpusDir, sizes: sizes); return true },
     Arm(name: "decomposition", summary: "where decode time goes") { runDecompositionBenchmarks(corpusDir: corpusDir, sizes: sizes); return true },
     Arm(name: "dict", summary: "[String: T] dictionary fields") { runDictionaryBenchmarks(corpusDir: corpusDir, sizes: sizes); return true },
+    Arm(name: "coverage", summary: "plists, XML→RawValue, unions, @Inline, @Wraps") { runCoverageBenchmarks() },
 ]
 
 @MainActor

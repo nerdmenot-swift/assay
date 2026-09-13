@@ -19,6 +19,17 @@
 // `AssayReader`) because macros are not hygienic.
 //===----------------------------------------------------------------------===//
 
+/// The presence bit for field `i`, as a `UInt64` for the generated source.
+///
+/// **Not `1 << UInt64(i)`.** Inside a string interpolation that expression has no type
+/// context, so the `1` defaults to `Int` and bit 63 lands on the sign bit: the macro then
+/// emitted `-9223372036854775808` into a `UInt64` presence mask, and a 64-field type — the
+/// documented maximum, named in `@Schema`'s own refusal message — did not compile at all.
+/// 63 fields worked and 64 did not, which is the kind of boundary nothing reaches by
+/// accident. Found 2026-09-13 by a field-count sweep built to test something else.
+@inlinable
+func presenceBit(_ i: Int) -> UInt64 { UInt64(1) << UInt64(i) }
+
 extension SchemaMacro {
 
     static func decodeBody(
@@ -131,7 +142,7 @@ extension SchemaMacro {
         for (i, f) in fields.enumerated()
         where f.pathSegments == nil && (requiredMask & (1 << UInt64(i))) != 0 {
             missing += """
-                    if __presence & \(1 << UInt64(i)) == 0 {
+                    if __presence & \(presenceBit(i)) == 0 {
                         reader._missingRequired(&sink, path, "\(f.wireKey)")
                     }
 
@@ -289,13 +300,13 @@ extension SchemaMacro {
         for (i, f) in fields.enumerated() where f.pathSegments == nil {
             out.append(DispatchEntry(
                 keys: [f.wireKey] + f.aliases,
-                body: pad + "__presence |= \(1 << UInt64(i))\n"
+                body: pad + "__presence |= \(presenceBit(i))\n"
                     + decodeStatement(field: f, index: i, indent: 24, ctx: ctx)))
         }
         for (g, group) in groups.enumerated() {
             out.append(DispatchEntry(
                 keys: [group.segment],
-                body: pad + "__gpresence |= \(1 << UInt64(g))\n"
+                body: pad + "__gpresence |= \(presenceBit(g))\n"
                     + pathDescent(group.node, fields: fields, prefix: [group.segment],
                                   depth: 0, indent: 24, ctx: ctx)))
         }
@@ -326,7 +337,7 @@ extension SchemaMacro {
         for (seg, i) in node.leaves {
             arms += """
             \(pad)                if reader.keyMatches(\(key), "\(seg)") {
-            \(pad)                    __presence |= \(1 << UInt64(i))
+            \(pad)                    __presence |= \(presenceBit(i))
             \(decodeStatement(field: fields[i], index: i, indent: indent + 20, ctx: ctx))
             \(pad)                } else
 
@@ -335,7 +346,7 @@ extension SchemaMacro {
         for (seg, child) in node.children {
             arms += """
             \(pad)                if reader.keyMatches(\(key), "\(seg)") {
-            \(pad)                    __gpresence |= \(1 << UInt64(child.bit))
+            \(pad)                    __gpresence |= \(presenceBit(child.bit))
             \(pathDescent(child, fields: fields, prefix: prefix + [seg],
                           depth: depth + 1, indent: indent + 20, ctx: ctx))
             \(pad)                } else

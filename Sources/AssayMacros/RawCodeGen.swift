@@ -91,7 +91,7 @@ extension SchemaMacro {
             var first = true
             for (i, f, key) in byLength[len]! {
                 checks += "\(first ? "" : " else ")if __k == \"\(key)\" {\n"
-                checks += "                    __presence |= \(1 << UInt64(i))\n"
+                checks += "                    __presence |= \(presenceBit(i))\n"
                 if key != f.wireKey, !key.isEmpty {
                     checks += "                    Assay._assayAliasMatched(&sink, path, \"\(f.wireKey)\", \"\(key)\")\n"
                 }
@@ -114,7 +114,7 @@ extension SchemaMacro {
         for (i, f) in fields.enumerated()
         where f.pathSegments == nil && (requiredMask & (1 << UInt64(i))) != 0 {
             missing += """
-                    if __presence & \(1 << UInt64(i)) == 0 {
+                    if __presence & \(presenceBit(i)) == 0 {
                         Assay.RawValue._missing(&sink, path, "\(f.wireKey)")
                     }
 
@@ -463,7 +463,7 @@ extension SchemaMacro {
             let span = rawNeedsSpan(f) ? "\(pad)            __sp\(i) = __m.span\n" : ""
             body += """
             \(pad)        if __m.key == "\(seg)" {
-            \(pad)            __presence |= \(1 << UInt64(i))
+            \(pad)            __presence |= \(presenceBit(i))
             \(span)\(pad)            \(rawDecodeStatement(field: f, index: i, ctx: ctx))
             \(pad)        }
 
@@ -481,7 +481,7 @@ extension SchemaMacro {
         return """
         \(pad)if let \(v) = \(source).first(where: { $0.key == "\(segment)" })?.value {
         \(pad)    if case .mapping(let \(mm)) = \(v) {
-        \(pad)        __gpresence |= \(1 << UInt64(n.bit))
+        \(pad)        __gpresence |= \(presenceBit(n.bit))
         \(pad)        for __m in \(mm) {
         \(pad)            let __v = __m.value
         \(pad)            _ = __v
@@ -519,7 +519,7 @@ extension SchemaMacro {
 
         var inner = ""
         for (seg, i) in n.leaves where PathTree.isRequired(fields[i]) {
-            inner += "\(pad)    if __presence & \(1 << UInt64(i)) == 0 {\n"
+            inner += "\(pad)    if __presence & \(presenceBit(i)) == 0 {\n"
                 + "\(pad)        Assay.RawValue._missing(&sink, \(here), \"\(seg)\")\n"
                 + "\(pad)    }\n"
         }
@@ -530,11 +530,11 @@ extension SchemaMacro {
         guard !inner.isEmpty else { return "" }
 
         if PathTree.requiresAnything(n, fields) {
-            return "\(pad)if __gpresence & \(1 << UInt64(n.bit)) == 0 {\n"
+            return "\(pad)if __gpresence & \(presenceBit(n.bit)) == 0 {\n"
                 + "\(pad)    Assay.RawValue._missing(&sink, \(parentPath), \"\(segment)\")\n"
                 + "\(pad)} else {\n" + inner + "\(pad)}\n"
         }
-        return "\(pad)if __gpresence & \(1 << UInt64(n.bit)) != 0 {\n" + inner + "\(pad)}\n"
+        return "\(pad)if __gpresence & \(presenceBit(n.bit)) != 0 {\n" + inner + "\(pad)}\n"
     }
 
 }

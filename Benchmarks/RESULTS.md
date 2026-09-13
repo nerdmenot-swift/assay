@@ -2153,7 +2153,77 @@ confirms the efficiency audit's estimate of ~8% for a whitespace skipper** — a
 made in August and never checked, which turns out to have been right and to describe an
 opportunity too small to take.
 
-### Two anomalies the matrix exists to surface, and neither is explained yet
+### What the anomalies turned out to be
+
+The first run reported two: per-field decode cost that was not monotonic in field count, and
+an unknown-key skip that seemed to save less as more fields were skipped. Both were one
+question, and the answer was better than either.
+
+**They were the same number.** Modelling a skipped field as a constant cost and a decoded
+field as a per-shape cost fits the two `skip` cells to 0.1%: skipping is a flat **6.7 ns per
+field** and it is *decoding* that varied. So there was one question — why did a field cost
+14.8 ns at twenty fields and 9.2 at a hundred?
+
+**Because the hundred-field row was not decoding a hundred fields.** `@Schema` accepts at
+most 64, so the matrix's own shape/type dispatch fell through to the 20-field type and
+measured twenty decoded fields plus eighty structurally skipped ones. The model predicts that
+cell at 835 ns against 918 measured. The row was removed, and the field-count axis moved to
+`AssayBench fieldsweep` where key width is held constant and every count is inside the real
+ceiling. A harness that measures the wrong thing is worse than no harness, and this one did
+it within a day of being built — which is the argument for checking a surprising number
+before believing it, not the argument against the tool.
+
+### The field-count sweep, and the thing it found
+
+`swift run -c release AssayBench fieldsweep`. Keys are three bytes throughout and values one,
+so ns/field is the cost of FINDING a field rather than reading it.
+
+| fields | ns/field | | fields | ns/field |
+|---|---|---|---|---|
+| 2 | 16.86 | | 14 | 15.22 |
+| 4 | 15.62 | | 16 | 15.45 |
+| 6 | 14.27 | | 20 | 15.90 |
+| 8 | 14.36 | | 24 | 17.42 |
+| 9 | **14.25** | | 32 | 18.25 |
+| 10 | **15.14** | | 48 | 20.32 |
+| 11 | 14.07 | | 64 | **22.87** |
+| 12 | 14.52 | | | |
+
+**There is no discontinuity at ten fields.** Experiment #1 established by reading assembly
+that a switch over a `UInt8` candidate index becomes a real arm64 jump table at N ≥ 10 and a
+balanced search tree below; 9 → 10 costs **+6%**, inside the general drift. The table exists
+and it does not announce itself.
+
+What the curve does instead is **rise by 60% from nine fields to sixty-four**, and that has a
+cause worth the whole exercise:
+
+> **The window dispatch stops working between 11 and 13 fields.** After that, every field
+> lookup is a linear chain of `keyMatches` calls.
+
+`WindowSearch` looks for a single 8-bit window — one `(byteOffset, shift)` pair — whose value
+is DISTINCT across every key. That is a birthday bound: with more keys competing for 256
+slots a collision becomes near-certain, and for keys sharing a prefix, sooner. Measured by
+expanding the macro and reading which dispatch it emitted:
+
+| fields | `k00…` (same length, same prefix) | realistic names |
+|---|---|---|
+| ≤ 10 | window | window |
+| 11–12 | **linear** | window |
+| ≥ 13 | **linear** | **linear** |
+
+The fallback buckets by byte length and then compares linearly inside the bucket. That is
+better than `switch` over a `String` — rule 1's hazard — because `keyMatches` is a byte
+compare and length bucketing is free. It is still O(bucket) per key on a path whose entire
+design is O(1), and it is undocumented: `CLAUDE.md` presents window dispatch as *the* design
+without saying it has a ceiling of about a dozen fields.
+
+**The fix is sized and it is small.** Give each length bucket its own window search instead of
+a linear chain. Buckets are small because real key names vary in length, and a window that
+cannot separate twenty-four keys separates seven easily. Checked statically against a
+realistic key set: at 13, 16, 20 and 24 fields the global search fails every time, and a
+per-bucket search succeeds for **every bucket**, the largest holding seven keys.
+
+### The two anomalies as first reported, kept for the record
 
 **Per-field cost is not monotonic in field count.**
 

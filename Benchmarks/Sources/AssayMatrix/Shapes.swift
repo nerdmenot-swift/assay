@@ -97,8 +97,16 @@ func allShapes() -> [Shape] {
     add("base", "—", document((0..<n).map { _ in
         stringElement(fields: 5, key: shortKey, value: shortValue) }))
 
-    // ---- field count: the jump-table axis ----
-    for fields in [2, 20, 100] {
+    // ---- field count ----
+    //
+    // 2 and 20 only. There WAS a `fields-100` here and it was a lie: `@Schema` accepts at
+    // most 64 fields, so the shape fell through to the 20-field type and measured "20
+    // decoded plus 80 structurally skipped" while calling itself a hundred-field decode.
+    // It produced two convincing anomalies — a non-monotonic per-field cost and a skip path
+    // that seemed to scale backwards — and both dissolved the moment the type was checked.
+    // The axis has a proper home now in `AssayBench fieldsweep`, where key width is held
+    // constant and every count is inside the real ceiling.
+    for fields in [2, 20] {
         add("fields-\(fields)", "field count \(fields)", document((0..<n).map { _ in
             stringElement(fields: fields, key: shortKey, value: shortValue) }))
     }

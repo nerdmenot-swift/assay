@@ -155,7 +155,7 @@ enum PathTree {
         // Leaves that must exist once this object does.
         var inner = ""
         for (seg, i) in n.leaves where isRequired(fields[i]) {
-            inner += "\(pad)    if __presence & \(1 << UInt64(i)) == 0 {\n"
+            inner += "\(pad)    if __presence & \(presenceBit(i)) == 0 {\n"
                 + "\(pad)        reader._missingRequired(&sink, \(here), \"\(seg)\")\n"
                 + "\(pad)    }\n"
         }
@@ -171,11 +171,11 @@ enum PathTree {
         // The object itself. Reported at the PARENT path naming this segment, which is the
         // difference between "profile is missing" and the false "profile.display_name is".
         if requiresAnything(n, fields) {
-            return "\(pad)if __gpresence & \(1 << UInt64(n.bit)) == 0 {\n"
+            return "\(pad)if __gpresence & \(presenceBit(n.bit)) == 0 {\n"
                 + "\(pad)    reader._missingRequired(&sink, \(parentPath), \"\(segment)\")\n"
                 + "\(pad)} else {\n" + inner + "\(pad)}\n"
         }
-        return "\(pad)if __gpresence & \(1 << UInt64(n.bit)) != 0 {\n" + inner + "\(pad)}\n"
+        return "\(pad)if __gpresence & \(presenceBit(n.bit)) != 0 {\n" + inner + "\(pad)}\n"
     }
 
     /// A field whose absence is an issue: not optional, no default, no `@Fallback`.

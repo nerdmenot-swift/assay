@@ -54,8 +54,7 @@ struct Task {
 private func decodeStruct(_ shape: String, _ b: [UInt8]) -> Int? {
     switch shape {
     case "fields-2":          return (try? Doc2.parse(json: b)).map { $0.items.count }
-    case "fields-20", "fields-100":
-                              return (try? Doc20.parse(json: b)).map { $0.items.count }
+    case "fields-20":         return (try? Doc20.parse(json: b)).map { $0.items.count }
     case "keys-long":         return (try? DocLongKeys.parse(json: b)).map { $0.items.count }
     case "values-int":        return (try? DocInt.parse(json: b)).map { $0.items.count }
     case "values-double":     return (try? DocDouble.parse(json: b)).map { $0.items.count }
@@ -71,8 +70,7 @@ private func decodeStruct(_ shape: String, _ b: [UInt8]) -> Int? {
 private func diagnoseStruct(_ shape: String, _ b: [UInt8]) -> Int? {
     switch shape {
     case "fields-2":          return Doc2.diagnose(json: b).value?.items.count
-    case "fields-20", "fields-100":
-                              return Doc20.diagnose(json: b).value?.items.count
+    case "fields-20":         return Doc20.diagnose(json: b).value?.items.count
     case "keys-long":         return DocLongKeys.diagnose(json: b).value?.items.count
     case "values-int":        return DocInt.diagnose(json: b).value?.items.count
     case "values-double":     return DocDouble.diagnose(json: b).value?.items.count
@@ -95,7 +93,7 @@ private func diagnoseElements(_ shape: String, _ b: [UInt8]) -> Int? {
 /// Shapes whose values are strings, so the two-field prefix type is a genuine skip rather
 /// than a type mismatch.
 let stringValuedShapes: Set<String> = [
-    "base", "fields-2", "fields-20", "fields-100", "values-long",
+    "base", "fields-2", "fields-20", "values-long",
     "escapes-10", "escapes-100", "nested-3", "array-10", "unknown-5", "pretty",
     "errors-1", "errors-10", "errors-100",
 ]

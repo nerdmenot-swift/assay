@@ -389,6 +389,23 @@ public macro Check<Root, Value>(_ keyPath: KeyPath<Root, Value>) =
 public macro AsyncCheck() = #externalMacro(module: "AssayMacros", type: "CheckMacro")
 
 
+/// The field form, for a check that needs a round trip to answer — "is this address
+/// already registered?" is a field check that happens to need a database:
+///
+///     @AsyncCheck(\Signup.email)
+///     static func unique(_ email: String) async -> String? {
+///         await db.exists(email) ? "is already registered" : nil
+///     }
+///
+/// This overload exists because `@Check` has one and writing the sibling by analogy is
+/// what a developer does. Until 2026-09-13 it did not, and `@AsyncCheck(\S.a)` produced
+/// "argument passed to macro expansion that takes no arguments" followed by a type error
+/// and a warning INSIDE the expansion — four diagnostics for one reasonable guess.
+@attached(peer)
+public macro AsyncCheck<Root, Value>(_ keyPath: KeyPath<Root, Value>) =
+    #externalMacro(module: "AssayMacros", type: "CheckMacro")
+
+
 /// Normalise a string before its rules run: `@Preprocess(.trim, .lowercase)`.
 /// Runs on the wire value, before validation — the other side of `@Transform`.
 @attached(peer)

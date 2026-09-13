@@ -30,6 +30,21 @@ stable for two minor versions with no entry under **Breaking**.
 
 ### Added
 
+- **`@AsyncCheck(\Type.field)`** — the field form, which `@Check` has had all along. A check
+  that needs a round trip to answer is very often a field check ("is this address already
+  registered?"). Writing the sibling by analogy previously produced four diagnostics, two of
+  them inside the expansion.
+
+### Fixed
+
+- **A `@Check`/`@AsyncCheck` on a backticked property** (`` var `default`: Int ``) matched
+  nothing, because the lookup compared the unbackticked key-path name against the backticked
+  identifier — so the check silently lost its caret.
+- **A warning in generated code.** A field targeted only by an *async* field check requested
+  a source span that `_assayAsyncChecks` cannot read — it runs after the decode body returns,
+  and the spans are that body's locals — so the expansion emitted a variable written and
+  never read, in the user's build.
+
 - **Four attribute combinations are now refused** instead of being silently ignored:
   `@Key` on an `@Extras` bag, `@Key(path:)` beside `@Inline`, `@Coerce` on a non-scalar,
   and `@XML(.attribute)`/`@XML(.text)` on an array or dictionary in a decode-only schema

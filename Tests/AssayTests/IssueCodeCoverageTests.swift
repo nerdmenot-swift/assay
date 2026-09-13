@@ -408,3 +408,65 @@ struct InvalidEscapeTests {
         #expect(issues(#"{"a":"ok\n","b":2}"#).isEmpty)
     }
 }
+
+//===----------------------------------------------------------------------===//
+// `@AsyncCheck` in both forms. The field form did not exist until 2026-09-13: `@Check`
+// had one, writing the sibling by analogy is what a developer does, and `@AsyncCheck(\S.a)`
+// produced "argument passed to macro expansion that takes no arguments" followed by a type
+// error and a WARNING, both inside the expansion — four diagnostics for one fair guess.
+//
+// A check that needs a round trip to answer is very often a field check ("is this address
+// already registered?"), so the answer is the overload, not a better refusal.
+//===----------------------------------------------------------------------===//
+
+@Suite("@AsyncCheck, both forms")
+struct AsyncCheckFormTests {
+
+    @Schema struct Signup: Equatable {
+        var email: String
+        var name: String
+
+        @AsyncCheck(\Signup.email)
+        static func unique(_ e: String) async -> String? {
+            e == "taken@x.com" ? "is already registered" : nil
+        }
+
+        @AsyncCheck
+        static func distinct(_ v: Signup, _ issues: inout Issues<Signup>) async {
+            if v.name == v.email { issues.add("must differ from the email", at: \.name) }
+        }
+    }
+
+    @Test("a clean document runs both and reports nothing")
+    func clean() async {
+        let d = await Signup.diagnose(json: Array(#"{"email":"free@x.com","name":"n"}"#.utf8))
+        #expect(d.issues.isEmpty, "\(d.issues.map(\.message))")
+        #expect(d.value == Signup(email: "free@x.com", name: "n"))
+    }
+
+    /// Both forms fail on the same document, and each reports at its own field — the field
+    /// form through the key path it was given, the cross-field form through the one the
+    /// check passed to `issues.add(at:)`.
+    @Test("the field form and the cross-field form each report at their own field")
+    func bothReport() async {
+        let d = await Signup.diagnose(
+            json: Array(#"{"email":"taken@x.com","name":"taken@x.com"}"#.utf8))
+        // Compare paths as values: `PathComponent` is Equatable, and its `description`
+        // is a debug rendering that is not a contract.
+        #expect(d.issues.count == 2, "\(d.issues.map(\.message))")
+        let email = d.issues.first { $0.path == [.key("email")] }
+        let name = d.issues.first { $0.path == [.key("name")] }
+        #expect(email?.message == "is already registered",
+                "\(d.issues.map { ($0.path, $0.message) })")
+        #expect(name?.message == "must differ from the email",
+                "\(d.issues.map { ($0.path, $0.message) })")
+    }
+
+    /// Async checks run only on a clean sync pass — spending a round trip on a value that
+    /// already failed is waste (EXPERIENCE.md §11).
+    @Test("a failed sync pass skips the async checks entirely")
+    func syncGatesAsync() async {
+        let d = await Signup.diagnose(json: Array(#"{"email":"taken@x.com"}"#.utf8))
+        #expect(d.issues.map(\.code) == [.missing], "\(d.issues.map(\.message))")
+    }
+}

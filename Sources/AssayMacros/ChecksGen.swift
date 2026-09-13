@@ -162,12 +162,14 @@ extension SchemaMacro {
         for check in sync {
             if let field = check.fieldIdentifier {
                 // Field form: static func f(_ x: FieldType) -> String?
-                let wire = fields.first { $0.identifier == field }?.wireKey ?? field
-                let span = spans, idx = indexOf[field]
+                let target = fields.first { $0.name == field }
+                let wire = target?.wireKey ?? field
+                let member = target?.identifier ?? field
+                let span = spans, idx = indexOf[member]
                 let spanExpr = (span && idx != nil && fields[idx!].needsSpan)
                     ? "__sp\(idx!)" : "nil"
                 out += """
-                    if let __m = Self.\(check.functionName)(__result.\(field)\(ctxArg)) {
+                    if let __m = Self.\(check.functionName)(__result.\(member)\(ctxArg)) {
                         sink.add(Assay.Issue(code: .custom(__m),
                                              path: path + [.key("\(wire)")],
                                              location: \(spanExpr)))
@@ -191,14 +193,29 @@ extension SchemaMacro {
     /// runs first and collects everything; async checks run only if the sync pass was
     /// clean, and then concurrently (EXPERIENCE.md §10's ordering, stated precisely).
     static func asyncCheckRunner(_ typeName: String, _ checks: [CheckDecl],
+                                fields: [SchemaField] = [],
                                 ctx: String = "") -> String {
         let ctxParam = ctx.isEmpty ? "" : ",\n            context: \(ctx)"
         let ctxArg = ctx.isEmpty ? "" : ", context"
         let asyncs = checks.filter(\.isAsync)
         guard !asyncs.isEmpty else { return "" }
 
-        let tasks = asyncs.map { check in
-            """
+        let tasks = asyncs.map { check -> String in
+            // FIELD FORM, mirroring the sync emitter. `Issues.add(_:at:)` maps the key path
+            // through `__assayFieldNames`, so the wire key comes out right without the
+            // runner having to know it.
+            if let field = check.fieldIdentifier {
+                let member = fields.first { $0.name == field }?.identifier ?? field
+                return """
+                        group.addTask {
+                            var __i = Assay.Issues<\(typeName)>(names: Self.__assayFieldNames)
+                            if let __m = await Self.\(check.functionName)(
+                                __value.\(member)\(ctxArg)) { __i.add(__m, at: \\.\(member)) }
+                            return __i
+                        }
+                """
+            }
+            return """
                     group.addTask {
                         var __i = Assay.Issues<\(typeName)>(names: Self.__assayFieldNames)
                         await Self.\(check.functionName)(__value\(ctxArg), &__i)

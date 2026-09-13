@@ -362,11 +362,21 @@ public struct SchemaMacro: ExtensionMacro {
         // @Check / @AsyncCheck members, and span requirements they add.
         let checkDecls = Self.checks(in: structDecl, fields: activeC,
                                      hasContext: config.isContextual, context: context)
-        let checkedFields = Set(checkDecls.compactMap(\.fieldIdentifier))
+        // ONLY A SYNCHRONOUS field check can use a span. `_assayAsyncChecks` runs after the
+        // decode body has returned, and the `__sp` locals are that body's locals — there is
+        // nothing for the async runner to read even in principle. Requesting one anyway
+        // emitted `__sp0 = reader.lastValueSpan` with no reader, which is a warning in
+        // GENERATED code and therefore the user's warning (CLAUDE.md rule: fix it in
+        // AssayMacros, never suppress it at the use site).
+        //
+        // The comparison is against `name`, not `identifier`: `fieldIdentifier` is
+        // unbackticked, so a field spelled `` `default` `` never matched and silently lost
+        // its caret.
+        let checkedFields = Set(checkDecls.filter { !$0.isAsync }.compactMap(\.fieldIdentifier))
         var activeS = activeC
         for i in activeS.indices {
             activeS[i].needsSpan = !activeS[i].validations.isEmpty
-                || checkedFields.contains(activeS[i].identifier)
+                || checkedFields.contains(activeS[i].name)
         }
 
         guard Self.checkValidations(activeS, node: node, context: context) else {
@@ -491,7 +501,7 @@ public struct SchemaMacro: ExtensionMacro {
             body += Self.describeBody(typeName: typeName, fields: activeS,
                                       policy: a.policy, groups: a.pathGroups)
         }
-        body += Self.asyncCheckRunner(typeName, a.checks, ctx: ctxType)
+        body += Self.asyncCheckRunner(typeName, a.checks, fields: activeS, ctx: ctxType)
 
         // A type that would expand to NOTHING AT ALL is always a mistake, and it is the
         // only reason `formats: []` needs guarding — said here, where the diagnostic can

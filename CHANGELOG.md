@@ -30,6 +30,12 @@ stable for two minor versions with no entry under **Breaking**.
 
 ### Added
 
+- **Missing-capability errors name the fix instead of an internal protocol.** Calling
+  `parse(yaml:)`, `parse(xml:)`, `parse(toml:)`, `parse(plist:)`, `parse(body:)`,
+  `encodedJSON()`/`encodedYAML()`/`encodedXML()`/`encodedTOML()` or `jsonSchema(for:)` on a
+  schema that did not opt in used to report `requires that 'Article' conform to
+  'RawDecodable'`. Each now says which `@Schema` argument to add. `@XML(root:)`'s refusal has
+  read that way since it shipped; this is the rest of the doors catching up.
 - **`@AsyncCheck(\Type.field)`** — the field form, which `@Check` has had all along. A check
   that needs a round trip to answer is very often a field check ("is this address already
   registered?"). Writing the sibling by analogy previously produced four diagnostics, two of

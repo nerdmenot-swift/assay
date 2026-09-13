@@ -933,6 +933,14 @@ try Config.parse(body, contentType: header, accepting: [.json, .yaml])
 
 `accepting:` is required, with no default. A single function that sniffs a header and dispatches to any available parser turns an XML external-entity attack, a billion-laughs expansion, or a YAML tag exploit into a one-line vulnerability in an application whose author only ever meant to accept JSON. Making the allowed set explicit costs one array literal and closes the whole category.
 
+**This door needs a non-JSON `formats:`, even for `accepting: [.json]`.** Negotiation picks a
+parser at *run time* from the array you pass, so the entry point requires the `RawValue`
+projection whatever that array turns out to hold — the compiler cannot see that a `[WireFormat]`
+contains only `.json`. A schema declared `@Schema` (JSON only) therefore cannot call it; add
+`formats: .all`, or one of `.yaml`/`.xml`/`.toml`. This was undocumented until 2026-09-13, and
+the error said `requires that 'Config' conform to 'RawDecodable'` — a protocol you never wrote.
+It now says what to add.
+
 ### YAML
 
 The parser is hand-written and pure Swift, not a libyaml binding. Multi-document files,

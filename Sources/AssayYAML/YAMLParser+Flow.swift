@@ -21,6 +21,7 @@ extension YAML.Parser {
         }
         r.advanceBy(1)                                   // [
         var items: [YAML.Node] = []
+        items.reserveCapacity(hints.items(at: depth))
         while true {
             skipBlanksAndComments(&r)
             guard let c = r.currentByte else {
@@ -47,7 +48,7 @@ extension YAML.Parser {
             // Falling through on anything else was the other half of the hang.
             switch r.currentByte {
             case UInt8(ascii: ","): r.advanceBy(1)
-            case UInt8(ascii: "]"): r.advanceBy(1); return .sequence(items)
+            case UInt8(ascii: "]"): r.advanceBy(1); hints.setItems(items.count, at: depth); return .sequence(items)
             case nil:
                 r.report(&sink, .yamlUnterminatedFlowSequence)
                 return nil
@@ -56,7 +57,7 @@ extension YAML.Parser {
                 return nil
             }
         }
-        return .sequence(items)
+        hints.setItems(items.count, at: depth); return .sequence(items)
     }
 
     mutating func parseFlowMapping(
@@ -67,6 +68,7 @@ extension YAML.Parser {
         }
         r.advanceBy(1)                                   // {
         var pairs: [YAML.Pair] = []
+        pairs.reserveCapacity(hints.members(at: depth))
         var mergeSources: [YAML.Node] = []
         while true {
             skipBlanksAndComments(&r)
@@ -105,7 +107,7 @@ extension YAML.Parser {
             case UInt8(ascii: "}"):
                 r.advanceBy(1)
                 for source in mergeSources { mergeInto(&pairs, from: source) }
-                return .mapping(pairs)
+                hints.setMembers(pairs.count, at: depth); return .mapping(pairs)
             case nil:
                 r.report(&sink, .yamlUnterminatedFlowMapping)
                 return nil
@@ -115,7 +117,7 @@ extension YAML.Parser {
             }
         }
         for source in mergeSources { mergeInto(&pairs, from: source) }
-        return .mapping(pairs)
+        hints.setMembers(pairs.count, at: depth); return .mapping(pairs)
     }
 
     mutating func parseFlowNode(

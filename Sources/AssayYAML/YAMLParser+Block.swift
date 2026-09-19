@@ -21,6 +21,7 @@ extension YAML.Parser {
         depth: Int
     ) -> YAML.Node? {
         var items: [YAML.Node] = []
+        items.reserveCapacity(hints.items(at: depth))
         while true {
             skipBlanksAndComments(&r)
             if r.atEnd { break }
@@ -55,7 +56,7 @@ extension YAML.Parser {
                                        depth: depth + 1) else { return nil }
             items.append(item)
         }
-        return .sequence(items)
+        hints.setItems(items.count, at: depth); return .sequence(items)
     }
 
     /// `- ` (or `-` at end of line): a block-sequence entry indicator. `---` is not one.
@@ -71,6 +72,7 @@ extension YAML.Parser {
         depth: Int
     ) -> YAML.Node? {
         var pairs: [YAML.Pair] = []
+        pairs.reserveCapacity(hints.members(at: depth))
         // Merge sources are collected and applied AFTER the mapping is complete.
         // Applying them inline would let `<<:` win over an explicit key that appears
         // later in the document, and YAML says the explicit key always wins
@@ -158,7 +160,7 @@ extension YAML.Parser {
             }
         }
         for source in mergeSources { mergeInto(&pairs, from: source) }
-        return .mapping(pairs)
+        hints.setMembers(pairs.count, at: depth); return .mapping(pairs)
     }
 
     /// How many pairs a merge source would contribute, without merging it.

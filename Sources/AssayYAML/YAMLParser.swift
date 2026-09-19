@@ -111,6 +111,10 @@ extension YAML {
     struct Parser {
         let limits: Limits
         var anchors: [String: Node] = [:]
+        /// Shape memory: each sequence and mapping reserves what the previous one at its
+        /// depth held (`_ShapeHints`). Without it a five-key mapping grew 0 → 1 → 2 → 4 → 8,
+        /// four allocations per record (count.py `base/yaml`, 8,001 of 8,014 blocks).
+        var hints = _ShapeHints()
         /// How many nodes each anchor expands to, so an alias can be charged its
         /// EXPANDED size rather than one unit. Without this the budget below does not
         /// bound anything: `Node` is a value type, so an alias shares storage and the

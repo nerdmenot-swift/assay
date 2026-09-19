@@ -31,7 +31,7 @@ extension AssayReader {
         _ path: [PathComponent] = []
     ) -> JSON.Value? {
         var p = path
-        var hints = JSONShapeHints()
+        var hints = _ShapeHints()
         return _scanJSONValue(&sink, &p, &hints)
     }
 
@@ -39,7 +39,7 @@ extension AssayReader {
     mutating func _scanJSONValue(
         _ sink: inout IssueSink,
         _ path: inout [PathComponent],
-        _ hints: inout JSONShapeHints
+        _ hints: inout _ShapeHints
     ) -> JSON.Value? {
         skipWhitespace()
         guard !atEnd else {
@@ -101,7 +101,7 @@ extension AssayReader {
     mutating func scanJSONArray(
         _ sink: inout IssueSink,
         _ path: inout [PathComponent],
-        _ hints: inout JSONShapeHints
+        _ hints: inout _ShapeHints
     ) -> JSON.Value? {
         guard tryConsume(0x5B) else { reportMalformed(&sink, path, expected: "'['"); return nil }
         guard enterContainer(&sink) else { return nil }
@@ -135,7 +135,7 @@ extension AssayReader {
     mutating func scanJSONObject(
         _ sink: inout IssueSink,
         _ path: inout [PathComponent],
-        _ hints: inout JSONShapeHints
+        _ hints: inout _ShapeHints
     ) -> JSON.Value? {
         guard tryConsume(0x7B) else { reportMalformed(&sink, path, expected: "'{'"); return nil }
         guard enterContainer(&sink) else { return nil }
@@ -184,23 +184,25 @@ extension AssayReader {
 /// It cannot amplify. A container over-reserves only after a LARGER sibling at the same depth,
 /// by at most that sibling's size, which was itself in the input, and the hint then updates.
 /// So the extra capacity is bounded by the document.
-@usableFromInline
-struct JSONShapeHints {
+///
+/// Shared by every tree builder: JSON.Value here, and the YAML and TOML parsers.
+@_documentation(visibility: internal)
+public struct _ShapeHints {
     /// Item and member counts INTERLEAVED per depth (`2 * level` and `2 * level + 1`), in
     /// one array reserved once: two arrays growing by doubling cost a document of empty
     /// objects 3 blocks per call for hints it never used (count.py, `optional-absent/value`).
     @usableFromInline var counts: [Int] = []
 
-    @usableFromInline init() {}
+    @inlinable public init() {}
 
-    @inlinable func items(at level: Int) -> Int {
+    @inlinable public func items(at level: Int) -> Int {
         2 &* level < counts.count ? counts[2 &* level] : 0
     }
-    @inlinable func members(at level: Int) -> Int {
+    @inlinable public func members(at level: Int) -> Int {
         2 &* level &+ 1 < counts.count ? counts[2 &* level &+ 1] : 0
     }
-    @inlinable mutating func setItems(_ n: Int, at level: Int) { set(n, 2 &* level) }
-    @inlinable mutating func setMembers(_ n: Int, at level: Int) { set(n, 2 &* level &+ 1) }
+    @inlinable public mutating func setItems(_ n: Int, at level: Int) { set(n, 2 &* level) }
+    @inlinable public mutating func setMembers(_ n: Int, at level: Int) { set(n, 2 &* level &+ 1) }
 
     @inlinable mutating func set(_ n: Int, _ i: Int) {
         if i >= counts.count {
@@ -255,7 +257,7 @@ extension JSON.Value {
             var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
             reader.advanceBy(unsafe UTF8Validation.bomLength(base, buf.count))
             var path: [PathComponent] = []
-            var hints = JSONShapeHints()
+            var hints = _ShapeHints()
             guard let v = reader._scanJSONValue(&sink, &path, &hints) else { return nil }
             reader.skipWhitespace()
             if !reader.atEnd {

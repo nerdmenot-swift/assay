@@ -18,6 +18,8 @@
 
 import Foundation
 import Assay
+import AssayYAML
+import AssayTOML
 import AssayCore
 
 /// Keeps a decoded value alive across the measurement without the optimiser proving the
@@ -205,5 +207,36 @@ func allTasks() -> [Task] {
         return { MValidated.diagnose(d.items).issues.count &+ d.items.count }
     }
 
+    // The other tree parsers. The fixture is rendered into the format in `make`, OUTSIDE the
+    // timed region, by the library's own writers, so the parse sees realistic block YAML and
+    // `[[items]]` TOML rather than YAML's JSON-compatible flow style. The count is the root's
+    // item count, which also checks the rendering survived.
+    add("yaml", "YAML.parse — the block-style tree", applies: { treeFormatShapes.contains($0) }) { _, b in
+        var sink = IssueSink(limits: .default)
+        guard let v = JSON.Value.decode(b, into: &sink, limits: .default) else { return nil }
+        let text = YAML.encode(RawValue(v))
+        return {
+            guard let n = try? YAML.parse(text) else { return nil }
+            if case .mapping(let pairs) = n, case .sequence(let xs)? = pairs.first?.value { return xs.count }
+            return nil
+        }
+    }
+    add("toml", "TOML.parse — array-of-tables", applies: { treeFormatShapes.contains($0) }) { _, b in
+        var sink = IssueSink(limits: .default)
+        guard let v = JSON.Value.decode(b, into: &sink, limits: .default) else { return nil }
+        let text = TOML.encode(RawValue(v), into: &sink)
+        return {
+            guard let n = try? TOML.parse(text) else { return nil }
+            if case .table(let t) = n, case .array(let xs)? = t.first(where: { $0.key == "items" })?.value { return xs.count }
+            return nil
+        }
+    }
+
     return out
 }
+
+/// Shapes the YAML and TOML tasks run on: enough to separate record width, nesting, arrays,
+/// long values and escapes, without paying Valgrind for every shape twice more.
+private let treeFormatShapes: Set<String> = [
+    "base", "fields-20", "nested-3", "array-10", "values-long", "escapes-10", "values-int",
+]

@@ -98,6 +98,10 @@ let package = Package(
             dependencies: [
                 .product(name: "Assay", package: "assay"),
                 .product(name: "AssayCore", package: "assay"),
+                // The yaml and toml tree-parse tasks (2026-09-19): the matrix was JSON-only,
+                // so nothing counted what the other hand-written parsers allocate.
+                .product(name: "AssayYAML", package: "assay"),
+                .product(name: "AssayTOML", package: "assay"),
             ],
             path: "Sources/AssayMatrix",
             swiftSettings: [.swiftLanguageMode(.v6)]

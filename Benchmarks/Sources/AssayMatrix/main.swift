@@ -25,7 +25,11 @@ import Foundation
 
 // Unbuffered, because a slow matrix and a hung one look identical otherwise. haul's first
 // run of the same design spent twenty-one minutes with nothing on stdout.
-func say(_ s: String) { print(s); fflush(stdout) }
+//
+// A write to the file handle rather than `print` + `fflush(stdout)`: Glibc declares `stdout`
+// as a mutable global, which Swift 6 language mode rejects, so this target did not compile on
+// Linux at all from the day it was written until 2026-09-19 — nothing had built it there.
+func say(_ s: String) { FileHandle.standardOutput.write(Data((s + "\n").utf8)) }
 
 func pad(_ s: String, _ n: Int) -> String {
     s.count >= n ? String(s.prefix(n)) : s + String(repeating: " ", count: n - s.count)
@@ -46,7 +50,12 @@ struct Cell: Codable {
 
 func peakResidentBytes() -> Int {
     var usage = rusage()
+    #if canImport(Darwin)
     guard getrusage(RUSAGE_SELF, &usage) == 0 else { return 0 }
+    #else
+    // Glibc imports RUSAGE_SELF as an enum case, not the `Int32` getrusage takes.
+    guard getrusage(__rusage_who_t(RUSAGE_SELF.rawValue), &usage) == 0 else { return 0 }
+    #endif
     // Darwin reports bytes, Linux kilobytes.
     #if canImport(Darwin)
     return Int(usage.ru_maxrss)
@@ -100,6 +109,30 @@ func runChild(shape: String, taskName: String, path: String) -> Never {
     exit(0)
 }
 
+/// `AssayMatrix count <shape> <task> <path> <K>` — runs one verb EXACTLY `k` times, with no
+/// timing, no warm-up and no repetition loop, for an instruction-counting tool to observe.
+///
+/// This is the child `Benchmarks/count.py` drives under Valgrind. It runs every cell twice,
+/// at two values of `k`, and subtracts: process start-up, fixture loading, `make`'s setup and
+/// every one-time static cancel exactly, and what is left is the steady-state cost of the
+/// verb itself. That is why there is no warm-up here — a warm-up would be counted in both
+/// runs and cancel anyway, so it would only cost Valgrind time.
+func runCount(shape: String, taskName: String, path: String, k: Int) -> Never {
+    guard let data = FileManager.default.contents(atPath: path) else {
+        say("ERR no fixture at \(path)"); exit(2)
+    }
+    let bytes = [UInt8](data)
+    guard let task = allTasks().first(where: { $0.name == taskName }) else {
+        say("ERR no task \(taskName)"); exit(2)
+    }
+    guard let verb = task.make(shape, bytes) else { say("DECLINED"); exit(0) }
+    var n = 0
+    for _ in 0..<k { n = verb() ?? 0 }
+    guard n > 0 else { say("DECLINED"); exit(0) }
+    say("OK elements=\(n) bytes=\(bytes.count)")
+    exit(0)
+}
+
 // MARK: - Parent
 
 func flag(_ name: String) -> String? {
@@ -143,6 +176,21 @@ let args = CommandLine.arguments
 
 if args.count >= 5, args[1] == "task" {
     runChild(shape: args[2], taskName: args[3], path: args[4])
+}
+if args.count >= 6, args[1] == "count" {
+    runCount(shape: args[2], taskName: args[3], path: args[4], k: Int(args[5]) ?? 1)
+}
+// `AssayMatrix cells <dir>` — writes every fixture into `dir` and prints the applicable
+// cells, one `shape task` per line. The counting driver needs the grid without the timing
+// parent, and taking it from here keeps one definition of which cells exist.
+if args.count >= 3, args[1] == "cells" {
+    let out = URL(fileURLWithPath: args[2])
+    try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+    for s in allShapes() {
+        try? Data(s.json).write(to: out.appendingPathComponent("\(s.name).json"))
+        for t in allTasks() where t.applies(s.name) { say("\(s.name) \(t.name)") }
+    }
+    exit(0)
 }
 
 guard args.count >= 2, args[1] == "run" else {

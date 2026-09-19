@@ -1,0 +1,406 @@
+Array<A>.pathDescription.getter	release	3
+Array<A>.pathDescription.getter	retain	2
+AssayError.debugDescription.getter	release	7
+AssayError.debugDescription.getter	retain	3
+AssayError.init(issues:source:sourceName:)	ref	1
+AssayError.issues.getter	retain	1
+AssayError.sourceName.getter	retain	1
+AssayReader._decodeBoolCoercing(_:_:_:)	release	40
+AssayReader._decodeDate(_:_:_:_:)	release	26
+AssayReader._decodeDate(_:_:_:_:)	retain	8
+AssayReader._decodeDateOrNull(_:_:_:_:)	release	29
+AssayReader._decodeDateOrNull(_:_:_:_:)	retain	8
+AssayReader._decodeIntCoercing(_:_:_:)	release	3
+AssayReader._missingRequired(_:_:_:)	release	2
+AssayReader._missingRequired(_:_:_:)	retain	2
+AssayReader._missingRequired(_:_:_:)	stack-allocated-ref	1
+AssayReader._noVariantMatched(_:_:_:_:_:)	release	2
+AssayReader._noVariantMatched(_:_:_:_:_:)	retain	3
+AssayReader._noVariantMatched(_:_:_:_:_:)	stack-allocated-ref	1
+AssayReader._nullNotAllowed(_:_:_:_:)	release	2
+AssayReader._nullNotAllowed(_:_:_:_:)	retain	3
+AssayReader._nullNotAllowed(_:_:_:_:)	stack-allocated-ref	2
+AssayReader._reportUnknownKey(_:_:_:known:reject:)	release	7
+AssayReader._reportUnknownKey(_:_:_:known:reject:)	retain	6
+AssayReader._scanDiscriminator(_:_:_:)	release	2
+AssayReader._scanDiscriminator(_:_:_:)	retain	2
+AssayReader._scanDiscriminator(_:_:_:)	stack-allocated-ref	1
+AssayReader._unknownVariant(_:_:_:_:_:)	release	3
+AssayReader._unknownVariant(_:_:_:_:_:)	retain	4
+AssayReader._unknownVariant(_:_:_:_:_:)	stack-allocated-ref	2
+AssayReader.dateFromNumber(_:_:_:_:_:valueStart:)	release	18
+AssayReader.dateFromNumber(_:_:_:_:_:valueStart:)	retain	5
+AssayReader.dateFromText(_:_:_:_:_:valueStart:)	release	7
+AssayReader.dateFromText(_:_:_:_:_:valueStart:)	retain	3
+AssayReader.failed(_:_:_:_:_:)	release	10
+AssayReader.failed(_:_:_:_:_:)	retain	8
+AssayReader.failed(_:_:_:_:_:)	stack-allocated-ref	1
+AssayReader.overflowed(_:_:_:_:)	release	2
+AssayReader.overflowed(_:_:_:_:)	retain	2
+AssayReader.overflowed(_:_:_:_:)	stack-allocated-ref	1
+AssayReader.report(_:_:_:params:span:)	release	2
+AssayReader.report(_:_:_:params:span:)	retain	4
+AssayReader.reportDepth(_:)	release	2
+AssayReader.reportDepth(_:)	retain	1
+AssayReader.reportDepth(_:)	stack-allocated-ref	1
+AssayReader.reportInvalidDate(_:_:_:_:received:failure:caretAt:)	release	8
+AssayReader.reportInvalidDate(_:_:_:_:received:failure:caretAt:)	retain	7
+AssayReader.reportInvalidDate(_:_:_:_:received:failure:caretAt:)	stack-allocated-ref	2
+AssayReader.reportMalformed(_:_:expected:)	release	3
+AssayReader.reportMalformed(_:_:expected:)	retain	3
+AssayReader.reportTypeMismatch(_:_:expected:)	release	2
+AssayReader.reportTypeMismatch(_:_:expected:)	retain	3
+AssayReader.reportTypeMismatch(_:_:expected:)	stack-allocated-ref	1
+AssayReader.reportUnionBudget(_:_:)	release	2
+AssayReader.reportUnionBudget(_:_:)	retain	2
+AssayReader.reportUnionBudget(_:_:)	stack-allocated-ref	1
+AssayReader.scanJSONArray(_:_:)	release	3
+AssayReader.scanJSONNumber(_:_:)	release	2
+AssayReader.scanJSONNumber(_:_:)	retain	2
+AssayReader.scanJSONObject(_:_:)	release	8
+AssayReader.scanJSONObject(_:_:)	retain	1
+AssayReader.scanJSONValue(_:_:)	release	1
+AssayReader.scanJSONValue(_:_:)	retain	1
+AssayReader.scanStringSlow(from:)	release	6
+AssayReader.warnDateFallback(_:_:_:matched:primary:)	release	2
+AssayReader.warnDateFallback(_:_:_:matched:primary:)	retain	1
+AssayReader.warnDateFallback(_:_:_:matched:primary:)	stack-allocated-ref	2
+CompiledPattern.__allocating_init(_:)	ref	1
+CompiledPattern.init(_:)	release	2
+CompiledPattern.init(_:)	retain	1
+DateFormat.displayName.getter	release	1
+FieldDescriptor.init(wireKey:aliases:propertyName:type:wireType:isRequired:rules:)	release	1
+FieldDescriptor.init(wireKey:aliases:propertyName:type:wireType:isRequired:rules:)	retain	1
+Issue.description.getter	release	1
+Issue.init(code:path:params:received:location:)	release	1
+Issue.init(code:path:params:received:location:)	retain	1
+Issue.message.getter	release	144
+Issue.message.getter	retain	2
+Issue.unitSuffix(_:)	release	5
+Issue.unitSuffix(_:)	retain	1
+IssueCode.codeString.getter	retain	1
+IssueSink._insertKey(since:_:at:)	release	1
+IssueSink._insertKey(since:_:at:)	retain	1
+IssueSink.add(_:)	retain	1
+IssueSink.add(warning:)	retain	3
+IssueValue.displayString.getter	retain	1
+Issues.add(_:at:)	release	1
+Issues.add(_:at:)	retain	2
+Issues.add(code:_:params:at:)	release	2
+Issues.add(code:_:params:at:)	retain	5
+Issues.fieldPath(_:)	ref	1
+Issues.fieldPath(_:)	release	2
+Issues.fieldPath(_:)	retain	1
+Issues.merge(into:at:)	release	5
+Issues.merge(into:at:)	retain	3
+JSON.Value.all(_:)	release	3
+JSON.Value.all(_:)	retain	4
+JSON.Value.array.getter	retain	1
+JSON.Value.hash(into:)	release	3
+JSON.Value.hash(into:)	retain	3
+JSON.Value.object.getter	retain	1
+JSON.Value.string.getter	retain	1
+JSON.Value.subscript.getter	retain	2
+JSONSchemaValue.text(indent:)	release	36
+JSONSchemaValue.text(indent:)	retain	15
+JSONWriter.unrepresentable(_:_:_:_:)	release	2
+JSONWriter.unrepresentable(_:_:_:_:)	retain	2
+JSONWriter.unrepresentable(_:_:_:_:)	stack-allocated-ref	1
+JSONWriter.write(_:_:_:_:)	release	9
+JSONWriter.write(_:_:_:_:)	retain	10
+JSONWriter.writeDate(_:_:_:_:_:)	release	1
+JSONWriter.writeEscaped(_:)	release	1
+JSONWriter.writeInteger(_:)	release	2
+JSONWriter.writeStringBody(_:)	release	1
+JSONWriter.writeStringBody(_:)	retain	1
+JSONWriter.writeUnsignedInteger(_:)	release	2
+NegotiationFailure.issue.getter	release	3
+NegotiationFailure.issue.getter	retain	7
+NegotiationFailure.issue.getter	stack-allocated-ref	2
+RawValue._assayDate(_:_:_:_:)	release	11
+RawValue._assayDate(_:_:_:_:)	retain	3
+RawValue._assayDouble(_:_:_:coerce:at:)	retain	1
+RawValue._assayFloat(_:_:_:coerce:at:)	retain	1
+RawValue._assayString(_:_:_:coerce:at:)	retain	1
+RawValue.all(_:)	release	3
+RawValue.all(_:)	retain	4
+RawValue.hash(into:)	release	3
+RawValue.hash(into:)	retain	3
+RawValue.init(_:)	release	4
+RawValue.init(_:)	retain	3
+RawValue.mapping.getter	retain	1
+RawValue.sequence.getter	retain	1
+RawValue.string.getter	retain	1
+RawValue.subscript.getter	retain	2
+Rule.applyCollectionCount(_:_:_:_:_:_:)	release	24
+Rule.applyCollectionCount(_:_:_:_:_:_:)	retain	36
+Rule.applyCollectionCount(_:_:_:_:_:_:)	stack-allocated-ref	7
+Rule.applyNumber(_:isInteger:_:_:_:_:_:)	release	72
+Rule.applyNumber(_:isInteger:_:_:_:_:_:)	retain	113
+Rule.applyNumber(_:isInteger:_:_:_:_:_:)	stack-allocated-ref	20
+Rule.applyRegex(_:to:_:_:_:_:_:)	conditional-runtime-cast	1
+Rule.applyRegex(_:to:_:_:_:_:_:)	release	16
+Rule.applyRegex(_:to:_:_:_:_:_:)	retain	30
+Rule.applyRegex(_:to:_:_:_:_:_:)	stack-allocated-ref	6
+Rule.applyString(_:_:_:_:_:_:)	release	83
+Rule.applyString(_:_:_:_:_:_:)	retain	140
+Rule.applyString(_:_:_:_:_:_:)	stack-allocated-ref	22
+Rule.eachRules.getter	retain	1
+Rule.emit(_:_:_:_:_:_:_:_:)	release	4
+Rule.emit(_:_:_:_:_:_:_:_:)	retain	10
+Rule.emit(_:_:_:_:_:_:_:_:)	stack-allocated-ref	1
+Rule.init(_:message:)	release	1
+Rule.init(_:message:)	retain	1
+Rule.init(stringLiteral:)	release	1
+Rule.init(stringLiteral:)	retain	1
+Rule.withMessage(_:)	release	5
+Rule.withMessage(_:)	retain	10
+SchemaDescriptor.jsonSchema(for:)	box	2
+SchemaDescriptor.jsonSchema(for:)	retain	1
+SourceBytes.withUnsafeBytes<A>(_:)	release	4
+SourceBytes.withUnsafeBytes<A>(_:)	retain	2
+Warning.description.getter	release	1
+Warning.message.getter	release	2
+Warning.message.getter	retain	8
+XMLWriter.attribute(_:_:)	release	15
+XMLWriter.attribute(_:_:)	retain	6
+XMLWriter.beginElement(_:)	retain	1
+XMLWriter.doubleText(_:_:_:_:)	release	2
+XMLWriter.doubleText(_:_:_:_:)	retain	2
+XMLWriter.doubleText(_:_:_:_:)	stack-allocated-ref	1
+XMLWriter.element(_:_:)	release	11
+XMLWriter.endElement(_:)	retain	1
+XMLWriter.finish()	release	4
+XMLWriter.raw(_:)	retain	1
+XMLWriter.writeEscaped(_:inAttribute:)	release	1
+XMLWriter.writeEscaped(_:inAttribute:)	retain	1
+_assayAliasMatched(_:_:_:_:)	release	2
+_assayAliasMatched(_:_:_:_:)	retain	1
+_assayAliasMatched(_:_:_:_:)	stack-allocated-ref	2
+_assayCoerceDouble(_:)	retain	1
+_assayCoerceInt64(_:)	release	1
+_assayCoerceInt64(_:)	retain	1
+_assayEncodeRawXML(_:named:into:into:at:)	release	6
+_assayEncodeRawXML(_:named:into:into:at:)	retain	3
+_assayNegotiate(contentType:accepting:)	release	9
+_assayNegotiate(contentType:accepting:)	retain	7
+_assayPreprocess(_:_:)	ref	1
+_assayPreprocess(_:_:)	release	13
+_assayPreprocess(_:_:)	retain	7
+_assayUnknownNotEncodable(_:_:_:_:)	release	2
+_assayUnknownNotEncodable(_:_:_:_:)	retain	4
+_assayUnknownNotEncodable(_:_:_:_:)	stack-allocated-ref	1
+_assayValidate(_:_:override:field:at:path:_:)	release	53
+_assayValidate(_:_:override:field:at:path:_:)	retain	50
+_assayValidate(_:_:override:field:at:path:_:)	stack-allocated-ref	5
+_assayValidate<A>(countOf:_:override:field:at:path:_:)	release	1
+_assayValidate<A>(countOf:_:override:field:at:path:_:)	retain	1
+closure #1 in static FormatValidators.containsSubstring(_:_:)	release	3
+closure #1 in static FormatValidators.containsSubstring(_:_:)	retain	2
+closure #1 in static Renderer.problemDetailsRender(_:)	release	17
+closure #1 in static Renderer.problemDetailsRender(_:)	retain	2
+formatEpochISO(_:)	release	6
+one-time initialization function for ascii	release	1
+one-time initialization function for ascii	retain	1
+one-time initialization function for email	release	1
+one-time initialization function for email	retain	1
+one-time initialization function for finite	release	1
+one-time initialization function for finite	retain	1
+one-time initialization function for hostname	release	1
+one-time initialization function for hostname	retain	1
+one-time initialization function for isLowercase	release	1
+one-time initialization function for isLowercase	retain	1
+one-time initialization function for isTrimmed	release	1
+one-time initialization function for isTrimmed	retain	1
+one-time initialization function for monthNames	ref	1
+one-time initialization function for negative	release	1
+one-time initialization function for negative	retain	1
+one-time initialization function for nonNegative	release	1
+one-time initialization function for nonNegative	retain	1
+one-time initialization function for notEmpty	release	1
+one-time initialization function for notEmpty	retain	1
+one-time initialization function for positive	release	1
+one-time initialization function for positive	retain	1
+one-time initialization function for unique	release	1
+one-time initialization function for unique	retain	1
+one-time initialization function for url	release	1
+one-time initialization function for url	retain	1
+one-time initialization function for uuid	release	1
+one-time initialization function for uuid	retain	1
+pad2(_:)	release	1
+pad4(_:)	release	3
+protocol witness for CustomStringConvertible.description.getter in conformance Issue	release	1
+protocol witness for CustomStringConvertible.description.getter in conformance Warning	release	1
+protocol witness for ExpressibleByStringLiteral.init(stringLiteral:) in conformance Rule	release	1
+protocol witness for ExpressibleByStringLiteral.init(stringLiteral:) in conformance Rule	retain	1
+protocol witness for static JSONCollectible._collectJSON(from:into:at:) in conformance JSON.Value	retain	1
+protocol witness for static JSONCollectible._collectJSON(from:into:at:) in conformance RawValue	retain	1
+specialized RawValue.numberDate(_:_:_:_:_:received:)	release	17
+specialized RawValue.numberDate(_:_:_:_:_:received:)	retain	5
+specialized SchemaDescriptor.body(for:includeDialect:)	box	6
+specialized SchemaDescriptor.body(for:includeDialect:)	release	13
+specialized SchemaDescriptor.body(for:includeDialect:)	retain	8
+specialized StringProtocol.trimmedASCII()	release	4
+specialized StringProtocol.trimmedASCII()	retain	2
+specialized expect #1 <A>(_:_:) in static DateParser.parseISO8601<A>(_:)	release	6
+specialized static Array<A>.== infix(_:_:)	release	64
+specialized static Array<A>.== infix(_:_:)	retain	48
+specialized static AssayReader._didYouMean(_:in:)	ref	1
+specialized static AssayReader._didYouMean(_:in:)	release	9
+specialized static AssayReader._didYouMean(_:in:)	retain	5
+specialized static AssayReader.editDistance(_:_:limit:)	release	6
+specialized static DateParser.clock<A>(_:_:)	release	12
+specialized static DateParser.compilePattern(_:)	release	29
+specialized static DateParser.compilePattern(_:)	retain	2
+specialized static DateParser.parse(_:as:)	release	7
+specialized static DateParser.parse(_:as:)	retain	11
+specialized static DateParser.parse(seconds:as:)	release	1
+specialized static DateParser.parseAsctime<A>(_:)	release	16
+specialized static DateParser.parseIMFFixdate<A>(_:)	release	16
+specialized static DateParser.parseISO8601<A>(_:)	release	24
+specialized static DateParser.parsePattern<A>(_:pattern:)	release	40
+specialized static DateParser.parseRFC850<A>(_:)	release	16
+specialized static DateParser.parseUnixText<A>(_:millis:)	release	2
+specialized static FormatValidators.characterCount(_:)	release	5
+specialized static FormatValidators.characterCount(_:)	retain	2
+specialized static FormatValidators.isASCII(_:)	release	3
+specialized static FormatValidators.isASCII(_:)	retain	2
+specialized static FormatValidators.isEmail(_:)	release	3
+specialized static FormatValidators.isEmail(_:)	retain	2
+specialized static FormatValidators.isTrimmed(_:)	release	3
+specialized static FormatValidators.isTrimmed(_:)	retain	2
+specialized static FormatValidators.isURL(_:)	release	3
+specialized static FormatValidators.isURL(_:)	retain	2
+specialized static FormatValidators.isUUID(_:)	release	3
+specialized static FormatValidators.isUUID(_:)	retain	2
+specialized static JSON.Value.decode(_:into:limits:)	release	10
+specialized static JSON.Value.decode(_:into:limits:)	retain	3
+specialized static JSON.Value.decode(_:into:limits:)	stack-allocated-ref	2
+specialized static JSON.Value.parse(_:limits:)	ref	1
+specialized static JSON.Value.parse(_:limits:)	release	3
+specialized static JSON.Value.parse(_:limits:)	retain	2
+specialized static JSONSchemaRender.escaped(_:)	release	6
+specialized static JSONSchemaRender.escaped(_:)	retain	1
+specialized static JSONSchemaValue.escapeJSON(_:)	ref	1
+specialized static JSONSchemaValue.escapeJSON(_:)	release	3
+specialized static JSONSchemaValue.escapeJSON(_:)	retain	1
+specialized static MediaType.parse(_:)	release	42
+specialized static MediaType.parse(_:)	retain	4
+specialized static RawValue.mismatch(_:_:_:_:_:_:)	release	2
+specialized static RawValue.mismatch(_:_:_:_:_:_:)	retain	3
+specialized static RawValue.mismatch(_:_:_:_:_:_:)	stack-allocated-ref	2
+specialized static RawValue.reportInvalidDate(_:_:_:_:received:failure:)	release	8
+specialized static RawValue.reportInvalidDate(_:_:_:_:received:failure:)	retain	7
+specialized static RawValue.reportInvalidDate(_:_:_:_:received:failure:)	stack-allocated-ref	2
+specialized static RawValue.warnDateFallback(_:_:_:matched:primary:)	release	2
+specialized static RawValue.warnDateFallback(_:_:_:matched:primary:)	retain	1
+specialized static RawValue.warnDateFallback(_:_:_:matched:primary:)	stack-allocated-ref	2
+specialized static Renderer.caretRender(_:_:_:_:color:)	release	56
+specialized static Renderer.caretRender(_:_:_:_:color:)	retain	25
+specialized static Renderer.jsonRender(_:_:_:_:)	release	68
+specialized static Renderer.jsonRender(_:_:_:_:)	retain	10
+specialized static Renderer.jsonString(_:)	release	6
+specialized static Renderer.jsonString(_:)	retain	3
+specialized static Renderer.snippet(around:caretColumn:caretLength:index:source:)	release	13
+specialized static Renderer.snippet(around:caretColumn:caretLength:index:source:)	retain	2
+static DateParser.clock<A>(_:_:)	release	6
+static DateParser.finishHTTP(year:month:day:h:m:s:at:)	release	4
+static DateParser.matchMonth<A>(_:_:)	release	3
+static DateParser.matchMonth<A>(_:_:)	retain	1
+static DateParser.parseAsctime<A>(_:)	release	8
+static DateParser.parseIMFFixdate<A>(_:)	release	8
+static DateParser.parseISO8601<A>(_:)	release	12
+static DateParser.parsePattern<A>(_:pattern:)	release	20
+static DateParser.parseRFC850<A>(_:)	release	8
+static DateParser.parseUnixText<A>(_:millis:)	release	1
+static FormatValidators.containsSubstring(_:_:)	release	3
+static FormatValidators.containsSubstring(_:_:)	retain	2
+static FormatValidators.isHostname(_:)	release	3
+static FormatValidators.isHostname(_:)	retain	2
+static JSON.Value._collectJSON(from:into:at:)	release	1
+static JSON.Value._collectJSON(from:into:at:)	retain	1
+static JSON.Value.parse(_:limits:)	release	3
+static JSON.Value.parse(_:limits:)	retain	1
+static JSONSchemaRender.keywords(for:on:)	box	35
+static JSONSchemaRender.keywords(for:on:)	release	88
+static JSONSchemaRender.keywords(for:on:)	retain	47
+static JSONSchemaRender.schema(for:rules:)	box	17
+static JSONSchemaRender.schema(for:rules:)	ref	1
+static JSONSchemaRender.schema(for:rules:)	release	18
+static JSONSchemaRender.schema(for:rules:)	retain	6
+static RawValue._collectJSON(from:into:at:)	release	1
+static RawValue._collectJSON(from:into:at:)	retain	1
+static RawValue._missing(_:_:_:)	release	2
+static RawValue._missing(_:_:_:)	retain	2
+static RawValue._missing(_:_:_:)	stack-allocated-ref	1
+static RawValue._notAnObject(_:_:_:)	release	2
+static RawValue._notAnObject(_:_:_:)	retain	2
+static RawValue._unknownKey(_:_:_:known:reject:span:)	release	6
+static RawValue._unknownKey(_:_:_:known:reject:span:)	retain	7
+static RawValue.mismatchAt(_:_:_:_:)	release	2
+static RawValue.mismatchAt(_:_:_:_:)	retain	3
+static RawValue.mismatchAt(_:_:_:_:)	stack-allocated-ref	1
+static Renderer.problemDetailsRender(_:)	release	10
+static Renderer.problemDetailsRender(_:)	retain	1
+static Rule.after(_:or:)	release	4
+static Rule.after(_:or:)	retain	6
+static Rule.all(_:)	release	1
+static Rule.all(_:)	retain	2
+static Rule.ascii(or:)	release	1
+static Rule.ascii(or:)	retain	2
+static Rule.before(_:or:)	release	4
+static Rule.before(_:or:)	retain	6
+static Rule.between(_:_:or:)	release	8
+static Rule.between(_:_:or:)	retain	8
+static Rule.contains(_:or:)	release	1
+static Rule.contains(_:or:)	retain	3
+static Rule.count(_:or:)	release	2
+static Rule.count(_:or:)	retain	4
+static Rule.dateBound(_:)	release	2
+static Rule.each(_:or:)	release	1
+static Rule.each(_:or:)	retain	3
+static Rule.email(or:)	release	1
+static Rule.email(or:)	retain	2
+static Rule.finite(or:)	release	1
+static Rule.finite(or:)	retain	2
+static Rule.hostname(or:)	release	1
+static Rule.hostname(or:)	retain	2
+static Rule.isLowercase(or:)	release	1
+static Rule.isLowercase(or:)	retain	2
+static Rule.isTrimmed(or:)	release	1
+static Rule.isTrimmed(or:)	retain	2
+static Rule.length(_:or:)	release	1
+static Rule.length(_:or:)	retain	2
+static Rule.max(_:or:)	release	2
+static Rule.max(_:or:)	retain	4
+static Rule.min(_:or:)	release	2
+static Rule.min(_:or:)	retain	4
+static Rule.multipleOf(_:or:)	release	2
+static Rule.multipleOf(_:or:)	retain	4
+static Rule.negative(or:)	release	1
+static Rule.negative(or:)	retain	2
+static Rule.nonNegative(or:)	release	1
+static Rule.nonNegative(or:)	retain	2
+static Rule.notEmpty(or:)	release	1
+static Rule.notEmpty(or:)	retain	2
+static Rule.oneOf(_:or:)	release	1
+static Rule.oneOf(_:or:)	retain	3
+static Rule.positive(or:)	release	1
+static Rule.positive(or:)	retain	2
+static Rule.prefix(_:or:)	release	1
+static Rule.prefix(_:or:)	retain	3
+static Rule.range(_:or:)	release	2
+static Rule.range(_:or:)	retain	4
+static Rule.regex(_:or:)	ref	1
+static Rule.regex(_:or:)	release	1
+static Rule.regex(_:or:)	retain	3
+static Rule.suffix(_:or:)	release	1
+static Rule.suffix(_:or:)	retain	3
+static Rule.unique(or:)	release	1
+static Rule.unique(or:)	retain	2
+static Rule.url(or:)	release	1
+static Rule.url(or:)	retain	2
+static Rule.uuid(or:)	release	1
+static Rule.uuid(or:)	retain	2
+static SchemaDescribing.jsonSchema(for:)	release	2
+static SchemaDescribing.jsonSchemaText(for:)	release	1

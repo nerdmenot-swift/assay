@@ -1,0 +1,105 @@
+Assayer.diagnose(_:limits:sourceName:)	release	7
+Assayer.diagnose(_:limits:sourceName:)	retain	9
+Assayer.diagnose(json:limits:sourceName:)	release	6
+Assayer.diagnose(json:limits:sourceName:)	retain	10
+Assayer.map<A>(_:)	retain	3
+Assayer.optional()	box	1
+Assayer.optional()	ref	1
+Assayer.optional()	retain	2
+Assayer.parse(json:limits:sourceName:)	release	2
+Assayer.parse(json:limits:sourceName:)	retain	1
+Assayer.validate(_:)	ref	1
+Assayer.validate(_:)	retain	10
+AssayerPlan.__allocating_init(_:)	ref	1
+AssayerPlan.run(_:_:_:_:_:)	release	52
+AssayerPlan.run(_:_:_:_:_:)	retain	39
+AssayerPlan.run(_:_:_:_:_:)	stack-allocated-ref	1
+Diagnosis.description.getter	release	5
+Diagnosis.description.getter	retain	1
+Diagnosis.get()	retain	3
+Diagnosis.init(sink:value:source:sourceName:)	release	1
+Diagnosis.init(sink:value:source:sourceName:)	retain	2
+EncodeDiagnosis.description.getter	release	7
+EncodeDiagnosis.description.getter	retain	2
+EncodeDiagnosis.get()	retain	3
+EncodeDiagnosis.render(_:)	release	1
+EncodeDiagnosis.render(_:)	retain	1
+JSONEncodableSchema.encodedJSON(pretty:)	release	2
+JSONEncodableSchema.encodedJSON(pretty:)	retain	1
+JSONEncodableSchema.jsonText(pretty:)	release	1
+_unknownVariant(_:_:received:options:span:)	release	5
+_unknownVariant(_:_:received:options:span:)	retain	6
+closure #1 in closure #1 in static Validatable<>.diagnose<A>(_:limits:)	ref	1
+closure #1 in closure #1 in static Validatable<>.diagnose<A>(_:limits:)	release	1
+closure #1 in static Assayer.array(of:)	release	2
+closure #1 in static Assayer.array(of:)	retain	1
+closure #1 in static Assayer.lazy(_:)	release	1
+closure #1 in static Assayer<>.raw.getter	retain	1
+closure #1 in static Assayer<>.string.getter	retain	1
+closure #1 in static Validatable<>.diagnose<A>(_:limits:)	release	6
+closure #1 in static Validatable<>.diagnose<A>(_:limits:)	retain	3
+closure #2 in static Assayer.lazy(_:)	release	2
+closure #2 in static Assayer<>.object(_:)	retain	1
+static Assayer.array(of:)	box	1
+static Assayer.array(of:)	ref	1
+static Assayer.array(of:)	retain	2
+static Assayer.lazy(_:)	ref	1
+static Assayer.lazy(_:)	retain	2
+static Assayer<>.bool.getter	ref	1
+static Assayer<>.double.getter	ref	1
+static Assayer<>.int.getter	ref	1
+static Assayer<>.object(_:)	box	1
+static Assayer<>.object(_:)	ref	1
+static Assayer<>.object(_:)	retain	2
+static Assayer<>.raw.getter	ref	1
+static Assayer<>.string.getter	ref	1
+static AssayerBacked._assay(from:into:at:)	release	11
+static AssayerBacked._assay(from:into:at:)	retain	4
+static ContextualJSONAssayable._decode(base:count:into:limits:context:)	release	4
+static ContextualJSONAssayable._decode(base:count:into:limits:context:)	retain	2
+static ContextualJSONAssayable._decode(base:count:into:limits:context:)	stack-allocated-ref	1
+static ContextualJSONAssayable.diagnose(json:context:limits:sourceName:)	release	5
+static ContextualJSONAssayable.diagnose(json:context:limits:sourceName:)	retain	8
+static ContextualJSONAssayable.diagnose(json:context:limits:sourceName:)	stack-allocated-ref	1
+static ContextualJSONAssayable.parse(json:context:limits:sourceName:)	release	3
+static ContextualJSONAssayable.parse(json:context:limits:sourceName:)	retain	1
+static ContextualJSONAssayable<>.diagnose(json:context:limits:sourceName:)	release	7
+static ContextualJSONAssayable<>.diagnose(json:context:limits:sourceName:)	retain	5
+static ContextualJSONAssayable<>.parse(json:context:limits:sourceName:)	release	3
+static ContextualJSONAssayable<>.parse(json:context:limits:sourceName:)	retain	1
+static ContextualRawDecodable.diagnose(body:contentType:accepting:context:limits:sourceName:)	release	13
+static ContextualRawDecodable.diagnose(body:contentType:accepting:context:limits:sourceName:)	retain	9
+static ContextualValidatable.diagnose(_:context:limits:)	release	1
+static ContextualValidatable.diagnose(_:context:limits:)	retain	2
+static ContextualValidatable.validate(_:context:limits:)	release	3
+static JSONAssayable._decode(base:count:into:limits:)	release	4
+static JSONAssayable._decode(base:count:into:limits:)	retain	2
+static JSONAssayable._decode(base:count:into:limits:)	stack-allocated-ref	1
+static JSONAssayable.diagnose(json:limits:sourceName:)	release	5
+static JSONAssayable.diagnose(json:limits:sourceName:)	retain	8
+static JSONAssayable.diagnose(json:limits:sourceName:)	stack-allocated-ref	1
+static JSONAssayable.parse(json:limits:sourceName:)	release	3
+static JSONAssayable.parse(json:limits:sourceName:)	retain	1
+static JSONAssayable<>._assay(from:into:at:)	release	7
+static JSONAssayable<>._assay(from:into:at:)	retain	2
+static JSONAssayable<>.diagnose(json:limits:sourceName:)	release	7
+static JSONAssayable<>.diagnose(json:limits:sourceName:)	retain	5
+static JSONAssayable<>.parse(json:limits:sourceName:)	release	3
+static JSONAssayable<>.parse(json:limits:sourceName:)	retain	1
+static RawDecodable.diagnose(body:contentType:accepting:limits:sourceName:)	release	13
+static RawDecodable.diagnose(body:contentType:accepting:limits:sourceName:)	retain	9
+static RawDecodable<>._assay(from:into:at:)	release	3
+static RawDecodable<>._assay(from:into:at:)	retain	2
+static RawDecodable<>.diagnose(body:contentType:accepting:limits:sourceName:)	release	16
+static RawDecodable<>.diagnose(body:contentType:accepting:limits:sourceName:)	retain	9
+static Validatable.diagnose(_:at:limits:)	release	1
+static Validatable.diagnose(_:at:limits:)	retain	2
+static Validatable.diagnose<A>(_:limits:)	release	3
+static Validatable.diagnose<A>(_:limits:)	retain	2
+static Validatable.validate(_:at:limits:)	release	3
+static Validatable.validate(_:limits:)	release	3
+static Validatable.validate<A>(_:limits:)	release	3
+static Validatable<>.diagnose(_:limits:)	release	3
+static Validatable<>.diagnose<A>(_:limits:)	release	5
+static Validatable<>.validate(_:limits:)	release	3
+static Validatable<>.validate<A>(_:limits:)	release	3

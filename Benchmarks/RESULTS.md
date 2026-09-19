@@ -2305,3 +2305,53 @@ listed in `CLAUDE.md` build order phase 2 as one of "the unclaimed wins".
 
 Both are recorded here rather than chased, because the matrix's job today was to exist and to
 be trustworthy. Neither would have been visible without it.
+
+---
+
+# Exact counts: instructions, ARC traffic and heap per call (2026-09-19)
+
+`Benchmarks/count.sh` (a container on a Mac) or `python3 Benchmarks/count.py run` (Linux).
+Every profiling-matrix cell runs under Valgrind at K=1 and K=3 calls of its verb, and the
+difference is halved, so start-up and one-time statics cancel and what remains is one steady-
+state call. Valgrind counts in software and needs no PMU, which is why this runs on a hosted
+runner where package-benchmark's `.instructions` reports zero.
+
+**Determinism**, measured before anything was built on it: three runs of one binary gave
+IDENTICAL runtime call counts and instruction counts within ~50 of 4.9 million. Calls are
+therefore gated exactly and instructions with a 2% tolerance. `.github/workflows/efficiency.yml`
+gates x86-64 and aarch64; the aarch64 baseline is `Benchmarks/counts-baseline.aarch64.json`
+(Swift 6.3.3), and x86-64's comes from the first CI run.
+
+**Verified in both directions.** Declaring `String(unsafeUninitializedCapacity:)` 16 bytes
+larger than the byte count (the trap `Strings.swift`'s header warns about) failed `base/struct`
+(+10,000 blocks, +146% instructions) and `base/skip`, and left `values-int/struct`, which has
+no strings, untouched. Reverting: "No counter moved."
+
+A selection, per call on 2,000 elements:
+
+| cell | Ir/element | String releases | String retains | uniqueness checks | heap blocks |
+|---|---:|---:|---:|---:|---:|
+| base/struct (5 String fields) | 2,376 | 20,002 | 1 | 4,000 | 14 |
+| values-int/struct | 1,746 | 2 | 1 | 4,000 | 14 |
+| values-long/struct | 8,004 | 14,002 | 1 | 4,000 | 10,014 |
+| base/validate | 2,190 | 30,000 | 30,000 | 2,000 | 1 |
+| base/encode | 4,325 | 32,001 | 32,001 | 106,011 | 2,009 |
+| base/value (`JSON.Value`) | 5,898 | 30,002 | 10,001 | 36,003 | 8,016 |
+
+What the first run found, each now a row in `docs/EFFICIENCY.md`'s ledger:
+
+- **Two String releases per decoded field, and only one is the caller's.** 10,000 are
+  the benchmark destroying its result. The other 10,000 are inside `AssayReader.scanString()`,
+  and only on the small-string path: forcing strings to the heap removed them.
+- **`validate` does three retain/release pairs per String field** while allocating one block.
+- **`encode` checks buffer uniqueness 53 times per element**; decode checks 2.
+- **The top-level array reallocates about 12 times** at 2,000 elements (14 blocks where
+  the floor is about 2).
+
+**A caution on reading it.** The first run double-counted: `swift_bridgeObjectRelease` calls
+`swift_release` internally, and so does `swift_slowAlloc` → `malloc`. Counting both made it
+four releases per field. `count.py` now ignores calls whose caller is the runtime itself.
+
+Also found: **`AssayMatrix` had never compiled on Linux.** Glibc's `stdout` is a mutable global
+that Swift 6 mode rejects, and `RUSAGE_SELF` imports as an enum there. Nothing had built it
+off a Mac until this needed to.

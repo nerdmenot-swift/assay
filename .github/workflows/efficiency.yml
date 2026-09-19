@@ -1,0 +1,80 @@
+name: Efficiency
+
+# EXACT COUNTS, gated. Instructions, runtime calls (retain/release/alloc/uniqueness checks)
+# and heap traffic per call of every verb in the profiling matrix, counted by Valgrind —
+# which needs no PMU, so unlike package-benchmark's `.instructions` it produces real numbers
+# on a hosted runner. See Benchmarks/count.py for the method and the thresholds.
+#
+# Calls and allocations RATCHET: any increase fails, and a decrease fails too until the
+# baseline is updated in the same change, so a win cannot silently erode later. Wall clock
+# is not measured here at all.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: efficiency-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  counts:
+    name: Exact counts (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    container: swift:6.3.3
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Valgrind
+        run: apt-get update && apt-get install -y --no-install-recommends valgrind python3-minimal
+      - name: Build the matrix
+        working-directory: Benchmarks
+        run: swift build -c release --product AssayMatrix
+      - name: Count every cell
+        working-directory: Benchmarks
+        run: python3 count.py run --binary .build/release/AssayMatrix --out /tmp/counts.json
+      - name: Gate against the baseline
+        working-directory: Benchmarks
+        run: |
+          baseline="counts-baseline.$(uname -m).json"
+          if [ -f "$baseline" ]; then
+            python3 count.py compare --baseline "$baseline" --current /tmp/counts.json --strict
+          else
+            echo "No $baseline yet: reporting only. Commit this run's artifact as the baseline." \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Keep the counts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: counts-${{ matrix.arch }}
+          path: /tmp/counts.json
+
+  arc-audit:
+    name: Static ARC audit
+    runs-on: ubuntu-latest
+    container: swift:6.3.3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Python
+        run: apt-get update && apt-get install -y --no-install-recommends python3-minimal
+      # Retain/release/allocation SITES the optimiser left in each function, from its own
+      # remark pass. A hot function (generated `_assay` bodies, AssayReader primitives)
+      # gaining one fails; cold functions are reported. See Experiments/05-arc-audit.
+      - name: Audit against the golden
+        run: |
+          if [ -d Experiments/05-arc-audit/golden-linux ]; then
+            STRICT=1 Experiments/05-arc-audit/audit.sh
+          else
+            OUT=/tmp/arc Experiments/05-arc-audit/audit.sh --summarise-only
+            echo "No golden-linux yet: reporting only." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi

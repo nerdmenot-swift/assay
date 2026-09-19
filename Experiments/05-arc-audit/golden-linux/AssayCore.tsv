@@ -137,6 +137,7 @@ AssayCore.RawValue.sequence.getter : [AssayCore.RawValue]?	retain	1
 AssayCore.RawValue.string.getter : Swift.String?	retain	1
 AssayCore.RawValue.subscript.getter : (Swift.Int) -> AssayCore.RawValue?	retain	1
 AssayCore.RawValue.subscript.getter : (Swift.String) -> AssayCore.RawValue?	retain	1
+AssayCore.Rule.Storage.__allocating_init(kind: AssayCore.Rule.Kind, message: Swift.String?) -> AssayCore.Rule.Storage	ref	1
 AssayCore.Rule.applyCollectionCount(Swift.Int, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	release	24
 AssayCore.Rule.applyCollectionCount(Swift.Int, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	retain	36
 AssayCore.Rule.applyCollectionCount(Swift.Int, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	stack-allocated-ref	7
@@ -147,19 +148,20 @@ AssayCore.Rule.applyRegex(_: AssayCore.CompiledPattern, to: Swift.String, _: Swi
 AssayCore.Rule.applyRegex(_: AssayCore.CompiledPattern, to: Swift.String, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	release	16
 AssayCore.Rule.applyRegex(_: AssayCore.CompiledPattern, to: Swift.String, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	retain	30
 AssayCore.Rule.applyRegex(_: AssayCore.CompiledPattern, to: Swift.String, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	stack-allocated-ref	6
-AssayCore.Rule.applyString(Swift.String, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	release	83
-AssayCore.Rule.applyString(Swift.String, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	retain	140
+AssayCore.Rule.applyString(Swift.String, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	release	84
+AssayCore.Rule.applyString(Swift.String, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	retain	141
 AssayCore.Rule.applyString(Swift.String, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	stack-allocated-ref	22
 AssayCore.Rule.eachRules.getter : [AssayCore.Rule]?	retain	1
 AssayCore.Rule.emit(inout AssayCore.IssueSink, AssayCore.IssueCode, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], Swift.String?, [Swift.String : AssayCore.IssueValue], Swift.String?) -> ()	release	4
 AssayCore.Rule.emit(inout AssayCore.IssueSink, AssayCore.IssueCode, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], Swift.String?, [Swift.String : AssayCore.IssueValue], Swift.String?) -> ()	retain	10
 AssayCore.Rule.emit(inout AssayCore.IssueSink, AssayCore.IssueCode, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], Swift.String?, [Swift.String : AssayCore.IssueValue], Swift.String?) -> ()	stack-allocated-ref	1
-AssayCore.Rule.init(_: AssayCore.Rule.Kind, message: Swift.String?) -> AssayCore.Rule	release	1
-AssayCore.Rule.init(_: AssayCore.Rule.Kind, message: Swift.String?) -> AssayCore.Rule	retain	1
-AssayCore.Rule.init(stringLiteral: Swift.String) -> AssayCore.Rule	release	1
-AssayCore.Rule.init(stringLiteral: Swift.String) -> AssayCore.Rule	retain	1
-AssayCore.Rule.withMessage(Swift.String) -> AssayCore.Rule	release	5
-AssayCore.Rule.withMessage(Swift.String) -> AssayCore.Rule	retain	10
+AssayCore.Rule.init(_: AssayCore.Rule.Kind, message: Swift.String?) -> AssayCore.Rule	ref	1
+AssayCore.Rule.init(stringLiteral: Swift.String) -> AssayCore.Rule	ref	1
+AssayCore.Rule.kind.getter : AssayCore.Rule.Kind	retain	1
+AssayCore.Rule.message.getter : Swift.String?	retain	1
+AssayCore.Rule.withMessage(Swift.String) -> AssayCore.Rule	ref	1
+AssayCore.Rule.withMessage(Swift.String) -> AssayCore.Rule	release	2
+AssayCore.Rule.withMessage(Swift.String) -> AssayCore.Rule	retain	6
 AssayCore.SchemaDescriptor.jsonSchema(for: AssayCore.SchemaFace) -> AssayCore.JSONSchemaValue	box	2
 AssayCore.SchemaDescriptor.jsonSchema(for: AssayCore.SchemaFace) -> AssayCore.JSONSchemaValue	retain	1
 AssayCore.SourceBytes.withUnsafeBytes<A>((Swift.UnsafeRawBufferPointer) throws -> A) throws -> A	release	4
@@ -343,37 +345,23 @@ generic specialization <[Swift.UInt8]> of static AssayCore.DateParser.parseISO86
 generic specialization <[Swift.UInt8]> of static AssayCore.DateParser.parsePattern<A where A: Swift.RandomAccessCollection, A.Element == Swift.UInt8, A.Index == Swift.Int>(_: A, pattern: Swift.String) -> Swift.Result<Swift.Double, AssayCore.DateParseFailure>	release	20
 generic specialization <[Swift.UInt8]> of static AssayCore.DateParser.parseRFC850<A where A: Swift.RandomAccessCollection, A.Element == Swift.UInt8, A.Index == Swift.Int>(A) -> Swift.Result<Swift.Double, AssayCore.DateParseFailure>	release	8
 generic specialization <[Swift.UInt8]> of static AssayCore.DateParser.parseUnixText<A where A: Swift.RandomAccessCollection, A.Element == Swift.UInt8, A.Index == Swift.Int>(_: A, millis: Swift.Bool) -> Swift.Result<Swift.Double, AssayCore.DateParseFailure>	release	1
-one-time initialization function for ascii	release	1
-one-time initialization function for ascii	retain	1
-one-time initialization function for email	release	1
-one-time initialization function for email	retain	1
-one-time initialization function for finite	release	1
-one-time initialization function for finite	retain	1
-one-time initialization function for hostname	release	1
-one-time initialization function for hostname	retain	1
-one-time initialization function for isLowercase	release	1
-one-time initialization function for isLowercase	retain	1
-one-time initialization function for isTrimmed	release	1
-one-time initialization function for isTrimmed	retain	1
+one-time initialization function for ascii	ref	1
+one-time initialization function for email	ref	1
+one-time initialization function for finite	ref	1
+one-time initialization function for hostname	ref	1
+one-time initialization function for isLowercase	ref	1
+one-time initialization function for isTrimmed	ref	1
 one-time initialization function for monthNames	ref	1
-one-time initialization function for negative	release	1
-one-time initialization function for negative	retain	1
-one-time initialization function for nonNegative	release	1
-one-time initialization function for nonNegative	retain	1
-one-time initialization function for notEmpty	release	1
-one-time initialization function for notEmpty	retain	1
-one-time initialization function for positive	release	1
-one-time initialization function for positive	retain	1
-one-time initialization function for unique	release	1
-one-time initialization function for unique	retain	1
-one-time initialization function for url	release	1
-one-time initialization function for url	retain	1
-one-time initialization function for uuid	release	1
-one-time initialization function for uuid	retain	1
+one-time initialization function for negative	ref	1
+one-time initialization function for nonNegative	ref	1
+one-time initialization function for notEmpty	ref	1
+one-time initialization function for positive	ref	1
+one-time initialization function for unique	ref	1
+one-time initialization function for url	ref	1
+one-time initialization function for uuid	ref	1
 protocol witness for Swift.CustomStringConvertible.description.getter : Swift.String in conformance AssayCore.Issue : Swift.CustomStringConvertible in AssayCore	release	1
 protocol witness for Swift.CustomStringConvertible.description.getter : Swift.String in conformance AssayCore.Warning : Swift.CustomStringConvertible in AssayCore	release	1
-protocol witness for Swift.ExpressibleByStringLiteral.init(stringLiteral: A.StringLiteralType) -> A in conformance AssayCore.Rule : Swift.ExpressibleByStringLiteral in AssayCore	release	1
-protocol witness for Swift.ExpressibleByStringLiteral.init(stringLiteral: A.StringLiteralType) -> A in conformance AssayCore.Rule : Swift.ExpressibleByStringLiteral in AssayCore	retain	1
+protocol witness for Swift.ExpressibleByStringLiteral.init(stringLiteral: A.StringLiteralType) -> A in conformance AssayCore.Rule : Swift.ExpressibleByStringLiteral in AssayCore	ref	1
 protocol witness for static AssayCore.JSONCollectible._collectJSON(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> A? in conformance AssayCore.JSON.Value : AssayCore.JSONCollectible in AssayCore	retain	1
 protocol witness for static AssayCore.JSONCollectible._collectJSON(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> A? in conformance AssayCore.RawValue : AssayCore.JSONCollectible in AssayCore	retain	1
 static (extension in AssayCore):AssayCore.SchemaDescribing.jsonSchema(for: AssayCore.SchemaFace) -> AssayCore.JSONSchemaValue	release	2
@@ -417,73 +405,75 @@ static AssayCore.RawValue.mismatchAt(inout AssayCore.IssueSink, [AssayCore.PathC
 static AssayCore.RawValue.mismatchAt(inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.String, AssayCore.RawValue) -> ()	stack-allocated-ref	1
 static AssayCore.Renderer.problemDetailsRender([AssayCore.Issue]) -> Swift.String	release	10
 static AssayCore.Renderer.problemDetailsRender([AssayCore.Issue]) -> Swift.String	retain	1
-static AssayCore.Rule.after(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	release	4
-static AssayCore.Rule.after(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	retain	6
-static AssayCore.Rule.all(AssayCore.Rule...) -> AssayCore.Rule	release	1
-static AssayCore.Rule.all(AssayCore.Rule...) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.ascii(or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.ascii(or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.before(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	release	4
-static AssayCore.Rule.before(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	retain	6
-static AssayCore.Rule.between(_: Swift.String, _: Swift.String, or: Swift.String?) -> AssayCore.Rule	release	8
-static AssayCore.Rule.between(_: Swift.String, _: Swift.String, or: Swift.String?) -> AssayCore.Rule	retain	8
-static AssayCore.Rule.contains(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.contains(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	retain	3
-static AssayCore.Rule.count(_: Swift.ClosedRange<Swift.Int>, or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.count(_: Swift.ClosedRange<Swift.Int>, or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.count(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.count(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	retain	2
+static AssayCore.Rule.after(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	ref	2
+static AssayCore.Rule.after(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	release	2
+static AssayCore.Rule.after(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	retain	2
+static AssayCore.Rule.all(AssayCore.Rule...) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.all(AssayCore.Rule...) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.ascii(or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.ascii(or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.before(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	ref	2
+static AssayCore.Rule.before(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	release	2
+static AssayCore.Rule.before(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	retain	2
+static AssayCore.Rule.between(_: Swift.String, _: Swift.String, or: Swift.String?) -> AssayCore.Rule	ref	2
+static AssayCore.Rule.between(_: Swift.String, _: Swift.String, or: Swift.String?) -> AssayCore.Rule	release	6
+static AssayCore.Rule.between(_: Swift.String, _: Swift.String, or: Swift.String?) -> AssayCore.Rule	retain	5
+static AssayCore.Rule.contains(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.contains(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	retain	2
+static AssayCore.Rule.count(_: Swift.ClosedRange<Swift.Int>, or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.count(_: Swift.ClosedRange<Swift.Int>, or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.count(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.count(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	retain	1
 static AssayCore.Rule.dateBound(Swift.String) -> Swift.Double?	release	2
-static AssayCore.Rule.each(_: AssayCore.Rule..., or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.each(_: AssayCore.Rule..., or: Swift.String?) -> AssayCore.Rule	retain	3
-static AssayCore.Rule.email(or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.email(or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.finite(or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.finite(or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.hostname(or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.hostname(or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.isLowercase(or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.isLowercase(or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.isTrimmed(or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.isTrimmed(or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.length(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.length(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.max(_: Swift.Double, or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.max(_: Swift.Double, or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.max(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.max(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.min(_: Swift.Double, or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.min(_: Swift.Double, or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.min(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.min(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.multipleOf(_: Swift.Double, or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.multipleOf(_: Swift.Double, or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.multipleOf(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.multipleOf(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.negative(or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.negative(or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.nonNegative(or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.nonNegative(or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.notEmpty(or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.notEmpty(or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.oneOf(_: [Swift.String], or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.oneOf(_: [Swift.String], or: Swift.String?) -> AssayCore.Rule	retain	3
-static AssayCore.Rule.positive(or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.positive(or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.prefix(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.prefix(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	retain	3
-static AssayCore.Rule.range(_: Swift.ClosedRange<Swift.Double>, or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.range(_: Swift.ClosedRange<Swift.Double>, or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.range(_: Swift.ClosedRange<Swift.Int>, or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.range(_: Swift.ClosedRange<Swift.Int>, or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.regex(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	ref	1
-static AssayCore.Rule.regex(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.regex(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	retain	3
-static AssayCore.Rule.suffix(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.suffix(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	retain	3
-static AssayCore.Rule.unique(or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.unique(or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.url(or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.url(or: Swift.String?) -> AssayCore.Rule	retain	2
-static AssayCore.Rule.uuid(or: Swift.String?) -> AssayCore.Rule	release	1
-static AssayCore.Rule.uuid(or: Swift.String?) -> AssayCore.Rule	retain	2
+static AssayCore.Rule.each(_: AssayCore.Rule..., or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.each(_: AssayCore.Rule..., or: Swift.String?) -> AssayCore.Rule	retain	2
+static AssayCore.Rule.email(or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.email(or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.finite(or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.finite(or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.hostname(or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.hostname(or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.isLowercase(or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.isLowercase(or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.isTrimmed(or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.isTrimmed(or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.length(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.length(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.max(_: Swift.Double, or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.max(_: Swift.Double, or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.max(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.max(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.min(_: Swift.Double, or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.min(_: Swift.Double, or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.min(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.min(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.multipleOf(_: Swift.Double, or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.multipleOf(_: Swift.Double, or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.multipleOf(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.multipleOf(_: Swift.Int, or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.negative(or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.negative(or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.nonNegative(or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.nonNegative(or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.notEmpty(or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.notEmpty(or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.oneOf(_: [Swift.String], or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.oneOf(_: [Swift.String], or: Swift.String?) -> AssayCore.Rule	retain	2
+static AssayCore.Rule.positive(or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.positive(or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.prefix(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.prefix(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	retain	2
+static AssayCore.Rule.range(_: Swift.ClosedRange<Swift.Double>, or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.range(_: Swift.ClosedRange<Swift.Double>, or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.range(_: Swift.ClosedRange<Swift.Int>, or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.range(_: Swift.ClosedRange<Swift.Int>, or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.regex(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	ref	2
+static AssayCore.Rule.regex(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	retain	2
+static AssayCore.Rule.suffix(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.suffix(_: Swift.String, or: Swift.String?) -> AssayCore.Rule	retain	2
+static AssayCore.Rule.unique(or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.unique(or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.url(or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.url(or: Swift.String?) -> AssayCore.Rule	retain	1
+static AssayCore.Rule.uuid(or: Swift.String?) -> AssayCore.Rule	ref	1
+static AssayCore.Rule.uuid(or: Swift.String?) -> AssayCore.Rule	retain	1

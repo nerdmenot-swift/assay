@@ -181,20 +181,10 @@ one-time initialization function for (structFormatShapes in _F59BA0A9BCC4D9DF66B
 one-time initialization function for (structFormatShapes in _F59BA0A9BCC4D9DF66BC0146E96B3BD7)	retain	1
 one-time initialization function for (treeFormatShapes in _F59BA0A9BCC4D9DF66BC0146E96B3BD7)	release	2
 one-time initialization function for (treeFormatShapes in _F59BA0A9BCC4D9DF66BC0146E96B3BD7)	retain	1
-one-time initialization function for __assayRules_0_0	ref	1
-one-time initialization function for __assayRules_0_0	release	1
-one-time initialization function for __assayRules_0_0	retain	1
-one-time initialization function for __assayRules_1_0	ref	1
-one-time initialization function for __assayRules_1_0	release	1
-one-time initialization function for __assayRules_1_0	retain	1
-one-time initialization function for __assayRules_2_0	ref	1
-one-time initialization function for __assayRules_2_0	release	1
-one-time initialization function for __assayRules_2_0	retain	1
-one-time initialization function for __assayRules_3_0	ref	1
-one-time initialization function for __assayRules_3_0	release	1
-one-time initialization function for __assayRules_3_0	retain	1
-one-time initialization function for __assayRules_4_0	ref	1
-one-time initialization function for __assayRules_4_0	release	1
-one-time initialization function for __assayRules_4_0	retain	1
+one-time initialization function for __assayRules_0_0	ref	2
+one-time initialization function for __assayRules_1_0	ref	2
+one-time initialization function for __assayRules_2_0	ref	2
+one-time initialization function for __assayRules_3_0	ref	2
+one-time initialization function for __assayRules_4_0	ref	2
 one-time initialization function for stringValuedShapes	release	2
 one-time initialization function for stringValuedShapes	retain	1

@@ -76,6 +76,18 @@ import AssayCore
         #expect(sink.isValid)
         #expect(RawValue(consuming: node) == RawValue(node))
     }
+
+    /// The struct door skips the node tree entirely (`TOML.decodeRaw`, which drains the
+    /// builders into the projection); it must build exactly what projecting the tree does.
+    @Test(arguments: documents)
+    func directProjectionMatchesTheTree(_ text: String) throws {
+        var sink = IssueSink()
+        let node = try #require(TOML.decode(Array(text.utf8), into: &sink))
+        var rawSink = IssueSink()
+        let raw = try #require(TOML.decodeRaw(Array(text.utf8), into: &rawSink, limits: .default))
+        #expect(raw == RawValue(node))
+        #expect(rawSink.isValid)
+    }
 }
 
 @Suite struct XMLConsumingProjectionTests {

@@ -24,9 +24,10 @@ public import AssayCore
 func __assayTOMLDocument(
     _ bytes: [UInt8], into sink: inout IssueSink, limits: Limits
 ) -> RawValue? {
-    var parsed = TOML.decode(bytes, into: &sink, limits: limits)
-    guard sink.isValid, let node = parsed.take() else { return nil }
-    return RawValue(consuming: node)
+    guard let raw = TOML.decodeRaw(bytes, into: &sink, limits: limits), sink.isValid else {
+        return nil
+    }
+    return raw
 }
 
 extension RawDecodable {

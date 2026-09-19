@@ -77,8 +77,39 @@ extension TOML {
                            params: ["maxBytes": .int(limits.maxBytes)]))
             return nil
         }
-        return unsafe bytes.withUnsafeBufferPointer { buf -> Node? in
-            guard let base = buf.baseAddress else { return .table([]) }
+        return withParser(bytes, &sink, limits, empty: .table([])) { parser, reader, sink in
+            guard parser.parseBody(&reader, &sink) else { return nil }
+            return parser.finish(parser.root)
+        }
+    }
+
+    /// Straight to `RawValue`, for the struct-decode doors. The builders are drained into
+    /// the projection directly, so no `TOML.Node` table is built only to be projected and
+    /// dropped (`docs/EFFICIENCY.md` row 17). Scalars and inline values are still parsed as
+    /// `TOML.Node` and moved across.
+    static func decodeRaw(
+        _ bytes: [UInt8], into sink: inout IssueSink, limits: Limits
+    ) -> RawValue? {
+        if bytes.count > limits.maxBytes {
+            sink.add(Issue(code: .tooManyBytes,
+                           params: ["maxBytes": .int(limits.maxBytes)]))
+            return nil
+        }
+        return withParser(bytes, &sink, limits, empty: .mapping([])) { parser, reader, sink in
+            guard parser.parseBody(&reader, &sink) else { return nil }
+            return parser.finishRaw(parser.root)
+        }
+    }
+
+    /// Validation, BOM and the reader, shared by both doors. Always inlined: as a real
+    /// call, the tree door paid +4% to +6% instructions for the closure.
+    @inline(__always)
+    static func withParser<T>(
+        _ bytes: [UInt8], _ sink: inout IssueSink, _ limits: Limits, empty: T,
+        _ body: (inout Parser, inout AssayReader, inout IssueSink) -> T?
+    ) -> T? {
+        unsafe bytes.withUnsafeBufferPointer { buf -> T? in
+            guard let base = buf.baseAddress else { return empty }
             if let bad = unsafe UTF8Validation.firstInvalid(base, buf.count) {
                 sink.add(Issue(code: .invalidUTF8, params: ["offset": .int(bad)],
                                location: SourceSpan(lo: bad, len: 1)))
@@ -87,7 +118,7 @@ extension TOML {
             var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
             reader.advanceBy(unsafe UTF8Validation.bomLength(base, buf.count))
             var parser = Parser(limits: limits)
-            return parser.parseDocument(&reader, &sink)
+            return body(&parser, &reader, &sink)
         }
     }
 }
@@ -197,18 +228,19 @@ extension TOML {
 
 extension TOML.Parser {
 
-    mutating func parseDocument(_ r: inout AssayReader, _ sink: inout IssueSink) -> TOML.Node? {
+    /// Every line into the builders; `finish` or `finishRaw` turns them into the result.
+    mutating func parseBody(_ r: inout AssayReader, _ sink: inout IssueSink) -> Bool {
         while true {
-            guard skipBlankLines(&r, &sink) else { return nil }
+            guard skipBlankLines(&r, &sink) else { return false }
             guard let c = r.currentByte else { break }
             if c == UInt8(ascii: "[") {
-                guard parseHeader(&r, &sink) else { return nil }
+                guard parseHeader(&r, &sink) else { return false }
             } else {
-                guard parseKeyValue(&r, &sink, into: current) else { return nil }
+                guard parseKeyValue(&r, &sink, into: current) else { return false }
             }
-            guard endOfLine(&r, &sink) else { return nil }
+            guard endOfLine(&r, &sink) else { return false }
         }
-        return finish(root)
+        return true
     }
 
     /// `[a.b]` or `[[a.b]]`.
@@ -402,6 +434,38 @@ extension TOML.Parser {
             }
         }
         return .table(members)
+    }
+
+    /// `finish`, producing the `RawValue` projection directly: the same drain, the same
+    /// placeholders, with `RawValue(consuming:)` for the closed values.
+    func finishRaw(_ table: TOML.TableBuilder) -> RawValue {
+        var slots: [TOML.TableBuilder.Slot] = []
+        swap(&slots, &table.slots)
+        let members = unsafe slots.withUnsafeMutableBufferPointer { src in
+            unsafe [RawValue.Member](unsafeUninitializedCapacity: src.count) { dst, count in
+                for i in src.indices {
+                    var key = ""
+                    unsafe swap(&key, &src[i].key)
+                    var entry = TOML.Entry.value(.bool(false))
+                    unsafe swap(&entry, &src[i].entry)
+                    // Bound outside the switch, then moved: a switch subject lives to the end
+                    // of the case body (`docs/EFFICIENCY.md` row 14).
+                    var closed: TOML.Node? = nil
+                    let value: RawValue
+                    switch consume entry {
+                    case .value(let v): closed = v; value = .null
+                    case .table(let t): value = finishRaw(t)
+                    case .array(let ts): value = .sequence(ts.elements.map(finishRaw))
+                    }
+                    var moved = value
+                    if let v = closed.take() { moved = RawValue(consuming: consume v) }
+                    unsafe (dst.baseAddress! + i).initialize(
+                        to: RawValue.Member(key: consume key, value: moved, span: src[i].span))
+                }
+                count = src.count
+            }
+        }
+        return .mapping(members)
     }
 }
 

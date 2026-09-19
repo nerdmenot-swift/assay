@@ -146,12 +146,14 @@ extension TOML {
         }
 
         @discardableResult
-        func add(_ key: String, _ entry: Entry, span: SourceSpan?) -> Int {
+        /// `consuming`: the caller's key and entry MOVE into the slot. Borrowed parameters
+        /// made every stored key and value a copy (count.py explain, 2026-09-19).
+        func add(_ key: consuming String, _ entry: consuming Entry, span: SourceSpan?) -> Int {
             let i = slots.count
-            slots.append(Slot(key: key, entry: entry, span: span))
-            if index != nil {
-                index![key] = i
-            } else if slots.count > Self.linearLimit {
+            // The index takes its copy of the key BEFORE the slot takes the key itself.
+            if index != nil { index![copy key] = i }
+            slots.append(Slot(key: consume key, entry: consume entry, span: span))
+            if index == nil, slots.count > Self.linearLimit {
                 var built = [String: Int](minimumCapacity: slots.count * 2)
                 for (j, slot) in slots.enumerated() { built[slot.key] = j }
                 index = built
@@ -261,7 +263,7 @@ extension TOML.Parser {
                      span: path[0].span)
             return false
         }
-        return assign(path: path, value: value, span: span, into: table, &r, &sink)
+        return assign(path: path, value: consume value, span: span, into: table, &r, &sink)
     }
 
     // MARK: The two walks
@@ -305,7 +307,7 @@ extension TOML.Parser {
     /// A `key = value` line. Intermediates may only be tables that dotted keys created,
     /// and the last segment must be new.
     func assign(
-        path: [KeySegment], value: TOML.Node, span: SourceSpan, into start: TOML.TableBuilder,
+        path: [KeySegment], value: consuming TOML.Node, span: SourceSpan, into start: TOML.TableBuilder,
         _ r: inout AssayReader, _ sink: inout IssueSink
     ) -> Bool {
         var table = start
@@ -320,7 +322,7 @@ extension TOML.Parser {
             r.report(&sink, .duplicateKey, params: ["received": .string(last.text)], span: last.span)
             return false
         }
-        table.add(last.text, .value(value), span: span)
+        table.add(last.text, .value(consume value), span: span)
         return true
     }
 

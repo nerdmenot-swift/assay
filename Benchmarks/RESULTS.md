@@ -2543,3 +2543,19 @@ The second row is why the ratchet exists: removing the boxes cut blocks and inst
 RAISED heap bytes, because unboxed nodes are larger and their arrays still grew by doubling. The
 table changes then took bytes far below the start. Every toml cell is −41% to −58% instructions.
 toml-test 208/208 valid and 501/501 invalid, and the toml++ differential agrees.
+
+### Ownership: `consume` in the tree builders (2026-09-19)
+
+A per-function profile of one YAML parse showed about a third of it was ARC: nodes built in a
+local, then copied into their container, with the original destroyed. `consume` at the last use
+moves them instead.
+
+| | instructions | String retains per call |
+|---|---|---|
+| base/yaml | **−29.0%** | 90,006 → **3** |
+| fields-20/yaml | −31.1% | |
+| base/yaml-struct | −14.5% | |
+| base/toml (`consuming` parameters on the assign → add chain) | −5.1% | 52,002 → 32,001 |
+
+Two borrowing spellings that look equivalent were measured and reverted. The optimiser already
+handled one, and the other added a release per key.

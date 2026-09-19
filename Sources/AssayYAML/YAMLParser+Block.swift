@@ -153,10 +153,14 @@ extension YAML.Parser {
             // Merge key. Applied, not preserved — YAML 1.1's `<<` is a directive to the
             // parser, and a consumer seeing a literal "<<" key would be wrong.
             if case .scalar(let ks) = key, ks.content == "<<", ks.tag == nil {
-                mergeSources.append(value)
+                mergeSources.append(consume value)
             } else {
-                pairs.append(YAML.Pair(key: key, value: value,
-                                  valueSpan: trimmedSpan(&r, from: valueStart)))
+                // `consume`: MOVE the key and value into the pair. This is their last use,
+                // yet the optimiser copied both (a retain per String in each scalar) and then
+                // destroyed the originals: 20,002 node copies and 20,002 destroys per
+                // `base/yaml` call (count.py explain, 2026-09-19).
+                let span = trimmedSpan(&r, from: valueStart)
+                pairs.append(YAML.Pair(key: consume key, value: consume value, valueSpan: span))
             }
         }
         for source in mergeSources { mergeInto(&pairs, from: source) }

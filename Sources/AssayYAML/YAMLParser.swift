@@ -338,7 +338,10 @@ extension YAML {
                 }
             }
 
-            guard var result = node else { return nil }
+            // `consume`: MOVE the parsed node into `result`. Without it, `result` was a copy
+            // (a retain for each String in the scalar) and `node` was destroyed at scope end:
+            // one copy per node (count.py explain, 2026-09-19).
+            guard var result = consume node else { return nil }
 
             // Attach properties to a scalar; a collection carries them only via the anchor
             // table, since Node has nowhere to hang them.

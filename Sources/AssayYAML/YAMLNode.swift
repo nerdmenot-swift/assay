@@ -223,6 +223,41 @@ extension RawValue {
     @inlinable
     init(resolving s: YAML.Scalar) {
         guard s.style == .plain else { self = .string(s.content); return }
+        // THE FIRST BYTE DECIDES MOST SCALARS. Only a scalar starting with a digit or one of
+        // `n N ~ t T f F . + -` can be anything but a string under the core schema: the
+        // null, bool and `.inf`/`.nan` spellings all start with those, `Int64` accepts only
+        // a sign and digits, and a `Double` that parses from anything else is non-finite
+        // (`inf`, `nan`, `infinity`), which does not resolve below. Everything else was
+        // compared against about twenty spellings and parsed twice as a number before it
+        // could be a string: 12.6% of base/yaml-struct in String comparison alone
+        // (callgrind, 2026-09-19). An empty scalar is null, so it takes the full path.
+        if s.tag == nil, let b = s.content.utf8.first, !Self._mayResolve(b) {
+            self = .string(s.content)
+            return
+        }
+        self = RawValue(_resolvingCoreSchema: s)
+    }
+
+    /// Whether a plain untagged scalar starting with `b` can resolve to anything but a string.
+    @inlinable
+    static func _mayResolve(_ b: UInt8) -> Bool {
+        switch b {
+        case UInt8(ascii: "0")...UInt8(ascii: "9"),
+             UInt8(ascii: "n"), UInt8(ascii: "N"), UInt8(ascii: "~"),
+             UInt8(ascii: "t"), UInt8(ascii: "T"), UInt8(ascii: "f"), UInt8(ascii: "F"),
+             UInt8(ascii: "."), UInt8(ascii: "+"), UInt8(ascii: "-"):
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// The full core-schema resolution, every test in order. `init(resolving:)` reaches it
+    /// only for scalars whose first byte could matter, and it is the oracle the fast path
+    /// is tested against (`ConsumingProjectionTests`).
+    @usableFromInline
+    init(_resolvingCoreSchema s: YAML.Scalar) {
+        guard s.style == .plain else { self = .string(s.content); return }
         let tag = s.tag
         let c = s.content
 

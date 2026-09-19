@@ -110,3 +110,41 @@ import AssayCore
         #expect(RawValue(consuming: doc) == RawValue(doc))
     }
 }
+
+/// `RawValue(resolving:)` sends a plain scalar whose first byte cannot start a non-string
+/// straight to `.string`; the full resolver is the oracle. Every printable first byte, each
+/// special spelling, numbers in every form `Int64` and `Double` accept, and the words
+/// `Double` alone would take (`inf`, `nan`, `infinity`) in several cases.
+@Suite struct YAMLResolutionFastPathTests {
+
+    static var scalars: [String] {
+        var out: [String] = ["", "~", "null", "Null", "NULL", "nul", "true", "True", "TRUE",
+            "tRue", "false", "False", "FALSE", ".inf", ".Inf", ".INF", "+.inf", "-.inf",
+            "-.Inf", ".nan", ".NaN", ".NAN", "inf", "Inf", "INF", "nan", "NaN", "infinity",
+            "Infinity", "-infinity", "+infinity", "0", "-0", "+0", "12", "-12", "+12",
+            "007", "1_000", "0x1F", "0x1p3", "0o17", "1e3", "1E-3", "1e309", "1e-400",
+            "0.0e-400", ".5", "-.5", "+.5", "5.", "1.2.3", "12abc", " 12", "12 ", "-",
+            "+", ".", "e3", "E3", "yes", "no", "on", "off", "Y", "n", "t", "f"]
+        for b in UInt8(0x21)...UInt8(0x7E) {
+            let c = String(UnicodeScalar(b))
+            out.append(c); out.append(c + "1"); out.append(c + "abc"); out.append(c + "inf")
+        }
+        out += ["é", "éa", "日本", "💥1"]
+        return out
+    }
+
+    @Test func fastPathAgreesWithTheFullResolver() {
+        for text in Self.scalars {
+            for tag: String? in [nil, "!!str", "!!int", "!!float", "!!bool", "!!null", "!Foo"] {
+                let s = YAML.Scalar(content: text, style: .plain, tag: tag)
+                let fast = RawValue(resolving: s)
+                let full = RawValue(_resolvingCoreSchema: s)
+                #expect(fast == full || (fast.isNaN && full.isNaN), "\(text) tag \(tag ?? "nil")")
+            }
+        }
+    }
+}
+
+private extension RawValue {
+    var isNaN: Bool { if case .double(let d) = self { return d.isNaN }; return false }
+}

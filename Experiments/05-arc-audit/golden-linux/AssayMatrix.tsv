@@ -8,17 +8,17 @@ AssayMatrix.(quote in _E4B1A95E9A35F78033C9E0BF0B02B9AD)(Swift.String) -> Swift.
 AssayMatrix.(quote in _E4B1A95E9A35F78033C9E0BF0B02B9AD)(Swift.String) -> Swift.String	retain	2
 AssayMatrix.(walk in _78EEF6CD58B6EFDDEF59FE67D7AEFB6F)(Any, inout AssayMatrix.Floor) -> ()	conditional-runtime-cast	1
 AssayMatrix.(walk in _78EEF6CD58B6EFDDEF59FE67D7AEFB6F)(Any, inout AssayMatrix.Floor) -> ()	release	7
-AssayMatrix.Doc2._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	release	6
+AssayMatrix.Doc2._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	release	4
 AssayMatrix.Doc2._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	retain	3
-AssayMatrix.Doc20._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	release	4
+AssayMatrix.Doc20._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	release	3
 AssayMatrix.Doc20._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	retain	2
-AssayMatrix.Doc5._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	release	4
+AssayMatrix.Doc5._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	release	3
 AssayMatrix.Doc5._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	retain	2
 AssayMatrix.Doc5._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	release	2
 AssayMatrix.Doc5._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	retain	2
 AssayMatrix.Doc5._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	release	2
 AssayMatrix.Doc5._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	retain	2
-AssayMatrix.DocNested._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	release	4
+AssayMatrix.DocNested._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	release	3
 AssayMatrix.DocNested._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	retain	2
 AssayMatrix.DocNested._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	release	2
 AssayMatrix.DocNested._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	retain	2

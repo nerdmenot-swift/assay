@@ -108,10 +108,10 @@ AssayCore.JSONWriter.unrepresentable(inout AssayCore.IssueSink, [AssayCore.PathC
 AssayCore.JSONWriter.unrepresentable(inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString, Swift.Double) -> ()	retain	2
 AssayCore.JSONWriter.unrepresentable(inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString, Swift.Double) -> ()	stack-allocated-ref	1
 AssayCore.JSONWriter.write(AssayCore.JSON.Value, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	release	3
-AssayCore.JSONWriter.write(AssayCore.JSON.Value, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	retain	5
+AssayCore.JSONWriter.write(AssayCore.JSON.Value, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	retain	3
 AssayCore.JSONWriter.write(AssayCore.RawValue, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	release	3
-AssayCore.JSONWriter.write(AssayCore.RawValue, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	retain	5
-AssayCore.JSONWriter.write(Swift.Double, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	release	3
+AssayCore.JSONWriter.write(AssayCore.RawValue, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	retain	3
+AssayCore.JSONWriter.write(Swift.Double, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	release	5
 AssayCore.JSONWriter.writeDate(Swift.Double, [AssayCore.DateFormat], inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	release	1
 AssayCore.JSONWriter.writeEscaped(Swift.UInt8) -> ()	release	1
 AssayCore.JSONWriter.writeInteger(Swift.Int64) -> ()	release	2

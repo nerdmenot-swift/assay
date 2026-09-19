@@ -193,7 +193,7 @@ extension SchemaMacro {
             nonisolated public static func _assay(
                 from raw: Assay.RawValue,
                 into sink: inout Assay.IssueSink,
-                at path: [Assay.PathComponent]
+                at path: inout [Assay.PathComponent]
             ) -> \(typeName)? {
                 guard case .string(let __s) = raw else {
                     Assay.RawValue.mismatchAt(&sink, path, "string", raw)

@@ -52,7 +52,7 @@ extension AssayerBacked {
     /// The `RawValue` path: YAML, XML, and any nested use inside another schema.
     @inlinable
     public nonisolated static func _assay(
-        from raw: RawValue, into sink: inout IssueSink, at path: [PathComponent]
+        from raw: RawValue, into sink: inout IssueSink, at path: inout [PathComponent]
     ) -> Self? {
         let s = Self.assaySchema
         guard let out = s.plan.run(raw, &sink, path, .default) else { return nil }
@@ -81,6 +81,6 @@ extension AssayerBacked {
         guard let raw = RawValue._collectJSON(from: &reader, into: &sink, at: path) else {
             return nil
         }
-        return _assay(from: raw, into: &sink, at: path)
+        return _assay(from: raw, into: &sink, at: &path)
     }
 }

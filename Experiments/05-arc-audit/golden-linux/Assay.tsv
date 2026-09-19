@@ -68,7 +68,7 @@ static ContextualJSONAssayable<>.diagnose(json:context:limits:sourceName:)	relea
 static ContextualJSONAssayable<>.diagnose(json:context:limits:sourceName:)	retain	5
 static ContextualJSONAssayable<>.parse(json:context:limits:sourceName:)	release	3
 static ContextualJSONAssayable<>.parse(json:context:limits:sourceName:)	retain	1
-static ContextualRawDecodable.diagnose(body:contentType:accepting:context:limits:sourceName:)	release	13
+static ContextualRawDecodable.diagnose(body:contentType:accepting:context:limits:sourceName:)	release	14
 static ContextualRawDecodable.diagnose(body:contentType:accepting:context:limits:sourceName:)	retain	9
 static ContextualValidatable.diagnose(_:context:limits:)	release	1
 static ContextualValidatable.diagnose(_:context:limits:)	retain	2
@@ -87,11 +87,11 @@ static JSONAssayable<>.diagnose(json:limits:sourceName:)	release	7
 static JSONAssayable<>.diagnose(json:limits:sourceName:)	retain	5
 static JSONAssayable<>.parse(json:limits:sourceName:)	release	3
 static JSONAssayable<>.parse(json:limits:sourceName:)	retain	1
-static RawDecodable.diagnose(body:contentType:accepting:limits:sourceName:)	release	13
+static RawDecodable.diagnose(body:contentType:accepting:limits:sourceName:)	release	14
 static RawDecodable.diagnose(body:contentType:accepting:limits:sourceName:)	retain	9
 static RawDecodable<>._assay(from:into:at:)	release	3
 static RawDecodable<>._assay(from:into:at:)	retain	2
-static RawDecodable<>.diagnose(body:contentType:accepting:limits:sourceName:)	release	16
+static RawDecodable<>.diagnose(body:contentType:accepting:limits:sourceName:)	release	17
 static RawDecodable<>.diagnose(body:contentType:accepting:limits:sourceName:)	retain	9
 static Validatable.diagnose(_:at:limits:)	release	1
 static Validatable.diagnose(_:at:limits:)	retain	2

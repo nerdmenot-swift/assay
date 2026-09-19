@@ -130,7 +130,7 @@ public protocol ContextualRawDecodable: ContextualAssayable {
     nonisolated static func _assay(
         from raw: RawValue,
         into sink: inout IssueSink,
-        at path: [PathComponent],
+        at path: inout [PathComponent],
         context: AssayContext
     ) -> Self?
 }
@@ -168,9 +168,9 @@ extension RawDecodable {
     @inlinable
     public nonisolated static func _assay<C>(
         from raw: RawValue, into sink: inout IssueSink,
-        at path: [PathComponent], context: C
+        at path: inout [PathComponent], context: C
     ) -> Self? {
-        _assay(from: raw, into: &sink, at: path)
+        _assay(from: raw, into: &sink, at: &path)
     }
 }
 

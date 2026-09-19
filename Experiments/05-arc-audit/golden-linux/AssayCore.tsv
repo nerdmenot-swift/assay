@@ -187,6 +187,8 @@ _assayNegotiate(contentType:accepting:)	retain	7
 _assayPreprocess(_:_:)	ref	1
 _assayPreprocess(_:_:)	release	13
 _assayPreprocess(_:_:)	retain	7
+_assayPushed<A>(_:_:_:)	release	1
+_assayPushed<A>(_:_:_:)	retain	1
 _assayUnknownNotEncodable(_:_:_:_:)	release	2
 _assayUnknownNotEncodable(_:_:_:_:)	retain	4
 _assayUnknownNotEncodable(_:_:_:_:)	stack-allocated-ref	1

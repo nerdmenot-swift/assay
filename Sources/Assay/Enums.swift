@@ -69,7 +69,7 @@ extension RawDecodable where Self: RawRepresentable, RawValue == String {
     public static func _assay(
         from raw: AssayCore.RawValue,
         into sink: inout IssueSink,
-        at path: [PathComponent]
+        at path: inout [PathComponent]
     ) -> Self? {
         guard case .string(let s) = raw else {
             AssayCore.RawValue.mismatchAt(&sink, path, "string", raw)
@@ -87,7 +87,7 @@ extension RawDecodable where Self: RawRepresentable & CaseIterable, RawValue == 
     public static func _assay(
         from raw: AssayCore.RawValue,
         into sink: inout IssueSink,
-        at path: [PathComponent]
+        at path: inout [PathComponent]
     ) -> Self? {
         guard case .string(let s) = raw else {
             AssayCore.RawValue.mismatchAt(&sink, path, "string", raw)
@@ -129,7 +129,7 @@ extension RawDecodable where Self: RawRepresentable, RawValue == Int {
     public static func _assay(
         from raw: AssayCore.RawValue,
         into sink: inout IssueSink,
-        at path: [PathComponent]
+        at path: inout [PathComponent]
     ) -> Self? {
         guard case .int(let i) = raw, let n = Int(exactly: i) else {
             AssayCore.RawValue.mismatchAt(&sink, path, "integer", raw)

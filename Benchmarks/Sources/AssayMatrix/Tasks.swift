@@ -245,8 +245,49 @@ func allTasks() -> [Task] {
         }
     }
 
+    // Decoding each format INTO A STRUCT: parse, project to RawValue, decode. That is what a
+    // user of these formats calls, and until 2026-09-19 no cell timed it: the tasks above
+    // stop at the tree.
+    add("yaml-struct", "T.parse(yaml:) — parse, project, decode",
+        applies: { structFormatShapes.contains($0) }) { shape, b in
+        var sink = IssueSink(limits: .default)
+        guard let v = JSON.Value.decode(b, into: &sink, limits: .default) else { return nil }
+        let text = YAML.encode(RawValue(v))
+        switch shape {
+        case "nested-3": return { (try? DocNested.parse(yaml: text))?.items.count }
+        default: return { (try? Doc5.parse(yaml: text))?.items.count }
+        }
+    }
+    add("toml-struct", "T.parse(toml:) — parse, project, decode",
+        applies: { structFormatShapes.contains($0) }) { shape, b in
+        var sink = IssueSink(limits: .default)
+        guard let v = JSON.Value.decode(b, into: &sink, limits: .default) else { return nil }
+        let text = TOML.encode(RawValue(v), into: &sink)
+        switch shape {
+        case "nested-3": return { (try? DocNested.parse(toml: text))?.items.count }
+        default: return { (try? Doc5.parse(toml: text))?.items.count }
+        }
+    }
+    add("xml-struct", "T.parse(xml:) — parse, project, decode",
+        applies: { structFormatShapes.contains($0) }) { shape, b in
+        var sink = IssueSink(limits: .default)
+        guard let v = JSON.Value.decode(b, into: &sink, limits: .default) else { return nil }
+        // Arrays as repeated siblings, which is how XML decoding reads a sequence.
+        guard case .mapping(let root) = RawValue(v), case .sequence(let items)? = root.first?.value
+        else { return nil }
+        let text = "<root>" + items.map { renderXML($0, tag: "items") }.joined() + "</root>"
+        switch shape {
+        case "nested-3": return { (try? DocNested.parse(xml: text))?.items.count }
+        default: return { (try? Doc5.parse(xml: text))?.items.count }
+        }
+    }
+
     return out
 }
+
+/// Shapes the struct-decode tasks for YAML, TOML and XML run on: those whose decode type
+/// declares `formats: .all`.
+private let structFormatShapes: Set<String> = ["base", "nested-3", "values-long", "escapes-10"]
 
 /// Shapes the YAML, TOML and XML tasks run on: enough to separate record width, nesting, arrays,
 /// long values and escapes, without paying Valgrind for every shape twice more.

@@ -65,14 +65,14 @@ extension ContextualJSONAssayable {
     @available(*, unavailable, message: "this type declared @Schema(context:), so it can only be decoded with a context — but it is nested inside a type that declared none. Add the same `context:` to the outer @Schema, or drop it from this one. (A macro reads a type's NAME, so it cannot detect this at expansion.)")
     public nonisolated static func _assay(
         from reader: inout AssayReader, into sink: inout IssueSink,
-        at path: [PathComponent]
+        at path: inout [PathComponent]
     ) -> Self? { nil }
 }
 
 extension ContextualRawDecodable {
     @available(*, unavailable, message: "this type declared @Schema(context:), so it can only be decoded with a context — but it is nested inside a type that declared none. Add the same `context:` to the outer @Schema, or drop it from this one. (A macro reads a type's NAME, so it cannot detect this at expansion.)")
     public nonisolated static func _assay(
-        from raw: RawValue, into sink: inout IssueSink, at path: [PathComponent]
+        from raw: RawValue, into sink: inout IssueSink, at path: inout [PathComponent]
     ) -> Self? { nil }
 }
 

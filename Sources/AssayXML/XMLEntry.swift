@@ -83,7 +83,8 @@ extension RawDecodable {
         }
         __assayCheckXMLRoot(Self.self, doc, &sink)
         let raw = RawValue(doc)
-        let value = Self._assay(from: raw, into: &sink, at: [])
+        var __rootPath: [PathComponent] = []
+        let value = Self._assay(from: raw, into: &sink, at: &__rootPath)
         return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
@@ -137,7 +138,8 @@ extension ContextualRawDecodable {
             return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         __assayCheckXMLRoot(Self.self, doc, &sink)
-        let value = Self._assay(from: RawValue(doc), into: &sink, at: [], context: context)
+        var __rootPath: [PathComponent] = []
+        let value = Self._assay(from: RawValue(doc), into: &sink, at: &__rootPath, context: context)
         return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 

@@ -137,7 +137,7 @@ extension SchemaMacro {
         nonisolated public static func _assay(
             from raw: Assay.RawValue,
             into sink: inout Assay.IssueSink,
-            at path: [Assay.PathComponent]\(ctxParam)
+            at path: inout [Assay.PathComponent]\(ctxParam)
         ) -> \(typeName)? {
         \(requires)    guard case .mapping(let __members) = raw else {
                 Assay.RawValue._notAnObject(&sink, path, raw)
@@ -319,8 +319,9 @@ extension SchemaMacro {
                                 ? "__f\(i) = nil"
                                 : "Assay.RawValue._mismatchPublic(&sink, path, \"\(key)\", \"\(base)\", __v)")
                         } else {
-                            __f\(i) = \(base)._assay(from: __v, into: &sink,
-                                                     at: path + [.key("\(key)")]\(ctxArg))
+                            path.append(.key("\(key)"))
+                            __f\(i) = \(base)._assay(from: __v, into: &sink, at: &path\(ctxArg))
+                            path.removeLast()
                         }
         """
     }
@@ -366,7 +367,11 @@ extension SchemaMacro {
             // The raw path IS RawValue: an open-map value is the member itself.
             return "Optional(\(v))"
         }
-        return "\(type)._assay(from: \(v), into: &sink, at: path + [.key(\"\(key)\")]\(ctxArg))"
+        // `path` is `inout` (see `RawDecodable`); an element is an expression here, so the
+        // push and pop go through `_assayPushed` rather than allocating `path + [.key(k)]`.
+        // A PARENTHESIZED closure, not a trailing one: this expression sits in `if let`
+        // conditions, where a trailing closure is a warning in the user's build.
+        return "Assay._assayPushed(&path, \"\(key)\", { \(type)._assay(from: \(v), into: &sink, at: &$0\(ctxArg)) })"
     }
 
     /// `span` is the expression naming this field's captured span, or nil for a position

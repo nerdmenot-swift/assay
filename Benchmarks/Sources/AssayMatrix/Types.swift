@@ -23,10 +23,10 @@ import AssayCore
 @Schema(encodes: true) struct M2: Equatable { var f0: String; var f1: String }
 @Schema(encodes: true) struct Doc2: Equatable { var items: [M2] }
 
-@Schema(encodes: true) struct M5: Equatable {
+@Schema(formats: .all, encodes: true) struct M5: Equatable {
     var f0: String; var f1: String; var f2: String; var f3: String; var f4: String
 }
-@Schema(encodes: true) struct Doc5: Equatable { var items: [M5] }
+@Schema(formats: .all, encodes: true) struct Doc5: Equatable { var items: [M5] }
 
 /// Twenty fields: past experiment #1's N ≥ 10, so this is the first benchmark in the
 /// repository that has ever exercised a real arm64 jump table.
@@ -70,13 +70,13 @@ import AssayCore
 
 // `encodes: true` since 2026-09-19, so `nested-3/encode` measures what a NESTED field costs on
 // the write side; every other encode cell is flat.
-@Schema(encodes: true) struct MInner2: Equatable { var h0: String }
-@Schema(encodes: true) struct MInner1: Equatable { var g0: String; var inner: MInner2 }
-@Schema(encodes: true) struct MNested: Equatable {
+@Schema(formats: .all, encodes: true) struct MInner2: Equatable { var h0: String }
+@Schema(formats: .all, encodes: true) struct MInner1: Equatable { var g0: String; var inner: MInner2 }
+@Schema(formats: .all, encodes: true) struct MNested: Equatable {
     var f0: String; var f1: String; var f2: String; var f3: String
     var inner: MInner1
 }
-@Schema(encodes: true) struct DocNested: Equatable { var items: [MNested] }
+@Schema(formats: .all, encodes: true) struct DocNested: Equatable { var items: [MNested] }
 
 @Schema struct MArray: Equatable {
     var f0: String; var f1: String; var f2: String; var f3: String

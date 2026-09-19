@@ -176,7 +176,7 @@ nonisolated public static func _assay(
 nonisolated public static func _assay(
     from raw: Assay.RawValue,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: inout [Assay.PathComponent]
 ) -> GoldenNarrow? {
     guard case .mapping(let __members) = raw else {
         Assay.RawValue._notAnObject(&sink, path, raw)

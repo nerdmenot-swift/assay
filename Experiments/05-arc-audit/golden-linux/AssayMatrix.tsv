@@ -4,10 +4,26 @@ Doc20._assayEncodeMembers(into:into:at:)	release	4
 Doc20._assayEncodeMembers(into:into:at:)	retain	2
 Doc5._assayEncodeMembers(into:into:at:)	release	4
 Doc5._assayEncodeMembers(into:into:at:)	retain	2
+Doc5._assayEncodeRaw(into:at:)	release	2
+Doc5._assayEncodeRaw(into:at:)	retain	2
+Doc5._assayEncodeXML(into:into:at:element:)	release	2
+Doc5._assayEncodeXML(into:into:at:element:)	retain	2
 DocNested._assayEncodeMembers(into:into:at:)	release	4
 DocNested._assayEncodeMembers(into:into:at:)	retain	2
+DocNested._assayEncodeRaw(into:at:)	release	2
+DocNested._assayEncodeRaw(into:at:)	retain	2
+DocNested._assayEncodeXML(into:into:at:element:)	release	2
+DocNested._assayEncodeXML(into:into:at:element:)	retain	2
 MInner1._assayEncodeMembers(into:into:at:)	release	1
+MInner1._assayEncodeRaw(into:at:)	release	1
+MInner1._assayEncodeRaw(into:at:)	retain	3
+MInner1._assayEncodeXML(into:into:at:element:)	release	1
+MInner1._assayEncodeXML(into:into:at:element:)	retain	1
 MNested._assayEncodeMembers(into:into:at:)	release	1
+MNested._assayEncodeRaw(into:at:)	release	1
+MNested._assayEncodeRaw(into:at:)	retain	5
+MNested._assayEncodeXML(into:into:at:element:)	release	2
+MNested._assayEncodeXML(into:into:at:element:)	retain	2
 allAxes()	ref	1
 allShapes()	release	159
 allShapes()	retain	29
@@ -22,6 +38,8 @@ closure #1 in closure #14 in allTasks()	release	6
 closure #1 in closure #14 in allTasks()	retain	1
 closure #1 in closure #16 in allTasks()	release	5
 closure #1 in closure #16 in allTasks()	retain	1
+closure #1 in closure #18 in allTasks()	release	4
+closure #1 in closure #20 in allTasks()	release	4
 closure #1 in closure #4 in allTasks()	release	4
 closure #1 in closure #5 in allTasks()	release	5
 closure #1 in closure #6 in allAxes()	release	16
@@ -42,12 +60,20 @@ closure #14 in allTasks()	release	3
 closure #16 in allShapes()	release	17
 closure #16 in allShapes()	retain	3
 closure #16 in allTasks()	release	4
+closure #18 in allTasks()	release	4
 closure #2 in 	release	5
 closure #2 in 	retain	2
 closure #2 in allTasks()	retain	2
+closure #2 in closure #18 in allTasks()	release	4
+closure #2 in closure #20 in allTasks()	release	4
+closure #2 in closure #22 in allTasks()	release	2
 closure #2 in closure #8 in allTasks()	release	2
+closure #20 in allTasks()	release	4
+closure #22 in allTasks()	release	16
+closure #22 in allTasks()	retain	3
 closure #3 in 	release	5
 closure #3 in 	retain	2
+closure #3 in closure #22 in allTasks()	release	2
 closure #3 in closure #8 in allTasks()	release	2
 closure #4 in allTasks()	retain	1
 closure #4 in closure #8 in allTasks()	release	2
@@ -95,6 +121,8 @@ one-time initialization function for fiveStringShapes	release	2
 one-time initialization function for fiveStringShapes	retain	1
 one-time initialization function for stringValuedShapes	release	2
 one-time initialization function for stringValuedShapes	retain	1
+one-time initialization function for structFormatShapes	release	2
+one-time initialization function for structFormatShapes	retain	1
 one-time initialization function for treeFormatShapes	release	2
 one-time initialization function for treeFormatShapes	retain	1
 quote(_:)	release	2
@@ -103,6 +131,8 @@ runChild(shape:taskName:path:)	release	21
 runChild(shape:taskName:path:)	retain	11
 runCount(shape:taskName:path:k:)	release	21
 runCount(shape:taskName:path:k:)	retain	11
+specialized M5._assayEncodeRaw(into:at:)	retain	5
+specialized MInner2._assayEncodeRaw(into:at:)	retain	1
 specialized closure #2 in allAxes()	release	12
 specialized closure #2 in allAxes()	retain	2
 specialized closure #3 in allAxes()	release	11
@@ -119,8 +149,8 @@ specialized static Doc2._assay(from:into:at:)	release	13
 specialized static Doc2._assay(from:into:at:)	retain	2
 specialized static Doc20._assay(from:into:at:)	release	13
 specialized static Doc20._assay(from:into:at:)	retain	2
-specialized static Doc5._assay(from:into:at:)	release	13
-specialized static Doc5._assay(from:into:at:)	retain	2
+specialized static Doc5._assay(from:into:at:)	release	21
+specialized static Doc5._assay(from:into:at:)	retain	6
 specialized static DocArray._assay(from:into:at:)	release	13
 specialized static DocArray._assay(from:into:at:)	retain	2
 specialized static DocBool._assay(from:into:at:)	release	13
@@ -131,8 +161,8 @@ specialized static DocInt._assay(from:into:at:)	release	13
 specialized static DocInt._assay(from:into:at:)	retain	2
 specialized static DocLongKeys._assay(from:into:at:)	release	13
 specialized static DocLongKeys._assay(from:into:at:)	retain	2
-specialized static DocNested._assay(from:into:at:)	release	12
-specialized static DocNested._assay(from:into:at:)	retain	2
+specialized static DocNested._assay(from:into:at:)	release	20
+specialized static DocNested._assay(from:into:at:)	retain	6
 specialized static DocOptional._assay(from:into:at:)	release	13
 specialized static DocOptional._assay(from:into:at:)	retain	2
 specialized static DocPrefix._assay(from:into:at:)	release	13
@@ -141,13 +171,17 @@ specialized static DocValidated._assay(from:into:at:)	release	13
 specialized static DocValidated._assay(from:into:at:)	retain	2
 specialized static M2._assay(from:into:at:)	release	14
 specialized static M20._assay(from:into:at:)	release	462
-specialized static M5._assay(from:into:at:)	release	46
+specialized static M5._assay(from:into:at:)	release	82
+specialized static M5._assay(from:into:at:)	retain	10
 specialized static MArray._assay(from:into:at:)	release	53
 specialized static MArray._assay(from:into:at:)	retain	1
-specialized static MInner1._assay(from:into:at:)	release	14
-specialized static MInner2._assay(from:into:at:)	release	6
+specialized static MInner1._assay(from:into:at:)	release	24
+specialized static MInner1._assay(from:into:at:)	retain	3
+specialized static MInner2._assay(from:into:at:)	release	10
+specialized static MInner2._assay(from:into:at:)	retain	2
 specialized static MLongKeys._assay(from:into:at:)	release	46
-specialized static MNested._assay(from:into:at:)	release	47
+specialized static MNested._assay(from:into:at:)	release	83
+specialized static MNested._assay(from:into:at:)	retain	9
 specialized static MOptional._assay(from:into:at:)	release	26
 specialized static MPrefix._assay(from:into:at:)	release	14
 specialized static MValidated._assay(from:into:at:)	release	53

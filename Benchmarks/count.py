@@ -386,12 +386,16 @@ def cmd_explain(a):
     lo, _ = run_callgrind(a.binary, shape, task, path, K_LO, os.path.join(scratch, "lo"))
     hi, _ = run_callgrind(a.binary, shape, task, path, K_HI, os.path.join(scratch, "hi"))
     targets = set(WATCH.get(a.fn, [a.fn]))
+    # `--fn` also matches a SUBSTRING of a mangled name, so a generic helper can be traced one
+    # level further up: `--fn consumeAndCreateNew` names who grew which array, where
+    # `--fn alloc_object` only names Array's own growth function.
+    match = (lambda c: c in targets) if a.fn in WATCH else (lambda c: c in targets or a.fn in c)
     diff = collections.Counter()
     for (caller, callee), n in hi[2].items():
-        if callee in targets:
+        if match(callee):
             diff[caller] += n
     for (caller, callee), n in lo[2].items():
-        if callee in targets:
+        if match(callee):
             diff[caller] -= n
     span = K_HI - K_LO
     top = [(c, n / span) for c, n in diff.most_common(a.top) if n > 0]

@@ -138,7 +138,7 @@ extension UUID {
     nonisolated public static func _assay(
         from raw: RawValue,
         into sink: inout IssueSink,
-        at path: [PathComponent]
+        at path: inout [PathComponent]
     ) -> UUID? {
         guard case .string(let text) = raw else {
             RawValue.mismatchAt(&sink, path, "uuid", raw)

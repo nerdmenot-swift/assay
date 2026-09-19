@@ -79,7 +79,8 @@ extension RawDecodable {
         guard let raw = __assayYAMLDocument(bytes, into: &sink, limits: limits) else {
             return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
-        let value = Self._assay(from: raw, into: &sink, at: [])
+        var __rootPath: [PathComponent] = []
+        let value = Self._assay(from: raw, into: &sink, at: &__rootPath)
         return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
@@ -104,7 +105,8 @@ extension RawDecodable {
                 sink.add(Issue(code: .yamlUnrepresentableKey))
                 continue
             }
-            if let v = Self._assay(from: raw, into: &sink, at: [.index(out.count)]) {
+            var docPath: [PathComponent] = [.index(out.count)]
+            if let v = Self._assay(from: raw, into: &sink, at: &docPath) {
                 out.append(v)
             }
         }
@@ -231,7 +233,8 @@ extension ContextualRawDecodable {
         guard let raw = __assayYAMLDocument(bytes, into: &sink, limits: limits) else {
             return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
-        let value = Self._assay(from: raw, into: &sink, at: [], context: context)
+        var __rootPath: [PathComponent] = []
+        let value = Self._assay(from: raw, into: &sink, at: &__rootPath, context: context)
         return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 

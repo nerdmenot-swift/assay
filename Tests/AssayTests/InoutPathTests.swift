@@ -4,6 +4,7 @@
 
 import Testing
 import Assay
+import AssayYAML
 
 //===----------------------------------------------------------------------===//
 // The diagnostic path is `inout` since 2026-09-19: nested decodes push a component, call,
@@ -13,10 +14,10 @@ import Assay
 // inside a nested scope and checks the later path exactly.
 //===----------------------------------------------------------------------===//
 
-@Schema struct IPInner: Equatable { var x: Int }
-@Schema struct IPOuter: Equatable { var a: IPInner; var b: Int }
-@Schema struct IPList: Equatable { var items: [IPInner]; var tail: Int }
-@Schema struct IPMap: Equatable { var m: [String: IPInner]; var after: Int }
+@Schema(formats: .all) struct IPInner: Equatable { var x: Int }
+@Schema(formats: .all) struct IPOuter: Equatable { var a: IPInner; var b: Int }
+@Schema(formats: .all) struct IPList: Equatable { var items: [IPInner]; var tail: Int }
+@Schema(formats: .all) struct IPMap: Equatable { var m: [String: IPInner]; var after: Int }
 @Schema struct IPGroup: Equatable {
     @Key(path: "p.list") var list: [Int]
     @Key(path: "p.inner") var inner: IPInner
@@ -92,6 +93,18 @@ struct InoutPathTests {
         // A closed enum (Enums.swift) and an open one (EnumGen), each given a non-string.
         #expect(Self.paths(IPEnumHolder.self, #"{"c":42,"o":"red","z":"bad"}"#) == ["c", "z"])
         #expect(Self.paths(IPEnumHolder.self, #"{"c":"red","o":["x"],"z":"bad"}"#) == ["o", "z"])
+    }
+
+    /// The RawValue path (YAML, TOML, XML) takes the path `inout` too, since 2026-09-19:
+    /// push and pop around a nested field, `_assayPushed` inside an element expression.
+    @Test("the RawValue path does not leak either (via YAML)")
+    func rawPath() {
+        func paths<T: RawDecodable>(_ t: T.Type, _ yaml: String) -> [String] {
+            T.diagnose(yaml: yaml).issues.map(\.path.pathDescription)
+        }
+        #expect(paths(IPOuter.self, "a:\n  x: bad\nb: bad\n") == ["a.x", "b"])
+        #expect(paths(IPList.self, "items:\n- x: bad\n- x: 1\ntail: bad\n") == ["items.x", "tail"])
+        #expect(paths(IPMap.self, "m:\n  k:\n    x: bad\nafter: bad\n") == ["m.x", "after"])
     }
 
     @Test("a clean decode through every nesting shape")

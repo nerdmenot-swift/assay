@@ -4,6 +4,7 @@ Doc20._assayEncodeMembers(into:into:at:)	release	4
 Doc20._assayEncodeMembers(into:into:at:)	retain	2
 Doc5._assayEncodeMembers(into:into:at:)	release	4
 Doc5._assayEncodeMembers(into:into:at:)	retain	2
+allAxes()	ref	1
 allShapes()	release	159
 allShapes()	retain	29
 allShapes()	stack-allocated-ref	1
@@ -13,10 +14,19 @@ closure #1 in closure #10 in allTasks()	release	2
 closure #1 in closure #11 in allShapes()	release	2
 closure #1 in closure #4 in allTasks()	release	4
 closure #1 in closure #5 in allTasks()	release	5
+closure #1 in closure #6 in allAxes()	release	16
+closure #1 in closure #6 in allAxes()	retain	4
 closure #1 in closure #6 in allTasks()	release	3
 closure #1 in closure #6 in allTasks()	retain	1
+closure #1 in closure #7 in allAxes()	release	14
+closure #1 in closure #7 in allAxes()	retain	3
 closure #1 in closure #8 in allTasks()	release	2
+closure #10 in allAxes()	ref	1
+closure #10 in allAxes()	release	9
+closure #10 in allAxes()	retain	2
 closure #10 in allTasks()	release	3
+closure #11 in allAxes()	release	12
+closure #11 in allAxes()	retain	2
 closure #16 in allShapes()	release	17
 closure #16 in allShapes()	retain	3
 closure #2 in 	release	5
@@ -27,10 +37,16 @@ closure #3 in 	release	5
 closure #3 in 	retain	2
 closure #3 in closure #8 in allTasks()	release	2
 closure #4 in allTasks()	retain	1
+closure #5 in allAxes()	release	12
+closure #5 in allAxes()	retain	2
 closure #5 in allTasks()	retain	1
 closure #6 in allTasks()	release	1
 closure #8 in allTasks()	release	9
+closure #9 in allAxes()	ref	1
+closure #9 in allAxes()	release	7
+closure #9 in allAxes()	retain	3
 decodeStruct(_:_:)	release	40
+decodedValue(_:_:)	release	30
 diagnoseStruct(_:_:)	release	20
 diagnoseStruct(_:_:)	retain	10
 document(_:pretty:)	release	8
@@ -39,6 +55,8 @@ fixed(_:_:)	release	2
 fixed(_:_:)	stack-allocated-ref	1
 flag(_:)	release	5
 flag(_:)	retain	1
+floor(shape:task:bytes:)	release	30
+floor(shape:task:bytes:)	retain	3
 measure(binary:shape:task:path:timeout:)	begin-exclusive-access-to-value	7
 measure(binary:shape:task:path:timeout:)	end-exclusive-access-to-value	9
 measure(binary:shape:task:path:timeout:)	ref	3
@@ -69,6 +87,18 @@ runChild(shape:taskName:path:)	release	21
 runChild(shape:taskName:path:)	retain	11
 runCount(shape:taskName:path:k:)	release	21
 runCount(shape:taskName:path:k:)	retain	11
+specialized closure #2 in allAxes()	release	12
+specialized closure #2 in allAxes()	retain	2
+specialized closure #3 in allAxes()	release	11
+specialized closure #3 in allAxes()	retain	2
+specialized closure #4 in allAxes()	release	11
+specialized closure #4 in allAxes()	retain	2
+specialized closure #6 in allAxes()	release	4
+specialized closure #6 in allAxes()	retain	1
+specialized closure #7 in allAxes()	release	4
+specialized closure #7 in allAxes()	retain	1
+specialized closure #8 in allAxes()	release	8
+specialized closure #8 in allAxes()	retain	2
 specialized static Doc2._assay(from:into:at:)	release	13
 specialized static Doc2._assay(from:into:at:)	retain	2
 specialized static Doc20._assay(from:into:at:)	release	13
@@ -110,3 +140,5 @@ specialized static MValidated._assay(from:into:at:)	release	53
 specialized static MValidated._assay(from:into:at:)	retain	6
 specialized static MValidated._assayCheck(_:into:at:)	release	5
 specialized static MValidated._assayCheck(_:into:at:)	retain	5
+walk(_:_:)	conditional-runtime-cast	1
+walk(_:_:)	release	7

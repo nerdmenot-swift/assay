@@ -116,7 +116,12 @@ let package = Package(
                 .product(name: "AssayPlist", package: "assay"),
                 .product(name: "TOMLKit", package: "TOMLKit"),
                 // The comparison the falsification condition names. See the dependency note.
-                .product(name: "ZippyJSON", package: "ZippyJSON"),
+                // APPLE ONLY: ZippyJSON depends on JJLISO8601DateFormatter, whose C includes
+                // `CoreFoundation/CFDateFormatter.h`. Unconditional, it broke every Linux
+                // build of AssayBench from 2026-09-09 — the scheduled x86-64 and arm64
+                // benchmark jobs failed on it and nothing noticed until 2026-09-19.
+                .product(name: "ZippyJSON", package: "ZippyJSON",
+                         condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS])),
                 "CorpusRender",
                 "CYYJSON",
                 "CHeapBytes",

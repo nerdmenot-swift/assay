@@ -61,7 +61,7 @@ AssayReader.scanJSONObject(_:_:)	release	8
 AssayReader.scanJSONObject(_:_:)	retain	1
 AssayReader.scanJSONValue(_:_:)	release	1
 AssayReader.scanJSONValue(_:_:)	retain	1
-AssayReader.scanStringSlow(from:)	release	6
+AssayReader.scanStringSlow(from:)	release	1
 AssayReader.warnDateFallback(_:_:_:matched:primary:)	release	2
 AssayReader.warnDateFallback(_:_:_:matched:primary:)	retain	1
 AssayReader.warnDateFallback(_:_:_:matched:primary:)	stack-allocated-ref	2

@@ -44,6 +44,9 @@
 
 import Foundation
 import Assay
+
+// Apple platforms only — see the ZippyJSON note in Package.swift.
+#if canImport(ZippyJSON)
 import ZippyJSON
 
 @Schema(keys: .snakeCase)
@@ -169,3 +172,13 @@ func runZippyBenchmarks() {
     print("simdjson underneath. If the container boundary were not the dominant cost, that")
     print("column could not be above 1.0 — and the thesis would be wrong.")
 }
+
+#else
+
+func runZippyBenchmarks() {
+    print("")
+    print("zippy: skipped — ZippyJSON builds on Apple platforms only (its ISO-8601 dependency")
+    print("includes CoreFoundation headers). The comparison is published from macOS.")
+}
+
+#endif

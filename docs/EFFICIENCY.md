@@ -25,6 +25,17 @@ were identical across three runs. Instruction counts varied by ~50 in 4.9 millio
 A release site on an error path costs nothing at run time and still costs code size, so the
 two instruments answer different questions and neither replaces the other.
 
+## Across architectures
+
+The first CI run (2026-09-19) counted every cell on x86-64 and aarch64 hosted runners.
+Retain, release, allocation and uniqueness counts agree almost everywhere. The exceptions:
+- a fixed +1 or +2 per call on x86-64;
+- `slow_alloc`, which is always 0 there because the runtime reaches it differently (heap
+  blocks agree exactly);
+- a handful of String-release differences, listed in ledger row 1.
+Instructions differ by a few percent either way. That is why each architecture has its own
+baseline.
+
 ## Decision rule
 
 1. **Resource counters first**: allocations, retained bytes, peak live bytes, retain/release
@@ -66,7 +77,7 @@ its experiment is run, then **kept** or **reverted** with the counts that decide
 
 | # | observation | hypothesis | predicted counter change | status |
 |---|---|---|---|---|
-| 1 | `base/struct`: 10,000 `swift_bridgeObjectRelease` calls inside `AssayReader.scanString()`, one per decoded String field; `values-int` has none. Forcing every string to the heap made it DISAPPEAR (20,002 → 14,002), and `values-long` shows the same — so it is on the SMALL-string path only | a temporary created and released on the small-string branch of `String(unsafeUninitializedCapacity:)` | −1 bridge release per String field, −10,000 on `base/struct` | open |
+| 1 | `base/struct`: 10,000 `swift_bridgeObjectRelease` calls inside `AssayReader.scanString()`, one per decoded String field; `values-int` has none. Forcing every string to the heap made it DISAPPEAR (20,002 → 14,002), and `values-long` shows the same — so on aarch64 it is on the SMALL-string path only. **On x86-64 it is on BOTH**: `values-long/struct` shows 20,002 bridge releases there against 14,002 on aarch64, one per field, so there it releases real heap storage, not an immortal no-op | a temporary created and released on the small-string branch of `String(unsafeUninitializedCapacity:)` | −1 bridge release per String field, −10,000 on `base/struct` | open |
 | 2 | FLOORS: every Array grows by doubling. The top-level 2,000-element array costs 14 blocks against a floor of 1 (12 `_consumeAndCreateNew` reallocations), which is the 2.05× on bytes nearly every struct cell shows; each 10-element inner array in `array-10` costs 5 blocks against 1 | nothing sizes an array before filling it. Inner arrays are the cheap case: the element count can be counted with the structural skip before decoding, or grown from a small reserved capacity. The top-level one needs an estimate that costs less than it saves | `array-10`: 5 → ~1 block per element; struct cells from 2.05× toward ~1.1× bytes | open |
 | 3 | ARC audit: the generated `M20._assay` holds 462 release sites against `M5`'s 46 (9 per field at 5 fields, 23 at 20) | every throwing exit destroys every live `__fN: String?` local, so sites grow ~fields² | fewer sites, smaller generated functions; no runtime change expected (the sites are on error paths) | open |
 | 4 | `base/validate`: 30,000 `swift_bridgeObjectRetain` and 30,000 releases per call, 3 of each per String field, for one allocated block | the rule engine copies String values it could borrow; `borrowing` parameters on the rule entry points should remove the pairs | −30,000 retains and −30,000 releases on `base/validate`, no block change | open |

@@ -270,7 +270,9 @@ struct IssueCodeCoverageTests {
         // `static let tooLarge = IssueCode.custom("too_large")` — both spellings count,
         // because a test may assert the symbol or the rendered string.
         var declared: [(ident: String, wire: String)] = []
-        for line in source.split(separator: "\n") {
+        // `isNewline`, not `"\n"`: a Windows checkout has CRLF, and "\r\n" is ONE Character,
+        // so splitting on "\n" saw this whole file as a single line on Windows CI.
+        for line in source.split(whereSeparator: \.isNewline) {
             guard let r = line.range(of: "static let "),
                   let eq = line.range(of: " = IssueCode.custom(\""),
                   let close = line.range(of: "\")", range: eq.upperBound..<line.endIndex)
@@ -291,7 +293,7 @@ struct IssueCodeCoverageTests {
         // that is supposed to be checking it — the allowlist would pass the test whether or
         // not it was there, which is the failure mode this whole suite exists to close.
         // Verified by emptying the list: without this, still green; with it, two failures.
-        corpus = corpus.split(separator: "\n", omittingEmptySubsequences: false)
+        corpus = corpus.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
             .filter { !$0.contains("static let unreachableHere") }
             .joined(separator: "\n")
 

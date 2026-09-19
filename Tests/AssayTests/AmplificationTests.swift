@@ -262,7 +262,10 @@ struct AmplificationTests {
 
     @Test("TOML: many sections, keys, dotted keys and long strings stay linear")
     func tomlLinear() {
-        let cases = [
+        // Annotated: untyped, this literal of long `+` chains exceeds the type checker's
+        // budget on the nightly toolchains ("unable to type-check this expression in
+        // reasonable time"), which failed both nightly Linux legs.
+        let cases: [String] = [
             (0..<20_000).map { _ in "[[a]]\nx = 1" }.joined(separator: "\n"),
             (0..<20_000).map { "[t\($0)]\nx = 1" }.joined(separator: "\n"),
             (0..<20_000).map { "k\($0) = \($0)" }.joined(separator: "\n"),

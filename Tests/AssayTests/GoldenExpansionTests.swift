@@ -39,7 +39,7 @@ struct GoldenExpansionTests {
             if let n = name, !body.isEmpty { out.append((n, body.joined(separator: "\n"))) }
             name = nil; body = []
         }
-        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+        for line in text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline) {
             if line.hasPrefix("// GOLDEN: ") {
                 flush(); name = String(line.dropFirst("// GOLDEN: ".count)); continue
             }
@@ -72,7 +72,12 @@ struct GoldenExpansionTests {
             try actual.write(toFile: path, atomically: true, encoding: .utf8)
             return
         }
-        guard let expected = try? String(contentsOfFile: path, encoding: .utf8) else {
+        // Line endings normalised: a Windows checkout gives the golden CRLF, and a raw `!=`
+        // against an LF expansion then fails every shape. That was invisible on Windows CI
+        // until 2026-09-19, because the fixtures file was split on "\n" there too, parsed to
+        // zero shapes, and this test ran zero cases.
+        guard let expected = (try? String(contentsOfFile: path, encoding: .utf8))
+            .map({ $0.replacingOccurrences(of: "\r\n", with: "\n") }) else {
             Issue.record("no golden at \(path) — run: ASSAY_UPDATE_GOLDENS=1 swift test --filter Golden")
             return
         }
@@ -88,8 +93,8 @@ struct GoldenExpansionTests {
 
     /// A minimal line diff — enough to read in a test log, no dependency.
     static func diff(_ a: String, _ b: String) -> String {
-        let x = a.split(separator: "\n", omittingEmptySubsequences: false)
-        let y = b.split(separator: "\n", omittingEmptySubsequences: false)
+        let x = a.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
+        let y = b.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
         var out: [String] = []
         var i = 0, j = 0
         while i < x.count || j < y.count {

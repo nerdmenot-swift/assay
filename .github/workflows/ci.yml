@@ -286,6 +286,10 @@ jobs:
     container: swift:6.3.3
     steps:
       - uses: actions/checkout@v4
+      # The ColdStartTypes check runs gen-coldstart.py, and the swift image ships no Python:
+      # the step failed with `python3: not found` (exit 127) on its first CI run.
+      - name: Install Python
+        run: apt-get update && apt-get install -y --no-install-recommends python3-minimal
       - name: Regenerate twice and compare
         working-directory: Benchmarks
         run: |

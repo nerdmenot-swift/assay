@@ -24,16 +24,19 @@
 // §18); collection order is preserved everywhere else.
 //===----------------------------------------------------------------------===//
 
+// Plain imports: the only libc symbol used here is `isatty`, a function. `@preconcurrency`
+// exists for mutable C globals and bought nothing, while strict memory safety flags it as an
+// unsafe import, which failed CI's zero-warnings gate.
 #if canImport(Darwin)
 import Darwin
 #elseif os(Windows)
 import ucrt
 #elseif canImport(Glibc)
-@preconcurrency import Glibc
+import Glibc
 #elseif canImport(Musl)
-@preconcurrency import Musl
+import Musl
 #elseif canImport(WASILibc)
-@preconcurrency import WASILibc
+import WASILibc
 #endif
 
 /// How to render a diagnosis or error.

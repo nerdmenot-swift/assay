@@ -116,15 +116,20 @@ let package = Package(
 // GitHub being reachable — it failed exactly that way on 2026-09-13, with 75-second connect
 // timeouts. Copying `Package.resolved` pins the versions the repository already uses, so
 // the shared cache answers and the network is not consulted.
-try? FileManager.default.copyItem(
+//
+// ONLY WHEN THERE IS ONE. The root `Package.resolved` is git-ignored (a library pins nothing
+// for its consumers), so a fresh CI checkout has none, and demanding it made this check fail
+// on every CI run from the day it was added: "a resolved file is required when automatic
+// dependency resolution is disabled". Offline when a local resolution exists, a normal
+// resolve when it does not — CI has the network, and a laptop has the file.
+let pinned = (try? FileManager.default.copyItem(
     at: root.appendingPathComponent("Package.resolved"),
-    to: tmp.appendingPathComponent("Package.resolved"))
+    to: tmp.appendingPathComponent("Package.resolved"))) != nil
 
 let p = Process()
 p.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-p.arguments = ["swift", "build", "--package-path", tmp.path,
-               // With Package.resolved copied in, this makes the build fully offline.
-               "--only-use-versions-from-resolved-file"]
+p.arguments = ["swift", "build", "--package-path", tmp.path]
+    + (pinned ? ["--only-use-versions-from-resolved-file"] : [])
 let pipe = Pipe()
 p.standardOutput = pipe
 p.standardError = pipe

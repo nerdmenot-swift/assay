@@ -273,13 +273,16 @@ struct MessageCoverageTests {
     /// `yaml_unexpected_in_flow` instead of a sentence — which is a rendering bug that
     /// ships silently and reads as contempt for whoever hit it.
     static let allCustomCodes: [String] = {
-        let names = #filePath.split(separator: "/").dropLast(3).joined(separator: "/")
-            + "/Sources/AssayCore/IssueCode+Names.swift"
-        guard let text = try? String(contentsOfFile: "/" + names, encoding: .utf8) else {
+        // Built with URL, not by joining on "/": that could not form a Windows path, and this
+        // test read nothing there from the day it was written.
+        let names = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/AssayCore/IssueCode+Names.swift")
+        guard let text = try? String(contentsOf: names, encoding: .utf8) else {
             return ["<could not read IssueCode+Names.swift>"]
         }
         var out: [String] = []
-        for line in text.split(separator: "\n") {
+        for line in text.split(whereSeparator: \.isNewline) {
             guard let open = line.range(of: "IssueCode.custom(\""),
                   let close = line[open.upperBound...].firstIndex(of: "\"") else { continue }
             out.append(String(line[open.upperBound..<close]))

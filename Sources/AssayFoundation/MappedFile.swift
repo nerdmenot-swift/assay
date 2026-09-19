@@ -55,14 +55,17 @@ import Foundation
 #if canImport(Darwin)
 import Darwin
 #elseif canImport(Glibc)
-@preconcurrency import Glibc
+// `@preconcurrency` because this file reads C globals (`errno`, `MAP_FAILED`); `@unsafe`
+// because strict memory safety requires that to be stated, and CI's zero-warnings gate
+// failed until it was.
+@unsafe @preconcurrency import Glibc
 #elseif canImport(Musl)
-@preconcurrency import Musl
+@unsafe @preconcurrency import Musl
 #elseif os(Windows)
 import ucrt
 import WinSDK
 #elseif canImport(WASILibc)
-@preconcurrency import WASILibc
+@unsafe @preconcurrency import WASILibc
 #else
 #error("AssayFoundation was unable to identify your C library.")
 #endif

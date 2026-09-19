@@ -18,8 +18,8 @@ closure #1 in closure #10 in allTasks()	release	2
 closure #1 in closure #11 in allShapes()	release	2
 closure #1 in closure #12 in allTasks()	release	7
 closure #1 in closure #12 in allTasks()	retain	2
-closure #1 in closure #14 in allTasks()	release	7
-closure #1 in closure #14 in allTasks()	retain	2
+closure #1 in closure #14 in allTasks()	release	6
+closure #1 in closure #14 in allTasks()	retain	1
 closure #1 in closure #4 in allTasks()	release	4
 closure #1 in closure #5 in allTasks()	release	5
 closure #1 in closure #6 in allAxes()	release	16

@@ -79,7 +79,13 @@ extension TOML {
     }
 
     /// A TOML value.
-    public indirect enum Node: Sendable, Hashable {
+    ///
+    /// NOT `indirect`, for the reason `JSON.Value` is not: recursion runs through `[Node]` and
+    /// `[Member]`, which already provide the indirection, and every payload is small (a
+    /// `DateTime` is an enum of Strings). It WAS indirect until 2026-09-19, which boxed every
+    /// node of every kind on the heap, `.int` and `.bool` included; count.py charged 10,000 of
+    /// `base/toml`'s blocks per call to the `.string` boxes alone.
+    public enum Node: Sendable, Hashable {
         case bool(Bool)
         case int(Int64)
         case double(Double)

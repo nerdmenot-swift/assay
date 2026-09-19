@@ -2520,3 +2520,26 @@ arrays of same-shaped records and bounded by the document otherwise.
 | nested-3/value | −19.5% | 14,017 → 6,022 | −54.9% |
 
 Linear on every tree axis. A document of empty objects pays one block per call for the hint table.
+
+### YAML and TOML, counted for the first time (2026-09-19)
+
+The matrix gained `yaml` and `toml` tree-parse tasks (fixtures rendered into block YAML and
+`[[items]]` TOML by the library's own writers, outside the timed region).
+
+**YAML** had the doubling JSON.Value had, and shape memory fixed it: base/yaml −10.9%
+instructions, 8,014 → 2,018 blocks.
+
+**TOML** allocated 29 heap blocks per five-key record. There were four causes, each named by
+`count.py explain`, and four fixes:
+
+| | base/toml instructions | heap blocks | heap bytes |
+|---|---|---|---|
+| before | 66.8M | 58,022 | 4.62 MB |
+| `TOML.Node` no longer `indirect` | −10% | 46,020 | **+4.9%** |
+| + one slot array per table, linear lookup, shape memory | −51.8% | 18,020 | −58.4% |
+| + one reused key-path buffer | **−57.1%** | **6,021** | **−72.9%** |
+
+The second row is why the ratchet exists: removing the boxes cut blocks and instructions but
+RAISED heap bytes, because unboxed nodes are larger and their arrays still grew by doubling. The
+table changes then took bytes far below the start. Every toml cell is −41% to −58% instructions.
+toml-test 208/208 valid and 501/501 invalid, and the toml++ differential agrees.

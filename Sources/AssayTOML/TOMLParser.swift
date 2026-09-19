@@ -110,21 +110,52 @@ extension TOML {
             case implicit
         }
 
-        var origin: Origin
-        var keys: [String] = []
-        var entries: [Entry] = []
-        var spans: [SourceSpan?] = []
-        var index: [String: Int] = [:]
+        struct Slot {
+            var key: String
+            var entry: Entry
+            var span: SourceSpan?
+        }
 
-        init(origin: Origin) { self.origin = origin }
+        var origin: Origin
+        /// ONE array of slots. Until 2026-09-19 this was three parallel arrays (keys,
+        /// entries, spans) and a `Dictionary` index, each growing on its own: about 29 heap
+        /// blocks per five-key `[[items]]` record (count.py `base/toml`).
+        var slots: [Slot] = []
+        /// Built only once a table outgrows `linearLimit`. Below that, a scan of a handful of
+        /// short keys is cheaper than hashing one, the same trade YAML's merge makes; above
+        /// it, lookups stay O(1), so a wide table is still linear to build.
+        var index: [String: Int]? = nil
+        static var linearLimit: Int { 16 }
+
+        /// `reserve` is shape memory: the size of the table the parser just left, which for
+        /// consecutive `[[items]]` sections is exact. Bounded by the input: a table
+        /// over-reserves only after a larger one, by at most that one's size.
+        init(origin: Origin, reserve: Int = 0) {
+            self.origin = origin
+            if reserve > 0 { slots.reserveCapacity(reserve) }
+        }
+
+        func find(_ key: String) -> Int? {
+            if let index { return index[key] }
+            var i = 0
+            while i < slots.count {
+                if slots[i].key == key { return i }
+                i += 1
+            }
+            return nil
+        }
 
         @discardableResult
         func add(_ key: String, _ entry: Entry, span: SourceSpan?) -> Int {
-            let i = keys.count
-            keys.append(key)
-            entries.append(entry)
-            spans.append(span)
-            index[key] = i
+            let i = slots.count
+            slots.append(Slot(key: key, entry: entry, span: span))
+            if index != nil {
+                index![key] = i
+            } else if slots.count > Self.linearLimit {
+                var built = [String: Int](minimumCapacity: slots.count * 2)
+                for (j, slot) in slots.enumerated() { built[slot.key] = j }
+                index = built
+            }
             return i
         }
     }
@@ -150,6 +181,8 @@ extension TOML {
         let root = TableBuilder(origin: .header)
         /// The table the current `key = value` lines land in; changed by each header.
         var current: TableBuilder
+        /// `parseKeyPath`'s reused buffer.
+        var keyPathBuffer: [KeySegment] = []
 
         init(limits: Limits) {
             self.limits = limits
@@ -202,7 +235,8 @@ extension TOML.Parser {
             return false
         }
         let span = SourceSpan(lo: headerStart, len: r.byteOffset - headerStart)
-        guard let table = define(path: path, array: isArray, span: span, &r, &sink) else { return false }
+        guard let table = define(path: path, array: isArray, span: span,
+                                 reserve: current.slots.count, &r, &sink) else { return false }
         current = table
         return true
     }
@@ -234,7 +268,7 @@ extension TOML.Parser {
 
     /// A header. Intermediates may be anything open; the last segment is defined here.
     func define(
-        path: [KeySegment], array: Bool, span: SourceSpan,
+        path: [KeySegment], array: Bool, span: SourceSpan, reserve: Int,
         _ r: inout AssayReader, _ sink: inout IssueSink
     ) -> TOML.TableBuilder? {
         var table = root
@@ -245,14 +279,14 @@ extension TOML.Parser {
             table = next
         }
         let last = path[path.count - 1]
-        if let i = table.index[last.text] {
-            switch table.entries[i] {
+        if let i = table.find(last.text) {
+            switch table.slots[i].entry {
             case .table(let existing) where !array && existing.origin == .implicit:
                 existing.origin = .header
-                table.spans[i] = span
+                table.slots[i].span = span
                 return existing
             case .array(let elements) where array:
-                let element = TOML.TableBuilder(origin: .header)
+                let element = TOML.TableBuilder(origin: .header, reserve: reserve)
                 elements.elements.append(element)
                 return element
             case .table, .array:
@@ -263,7 +297,7 @@ extension TOML.Parser {
                 return nil
             }
         }
-        let element = TOML.TableBuilder(origin: .header)
+        let element = TOML.TableBuilder(origin: .header, reserve: reserve)
         table.add(last.text, array ? .array(TOML.ArrayBuilder(element)) : .table(element), span: span)
         return element
     }
@@ -282,7 +316,7 @@ extension TOML.Parser {
             table = next
         }
         let last = path[path.count - 1]
-        if table.index[last.text] != nil {
+        if table.find(last.text) != nil {
             r.report(&sink, .duplicateKey, params: ["received": .string(last.text)], span: last.span)
             return false
         }
@@ -297,12 +331,12 @@ extension TOML.Parser {
         _ table: TOML.TableBuilder, _ seg: KeySegment, creating: TOML.TableBuilder.Origin,
         throughArrays: Bool, _ r: inout AssayReader, _ sink: inout IssueSink
     ) -> TOML.TableBuilder? {
-        guard let i = table.index[seg.text] else {
+        guard let i = table.find(seg.text) else {
             let child = TOML.TableBuilder(origin: creating)
             table.add(seg.text, .table(child), span: nil)
             return child
         }
-        switch table.entries[i] {
+        switch table.slots[i].entry {
         case .table(let child):
             // A header may pass through any open table. Dotted keys may only extend a
             // table that dotted keys made: `[a] b.c = 1` after `[a.b]` is an error.
@@ -333,15 +367,15 @@ extension TOML.Parser {
 
     func finish(_ table: TOML.TableBuilder) -> TOML.Node {
         var members: [TOML.Member] = []
-        members.reserveCapacity(table.keys.count)
-        for i in 0..<table.keys.count {
+        members.reserveCapacity(table.slots.count)
+        for i in 0..<table.slots.count {
             let value: TOML.Node
-            switch table.entries[i] {
+            switch table.slots[i].entry {
             case .value(let v): value = v
             case .table(let t): value = finish(t)
             case .array(let ts): value = .array(ts.elements.map(finish))
             }
-            members.append(TOML.Member(key: table.keys[i], value: value, span: table.spans[i]))
+            members.append(TOML.Member(key: table.slots[i].key, value: value, span: table.slots[i].span))
         }
         return .table(members)
     }
@@ -357,14 +391,26 @@ extension TOML.Parser {
     }
 
     /// `a`, `"a b"`, `'a.b'`, `a . b.c` — one or more segments joined by dots.
+    ///
+    /// ONE BUFFER, reused across lines. A fresh array per `key = value` line was 5 of a
+    /// five-key record's heap blocks (count.py `base/toml`, 2026-09-19). The parser keeps the
+    /// array between calls and swaps it out here; when the previous path has been released,
+    /// which is the ordinary case, it is uniquely referenced and nothing allocates. When it has
+    /// not (an inline table's keys, parsed while the outer path is still in use), copy-on-write
+    /// makes the append copy, exactly as a fresh array would. Correct either way.
     mutating func parseKeyPath(_ r: inout AssayReader, _ sink: inout IssueSink) -> [KeySegment]? {
         var out: [KeySegment] = []
+        swap(&out, &keyPathBuffer)
+        out.removeAll(keepingCapacity: true)
         while true {
             skipSpace(&r)
             guard let seg = parseSimpleKey(&r, &sink) else { return nil }
             out.append(seg)
             skipSpace(&r)
-            guard r.currentByte == UInt8(ascii: ".") else { return out }
+            guard r.currentByte == UInt8(ascii: ".") else {
+                keyPathBuffer = out
+                return out
+            }
             r.advanceBy(1)
         }
     }

@@ -237,8 +237,10 @@ extension TOML.Parser {
             return false
         }
         let span = SourceSpan(lo: headerStart, len: r.byteOffset - headerStart)
-        guard let table = define(path: path, array: isArray, span: span,
-                                 reserve: current.slots.count, &r, &sink) else { return false }
+        let defined = define(path: path, array: isArray, span: span,
+                             reserve: current.slots.count, &r, &sink)
+        keyPathBuffer = consume path
+        guard let table = defined else { return false }
         current = table
         return true
     }
@@ -247,7 +249,7 @@ extension TOML.Parser {
     mutating func parseKeyValue(
         _ r: inout AssayReader, _ sink: inout IssueSink, into table: TOML.TableBuilder
     ) -> Bool {
-        guard let path = parseKeyPath(&r, &sink) else { return false }
+        guard var path = parseKeyPath(&r, &sink) else { return false }
         skipSpace(&r)
         guard r.currentByte == UInt8(ascii: "=") else {
             r.report(&sink, .tomlExpectedEquals)
@@ -263,7 +265,9 @@ extension TOML.Parser {
                      span: path[0].span)
             return false
         }
-        return assign(path: path, value: consume value, span: span, into: table, &r, &sink)
+        let ok = assign(path: &path, value: consume value, span: span, into: table, &r, &sink)
+        keyPathBuffer = consume path
+        return ok
     }
 
     // MARK: The two walks
@@ -307,8 +311,8 @@ extension TOML.Parser {
     /// A `key = value` line. Intermediates may only be tables that dotted keys created,
     /// and the last segment must be new.
     func assign(
-        path: [KeySegment], value: consuming TOML.Node, span: SourceSpan, into start: TOML.TableBuilder,
-        _ r: inout AssayReader, _ sink: inout IssueSink
+        path: inout [KeySegment], value: consuming TOML.Node, span: SourceSpan,
+        into start: TOML.TableBuilder, _ r: inout AssayReader, _ sink: inout IssueSink
     ) -> Bool {
         var table = start
         for seg in path.dropLast() {
@@ -322,7 +326,11 @@ extension TOML.Parser {
             r.report(&sink, .duplicateKey, params: ["received": .string(last.text)], span: last.span)
             return false
         }
-        table.add(last.text, .value(consume value), span: span)
+        // The key MOVES into the slot: the path is this line's own, and the buffer it
+        // goes back to is cleared before its next use.
+        var key = ""
+        unsafe path.withUnsafeMutableBufferPointer { unsafe swap(&key, &$0[$0.count - 1].text) }
+        table.add(consume key, .value(consume value), span: span)
         return true
     }
 
@@ -367,17 +375,31 @@ extension TOML.Parser {
 
     // MARK: Finishing
 
+    /// Drains the builder rather than copying out of it: every caller drops the builder
+    /// straight after, so each key and value MOVES into the node. Copying was a String
+    /// retain per key and an outlined node copy per value (count.py explain, `base/toml`).
+    /// `.value(.bool(false))` is the placeholder, trivial to destroy.
     func finish(_ table: TOML.TableBuilder) -> TOML.Node {
-        var members: [TOML.Member] = []
-        members.reserveCapacity(table.slots.count)
-        for i in 0..<table.slots.count {
-            let value: TOML.Node
-            switch table.slots[i].entry {
-            case .value(let v): value = v
-            case .table(let t): value = finish(t)
-            case .array(let ts): value = .array(ts.elements.map(finish))
+        var slots: [TOML.TableBuilder.Slot] = []
+        swap(&slots, &table.slots)
+        let members = unsafe slots.withUnsafeMutableBufferPointer { src in
+            unsafe [TOML.Member](unsafeUninitializedCapacity: src.count) { dst, count in
+                for i in src.indices {
+                    var key = ""
+                    unsafe swap(&key, &src[i].key)
+                    var entry = TOML.Entry.value(.bool(false))
+                    unsafe swap(&entry, &src[i].entry)
+                    let value: TOML.Node
+                    switch consume entry {
+                    case .value(let v): value = v
+                    case .table(let t): value = finish(t)
+                    case .array(let ts): value = .array(ts.elements.map(finish))
+                    }
+                    unsafe (dst.baseAddress! + i).initialize(
+                        to: TOML.Member(key: consume key, value: value, span: src[i].span))
+                }
+                count = src.count
             }
-            members.append(TOML.Member(key: table.slots[i].key, value: value, span: table.slots[i].span))
         }
         return .table(members)
     }
@@ -395,11 +417,12 @@ extension TOML.Parser {
     /// `a`, `"a b"`, `'a.b'`, `a . b.c` — one or more segments joined by dots.
     ///
     /// ONE BUFFER, reused across lines. A fresh array per `key = value` line was 5 of a
-    /// five-key record's heap blocks (count.py `base/toml`, 2026-09-19). The parser keeps the
-    /// array between calls and swaps it out here; when the previous path has been released,
-    /// which is the ordinary case, it is uniquely referenced and nothing allocates. When it has
-    /// not (an inline table's keys, parsed while the outer path is still in use), copy-on-write
-    /// makes the append copy, exactly as a fresh array would. Correct either way.
+    /// five-key record's heap blocks (count.py `base/toml`, 2026-09-19). The buffer is HANDED
+    /// OVER: swapped out here, and given back by the caller when it is done with the path
+    /// (`keyPathBuffer = consume path`). Keeping a shared copy instead, as this did first,
+    /// meant the caller never owned its key strings, so each one was copied into its table
+    /// slot. An inline table's keys, parsed while the outer path is still out, find the
+    /// buffer empty and allocate, exactly as a fresh array would.
     mutating func parseKeyPath(_ r: inout AssayReader, _ sink: inout IssueSink) -> [KeySegment]? {
         var out: [KeySegment] = []
         swap(&out, &keyPathBuffer)
@@ -409,10 +432,7 @@ extension TOML.Parser {
             guard let seg = parseSimpleKey(&r, &sink) else { return nil }
             out.append(seg)
             skipSpace(&r)
-            guard r.currentByte == UInt8(ascii: ".") else {
-                keyPathBuffer = out
-                return out
-            }
+            guard r.currentByte == UInt8(ascii: ".") else { return out }
             r.advanceBy(1)
         }
     }

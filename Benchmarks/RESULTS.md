@@ -2487,3 +2487,13 @@ The macro knows every ordinary key at compile time, so it now emits the key's fi
 cells, and nothing else moved. The test written for keys needing escapes found a separate
 DECODE bug, which is open in `ROADMAP.md`: a document key written with a JSON escape never
 matches its field, and that includes Python's default output for non-ASCII keys.
+
+### Escaped document keys, fixed at no measurable cost (2026-09-19)
+
+Keys written with JSON escapes (`"café"`, Python's default for non-ASCII) never matched
+their fields: the decoder compared raw bytes. They are now unescaped into a reader-owned
+scratch buffer on the cold side of `KeyRange.simple`. The first version branched on `simple` in
+every key read and cost **+1.5% to +4.8%** instructions, and it made `array-10` lose a hoisted
+uniqueness check (4,000 → 26,000 per call). The ratchet caught both. Storing the byte pointer in
+`KeyRange` once instead: **median 0.00% across all 105 cells**, range −3.7% to +2.0%, no call or
+allocation counter moved.

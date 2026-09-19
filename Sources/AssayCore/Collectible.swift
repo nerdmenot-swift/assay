@@ -77,7 +77,7 @@ extension AssayReader {
     @inlinable
     public func _keyString(_ key: KeyRange) -> String {
         unsafe String(unsafeUninitializedCapacity: key.len) { buffer in
-            unsafe buffer.baseAddress!.update(from: base + key.lo, count: key.len)
+            unsafe buffer.baseAddress!.update(from: _keyBytes(key), count: key.len)
             return key.len
         }
     }

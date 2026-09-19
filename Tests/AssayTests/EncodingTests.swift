@@ -191,18 +191,13 @@ struct EncodingTests {
         #expect(json == #"{"we\"ird":1,"back\\slash":2,"tab\tkey":3}"#)
     }
 
-    /// KNOWN BUG, found by the test above: the DECODER matches keys on their raw bytes, so a
-    /// document key written with a JSON escape never matches its field. `KeyRange.simple` is
-    /// computed by `scanKey` and read by nothing. The round trip above fails for that reason,
-    /// and so does ordinary interop — Python's `json.dumps` escapes non-ASCII by default, so
-    /// a key `café` arrives as `"caf\u00e9"`. ROADMAP.md, known gaps.
-    @Test("a document key written with an escape matches its field (known bug)")
-    func escapedDocumentKeys() {
-        withKnownIssue("keys are matched on raw bytes; escapes are never resolved") { () throws in
-            let v = EncOddKeys(quote: 1, slash: 2, tab: 3)
-            #expect(try EncOddKeys.parse(json: try v.encodedJSON()) == v)
-            #expect(try EncPlainKey.parse(json: #"{"caf\u00e9":1}"#).value == 1)
-        }
+    /// Round trip for keys needing escapes. It failed until 2026-09-19 for a DECODER reason:
+    /// keys were matched on raw bytes, so a document key written with an escape never matched
+    /// its field. KeyEscapeTests covers the decode side in full.
+    @Test("keys needing escapes round-trip")
+    func oddKeysRoundTrip() throws {
+        let v = EncOddKeys(quote: 1, slash: 2, tab: 3)
+        #expect(try EncOddKeys.parse(json: try v.encodedJSON()) == v)
     }
 
     @Test("an issue inside an array element names the element's index")

@@ -85,6 +85,11 @@ public struct AssayReader: ~Copyable {
     /// arrive at the caller identically unless one of them is recorded on the side.
     @usableFromInline var numberRangeErrorAt: Int = -1
     @usableFromInline var numberRangeErrorLength: Int = 0
+    /// Where an ESCAPED key's unescaped bytes live (`KeyRange.simple == false`), so it can be
+    /// matched against a declared key like any other. Allocated on the first escaped key and
+    /// reused; a document with none never allocates it. See `scanEscapedKey`.
+    @usableFromInline var keyScratch: UnsafeMutablePointer<UInt8>? = nil
+    @usableFromInline var keyScratchCapacity: Int = 0
     @usableFromInline let limits: Limits
 
     /// The limits this reader was created with. Public because generated code consults
@@ -94,6 +99,8 @@ public struct AssayReader: ~Copyable {
     public var activeLimits: Limits { limits }
 
     @inlinable
+    deinit { unsafe keyScratch?.deallocate() }
+
     public init(base: UnsafePointer<UInt8>, count: Int, limits: Limits = .default) {
         unsafe self.base = base
         self.count = count
@@ -202,18 +209,25 @@ public struct AssayReader: ~Copyable {
     /// `lo` and relies on the closing quote at `lo + len` being the virtual byte —
     /// which is exactly what simdjson's `key_selector` tier 1 depends on.
     @frozen
-    public struct KeyRange {
+    @safe public struct KeyRange {
+        /// Where the key starts IN THE SOURCE, for spans and carets.
         public var lo: Int
+        /// How many bytes to match: the key's length, unescaped when it had escapes.
         public var len: Int
-        /// True when the key contained no backslash, so it can be compared byte-for-byte
-        /// against a compile-time literal with no unescaping.
+        /// True when the key contained no backslash, so its bytes ARE the source bytes.
         public var simple: Bool
+        /// The bytes to match: the source (`base + lo`) for a simple key, the reader's
+        /// scratch for an escaped one. Chosen once, in `scanKey`, so the readers of a key's
+        /// bytes do not branch on `simple`; a version that did cost 1.5–4.8% instructions
+        /// across the decode cells (count.py, 2026-09-19).
+        @usableFromInline var bytes: UnsafePointer<UInt8>
 
         @inlinable
-        public init(lo: Int, len: Int, simple: Bool) {
+        public init(lo: Int, len: Int, simple: Bool, bytes: UnsafePointer<UInt8>) {
             self.lo = lo
             self.len = len
             self.simple = simple
+            unsafe self.bytes = bytes
         }
     }
 
@@ -224,23 +238,58 @@ public struct AssayReader: ~Copyable {
         guard cursor < count, unsafe base[cursor] == 0x22 else { return nil }
         cursor &+= 1
         let start = cursor
-        var simple = true
         while cursor < count {
             let c = unsafe base[cursor]
             if c == 0x22 {
-                let r = KeyRange(lo: start, len: cursor &- start, simple: simple)
+                let r = unsafe KeyRange(lo: start, len: cursor &- start, simple: true,
+                                        bytes: base + start)
                 cursor &+= 1
                 return r
             }
             if c == 0x5C {
-                simple = false
-                cursor &+= 2
-                continue
+                return scanEscapedKey(from: start)
             }
             cursor &+= 1
         }
         return nil
     }
+
+    /// A key containing a backslash: unescape it into `keyScratch` and return a range whose
+    /// bytes are read from there (`KeyRange.simple == false`), with its UNESCAPED length.
+    ///
+    /// Until 2026-09-19 an escaped key was matched on its raw bytes. `simple` was computed
+    /// and read by nothing, so `{"a\/b": 1}` did not match `@Key("a/b")`. RFC 8259 says those
+    /// are one key, and Python's `json.dumps` escapes every non-ASCII character by default,
+    /// so a field named `café` arrived as `"caf\u00e9"` and was reported MISSING. Cold: a
+    /// document without escaped keys never reaches this, and the only cost on the hot path is
+    /// the byte-source branch in `_keyBytes`, which such a document always predicts.
+    @inline(never)
+    @usableFromInline
+    mutating func scanEscapedKey(from start: Int) -> KeyRange? {
+        var end = cursor
+        while end < count {
+            let c = unsafe base[end]
+            if c == 0x22 { break }
+            end &+= c == 0x5C ? 2 : 1
+        }
+        let bound = Swift.max(Swift.min(end, count) &- start, 1)
+        if bound > keyScratchCapacity {
+            unsafe keyScratch?.deallocate()
+            unsafe keyScratch = UnsafeMutablePointer<UInt8>.allocate(capacity: bound)
+            keyScratchCapacity = bound
+        }
+        guard let n = unsafe unescape(from: start, into: keyScratch!) else {
+            escapeErrorAt = -1
+            return nil
+        }
+        return unsafe KeyRange(lo: start, len: n, simple: false,
+                               bytes: UnsafePointer(keyScratch!))
+    }
+
+    /// Where a key's matchable bytes are: the input itself, or the unescaped copy of an
+    /// escaped key. Every reader of a `KeyRange`'s bytes goes through here.
+    @inlinable @inline(__always)
+    func _keyBytes(_ key: KeyRange) -> UnsafePointer<UInt8> { unsafe key.bytes }
 
     /// Read the byte at `offset` bytes past the start of `key`, using `"` as the virtual
     /// byte at `idx == len`. This is what makes `{"jo","joe"}` separable with no length
@@ -248,7 +297,7 @@ public struct AssayReader: ~Copyable {
     @_documentation(visibility: internal)
     @inlinable @inline(__always)
     public func _keyByte(_ key: KeyRange, _ offset: Int) -> UInt8 {
-        offset < key.len ? unsafe base[key.lo &+ offset] : 0x22
+        offset < key.len ? unsafe _keyBytes(key)[offset] : 0x22
     }
 
     /// The two-byte unaligned load the window dispatcher indexes with.
@@ -268,9 +317,10 @@ public struct AssayReader: ~Copyable {
         let n = literal.utf8CodeUnitCount
         guard key.len == n else { return false }
         let p = unsafe literal.utf8Start
+        let k = unsafe _keyBytes(key)
         var i = 0
         while i < n {
-            if unsafe (base[key.lo &+ i] != p[i]) { return false }
+            if unsafe (k[i] != p[i]) { return false }
             i &+= 1
         }
         return true

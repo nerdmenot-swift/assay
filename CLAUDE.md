@@ -62,6 +62,7 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 | `parse(body:contentType:accepting:)` | **built 2026-09-08** — formats are VALUES (`WireFormat`), because `Assay` cannot depend on `AssayYAML`. RFC 9110 + 6839 suffixes, charset checked never transcoded, no sniffing ever, `unsupported_media_type` its own code so a server maps 415. The load-bearing test: a billion-laughs XML body offered to `accepting: [.json]` produces one negotiation issue and never enters the parser |
 | Encoding throughput | **measured 2026-09-08** — **2.85×** over `Encodable` + `JSONEncoder` at 50 and 200 items, against the *swift-foundation rewrite* (verified behaviourally: `Float(0.1)` encodes as `0.1`, not the legacy `NSNumber`-widened `0.10000000149011612`). A measurement, not a thesis — the decode multiple has an argument behind it and this one does not |
 | `@Inline` | **built 2026-09-08** — the recorded blocker (cross-module collision detection) was the wrong blocker: a macro cannot see another type's members in ANY module. Requiring the type to be **nested** makes detection total at expansion, makes unknown-key handling work through the inline (serde's runtime `flatten` cannot), and costs nothing at runtime — one table, one mask, one pass |
+| Key dispatch past the window's ceiling | **built 2026-09-19** — the global 8-bit window needs one window distinct across ALL keys, a birthday bound that gives out at ~11 same-prefix keys and ~13 realistic ones. Past it the fallback buckets by length and a bucket of ≥3 keys whose chain is EXPENSIVE gets its OWN window (`WindowSearch.bucketSearch`, smallest largest-collision-group, never required to be perfect). **−10% to −27.5%** at 16–64 same-prefix keys. Realistic names were never slow — a failed `keyMatches` exits on byte one — and emitting windows for them cost **+12.7% compile time for nothing**, so `WindowSearch.chainCost` (expected bytes compared, threshold 8) keeps their chains: realistic buckets score 1–4, `k00…` 15–67. The 2026-09-13 "60% rise with field count" was a property of `k00…`-style keys, not of wide structs; corrected in `Benchmarks/RESULTS.md` |
 
 Everything below that is not marked above is still design, not measurement.
 
@@ -454,6 +455,11 @@ Swift — do not put numbers for those anywhere.
   Foundation cost is the eager `Dictionary` + SipHash per object, not the `String`.
 
 ## Working style
+
+**Local toolchain trap (2026-09-19).** Xcode's macOS 27 SDK passes `-target-arch-variant`,
+which the swiftly 6.3.3 frontend rejects — every build fails in swift-syntax's manifest with
+a signal 11. Build with the Command Line Tools' older SDK so numbers stay on the compiler they
+were recorded with: `export SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk`.
 
 The user prefers you proceed with judgment rather than stopping to ask clarifying questions.
 State assumptions and continue.

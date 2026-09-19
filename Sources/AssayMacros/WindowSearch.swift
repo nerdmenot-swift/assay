@@ -94,4 +94,83 @@ enum WindowSearch {
         }
         return nil
     }
+
+    /// A window for ONE length bucket of the fallback dispatch: which keys each window
+    /// value selects, as indices into the bucket.
+    struct BucketPlan {
+        var byteOffset: Int
+        var shift: UInt8
+        /// Window value -> bucket indices, in bucket order. Sorted by window value.
+        var groups: [(value: UInt8, members: [Int])]
+    }
+
+    /// The per-bucket search the fallback uses when no global window exists.
+    ///
+    /// `search` needs one window distinct across EVERY key, which is a birthday bound:
+    /// realistic names lose it at about 13 fields and same-prefix synthetic keys at 11
+    /// (Benchmarks/RESULTS.md, "The field-count sweep"). A length bucket is a much smaller
+    /// set, and inside one all keys share a length, so every byte up to and including the
+    /// closing quote is defined for all of them.
+    ///
+    /// This does NOT insist on a perfect window. It takes the one whose largest collision
+    /// group is smallest (ties: fewest expected compares), because some key sets have no
+    /// perfect window at all — `k00`…`k63` differ only in two decimal digits whose useful
+    /// bits are not contiguous — and a chain of 7 is still an order of magnitude better
+    /// than a chain of 64. Realistic names split perfectly in every bucket up to 48 fields.
+    ///
+    /// Returns nil when no window separates anything; the caller keeps the linear chain.
+    /// What a linear chain over `keys` costs, in bytes compared, averaged over which key is
+    /// the one being looked up. A candidate tested before the target costs its common
+    /// prefix with the target plus the one byte that differs; the target itself costs its
+    /// full length either way and is left out, since a window pays it too.
+    ///
+    /// This is what decides whether a bucket gets a window, and it exists because a window is
+    /// not free at COMPILE time: measured 2026-09-19 at +12.7% (~20 ms/type at 24 fields) on
+    /// a realistic key set whose runtime gained nothing, because realistic names differ in
+    /// their first byte and a failed `keyMatches` there costs one compare.
+    static func chainCost(_ keys: [String]) -> Double {
+        let bytes = keys.map { Array($0.utf8) }
+        guard bytes.count > 1 else { return 0 }
+        var total = 0
+        for (i, target) in bytes.enumerated() {
+            for other in bytes[..<i] {
+                var p = 0
+                while p < target.count, p < other.count, target[p] == other[p] { p += 1 }
+                total += p + 1
+            }
+        }
+        return Double(total) / Double(bytes.count)
+    }
+
+    static func bucketSearch(_ keys: [String]) -> BucketPlan? {
+        let bytes = keys.map { Array($0.utf8) }
+        guard bytes.count > 1, let len = bytes.first?.count,
+              bytes.allSatisfy({ $0.count == len }) else { return nil }
+
+        var best: (maxGroup: Int, cost: Int, offset: Int, shift: UInt8)?
+        for offset in 0...len {
+            for shift in UInt8(0)..<8 {
+                // Byte `len` is the closing quote; byte `len + 1` is not the key's.
+                if shift != 0 && offset + 1 > len { continue }
+                var counts = [UInt8: Int]()
+                for k in bytes { counts[windowValue(k, offset, shift), default: 0] += 1 }
+                let maxGroup = counts.values.max() ?? 0
+                let cost = counts.values.reduce(0) { $0 + $1 * $1 }
+                if best.map({ (maxGroup, cost) < ($0.maxGroup, $0.cost) }) ?? true {
+                    best = (maxGroup, cost, offset, shift)
+                }
+                if maxGroup == 1 { break }
+            }
+            if best?.maxGroup == 1 { break }
+        }
+        guard let best, best.maxGroup < bytes.count else { return nil }
+
+        var groups: [UInt8: [Int]] = [:]
+        for (i, k) in bytes.enumerated() {
+            groups[windowValue(k, best.offset, best.shift), default: []].append(i)
+        }
+        return BucketPlan(
+            byteOffset: best.offset, shift: best.shift,
+            groups: groups.keys.sorted().map { ($0, groups[$0]!) })
+    }
 }

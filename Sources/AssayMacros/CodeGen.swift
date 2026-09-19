@@ -438,9 +438,29 @@ extension SchemaMacro {
         """
     }
 
+    /// The smallest length bucket that gets its own window instead of a linear chain.
+    /// Two keys are at most two compares, which a window load plus a switch does not beat.
+    static let bucketWindowMinimum = 3
+
+    /// The expected chain cost, in bytes compared (`WindowSearch.chainCost`), above which a
+    /// bucket gets a window. Calibrated on the field sweep: every bucket of a 48-name
+    /// realistic set scores 1.0-4.2 and gained nothing; `k00…` scores 14.8 at 12 keys
+    /// (gained 6%) and 18.8 at 16 (10%). The gap between them is where this sits.
+    static let bucketWindowCost = 8.0
+
     /// The fallback when no single 8-bit window separates the key set: bucket by length,
-    /// then compare within the bucket. Length bucketing separates `created_at` from
+    /// then dispatch within the bucket. Length bucketing separates `created_at` from
     /// `created_at_ms` for free.
+    ///
+    /// Inside a bucket of three or more keys whose chain would be EXPENSIVE — keys sharing
+    /// long prefixes, like `k00…k63` or `created_at/created_by/created_on` — the dispatch
+    /// is a window again, a per-bucket one from `WindowSearch.bucketSearch`, so what remains
+    /// linear is a collision group, not the bucket. A cheap chain is left alone: the window
+    /// costs compile time on every type it is emitted into, and on keys whose first bytes
+    /// differ it buys no runtime at all. Until 2026-09 it was the bucket: the global window gives out at
+    /// about a dozen fields, and past that every lookup was a chain of `keyMatches` whose
+    /// length grew with the struct. The inner switch is over `UInt8` literals, which rule 2
+    /// (experiment #1) says lowers to a search tree or a jump table, never a scan.
     static func lengthBucketDispatch(entries: [DispatchEntry],
                                      unknown: String = "_ = reader.skipValue(&sink)") -> String {
         var byLength: [Int: [(DispatchEntry, String)]] = [:]
@@ -449,21 +469,48 @@ extension SchemaMacro {
                 byLength[key.utf8.count, default: []].append((e, key))
             }
         }
-        var arms = ""
-        for len in byLength.keys.sorted() {
+        func chain(_ members: [(DispatchEntry, String)]) -> String {
             var checks = ""
-            for (e, key) in byLength[len]! {
+            for (e, key) in members {
                 checks += """
                                     if \(keyCondition(key, primary: e.keys[0], isAlias: key != e.keys[0])) {
                 \(e.body)
                                     } else
                 """
             }
-            arms += """
-                            case \(len):
-                \(checks) {
+            return """
+            \(checks) {
                                     \(unknown)
                                 }
+            """
+        }
+        var arms = ""
+        for len in byLength.keys.sorted() {
+            let bucket = byLength[len]!
+            if bucket.count >= bucketWindowMinimum,
+               WindowSearch.chainCost(bucket.map(\.1)) >= bucketWindowCost,
+               let plan = WindowSearch.bucketSearch(bucket.map(\.1)) {
+                var inner = ""
+                for g in plan.groups {
+                    inner += """
+                                    case \(g.value):
+                    \(chain(g.members.map { bucket[$0] }))
+
+                    """
+                }
+                arms += """
+                                case \(len):
+                                    switch reader._keyWindow(__key, byteOffset: \(plan.byteOffset), shift: \(plan.shift)) {
+                \(inner)                    default:
+                                        \(unknown)
+                                    }
+
+                """
+                continue
+            }
+            arms += """
+                            case \(len):
+                \(chain(bucket))
 
             """
         }

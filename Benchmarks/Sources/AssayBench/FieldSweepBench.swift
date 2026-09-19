@@ -399,6 +399,205 @@ func fieldSweepDocument(_ count: Int, elements: Int) -> [UInt8] {
         .joined(separator: ",") + "]}").utf8)
 }
 
+//===----------------------------------------------------------------------===//
+// REALISTIC NAMES — the per-bucket window's own arm.
+//
+// `k00`…`k63` all have one length, so the fallback puts them in ONE bucket, and no single
+// window separates them perfectly: the per-bucket search gets them to collision groups of at
+// most seven. Real names spread over lengths 2-12, which is the case the per-bucket search
+// was sized against. The global window gives out on this list at 13 fields.
+//===----------------------------------------------------------------------===//
+
+let realisticSweepKeys: [String] = ["id", "name", "email", "created_at", "updated_at", "status", "type", "description", "url", "avatar_url", "user_id", "owner_id", "title", "body", "tags", "count", "score", "is_active", "is_admin", "locale", "timezone", "phone", "address", "city", "country", "zip", "latitude", "longitude", "verified", "role", "team_id", "org_id", "parent_id", "slug", "version", "deleted_at", "expires_at", "last_login", "first_name", "last_name", "display_name", "bio", "website", "company", "department", "manager_id", "hire_date", "salary"]
+
+@Schema struct R12: Equatable {
+    var id: String
+    var name: String
+    var email: String
+    var created_at: String
+    var updated_at: String
+    var status: String
+    var type: String
+    var description: String
+    var url: String
+    var avatar_url: String
+    var user_id: String
+    var owner_id: String
+}
+@Schema struct DR12: Equatable { var items: [R12] }
+
+@Schema struct R13: Equatable {
+    var id: String
+    var name: String
+    var email: String
+    var created_at: String
+    var updated_at: String
+    var status: String
+    var type: String
+    var description: String
+    var url: String
+    var avatar_url: String
+    var user_id: String
+    var owner_id: String
+    var title: String
+}
+@Schema struct DR13: Equatable { var items: [R13] }
+
+@Schema struct R16: Equatable {
+    var id: String
+    var name: String
+    var email: String
+    var created_at: String
+    var updated_at: String
+    var status: String
+    var type: String
+    var description: String
+    var url: String
+    var avatar_url: String
+    var user_id: String
+    var owner_id: String
+    var title: String
+    var body: String
+    var tags: String
+    var count: String
+}
+@Schema struct DR16: Equatable { var items: [R16] }
+
+@Schema struct R24: Equatable {
+    var id: String
+    var name: String
+    var email: String
+    var created_at: String
+    var updated_at: String
+    var status: String
+    var type: String
+    var description: String
+    var url: String
+    var avatar_url: String
+    var user_id: String
+    var owner_id: String
+    var title: String
+    var body: String
+    var tags: String
+    var count: String
+    var score: String
+    var is_active: String
+    var is_admin: String
+    var locale: String
+    var timezone: String
+    var phone: String
+    var address: String
+    var city: String
+}
+@Schema struct DR24: Equatable { var items: [R24] }
+
+@Schema struct R32: Equatable {
+    var id: String
+    var name: String
+    var email: String
+    var created_at: String
+    var updated_at: String
+    var status: String
+    var type: String
+    var description: String
+    var url: String
+    var avatar_url: String
+    var user_id: String
+    var owner_id: String
+    var title: String
+    var body: String
+    var tags: String
+    var count: String
+    var score: String
+    var is_active: String
+    var is_admin: String
+    var locale: String
+    var timezone: String
+    var phone: String
+    var address: String
+    var city: String
+    var country: String
+    var zip: String
+    var latitude: String
+    var longitude: String
+    var verified: String
+    var role: String
+    var team_id: String
+    var org_id: String
+}
+@Schema struct DR32: Equatable { var items: [R32] }
+
+@Schema struct R48: Equatable {
+    var id: String
+    var name: String
+    var email: String
+    var created_at: String
+    var updated_at: String
+    var status: String
+    var type: String
+    var description: String
+    var url: String
+    var avatar_url: String
+    var user_id: String
+    var owner_id: String
+    var title: String
+    var body: String
+    var tags: String
+    var count: String
+    var score: String
+    var is_active: String
+    var is_admin: String
+    var locale: String
+    var timezone: String
+    var phone: String
+    var address: String
+    var city: String
+    var country: String
+    var zip: String
+    var latitude: String
+    var longitude: String
+    var verified: String
+    var role: String
+    var team_id: String
+    var org_id: String
+    var parent_id: String
+    var slug: String
+    var version: String
+    var deleted_at: String
+    var expires_at: String
+    var last_login: String
+    var first_name: String
+    var last_name: String
+    var display_name: String
+    var bio: String
+    var website: String
+    var company: String
+    var department: String
+    var manager_id: String
+    var hire_date: String
+    var salary: String
+}
+@Schema struct DR48: Equatable { var items: [R48] }
+
+func realisticSweepTable() -> [(count: Int, decode: ([UInt8]) -> Int?)] {
+    [
+        (12, { b in (try? DR12.parse(json: b)).map { $0.items.count } }),
+        (13, { b in (try? DR13.parse(json: b)).map { $0.items.count } }),
+        (16, { b in (try? DR16.parse(json: b)).map { $0.items.count } }),
+        (24, { b in (try? DR24.parse(json: b)).map { $0.items.count } }),
+        (32, { b in (try? DR32.parse(json: b)).map { $0.items.count } }),
+        (48, { b in (try? DR48.parse(json: b)).map { $0.items.count } }),
+    ]
+}
+
+/// `{"items":[{"id":"v","name":"v",...}, ...]}` with the first `count` realistic keys.
+func realisticSweepDocument(_ count: Int, elements: Int) -> [UInt8] {
+    let element = "{" + realisticSweepKeys.prefix(count).map { "\"" + $0 + "\":\"v\"" }
+        .joined(separator: ",") + "}"
+    return Array(("{\"items\":[" + Array(repeating: element, count: elements)
+        .joined(separator: ",") + "]}").utf8)
+}
+
 func runFieldSweepBenchmarks() -> Bool {
     let elements = 2_000
     print("")
@@ -427,6 +626,26 @@ func runFieldSweepBenchmarks() -> Bool {
               + pad(fmt(perElement / Double(count), 2), 11)
               + pad(fmt((Double(bytes.count) / 1e6) / (ns / 1e9), 0), 9)
               + "   " + (count >= 10 ? "jump table" : "search tree"))
+    }
+
+    print("")
+    print("Realistic names (lengths 2-12). The global window gives out at 13 fields here.")
+    print(pad("fields", 8, right: true) + pad("bytes", 9) + pad("ns/elem", 11)
+          + pad("ns/field", 11) + pad("MB/s", 9))
+    print(String(repeating: "-", count: 48))
+    for (count, decode) in realisticSweepTable() {
+        let bytes = realisticSweepDocument(count, elements: elements)
+        guard let n = decode(bytes), n == elements else {
+            print(pad(String(count), 8, right: true) + "   did not decode"); ok = false; continue
+        }
+        let iters = max(50, 4_000_000 / bytes.count)
+        let ns = measure(iterations: iters) { _ = decode(bytes) }
+        let perElement = ns / Double(elements)
+        print(pad(String(count), 8, right: true)
+              + pad(String(bytes.count), 9)
+              + pad(fmt(perElement, 1), 11)
+              + pad(fmt(perElement / Double(count), 2), 11)
+              + pad(fmt((Double(bytes.count) / 1e6) / (ns / 1e9), 0), 9))
     }
 
     // The prediction under test, stated as a comparison rather than left to the reader.

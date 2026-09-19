@@ -2223,6 +2223,53 @@ cannot separate twenty-four keys separates seven easily. Checked statically agai
 realistic key set: at 13, 16, 20 and 24 fields the global search fails every time, and a
 per-bucket search succeeds for **every bucket**, the largest holding seven keys.
 
+### Per-bucket windows, built — and a correction to the paragraph above (2026-09-19)
+
+Built as sized: every length bucket of three or more keys now gets its own window
+(`WindowSearch.bucketSearch`), and what stays linear is a collision group inside a bucket.
+The search takes the window whose LARGEST collision group is smallest rather than insisting on
+a perfect one, because `k00`…`k63` have no perfect window at all — they differ in two decimal
+digits whose useful bits are not contiguous — and a chain of seven beats a chain of sixty-four.
+The hazard a window adds is a false accept (an undeclared key of the same length landing on a
+declared arm); `keyMatches` inside the arm still refuses it, and `BucketDispatchTests` throws
+every one-byte mutation of every declared key — 2,000+ — at a `.reject` schema to prove it.
+
+Old and new builds run alternately, three times each, minimum reported:
+
+| fields | `k00…` before | after | | realistic names | before | after |
+|---|---|---|---|---|---|---|
+| 12 | 168.6 | 158.9 (−5.8%) | | 12 | 181.3 | 185.9 (+2.5%) |
+| 16 | 245.8 | 220.2 (**−10.4%**) | | 13 | 188.2 | 192.6 (+2.3%) |
+| 24 | 400.3 | 336.1 (**−16.0%**) | | 16 | 242.4 | 237.4 (−2.1%) |
+| 32 | 564.5 | 463.5 (**−17.9%**) | | 24 | 356.5 | 364.9 (+2.4%) |
+| 48 | 960.7 | 760.4 (**−20.8%**) | | 32 | 487.5 | 508.9 (+4.4%) |
+| 64 | 1446.3 | 1048.1 (**−27.5%**) | | 48 | 813.1 | 820.6 (+0.9%) |
+
+ns per element. The realistic 12-field row still uses the GLOBAL window — its generated code
+did not change — and it moved +2.5%, which is the noise floor for this column.
+
+**The correction.** The section above says the curve "rises 60% from nine fields to
+sixty-four" because the fallback is linear, and implies that is a property of wide structs.
+It is a property of **same-length, same-prefix keys**. On realistic names — lengths 2 to 12,
+first bytes mostly distinct — ns/field is flat at ~15 from 12 to 48 fields both before and
+after this change, because a failed `keyMatches` exits on the first byte and a bucket holds
+at most nine keys. `k00…` pays two to three byte compares per failed candidate across a
+64-long chain, which is where the 60% came from. So the change is a large win for key sets
+that look like `k00…` (generated schemas, `field_1…field_n`, column-style names) and neutral
+on the shape most APIs have.
+
+**And "neutral" was only true at run time.** The compile-time gate's own key set at 24 fields
+(realistic names, four buckets of 3-7 keys) measured **+12.7%** — 16.31 s against 18.38 s for
+100 types, minimum of five builds alternated old/new, every pair in the same direction: about
+20 ms per type for four inner switches that bought nothing. So the window is now emitted only
+where the chain is EXPENSIVE. `WindowSearch.chainCost` computes, at expansion, the bytes a
+linear chain compares on average — each earlier candidate costs its common prefix with the
+target plus one — and a bucket gets a window at 8 or more. The two populations do not overlap:
+every bucket of the 48-name realistic set scores 1.0-4.2, `k00…` scores 14.8 at twelve keys and
+67 at sixty-four. Realistic names therefore emit exactly the code they emitted before this
+change; `created_at/created_by/created_on`-style prefix families and generated names get the
+window, and the win above.
+
 ### The two anomalies as first reported, kept for the record
 
 **Per-field cost is not monotonic in field count.**

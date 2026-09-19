@@ -181,7 +181,8 @@ extension XML {
         @inline(never)
         mutating func resolveAttributes(
             _ r: borrowing AssayReader, _ sink: inout IssueSink,
-            _ rawAttributes: [(Range<Int>, String, SourceSpan, SourceSpan)], rawName: String
+            _ rawAttributes: [(Range<Int>, String, SourceSpan, SourceSpan)],
+            elementName: Range<Int>
         ) -> [XML.Attribute] {
                 var attributes: [XML.Attribute] = []
                 attributes.reserveCapacity(rawAttributes.count)
@@ -225,8 +226,9 @@ extension XML {
                     if duplicate {
                         // Cold: build the reported name only when there is something to report.
                         let n = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
+                        let e = r.string(from: elementName.lowerBound, to: elementName.upperBound)
                         sink.add(Issue(code: .duplicateKey,
-                                       path: [.key(rawName), .key(n)],
+                                       path: [.key(e), .key(n)],
                                        received: n, location: span))
                     }
                     attributes.append(XML.Attribute(name: resolved, value: v,
@@ -292,7 +294,11 @@ extension XML {
                 r.report(&sink, .xmlBadName)
                 return nil
             }
-            let rawName = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
+            // The element's name as written is NOT built as a String here: it is needed only
+            // by error paths, which build it from `nameRange`, and the close tag is checked
+            // against it byte for byte. Building it (and the close tag's name) cost two String
+            // constructions and releases per element on every clean parse.
+            let nameLength = nameRange.count
 
             // Attributes are parsed OUT OF LINE, in `scanAttributes` below. That is a
             // stack decision, not a tidiness one: `parseElement` recurses, so every byte in
@@ -316,14 +322,14 @@ extension XML {
             // loop's tuples, set and issue construction were in this recursive frame, and a
             // debug build at the default maxDepth of 64 had only a few levels of headroom on a
             // 512 KB thread (Swift Testing's worker stack). Measured 2026-09-19.
-            let attributes = resolveAttributes(r, &sink, rawAttributes, rawName: rawName)
+            let attributes = resolveAttributes(r, &sink, rawAttributes, elementName: nameRange)
 
             // Empty element: <tag/>. There is no content to underline, so the caret goes
             // under the tag name — the only thing in the document that exists.
             if r.consume("/>") {
                 return XML.Element(name: name, attributes: attributes, children: [],
                                    contentSpan: SourceSpan(lo: nameStart,
-                                                           len: rawName.utf8.count))
+                                                           len: nameLength))
             }
             guard r.consume(">") else {
                 r.report(&sink, .xmlUnterminatedTag)
@@ -341,53 +347,62 @@ extension XML {
 
             while true {
                 guard !r.atEnd else {
+                    let rawName = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
                     sink.add(Issue(code: .xmlUnclosedElement,
                                    path: [.key(rawName)],
                                    received: rawName,
-                                   location: SourceSpan(lo: nameStart, len: rawName.utf8.count)))
+                                   location: SourceSpan(lo: nameStart, len: nameLength)))
                     return nil
                 }
 
-                if r.matches("</") {
-                    contentEnd = r.byteOffset
-                    _ = r.consume("</")
-                    guard let close = scanName(&r) else {
-                        r.report(&sink, .xmlBadName)
-                        return nil
-                    }
-                    skipSpace(&r)
-                    guard r.consume(">") else {
-                        r.report(&sink, .xmlUnterminatedTag)
-                        return nil
-                    }
-                    guard close == rawName else {
-                        sink.add(Issue(
-                            code: .xmlMismatchedTag,
-                            path: [.key(rawName)],
-                            params: ["expected": .string(rawName), "found": .string(close)],
-                            received: close,
-                            location: SourceSpan(lo: nameStart, len: rawName.utf8.count)))
-                        return nil
-                    }
-                    break
-                }
-
-                if r.matches("<!--") {
-                    guard let c = parseComment(&r, &sink) else { return nil }
-                    children.append(c)
-                    continue
-                }
-                if r.matches("<![CDATA[") {
-                    guard let c = parseCDATA(&r, &sink) else { return nil }
-                    children.append(c)
-                    continue
-                }
-                if r.matches("<?") {
-                    guard let pi = parseProcessingInstruction(&r, &sink) else { return nil }
-                    children.append(pi)
-                    continue
-                }
+                // Markup dispatches on the byte after `<`: a child element, the common case,
+                // used to fail four `matches` (`</`, `<!--`, `<![CDATA[`, `<?`) first.
+                // `if`s, not a `switch`, so the close tag's `break` still leaves the loop.
                 if r.currentByte == UInt8(ascii: "<") {
+                    let next = r.byte(at: 1)
+                    if next == UInt8(ascii: "/") {
+                        contentEnd = r.byteOffset
+                        _ = r.consume("</")
+                        guard let closeRange = scanNameRange(&r) else {
+                            r.report(&sink, .xmlBadName)
+                            return nil
+                        }
+                        skipSpace(&r)
+                        guard r.consume(">") else {
+                            r.report(&sink, .xmlUnterminatedTag)
+                            return nil
+                        }
+                        guard sameBytes(r, closeRange, nameRange) else {
+                            let rawName = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
+                            let close = r.string(from: closeRange.lowerBound, to: closeRange.upperBound)
+                            sink.add(Issue(
+                                code: .xmlMismatchedTag,
+                                path: [.key(rawName)],
+                                params: ["expected": .string(rawName), "found": .string(close)],
+                                received: close,
+                                location: SourceSpan(lo: nameStart, len: nameLength)))
+                            return nil
+                        }
+                        break
+                    }
+
+                    if next == UInt8(ascii: "!") {
+                        if r.matches("<!--") {
+                            guard let c = parseComment(&r, &sink) else { return nil }
+                            children.append(c)
+                            continue
+                        }
+                        if r.matches("<![CDATA[") {
+                            guard let c = parseCDATA(&r, &sink) else { return nil }
+                            children.append(c)
+                            continue
+                        }
+                    }
+                    if next == UInt8(ascii: "?") {
+                        guard let pi = parseProcessingInstruction(&r, &sink) else { return nil }
+                        children.append(pi)
+                        continue
+                    }
                     guard let child = parseElement(&r, &sink, depth: depth + 1,
                                                    position: elementChildren) else {
                         return nil
@@ -926,6 +941,22 @@ extension XML {
         func isNameChar(_ c: UInt8) -> Bool {
             isNameStart(c) || (c >= 0x30 && c <= 0x39)
                 || c == UInt8(ascii: "-") || c == UInt8(ascii: ".")
+        }
+
+        /// Whether two ranges of the document hold the same bytes: a close tag against its
+        /// open tag, without building either name. Bytes, not `String ==`, which would also
+        /// accept a canonically-equivalent spelling; XML 1.0 §3 requires the end tag's Name
+        /// to MATCH the start tag's, and libxml2 compares bytes.
+        func sameBytes(_ r: borrowing AssayReader, _ a: Range<Int>, _ b: Range<Int>) -> Bool {
+            guard a.count == b.count else { return false }
+            var i = 0
+            while i < a.count {
+                if r.byte(absolute: a.lowerBound &+ i) != r.byte(absolute: b.lowerBound &+ i) {
+                    return false
+                }
+                i &+= 1
+            }
+            return true
         }
 
         mutating func scanName(_ r: inout AssayReader) -> String? {

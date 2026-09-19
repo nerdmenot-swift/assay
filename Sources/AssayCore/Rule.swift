@@ -132,14 +132,36 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
         case messageOnly(String)
     }
 
-    @usableFromInline var kind: Kind
+    /// The rule's contents, IMMUTABLE and shared, so copying a `Rule` is one retain.
+    ///
+    /// `Rule` stays a value type — nothing can change a rule once built — but its fields
+    /// moved behind one reference on 2026-09-20. Every validation copies each rule out of
+    /// its `static let` array to call it (the ledger's row 4: `rules[i]`, a buffer pointer
+    /// and `pointee` all copied alike), and copying the struct went through `Rule`'s value
+    /// witness: the multi-payload `Kind` and the optional message, several retains each.
+    /// That was more than half of `base/validate` (callgrind).
+    @usableFromInline
+    final class Storage: Sendable {
+        @usableFromInline let kind: Kind
+        /// Per-rule message, from `or:`. Beats the attribute-level override.
+        @usableFromInline let message: String?
+
+        @usableFromInline
+        init(kind: Kind, message: String?) {
+            self.kind = kind
+            self.message = message
+        }
+    }
+
+    @usableFromInline let storage: Storage
+
+    @usableFromInline var kind: Kind { storage.kind }
     /// Per-rule message, from `or:`. Beats the attribute-level override.
-    @usableFromInline var message: String?
+    @usableFromInline var message: String? { storage.message }
 
     @usableFromInline
     init(_ kind: Kind, message: String? = nil) {
-        self.kind = kind
-        self.message = message
+        self.storage = Storage(kind: kind, message: message)
     }
 
     /// The string literal IS a rule: no check, only a message. EXPERIENCE.md §5.
@@ -149,12 +171,11 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
 
     /// A copy with this message, applied recursively into `.all` children that have none.
     public func withMessage(_ m: String) -> Rule {
-        var r = self
+        var k = kind
         if case .all(let children) = kind {
-            r.kind = .all(children.map { $0.message == nil ? $0.withMessage(m) : $0 })
+            k = .all(children.map { $0.message == nil ? $0.withMessage(m) : $0 })
         }
-        if r.message == nil { r.message = m }
-        return r
+        return Rule(k, message: message ?? m)
     }
 
     // MARK: - Constructors, matching EXPERIENCE.md §5's table

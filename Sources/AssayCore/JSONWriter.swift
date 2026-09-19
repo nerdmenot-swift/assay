@@ -32,6 +32,10 @@ public struct JSONWriter: ~Copyable {
     @usableFromInline var needsComma: Bool = false
     @usableFromInline let pretty: Bool
     @usableFromInline var depth: Int = 0
+    /// Pretty output only: a key was just written, so the value goes on the key's line.
+    /// Without it every value after a key started a new line (`"page": ` then `1` below
+    /// it), valid JSON that no one would call pretty, and the only test round-tripped it.
+    @usableFromInline var afterKey: Bool = false
 
     @inlinable
     public init(pretty: Bool = false, reservingCapacity capacity: Int = 512) {
@@ -53,6 +57,8 @@ public struct JSONWriter: ~Copyable {
     @inlinable
     mutating func newlineAndIndent() {
         guard pretty else { return }
+        if afterKey { afterKey = false; return }
+        guard !out.isEmpty else { return }          // no newline before the first byte
         out.append(0x0A)
         for _ in 0..<depth { out.append(0x20); out.append(0x20) }
     }
@@ -117,7 +123,7 @@ public struct JSONWriter: ~Copyable {
         }
         byte(0x22)
         byte(0x3A)                              // :
-        if pretty { byte(0x20) }
+        if pretty { byte(0x20); afterKey = true }
         needsComma = false
     }
 
@@ -130,7 +136,52 @@ public struct JSONWriter: ~Copyable {
         separate()
         unsafe out.append(contentsOf: UnsafeBufferPointer(start: k.utf8Start,
                                                           count: k.utf8CodeUnitCount))
-        if pretty { byte(0x20) }
+        if pretty { byte(0x20); afterKey = true }
+        needsComma = false
+    }
+
+    /// `_key(separated:)` for a `String` field, whose literal also OPENS the value:
+    /// `,"name":"`. `_writeStringOpened` then writes the text and the closing quote. One
+    /// append for separator, key and quote, where there were three.
+    @inlinable
+    public mutating func _key(separatedOpeningString k: StaticString) {
+        let start = unsafe k.utf8Start
+        let n = k.utf8CodeUnitCount
+        if !pretty {
+            let skip = needsComma ? 0 : 1
+            unsafe out.append(contentsOf: UnsafeBufferPointer(start: start + skip, count: n &- skip))
+        } else {
+            separate()
+            unsafe out.append(contentsOf: UnsafeBufferPointer(start: start + 1, count: n &- 2))
+            byte(0x20)
+            byte(0x22)
+        }
+        needsComma = false
+    }
+
+    /// The rest of a string value whose opening quote a `_key(separatedOpeningString:)`
+    /// literal already wrote.
+    @inlinable
+    public mutating func _writeStringOpened(_ v: String) {
+        writeStringRest(v)
+        needsComma = true
+    }
+
+    /// `_key(encoded:)` with the SEPARATOR in the literal too: `,"name":`. Compact output
+    /// appends it whole when a comma is due and from its second byte when it is not, so a
+    /// key is one append instead of two (the comma was its own). Pretty output separates as
+    /// usual and appends from the second byte.
+    @inlinable
+    public mutating func _key(separated k: StaticString) {
+        let start = unsafe k.utf8Start
+        let n = k.utf8CodeUnitCount
+        if !pretty && needsComma {
+            unsafe out.append(contentsOf: UnsafeBufferPointer(start: start, count: n))
+        } else {
+            separate()
+            unsafe out.append(contentsOf: UnsafeBufferPointer(start: start + 1, count: n &- 1))
+            if pretty { byte(0x20); afterKey = true }
+        }
         needsComma = false
     }
 
@@ -141,7 +192,7 @@ public struct JSONWriter: ~Copyable {
         needsComma = false
         writeStringBody(k)
         byte(0x3A)
-        if pretty { byte(0x20) }
+        if pretty { byte(0x20); afterKey = true }
         needsComma = false
     }
 
@@ -162,6 +213,12 @@ public struct JSONWriter: ~Copyable {
     @inlinable
     mutating func writeStringBody(_ v: String) {
         byte(0x22)
+        writeStringRest(v)
+    }
+
+    /// A string's text and closing quote, the opening one already written.
+    @inlinable
+    mutating func writeStringRest(_ v: String) {
         // BORROWED, not copied. `var v = v; v.withUTF8` did the same job and cost a String
         // retain per string written (count.py: +2,000 per call on fields-2/encode). A native
         // String always has contiguous UTF-8, so the copy is only for a bridged one.

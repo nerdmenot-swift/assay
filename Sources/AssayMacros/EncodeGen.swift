@@ -188,6 +188,15 @@ extension SchemaMacro {
 
             """
         }
+        // A plain String field: the key literal opens the value's quote as well, so
+        // separator, key and quote are one append (`JSONWriter._key(separatedOpeningString:)`).
+        if base == "String", f.transform == nil, isPlainKey(key) {
+            return """
+                    w._key(separatedOpeningString: ",\\"\(key)\\":\\"")
+                    w._writeStringOpened(\(value))
+
+            """
+        }
         return """
                 \(keyStatement(key))
         \(writeCall(base, value, key: key, index: i, indent: 8))
@@ -205,8 +214,12 @@ extension SchemaMacro {
     /// at run time. A first version escaped the spelling itself and double-escaped such keys;
     /// `EncodingTests.oddKeys` caught it.
     static func keyStatement(_ key: String) -> String {
-        let plain = key.unicodeScalars.allSatisfy { $0.value >= 0x20 && $0 != "\"" && $0 != "\\" }
-        return plain ? "w._key(encoded: \"\\\"\(key)\\\":\")" : "w.key(\"\(key)\")"
+        isPlainKey(key) ? "w._key(separated: \",\\\"\(key)\\\":\")" : "w.key(\"\(key)\")"
+    }
+
+    /// A key whose source spelling is already its JSON text: nothing to escape.
+    static func isPlainKey(_ key: String) -> Bool {
+        key.unicodeScalars.allSatisfy { $0.value >= 0x20 && $0 != "\"" && $0 != "\\" }
     }
 
     static func writeCall(

@@ -45,11 +45,11 @@ nonisolated public func _assayEncodeMembers(
 ) {
     switch self {
         case .click(let __v):
-            w._key(encoded: "\"type\":")
+            w._key(separated: ",\"type\":")
             w.write("click")
             __v._assayEncodeMembers(into: &w, into: &sink, at: &path)
         case .pageView(let __v):
-            w._key(encoded: "\"type\":")
+            w._key(separated: ",\"type\":")
             w.write("pv")
             __v._assayEncodeMembers(into: &w, into: &sink, at: &path)
     }

@@ -284,6 +284,38 @@ struct EncodingTests {
         }
     }
 
+    /// Exact bytes, both layouts. The round-trip test below could not see that pretty
+    /// output put every value after a key on a NEW line (`"page": ` then `1` under it) and
+    /// opened with a stray newline; that is fixed, and this pins it. It also covers the
+    /// key literals that carry their separator and a String value's opening quote
+    /// (`_key(separated:)`, `_key(separatedOpeningString:)`): a String first, in the middle,
+    /// empty, escaped, and nested.
+    @Test("compact and pretty output, byte for byte")
+    func exactLayouts() throws {
+        let json = #"{"request_id":"r\"q","page":1,"ratio":2.5,"active":true,"tags":["a"],"nested":{"id":"","amount":1}}"#
+        let v = try EncPayload.parse(json: Array(json.utf8))
+        #expect(try v.jsonText() == #"{"request_id":"r\"q","page":1,"ratio":2.5,"active":true,"note":null,"tags":["a"],"counts":{},"retries":3,"nested":{"id":"","amount":1},"items":[]}"#)
+        #expect(try v.jsonText(pretty: true) == """
+        {
+          "request_id": "r\\"q",
+          "page": 1,
+          "ratio": 2.5,
+          "active": true,
+          "note": null,
+          "tags": [
+            "a"
+          ],
+          "counts": {},
+          "retries": 3,
+          "nested": {
+            "id": "",
+            "amount": 1
+          },
+          "items": []
+        }
+        """)
+    }
+
     @Test("pretty printing is valid JSON that parses back identically")
     func pretty() throws {
         let json = #"{"request_id":"r","page":1,"ratio":2.5,"active":true,"tags":["a"],"nested":{"id":"n","amount":1}}"#

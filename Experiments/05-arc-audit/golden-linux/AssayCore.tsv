@@ -79,8 +79,8 @@ AssayCore.Issue.message.getter : Swift.String	retain	2
 AssayCore.Issue.unitSuffix(AssayCore.IssueValue) -> Swift.String	release	5
 AssayCore.Issue.unitSuffix(AssayCore.IssueValue) -> Swift.String	retain	1
 AssayCore.IssueCode.codeString.getter : Swift.String	retain	1
-AssayCore.IssueSink._insertKey(since: Swift.Int, _: Swift.String, at: Swift.Int) -> ()	release	1
-AssayCore.IssueSink._insertKey(since: Swift.Int, _: Swift.String, at: Swift.Int) -> ()	retain	1
+AssayCore.IssueSink._insert(since: Swift.Int, _: AssayCore.PathComponent, at: Swift.Int) -> ()	release	1
+AssayCore.IssueSink._insert(since: Swift.Int, _: AssayCore.PathComponent, at: Swift.Int) -> ()	retain	1
 AssayCore.IssueSink.add(AssayCore.Issue) -> ()	retain	1
 AssayCore.IssueSink.add(warning: AssayCore.Warning) -> ()	retain	3
 AssayCore.IssueValue.displayString.getter : Swift.String	retain	1
@@ -115,8 +115,8 @@ AssayCore.JSONWriter.write(Swift.Double, inout AssayCore.IssueSink, [AssayCore.P
 AssayCore.JSONWriter.writeDate(Swift.Double, [AssayCore.DateFormat], inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	release	1
 AssayCore.JSONWriter.writeEscaped(Swift.UInt8) -> ()	release	1
 AssayCore.JSONWriter.writeInteger(Swift.Int64) -> ()	release	2
-AssayCore.JSONWriter.writeStringBody(Swift.String) -> ()	release	3
-AssayCore.JSONWriter.writeStringBody(Swift.String) -> ()	retain	2
+AssayCore.JSONWriter.writeStringRest(Swift.String) -> ()	release	3
+AssayCore.JSONWriter.writeStringRest(Swift.String) -> ()	retain	2
 AssayCore.JSONWriter.writeUnsignedInteger(Swift.UInt64) -> ()	release	2
 AssayCore.NegotiationFailure.issue.getter : AssayCore.Issue	release	3
 AssayCore.NegotiationFailure.issue.getter : AssayCore.Issue	retain	7
@@ -204,15 +204,27 @@ AssayCore._assayAliasMatched(inout AssayCore.IssueSink, [AssayCore.PathComponent
 AssayCore._assayCoerceDouble(Swift.String) -> Swift.Double?	retain	1
 AssayCore._assayCoerceInt64(Swift.String) -> Swift.Int64?	release	1
 AssayCore._assayCoerceInt64(Swift.String) -> Swift.Int64?	retain	1
+AssayCore._assayElement<A>(inout [AssayCore.PathComponent], inout AssayCore.IssueSink, Swift.String, Swift.Int, (inout [AssayCore.PathComponent], inout AssayCore.IssueSink) -> A?) -> A?	release	1
+AssayCore._assayElement<A>(inout [AssayCore.PathComponent], inout AssayCore.IssueSink, Swift.String, Swift.Int, (inout [AssayCore.PathComponent], inout AssayCore.IssueSink) -> A?) -> A?	retain	1
 AssayCore._assayEncodeRawXML(_: AssayCore.RawValue, named: Swift.String, into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> ()	release	6
 AssayCore._assayEncodeRawXML(_: AssayCore.RawValue, named: Swift.String, into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> ()	retain	3
+AssayCore._assayMapping<A>(inout [AssayCore.PathComponent], AssayCore.RawValue, (AssayCore.RawValue, inout [AssayCore.PathComponent]) -> A?) -> [Swift.String : A]?	release	5
+AssayCore._assayMapping<A>(inout [AssayCore.PathComponent], AssayCore.RawValue, (AssayCore.RawValue, inout [AssayCore.PathComponent]) -> A?) -> [Swift.String : A]?	retain	3
+AssayCore._assayMapping<A>(inout [AssayCore.PathComponent], Swift.String, AssayCore.RawValue, (AssayCore.RawValue, inout [AssayCore.PathComponent]) -> A?) -> [Swift.String : A]?	release	1
+AssayCore._assayMapping<A>(inout [AssayCore.PathComponent], Swift.String, AssayCore.RawValue, (AssayCore.RawValue, inout [AssayCore.PathComponent]) -> A?) -> [Swift.String : A]?	retain	1
 AssayCore._assayNegotiate(contentType: Swift.String?, accepting: [AssayCore.WireFormat]) -> Swift.Result<AssayCore.WireFormat, AssayCore.NegotiationFailure>	release	9
 AssayCore._assayNegotiate(contentType: Swift.String?, accepting: [AssayCore.WireFormat]) -> Swift.Result<AssayCore.WireFormat, AssayCore.NegotiationFailure>	retain	7
 AssayCore._assayPreprocess(Swift.String, [AssayCore.PreprocessOp]) -> Swift.String	ref	1
 AssayCore._assayPreprocess(Swift.String, [AssayCore.PreprocessOp]) -> Swift.String	release	13
 AssayCore._assayPreprocess(Swift.String, [AssayCore.PreprocessOp]) -> Swift.String	retain	7
+AssayCore._assayPushed<A>(inout [AssayCore.PathComponent], AssayCore.PathComponent, (inout [AssayCore.PathComponent]) -> A?) -> A?	release	1
+AssayCore._assayPushed<A>(inout [AssayCore.PathComponent], AssayCore.PathComponent, (inout [AssayCore.PathComponent]) -> A?) -> A?	retain	1
 AssayCore._assayPushed<A>(inout [AssayCore.PathComponent], Swift.String, (inout [AssayCore.PathComponent]) -> A?) -> A?	release	1
 AssayCore._assayPushed<A>(inout [AssayCore.PathComponent], Swift.String, (inout [AssayCore.PathComponent]) -> A?) -> A?	retain	1
+AssayCore._assaySequence<A>(inout [AssayCore.PathComponent], AssayCore.RawValue, (AssayCore.RawValue, inout [AssayCore.PathComponent]) -> A?) -> [A]?	release	3
+AssayCore._assaySequence<A>(inout [AssayCore.PathComponent], AssayCore.RawValue, (AssayCore.RawValue, inout [AssayCore.PathComponent]) -> A?) -> [A]?	retain	1
+AssayCore._assaySequence<A>(inout [AssayCore.PathComponent], Swift.String, AssayCore.RawValue, (AssayCore.RawValue, inout [AssayCore.PathComponent]) -> A?) -> [A]?	release	1
+AssayCore._assaySequence<A>(inout [AssayCore.PathComponent], Swift.String, AssayCore.RawValue, (AssayCore.RawValue, inout [AssayCore.PathComponent]) -> A?) -> [A]?	retain	1
 AssayCore._assayUnknownNotEncodable(Swift.String, Swift.String, inout AssayCore.IssueSink, [AssayCore.PathComponent]) -> ()	release	2
 AssayCore._assayUnknownNotEncodable(Swift.String, Swift.String, inout AssayCore.IssueSink, [AssayCore.PathComponent]) -> ()	retain	4
 AssayCore._assayUnknownNotEncodable(Swift.String, Swift.String, inout AssayCore.IssueSink, [AssayCore.PathComponent]) -> ()	stack-allocated-ref	1
@@ -277,6 +289,8 @@ function signature specialization <Arg[2] = Dead> of static AssayCore.DateParser
 function signature specialization <Arg[2] = Dead> of static AssayCore.JSON.Value.parse(_: [Swift.UInt8], limits: AssayCore.Limits) throws(AssayCore.AssayError) -> AssayCore.JSON.Value	ref	1
 function signature specialization <Arg[2] = Dead> of static AssayCore.JSON.Value.parse(_: [Swift.UInt8], limits: AssayCore.Limits) throws(AssayCore.AssayError) -> AssayCore.JSON.Value	release	3
 function signature specialization <Arg[2] = Dead> of static AssayCore.JSON.Value.parse(_: [Swift.UInt8], limits: AssayCore.Limits) throws(AssayCore.AssayError) -> AssayCore.JSON.Value	retain	2
+function signature specialization <Arg[2] = Dead> of static AssayCore.RawValue.keyed([AssayCore.PathComponent], Swift.StaticString) -> [AssayCore.PathComponent]	retain	2
+function signature specialization <Arg[2] = Dead> of static AssayCore.RawValue.keyed([AssayCore.PathComponent], Swift.StaticString) -> [AssayCore.PathComponent]	stack-allocated-ref	1
 function signature specialization <Arg[2] = Exploded> of AssayCore.SchemaDescriptor.body(for: AssayCore.SchemaFace, includeDialect: Swift.Bool) -> [(Swift.String, AssayCore.JSONSchemaValue)]	box	6
 function signature specialization <Arg[2] = Exploded> of AssayCore.SchemaDescriptor.body(for: AssayCore.SchemaFace, includeDialect: Swift.Bool) -> [(Swift.String, AssayCore.JSONSchemaValue)]	release	13
 function signature specialization <Arg[2] = Exploded> of AssayCore.SchemaDescriptor.body(for: AssayCore.SchemaFace, includeDialect: Swift.Bool) -> [(Swift.String, AssayCore.JSONSchemaValue)]	retain	8
@@ -288,8 +302,7 @@ function signature specialization <Arg[3] = Dead> of static AssayCore.JSON.Value
 function signature specialization <Arg[4] = Dead> of static AssayCore.Renderer.jsonRender([AssayCore.Issue], [AssayCore.Warning], AssayCore.SourceBytes, Swift.String) -> Swift.String	release	68
 function signature specialization <Arg[4] = Dead> of static AssayCore.Renderer.jsonRender([AssayCore.Issue], [AssayCore.Warning], AssayCore.SourceBytes, Swift.String) -> Swift.String	retain	10
 function signature specialization <Arg[5] = Dead> of static AssayCore.RawValue.warnDateFallback(_: inout AssayCore.IssueSink, _: [AssayCore.PathComponent], _: Swift.StaticString, matched: AssayCore.DateFormat, primary: AssayCore.DateFormat) -> ()	release	2
-function signature specialization <Arg[5] = Dead> of static AssayCore.RawValue.warnDateFallback(_: inout AssayCore.IssueSink, _: [AssayCore.PathComponent], _: Swift.StaticString, matched: AssayCore.DateFormat, primary: AssayCore.DateFormat) -> ()	retain	1
-function signature specialization <Arg[5] = Dead> of static AssayCore.RawValue.warnDateFallback(_: inout AssayCore.IssueSink, _: [AssayCore.PathComponent], _: Swift.StaticString, matched: AssayCore.DateFormat, primary: AssayCore.DateFormat) -> ()	stack-allocated-ref	2
+function signature specialization <Arg[5] = Dead> of static AssayCore.RawValue.warnDateFallback(_: inout AssayCore.IssueSink, _: [AssayCore.PathComponent], _: Swift.StaticString, matched: AssayCore.DateFormat, primary: AssayCore.DateFormat) -> ()	stack-allocated-ref	1
 function signature specialization <Arg[5] = Dead> of static AssayCore.Renderer.caretRender(_: [AssayCore.Issue], _: [AssayCore.Warning], _: AssayCore.SourceBytes, _: Swift.String, color: Swift.Bool) -> Swift.String	release	56
 function signature specialization <Arg[5] = Dead> of static AssayCore.Renderer.caretRender(_: [AssayCore.Issue], _: [AssayCore.Warning], _: AssayCore.SourceBytes, _: Swift.String, color: Swift.Bool) -> Swift.String	retain	25
 function signature specialization <Arg[5] = Dead> of static AssayCore.Renderer.snippet(around: Swift.Int, caretColumn: Swift.Int, caretLength: Swift.Int, index: AssayCore.LineIndex, source: AssayCore.SourceBytes) -> Swift.String	release	13
@@ -297,11 +310,11 @@ function signature specialization <Arg[5] = Dead> of static AssayCore.Renderer.s
 function signature specialization <Arg[6] = Dead> of AssayCore.RawValue.numberDate(_: Swift.Double, _: [AssayCore.DateFormat], _: inout AssayCore.IssueSink, _: [AssayCore.PathComponent], _: Swift.StaticString, received: Swift.String) -> Swift.Double?	release	17
 function signature specialization <Arg[6] = Dead> of AssayCore.RawValue.numberDate(_: Swift.Double, _: [AssayCore.DateFormat], _: inout AssayCore.IssueSink, _: [AssayCore.PathComponent], _: Swift.StaticString, received: Swift.String) -> Swift.Double?	retain	5
 function signature specialization <Arg[6] = Dead> of static AssayCore.RawValue.mismatch(inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString, Swift.String, AssayCore.RawValue, AssayCore.SourceSpan?) -> ()	release	2
-function signature specialization <Arg[6] = Dead> of static AssayCore.RawValue.mismatch(inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString, Swift.String, AssayCore.RawValue, AssayCore.SourceSpan?) -> ()	retain	3
-function signature specialization <Arg[6] = Dead> of static AssayCore.RawValue.mismatch(inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString, Swift.String, AssayCore.RawValue, AssayCore.SourceSpan?) -> ()	stack-allocated-ref	2
+function signature specialization <Arg[6] = Dead> of static AssayCore.RawValue.mismatch(inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString, Swift.String, AssayCore.RawValue, AssayCore.SourceSpan?) -> ()	retain	2
+function signature specialization <Arg[6] = Dead> of static AssayCore.RawValue.mismatch(inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString, Swift.String, AssayCore.RawValue, AssayCore.SourceSpan?) -> ()	stack-allocated-ref	1
 function signature specialization <Arg[6] = Dead> of static AssayCore.RawValue.reportInvalidDate(_: inout AssayCore.IssueSink, _: [AssayCore.PathComponent], _: Swift.StaticString, _: [AssayCore.DateFormat], received: Swift.String, failure: AssayCore.DateParseFailure) -> ()	release	8
-function signature specialization <Arg[6] = Dead> of static AssayCore.RawValue.reportInvalidDate(_: inout AssayCore.IssueSink, _: [AssayCore.PathComponent], _: Swift.StaticString, _: [AssayCore.DateFormat], received: Swift.String, failure: AssayCore.DateParseFailure) -> ()	retain	7
-function signature specialization <Arg[6] = Dead> of static AssayCore.RawValue.reportInvalidDate(_: inout AssayCore.IssueSink, _: [AssayCore.PathComponent], _: Swift.StaticString, _: [AssayCore.DateFormat], received: Swift.String, failure: AssayCore.DateParseFailure) -> ()	stack-allocated-ref	2
+function signature specialization <Arg[6] = Dead> of static AssayCore.RawValue.reportInvalidDate(_: inout AssayCore.IssueSink, _: [AssayCore.PathComponent], _: Swift.StaticString, _: [AssayCore.DateFormat], received: Swift.String, failure: AssayCore.DateParseFailure) -> ()	retain	6
+function signature specialization <Arg[6] = Dead> of static AssayCore.RawValue.reportInvalidDate(_: inout AssayCore.IssueSink, _: [AssayCore.PathComponent], _: Swift.StaticString, _: [AssayCore.DateFormat], received: Swift.String, failure: AssayCore.DateParseFailure) -> ()	stack-allocated-ref	1
 generic specialization <AssayCore.JSON.Value.Member> of static (extension in Swift):Swift.Array<A where A: Swift.Equatable>.== infix([A], [A]) -> Swift.Bool	release	39
 generic specialization <AssayCore.JSON.Value.Member> of static (extension in Swift):Swift.Array<A where A: Swift.Equatable>.== infix([A], [A]) -> Swift.Bool	retain	24
 generic specialization <AssayCore.JSON.Value> of static (extension in Swift):Swift.Array<A where A: Swift.Equatable>.== infix([A], [A]) -> Swift.Bool	release	4

@@ -24,7 +24,8 @@ EncodeDiagnosis.description.getter	retain	2
 EncodeDiagnosis.get()	retain	3
 EncodeDiagnosis.render(_:)	release	1
 EncodeDiagnosis.render(_:)	retain	1
-JSONEncodableSchema.encodedJSON(pretty:)	release	2
+JSONEncodableSchema.diagnoseEncodeJSON(pretty:)	release	1
+JSONEncodableSchema.encodedJSON(pretty:)	release	4
 JSONEncodableSchema.encodedJSON(pretty:)	retain	1
 JSONEncodableSchema.jsonText(pretty:)	release	1
 _unknownVariant(_:_:received:options:span:)	release	5
@@ -53,8 +54,8 @@ static Assayer<>.object(_:)	ref	1
 static Assayer<>.object(_:)	retain	2
 static Assayer<>.raw.getter	ref	1
 static Assayer<>.string.getter	ref	1
-static AssayerBacked._assay(from:into:at:)	release	11
-static AssayerBacked._assay(from:into:at:)	retain	4
+static AssayerBacked._assay(from:into:at:)	release	10
+static AssayerBacked._assay(from:into:at:)	retain	3
 static ContextualJSONAssayable._decode(base:count:into:limits:context:)	release	7
 static ContextualJSONAssayable._decode(base:count:into:limits:context:)	retain	2
 static ContextualJSONAssayable._decode(base:count:into:limits:context:)	stack-allocated-ref	1

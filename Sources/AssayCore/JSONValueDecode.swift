@@ -31,13 +31,15 @@ extension AssayReader {
         _ path: [PathComponent] = []
     ) -> JSON.Value? {
         var p = path
-        return _scanJSONValue(&sink, &p)
+        var hints = JSONShapeHints()
+        return _scanJSONValue(&sink, &p, &hints)
     }
 
     @usableFromInline
     mutating func _scanJSONValue(
         _ sink: inout IssueSink,
-        _ path: inout [PathComponent]
+        _ path: inout [PathComponent],
+        _ hints: inout JSONShapeHints
     ) -> JSON.Value? {
         skipWhitespace()
         guard !atEnd else {
@@ -61,10 +63,10 @@ extension AssayReader {
             return .string(s)
 
         case 0x5B:                                   // [
-            return scanJSONArray(&sink, &path)
+            return scanJSONArray(&sink, &path, &hints)
 
         case 0x7B:                                   // {
-            return scanJSONObject(&sink, &path)
+            return scanJSONObject(&sink, &path, &hints)
 
         default:
             return scanJSONNumber(&sink, &path)
@@ -98,7 +100,8 @@ extension AssayReader {
     @usableFromInline
     mutating func scanJSONArray(
         _ sink: inout IssueSink,
-        _ path: inout [PathComponent]
+        _ path: inout [PathComponent],
+        _ hints: inout JSONShapeHints
     ) -> JSON.Value? {
         guard tryConsume(0x5B) else { reportMalformed(&sink, path, expected: "'['"); return nil }
         guard enterContainer(&sink) else { return nil }
@@ -106,6 +109,8 @@ extension AssayReader {
 
         var items: [JSON.Value] = []
         if tryConsume(0x5D) { return .array(items) }
+        let level = path.count
+        items.reserveCapacity(hints.items(at: level))
 
         while true {
             // Push, descend, pop — rather than `path + [.index(…)]`, which allocated an
@@ -114,7 +119,7 @@ extension AssayReader {
             // row path (2026-09-10) and haul's report before it; this is the third place
             // it was written, and the last one still standing.
             path.append(.index(items.count))
-            guard let v = _scanJSONValue(&sink, &path) else { return nil }
+            guard let v = _scanJSONValue(&sink, &path, &hints) else { return nil }
             path.removeLast()
             items.append(v)
             if tryConsume(0x2C) { continue }
@@ -122,13 +127,15 @@ extension AssayReader {
         }
         guard tryConsume(0x5D) else {
             reportMalformed(&sink, path, expected: "',' or ']'"); return nil }
+        hints.setItems(items.count, at: level)
         return .array(items)
     }
 
     @usableFromInline
     mutating func scanJSONObject(
         _ sink: inout IssueSink,
-        _ path: inout [PathComponent]
+        _ path: inout [PathComponent],
+        _ hints: inout JSONShapeHints
     ) -> JSON.Value? {
         guard tryConsume(0x7B) else { reportMalformed(&sink, path, expected: "'{'"); return nil }
         guard enterContainer(&sink) else { return nil }
@@ -136,6 +143,8 @@ extension AssayReader {
 
         var members: [JSON.Value.Member] = []
         if tryConsume(0x7D) { return .object(members) }
+        let level = path.count
+        members.reserveCapacity(hints.members(at: level))
 
         while true {
             // The key has to become a String here — unlike the schema path, where the
@@ -147,7 +156,7 @@ extension AssayReader {
             guard expect(0x3A) else {
                 reportMalformed(&sink, path, expected: "':' after the key"); return nil }
             path.append(.key(key))
-            guard let v = _scanJSONValue(&sink, &path) else { return nil }
+            guard let v = _scanJSONValue(&sink, &path, &hints) else { return nil }
             path.removeLast()
 
             // Duplicates are kept, not overwritten. RFC 8259 leaves the behaviour
@@ -159,7 +168,46 @@ extension AssayReader {
         }
         guard tryConsume(0x7D) else {
             reportMalformed(&sink, path, expected: "',' or '}'"); return nil }
+        hints.setMembers(members.count, at: level)
         return .object(members)
+    }
+}
+
+/// SHAPE MEMORY for the tree builder: how many members (or items) the last container at each
+/// depth held, so the next one there reserves that much up front.
+///
+/// Documents are mostly arrays of same-shaped records, and a container growing by doubling
+/// paid 0 → 1 → 2 → 4 → 8: four allocations for a five-member object where one would do
+/// (`count.py explain` on `base/value`: 8,001 of its 8,016 blocks, 2026-09-19). With the hint,
+/// a homogeneous document allocates each container once, at its exact size.
+///
+/// It cannot amplify. A container over-reserves only after a LARGER sibling at the same depth,
+/// by at most that sibling's size, which was itself in the input, and the hint then updates.
+/// So the extra capacity is bounded by the document.
+@usableFromInline
+struct JSONShapeHints {
+    /// Item and member counts INTERLEAVED per depth (`2 * level` and `2 * level + 1`), in
+    /// one array reserved once: two arrays growing by doubling cost a document of empty
+    /// objects 3 blocks per call for hints it never used (count.py, `optional-absent/value`).
+    @usableFromInline var counts: [Int] = []
+
+    @usableFromInline init() {}
+
+    @inlinable func items(at level: Int) -> Int {
+        2 &* level < counts.count ? counts[2 &* level] : 0
+    }
+    @inlinable func members(at level: Int) -> Int {
+        2 &* level &+ 1 < counts.count ? counts[2 &* level &+ 1] : 0
+    }
+    @inlinable mutating func setItems(_ n: Int, at level: Int) { set(n, 2 &* level) }
+    @inlinable mutating func setMembers(_ n: Int, at level: Int) { set(n, 2 &* level &+ 1) }
+
+    @inlinable mutating func set(_ n: Int, _ i: Int) {
+        if i >= counts.count {
+            if counts.isEmpty { counts.reserveCapacity(32) }
+            while counts.count <= i { counts.append(0) }
+        }
+        counts[i] = n
     }
 }
 
@@ -207,7 +255,8 @@ extension JSON.Value {
             var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
             reader.advanceBy(unsafe UTF8Validation.bomLength(base, buf.count))
             var path: [PathComponent] = []
-            guard let v = reader._scanJSONValue(&sink, &path) else { return nil }
+            var hints = JSONShapeHints()
+            guard let v = reader._scanJSONValue(&sink, &path, &hints) else { return nil }
             reader.skipWhitespace()
             if !reader.atEnd {
                 sink.add(Issue(code: .trailingContent,

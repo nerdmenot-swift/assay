@@ -4,6 +4,10 @@ Doc20._assayEncodeMembers(into:into:at:)	release	4
 Doc20._assayEncodeMembers(into:into:at:)	retain	2
 Doc5._assayEncodeMembers(into:into:at:)	release	4
 Doc5._assayEncodeMembers(into:into:at:)	retain	2
+DocNested._assayEncodeMembers(into:into:at:)	release	4
+DocNested._assayEncodeMembers(into:into:at:)	retain	2
+MInner1._assayEncodeMembers(into:into:at:)	release	1
+MNested._assayEncodeMembers(into:into:at:)	release	1
 allAxes()	ref	1
 allShapes()	release	159
 allShapes()	retain	29
@@ -37,11 +41,12 @@ closure #3 in 	release	5
 closure #3 in 	retain	2
 closure #3 in closure #8 in allTasks()	release	2
 closure #4 in allTasks()	retain	1
+closure #4 in closure #8 in allTasks()	release	2
 closure #5 in allAxes()	release	12
 closure #5 in allAxes()	retain	2
 closure #5 in allTasks()	retain	1
 closure #6 in allTasks()	release	1
-closure #8 in allTasks()	release	9
+closure #8 in allTasks()	release	12
 closure #9 in allAxes()	ref	1
 closure #9 in allAxes()	release	7
 closure #9 in allAxes()	retain	3
@@ -55,8 +60,8 @@ fixed(_:_:)	release	2
 fixed(_:_:)	stack-allocated-ref	1
 flag(_:)	release	5
 flag(_:)	retain	1
-floor(shape:task:bytes:)	release	30
-floor(shape:task:bytes:)	retain	3
+floor(shape:task:bytes:)	release	39
+floor(shape:task:bytes:)	retain	4
 measure(binary:shape:task:path:timeout:)	begin-exclusive-access-to-value	7
 measure(binary:shape:task:path:timeout:)	end-exclusive-access-to-value	9
 measure(binary:shape:task:path:timeout:)	ref	3

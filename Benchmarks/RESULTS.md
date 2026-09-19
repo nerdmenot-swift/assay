@@ -2505,3 +2505,18 @@ cell, so `nested-3/encode` was added and measured on the old code first: **4,012
 call, two per element**, as decode had. After: **−37.7% instructions, 4,012 → 13 blocks, −49% heap
 bytes**, retains 4,001 → 1. Every flat encode cell pays one release more per call, for the
 top-level path.
+
+### The generic tree: shape memory (2026-09-19)
+
+`JSON.Value` objects grew their member arrays by doubling, 4 allocations for a five-member object.
+Each container now reserves what the previous container at its depth held. That is exact for
+arrays of same-shaped records and bounded by the document otherwise.
+
+| cell | instructions | heap blocks | heap bytes |
+|---|---|---|---|
+| base/value | **−25.3%** | 8,016 → 2,020 | **−63.7%** |
+| array-10/value | −29.1% | 18,016 → 4,024 | −67.0% |
+| fields-20/value | −15.8% | 12,016 → 2,022 | −68.0% |
+| nested-3/value | −19.5% | 14,017 → 6,022 | −54.9% |
+
+Linear on every tree axis. A document of empty objects pays one block per call for the hint table.

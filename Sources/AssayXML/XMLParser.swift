@@ -177,12 +177,103 @@ extension XML {
             return XML.Document(root: root, prolog: prolog)
         }
 
+
+        @inline(never)
+        mutating func resolveAttributes(
+            _ r: borrowing AssayReader, _ sink: inout IssueSink,
+            _ rawAttributes: [(Range<Int>, String, SourceSpan, SourceSpan)], rawName: String
+        ) -> [XML.Attribute] {
+                var attributes: [XML.Attribute] = []
+                attributes.reserveCapacity(rawAttributes.count)
+                // Duplicates are found by scanning what has been appended already, not with a
+                // Set. Elements have a handful of attributes, where a linear scan over a
+                // contiguous array beats hashing — and the Set was a heap allocation per
+                // element for a check that almost never fires.
+                //
+                // THAT IS RIGHT FOR THE COMMON CASE AND WAS UNBOUNDED FOR THE HOSTILE ONE.
+                // The scan is O(a²) in the attribute count, and `XML.Name ==` is a full
+                // `String ==` on two fields, so one element with many attributes — legal XML,
+                // depth 1, no entities — walks away with the parse. Measured 2026-09-13:
+                //
+                //     16,000 attrs   161 KB   0.165 s
+                //     32,000 attrs   332 KB   0.663 s
+                //     64,000 attrs   676 KB   2.651 s        4.0x per doubling
+                //
+                // Neither guard sees it: `maxDepth` is 1 here and the node budget counts
+                // nodes, of which this is one. Same blind spot as the YAML merge key fixed the
+                // same day — both bombs are WIDE, and both guards measure depth or count.
+                //
+                // So: keep the linear scan exactly where it was justified, and build the set
+                // once the count passes the point where hashing wins. Below the threshold this
+                // is byte-for-byte the old path, allocation included (none).
+                var seen: Set<XML.Name>? = nil
+                for (nameRange, v, span, valueSpan) in rawAttributes {
+                    let resolved = resolve(r, nameRange, isAttribute: true)
+                    if seen == nil, attributes.count == Self.attributeSetThreshold {
+                        var s = Set<XML.Name>(minimumCapacity: rawAttributes.count)
+                        for a in attributes { s.insert(a.name) }
+                        seen = s
+                    }
+                    let duplicate: Bool
+                    if seen != nil {
+                        duplicate = !seen!.insert(resolved).inserted
+                    } else {
+                        duplicate = attributes.contains(where: { $0.name == resolved })
+                    }
+                    // Duplicate attributes are a well-formedness error in XML, unlike
+                    // duplicate child elements which are ordinary.
+                    if duplicate {
+                        // Cold: build the reported name only when there is something to report.
+                        let n = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
+                        sink.add(Issue(code: .duplicateKey,
+                                       path: [.key(rawName), .key(n)],
+                                       received: n, location: span))
+                    }
+                    attributes.append(XML.Attribute(name: resolved, value: v,
+                                                    valueSpan: valueSpan))
+                }
+
+
+            return attributes
+        }
+
+
+        /// SHAPE MEMORY keyed by DEPTH AND SIBLING POSITION (`_ShapeHints`): how many children
+        /// to reserve, from what the element in the same position of the previous record held.
+        /// By depth alone the hint thrashed, because siblings of different shapes share a depth
+        /// (four one-child leaves, then a ten-child `<tags>`), and a leaf's hint of 1 made
+        /// `<tags>` grow 1 -> 2 -> 4 -> 8 -> 16 (array-10/xml +2,000 blocks per call,
+        /// 2026-09-19). The i-th child of a repeated record keeps its shape. Positions past 31
+        /// share a bucket, so the table stays at most 64 x 32. A position with no hint yet
+        /// falls back to the DEPTH's hint, floored at 4 (the parser's old fixed reservation);
+        /// without that the first 31 records each met a fresh bucket, +34 blocks per call.
+        ///
+        /// Out of line so the recursive frame does not grow: see `resolveAttributes`.
+        @inline(never)
+        func childReservation(depth: Int, position: Int) -> Int {
+            let positional = hints.items(at: depth &* 32 &+ Swift.min(position, 31))
+            return positional > 0 ? positional : Swift.max(hints.members(at: depth), 4)
+        }
+
+        /// Record a finished element's child count. The depth hint is read only for a fresh
+        /// position, so it is written only then: at most 32 times per depth per document.
+        /// Writing it for every element cost a retain, a release and two uniqueness checks per
+        /// element (+3-5% instructions).
+        @inline(never)
+        mutating func recordChildren(_ n: Int, depth: Int, position: Int) {
+            let key = depth &* 32 &+ Swift.min(position, 31)
+            if hints.items(at: key) == 0 { hints.setMembers(n, at: depth) }
+            hints.setItems(Swift.max(n, 1), at: key)
+        }
+
         // MARK: Elements
 
         mutating func parseElement(
             _ r: inout AssayReader,
             _ sink: inout IssueSink,
-            depth: Int
+            depth: Int,
+            /// Which element child of its parent this is, for the shape-memory key.
+            position: Int = 0
         ) -> XML.Element? {
             guard depth < limits.maxDepth else {
                 r.report(&sink, .depthExceeded, params: ["maxDepth": .int(limits.maxDepth)])
@@ -221,55 +312,11 @@ extension XML {
             defer { if pushedScope { namespaces.removeLast() } }
 
             let name = resolve(r, nameRange, isAttribute: false)
-            var attributes: [XML.Attribute] = []
-            attributes.reserveCapacity(rawAttributes.count)
-            // Duplicates are found by scanning what has been appended already, not with a
-            // Set. Elements have a handful of attributes, where a linear scan over a
-            // contiguous array beats hashing — and the Set was a heap allocation per
-            // element for a check that almost never fires.
-            //
-            // THAT IS RIGHT FOR THE COMMON CASE AND WAS UNBOUNDED FOR THE HOSTILE ONE.
-            // The scan is O(a²) in the attribute count, and `XML.Name ==` is a full
-            // `String ==` on two fields, so one element with many attributes — legal XML,
-            // depth 1, no entities — walks away with the parse. Measured 2026-09-13:
-            //
-            //     16,000 attrs   161 KB   0.165 s
-            //     32,000 attrs   332 KB   0.663 s
-            //     64,000 attrs   676 KB   2.651 s        4.0x per doubling
-            //
-            // Neither guard sees it: `maxDepth` is 1 here and the node budget counts
-            // nodes, of which this is one. Same blind spot as the YAML merge key fixed the
-            // same day — both bombs are WIDE, and both guards measure depth or count.
-            //
-            // So: keep the linear scan exactly where it was justified, and build the set
-            // once the count passes the point where hashing wins. Below the threshold this
-            // is byte-for-byte the old path, allocation included (none).
-            var seen: Set<XML.Name>? = nil
-            for (nameRange, v, span, valueSpan) in rawAttributes {
-                let resolved = resolve(r, nameRange, isAttribute: true)
-                if seen == nil, attributes.count == Self.attributeSetThreshold {
-                    var s = Set<XML.Name>(minimumCapacity: rawAttributes.count)
-                    for a in attributes { s.insert(a.name) }
-                    seen = s
-                }
-                let duplicate: Bool
-                if seen != nil {
-                    duplicate = !seen!.insert(resolved).inserted
-                } else {
-                    duplicate = attributes.contains(where: { $0.name == resolved })
-                }
-                // Duplicate attributes are a well-formedness error in XML, unlike
-                // duplicate child elements which are ordinary.
-                if duplicate {
-                    // Cold: build the reported name only when there is something to report.
-                    let n = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
-                    sink.add(Issue(code: .duplicateKey,
-                                   path: [.key(rawName), .key(n)],
-                                   received: n, location: span))
-                }
-                attributes.append(XML.Attribute(name: resolved, value: v,
-                                                valueSpan: valueSpan))
-            }
+            // Resolved OUT OF LINE too, for the same stack reason as `scanAttributes`: the
+            // loop's tuples, set and issue construction were in this recursive frame, and a
+            // debug build at the default maxDepth of 64 had only a few levels of headroom on a
+            // 512 KB thread (Swift Testing's worker stack). Measured 2026-09-19.
+            let attributes = resolveAttributes(r, &sink, rawAttributes, rawName: rawName)
 
             // Empty element: <tag/>. There is no content to underline, so the caret goes
             // under the tag name — the only thing in the document that exists.
@@ -287,14 +334,9 @@ extension XML {
             let contentStart = r.byteOffset
 
             var children: [XML.Node] = []
-            // At least 4, as before (the profile showed the 1->2->4 chain as the parser's
-            // largest source of allocation), RAISED by shape memory (`_ShapeHints`) to what the
-            // previous element at this depth held, so a five-child record no longer grows
-            // 4 -> 8. Not lowered by it: siblings of different shapes share a depth (four
-            // one-child leaves, then a ten-child `<tags>`), and a hint of 1 inherited from a leaf
-            // made `<tags>` grow 1 -> 2 -> 4 -> 8 -> 16. That cost array-10/xml 2,000 blocks per
-            // call when tried (count.py, 2026-09-19). A floor of 4 cannot do worse than before.
-            children.reserveCapacity(Swift.max(hints.items(at: depth), 4))
+            // Shape memory, out of line (see `childReservation`).
+            children.reserveCapacity(childReservation(depth: depth, position: position))
+            var elementChildren = 0
             var contentEnd = contentStart
 
             while true {
@@ -346,10 +388,12 @@ extension XML {
                     continue
                 }
                 if r.currentByte == UInt8(ascii: "<") {
-                    guard let child = parseElement(&r, &sink, depth: depth + 1) else {
+                    guard let child = parseElement(&r, &sink, depth: depth + 1,
+                                                   position: elementChildren) else {
                         return nil
                     }
                     children.append(.element(child))
+                    elementChildren &+= 1
                     continue
                 }
 
@@ -357,7 +401,7 @@ extension XML {
                 if !text.isEmpty { children.append(.text(text)) }
             }
 
-            hints.setItems(Swift.max(children.count, 1), at: depth)
+            recordChildren(children.count, depth: depth, position: position)
             return XML.Element(name: name, attributes: attributes, children: children,
                                contentSpan: SourceSpan(
                                    lo: contentStart,

@@ -6,9 +6,10 @@ import Testing
 import Assay
 import AssayCore
 @testable import AssayYAML
+@testable import AssayTOML
 
 //===----------------------------------------------------------------------===//
-// `RawValue(consuming:)` moves a YAML tree's strings into the projection instead of
+// `RawValue(consuming:)` moves a YAML or TOML tree's strings into the projection instead of
 // retaining them (docs/EFFICIENCY.md). It is a second implementation of the same function,
 // so the borrowing `RawValue(_:)` is its oracle: identical output on every shape, including
 // the two a shape flag can get wrong — an EMPTY mapping must not come back as an empty
@@ -55,5 +56,23 @@ import AssayCore
             Issue.record("expected an empty mapping"); return
         }
         #expect(m.isEmpty)
+    }
+}
+
+@Suite struct TOMLConsumingProjectionTests {
+
+    static let documents: [String] = [
+        "title = \"x\"\n[[items]]\nid = 1\ntags = [\"a\", \"b\"]\n[items.sub]\nk = 2\n[[items]]\nid = 2\ntags = []\n",
+        "a = {}\nb = []\nc = [[1, 2], [], [{x = 1}]]\nd = 1979-05-27T07:32:00Z\n",
+        "",
+        "[t]\n[t.u]\nv = 1.5\nw = true\n",
+    ]
+
+    @Test(arguments: documents)
+    func matchesTheBorrowingProjection(_ text: String) throws {
+        var sink = IssueSink()
+        let node = try #require(TOML.decode(Array(text.utf8), into: &sink))
+        #expect(sink.isValid)
+        #expect(RawValue(consuming: node) == RawValue(node))
     }
 }

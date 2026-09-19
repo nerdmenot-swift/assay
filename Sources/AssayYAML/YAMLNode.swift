@@ -325,7 +325,9 @@ extension RawValue {
         let out = unsafe pairs.withUnsafeMutableBufferPointer { src in
             unsafe [RawValue.Member](unsafeUninitializedCapacity: src.count) { dst, count in
                 for i in src.indices {
-                    guard case .scalar(let k) = unsafe src[i].key else { ok = false; break }
+                    var keyNode = YAML.Node.sequence([])
+                    unsafe swap(&keyNode, &src[i].key)
+                    guard case .scalar(let k) = consume keyNode else { ok = false; break }
                     var value = YAML.Node.sequence([])
                     unsafe swap(&value, &src[i].value)
                     guard let v = RawValue(consuming: consume value) else {

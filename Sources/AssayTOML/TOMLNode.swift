@@ -154,4 +154,77 @@ extension RawValue {
             self = .mapping(out)
         }
     }
+
+    /// The same projection, taking the tree by value and MOVING its strings into the result.
+    ///
+    /// The struct-decode doors parse, project and drop; borrowing retained every key and
+    /// string into the RawValue and released it again with the tree. Each child is swapped
+    /// out of its (by then unique) array for a placeholder, so its payload moves. The
+    /// payload is bound outside the switch because a switch subject lives to the end of the
+    /// case body and would keep the array shared. Same shape as YAML's
+    /// `RawValue(consuming:)`; `docs/EFFICIENCY.md` row 14 has the measurements that chose it.
+    @usableFromInline
+    init(consuming node: consuming TOML.Node) {
+        switch node {
+        case .bool(let b): self = .bool(b); return
+        case .int(let i): self = .int(i); return
+        case .double(let d): self = .double(d); return
+        case .string(let s): self = .string(s); return
+        case .dateTime(let dt): self = .string(dt.text); return
+        case .array, .table: break
+        }
+        var (items, members, isArray) = RawValue._takeContainers(consume node)
+        // `.bool(false)` is the placeholder: a trivial payload, so destroying the drained
+        // array costs no release per slot.
+        if isArray {
+            let out = unsafe items.withUnsafeMutableBufferPointer { src in
+                unsafe [RawValue](unsafeUninitializedCapacity: src.count) { dst, count in
+                    for i in src.indices {
+                        var item = TOML.Node.bool(false)
+                        unsafe swap(&item, &src[i])
+                        unsafe (dst.baseAddress! + i).initialize(
+                            to: RawValue(consuming: consume item))
+                    }
+                    count = src.count
+                }
+            }
+            self = .sequence(out)
+            return
+        }
+        let out = unsafe members.withUnsafeMutableBufferPointer { src in
+            unsafe [RawValue.Member](unsafeUninitializedCapacity: src.count) { dst, count in
+                for i in src.indices {
+                    // Key and value into locals of their own: passing `m.value` from a
+                    // live `var m` copied it, so the child array arrived shared and the
+                    // copy cascaded through every record under it (+2,000 blocks on
+                    // base/toml-struct).
+                    var key = ""
+                    unsafe swap(&key, &src[i].key)
+                    var value = TOML.Node.bool(false)
+                    unsafe swap(&value, &src[i].value)
+                    unsafe (dst.baseAddress! + i).initialize(
+                        to: RawValue.Member(key: consume key,
+                                            value: RawValue(consuming: consume value),
+                                            span: src[i].span))
+                }
+                count = src.count
+            }
+        }
+        self = .mapping(out)
+    }
+
+    /// Out of line on purpose. With the payload bound inside the caller's own switch, the
+    /// release build kept the node alive past the loops below and every array was copied
+    /// on first mutation (+2,000 blocks on base/toml-struct); returned from here, the node
+    /// is dead before the caller touches the arrays.
+    @inline(never) @usableFromInline
+    static func _takeContainers(
+        _ node: consuming TOML.Node
+    ) -> ([TOML.Node], [TOML.Member], Bool) {
+        switch consume node {
+        case .array(let xs): return (xs, [], true)
+        case .table(let ms): return ([], ms, false)
+        default: return ([], [], false)
+        }
+    }
 }

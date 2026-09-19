@@ -176,6 +176,7 @@ nonisolated public static func _assay(
     var __sp0: Assay.SourceSpan? = nil
     var __f0: Int? = nil
     var __f1: [String]? = nil
+    var __n1 = 0
     var __f2: [String: Int]? = nil
     var __presence: UInt64 = 0
 
@@ -186,28 +187,24 @@ nonisolated public static func _assay(
             case 1:
                 if __k == "c" {
                     __presence |= 2
-                    if let __r = __v.sequence.map({ $0.compactMap { __e0 in __e0._assayString(&sink, path, "c") } }) {
+                    if let __r = Assay._assaySequence(&path, "c", __v, { __e0, path in __e0._assayString(&sink, path, "") }) {
                     __f1 = __r
                 } else if __v.isNull {
                     Assay.RawValue._mismatchPublic(&sink, path, "c", "array", __v)
                 } else {
                     // One repeated sibling. Append, so `<tag>a</tag><tag>b</tag>`
-                    // accumulates across calls instead of the last one winning.
-                    let __ev1 = __v
-                    if let __one1 = __ev1._assayString(&sink, path, "c") {
+                    // accumulates across calls instead of the last one winning;
+                    // its index is how many siblings came before it.
+                    let __ix1 = __n1
+                    __n1 &+= 1
+                    if let __one1 = Assay._assayElement(&path, &sink, "c", __ix1, { path, sink in __v._assayString(&sink, path, "") }) {
                         if __f1 == nil { __f1 = [] }
                         __f1?.append(__one1)
                     }
                 }
                 } else if __k == "m" {
                     __presence |= 4
-                    if let __r = __v.mapping.map({ (__ms0: [Assay.RawValue.Member]) -> [String: Int] in
-                        var __dd0: [String: Int] = [:]
-                        for __dm0 in __ms0 {
-                            if let __dx0 = __dm0.value._assayInt(&sink, path, "m") { __dd0[__dm0.key] = __dx0 }
-                        }
-                        return __dd0
-                    }) {
+                    if let __r = Assay._assayMapping(&path, "m", __v, { __e0, path in __e0._assayInt(&sink, path, "") }) {
                     __f2 = __r
                 } else if __v.isNull {
                     Assay.RawValue._mismatchPublic(&sink, path, "m", "object", __v)

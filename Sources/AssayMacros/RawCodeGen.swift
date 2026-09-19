@@ -63,6 +63,11 @@ extension SchemaMacro {
         }
         for (i, f) in fields.enumerated() {
             locals += "    var __f\(i): \(f.decodedType)? = \(f.defaultExpr ?? "nil")\n"
+            // XML's repeated siblings arrive one call each; this counts them, failed ones
+            // included, so `<tag>` number three is `tag[2]` whatever happened to one and two.
+            if arrayElement(f.decodedType) != nil, f.xmlPlacement != "wrapped" {
+                locals += "    var __n\(i) = 0\n"
+            }
             if !f.isOptional && f.defaultExpr == nil && f.fallback == nil {
                 requiredMask |= (1 << UInt64(i))
             }
@@ -243,19 +248,18 @@ extension SchemaMacro {
         //                          one struct, not two values, and nothing in the document
         //                          distinguishes that from a wrapper.
         if let element = arrayElement(base) {
-            let elementExpr = rawElementExpr(element, "__ev\(i)", key: key,
-                                             coerce: f.coerce,
-                                             dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)
-            let seqExpr = rawElementExpr(base, "__v", key: key, coerce: f.coerce,
-                                         dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)
+            let seqExpr = rawFieldExpr(base, "__v", key: key, coerce: f.coerce,
+                                       dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)
             if f.xmlPlacement == "wrapped" {
+                let wrappedExpr = rawIndexedExpr(element, "__wmm\(i).value", key: key,
+                                                 index: "__wi\(i)", coerce: f.coerce,
+                                                 dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)
                 return """
                 if let __r = \(seqExpr) {
                                     __f\(i) = __r
                                 } else if case .mapping(let __wm\(i)) = __v {
-                                    __f\(i) = __wm\(i).compactMap { __wmm\(i) in
-                                        let __ev\(i) = __wmm\(i).value
-                                        return \(elementExpr)
+                                    __f\(i) = __wm\(i).enumerated().compactMap { (__wi\(i), __wmm\(i)) in
+                                        \(wrappedExpr)
                                     }
                                 } else if __v.isNull {
                                     \(f.isOptional ? "__f\(i) = nil" : "__f\(i) = []")
@@ -276,9 +280,13 @@ extension SchemaMacro {
                                     : "Assay.RawValue._mismatchPublic(&sink, path, \"\(key)\", \"array\", __v)")
                             } else {
                                 // One repeated sibling. Append, so `<tag>a</tag><tag>b</tag>`
-                                // accumulates across calls instead of the last one winning.
-                                let __ev\(i) = __v
-                                if let __one\(i) = \(elementExpr) {
+                                // accumulates across calls instead of the last one winning;
+                                // its index is how many siblings came before it.
+                                let __ix\(i) = __n\(i)
+                                __n\(i) &+= 1
+                                if let __one\(i) = \(rawIndexedExpr(element, "__v", key: key,
+                                                                    index: "__ix\(i)", coerce: f.coerce,
+                                                                    dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)) {
                                     if __f\(i) == nil { __f\(i) = [] }
                                     __f\(i)?.append(__one\(i))
                                 }
@@ -288,8 +296,8 @@ extension SchemaMacro {
 
         if dictionaryValue(base) != nil {
             return """
-            if let __r = \(rawElementExpr(base, "__v", key: key, coerce: f.coerce,
-                                          dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)) {
+            if let __r = \(rawFieldExpr(base, "__v", key: key, coerce: f.coerce,
+                                        dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)) {
                                 __f\(i) = __r
                             } else if __v.isNull {
                                 \(f.isOptional
@@ -333,45 +341,57 @@ extension SchemaMacro {
     /// compactMap's closure is non-escaping, so using `&sink` inside it is statically
     /// enforced exclusivity, not a box — the constraint from PERFORMANCE.md §7 holds.
     static func rawElementExpr(
-        _ type: String, _ v: String, key: String, coerce: Bool, depth: Int = 0,
+        _ type: String, _ v: String, coerce: Bool, depth: Int = 0,
         dateFormatsRef: String = "Assay.DateFormat.defaultFormats", ctx: String = ""
     ) -> String {
+        // `path` ALREADY NAMES `v` here: the field pushed its key, and each level below
+        // pushes the element's `.index(i)` or the dictionary entry's key, so an issue two
+        // levels down reads `items[3].tags[0]` as it does from JSON. It read `items.tags`
+        // until 2026-09-19, with no index at all. Scalars are therefore called with an
+        // EMPTY key, which `RawValue.keyed` takes to mean "add nothing".
         let ctxArg = ctx.isEmpty ? "" : ", context: context"
         if let element = arrayElement(type) {
-            let inner = "__e\(depth)"
-            return """
-            \(v).sequence.map({ $0.compactMap { \(inner) in \(rawElementExpr(element, inner, key: key, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef, ctx: ctx)) } })
-            """.trimmingWhitespace()
+            let e = "__e\(depth)"
+            return "Assay._assaySequence(&path, \(v), { \(e), path in \(rawElementExpr(element, e, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef, ctx: ctx)) })"
         }
         if let value = dictionaryValue(type) {
-            // Duplicate keys keep the last value — XML's projection can legally produce
-            // repeats (`<tag/><tag/>`), and last-wins matches the JSON body.
-            let m = "__dm\(depth)", d = "__dd\(depth)", x = "__dx\(depth)"
-            return """
-            \(v).mapping.map({ (__ms\(depth): [Assay.RawValue.Member]) -> [String: \(value)] in
-                                    var \(d): [String: \(value)] = [:]
-                                    for \(m) in __ms\(depth) {
-                                        if let \(x) = \(rawElementExpr(value, "\(m).value", key: key, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef, ctx: ctx)) { \(d)[\(m).key] = \(x) }
-                                    }
-                                    return \(d)
-                                })
-            """.trimmingWhitespace()
+            let e = "__e\(depth)"
+            return "Assay._assayMapping(&path, \(v), { \(e), path in \(rawElementExpr(value, e, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef, ctx: ctx)) })"
         }
         if isDateType(type) {
-            return "\(v)._assayDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map { \(type)(timeIntervalSince1970: $0) }"
+            return "\(v)._assayDate(&sink, path, \"\", \(dateFormatsRef)).map { \(type)(timeIntervalSince1970: $0) }"
         }
-        if let call = rawScalarCall(type, key: key, coerce: coerce) {
+        if let call = rawScalarCall(type, key: "", coerce: coerce) {
             return "\(v).\(call)"
         }
         if type == "RawValue" || type == "Assay.RawValue" {
             // The raw path IS RawValue: an open-map value is the member itself.
             return "Optional(\(v))"
         }
-        // `path` is `inout` (see `RawDecodable`); an element is an expression here, so the
-        // push and pop go through `_assayPushed` rather than allocating `path + [.key(k)]`.
-        // A PARENTHESIZED closure, not a trailing one: this expression sits in `if let`
-        // conditions, where a trailing closure is a warning in the user's build.
-        return "Assay._assayPushed(&path, \"\(key)\", { \(type)._assay(from: \(v), into: &sink, at: &$0\(ctxArg)) })"
+        return "\(type)._assay(from: \(v), into: &sink, at: &path\(ctxArg))"
+    }
+
+    /// `rawElementExpr` for a FIELD: push its key, then decode with the path naming it.
+    /// A parenthesized closure, not a trailing one: these sit in `if let` conditions, where
+    /// a trailing closure is a warning in the user's build.
+    static func rawFieldExpr(
+        _ type: String, _ v: String, key: String, coerce: Bool,
+        dateFormatsRef: String, ctx: String
+    ) -> String {
+        // The collection helpers take the key themselves and push it only once the value
+        // has the right shape: an XML repeated sibling reaches this form first and is not
+        // a sequence.
+        let helper = arrayElement(type) != nil ? "_assaySequence" : "_assayMapping"
+        let inner = arrayElement(type) ?? dictionaryValue(type) ?? type
+        return "Assay.\(helper)(&path, \"\(key)\", \(v), { __e0, path in \(rawElementExpr(inner, "__e0", coerce: coerce, depth: 1, dateFormatsRef: dateFormatsRef, ctx: ctx)) })"
+    }
+
+    /// One element of a repeated or wrapped array, at position `index`.
+    static func rawIndexedExpr(
+        _ type: String, _ v: String, key: String, index: String, coerce: Bool,
+        dateFormatsRef: String, ctx: String
+    ) -> String {
+        "Assay._assayElement(&path, &sink, \"\(key)\", \(index), { path, sink in \(rawElementExpr(type, v, coerce: coerce, dateFormatsRef: dateFormatsRef, ctx: ctx)) })"
     }
 
     /// `span` is the expression naming this field's captured span, or nil for a position

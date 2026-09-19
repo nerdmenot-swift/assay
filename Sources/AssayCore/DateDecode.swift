@@ -231,7 +231,7 @@ extension RawValue {
     ) {
         sink.add(Issue(
             code: .invalidDate,
-            path: path + [.key(String(describing: key))],
+            path: keyed(path, key),
             params: [
                 "expected": .string(formats.map(\.displayName).joined(separator: ", or ")),
                 "reason": .string(failure.reason),
@@ -248,7 +248,7 @@ extension RawValue {
     ) {
         sink.add(warning: Warning(
             code: .dateFormatFallback,
-            path: path + [.key(String(describing: key))],
+            path: keyed(path, key),
             params: [
                 "matched": .string(matched.displayName),
                 "primary": .string(primary.displayName),

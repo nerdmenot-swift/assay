@@ -188,8 +188,10 @@ nonisolated public static func _assay(
     var __sp1: Assay.SourceSpan? = nil
     var __sp3: Assay.SourceSpan? = nil
     var __f0: [String]? = nil
+    var __n0 = 0
     var __f1: UInt8? = nil
     var __f2: [UInt8]? = nil
+    var __n2 = 0
     var __f3: Int? = nil
     var __presence: UInt64 = 0
 
@@ -212,15 +214,17 @@ nonisolated public static func _assay(
             case 4:
                 if __k == "tags" {
                     __presence |= 1
-                    if let __r = __v.sequence.map({ $0.compactMap { __e0 in __e0._assayString(&sink, path, "tags") } }) {
+                    if let __r = Assay._assaySequence(&path, "tags", __v, { __e0, path in __e0._assayString(&sink, path, "") }) {
                     __f0 = __r
                 } else if __v.isNull {
                     Assay.RawValue._mismatchPublic(&sink, path, "tags", "array", __v)
                 } else {
                     // One repeated sibling. Append, so `<tag>a</tag><tag>b</tag>`
-                    // accumulates across calls instead of the last one winning.
-                    let __ev0 = __v
-                    if let __one0 = __ev0._assayString(&sink, path, "tags") {
+                    // accumulates across calls instead of the last one winning;
+                    // its index is how many siblings came before it.
+                    let __ix0 = __n0
+                    __n0 &+= 1
+                    if let __one0 = Assay._assayElement(&path, &sink, "tags", __ix0, { path, sink in __v._assayString(&sink, path, "") }) {
                         if __f0 == nil { __f0 = [] }
                         __f0?.append(__one0)
                     }
@@ -231,15 +235,17 @@ nonisolated public static func _assay(
             case 5:
                 if __k == "bytes" {
                     __presence |= 4
-                    if let __r = __v.sequence.map({ $0.compactMap { __e0 in __e0._assayUInt8(&sink, path, "bytes") } }) {
+                    if let __r = Assay._assaySequence(&path, "bytes", __v, { __e0, path in __e0._assayUInt8(&sink, path, "") }) {
                     __f2 = __r
                 } else if __v.isNull {
                     Assay.RawValue._mismatchPublic(&sink, path, "bytes", "array", __v)
                 } else {
                     // One repeated sibling. Append, so `<tag>a</tag><tag>b</tag>`
-                    // accumulates across calls instead of the last one winning.
-                    let __ev2 = __v
-                    if let __one2 = __ev2._assayUInt8(&sink, path, "bytes") {
+                    // accumulates across calls instead of the last one winning;
+                    // its index is how many siblings came before it.
+                    let __ix2 = __n2
+                    __n2 &+= 1
+                    if let __one2 = Assay._assayElement(&path, &sink, "bytes", __ix2, { path, sink in __v._assayUInt8(&sink, path, "") }) {
                         if __f2 == nil { __f2 = [] }
                         __f2?.append(__one2)
                     }

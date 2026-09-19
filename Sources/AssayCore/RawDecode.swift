@@ -263,10 +263,21 @@ extension RawValue {
     ) {
         sink.add(Issue(
             code: .typeMismatch,
-            path: path + [.key(String(describing: key))],
+            path: keyed(path, key),
             params: ["expected": .string(expected)],
             received: found.describe(),
             location: span))
+    }
+
+    /// `path` extended by `key`, or `path` itself when `key` is EMPTY.
+    ///
+    /// An array or dictionary ELEMENT is decoded with the path already naming it —
+    /// `items[3]`, pushed by the generated body — so the scalar helpers are called with
+    /// `""` and must not add a segment. The empty key is free to mean that: `@Key("")` is
+    /// refused at expansion, and an `@XML(.text)` field's primary key is its own name.
+    @usableFromInline
+    static func keyed(_ path: [PathComponent], _ key: StaticString) -> [PathComponent] {
+        key.utf8CodeUnitCount == 0 ? path : path + [.key(String(describing: key))]
     }
 
     @inline(never)
@@ -360,6 +371,107 @@ public func _assayPushed<T>(
     _ path: inout [PathComponent], _ key: String, _ body: (inout [PathComponent]) -> T?
 ) -> T? {
     path.append(.key(key))
+    defer { path.removeLast() }
+    return body(&path)
+}
+
+/// One element of a field's array that arrives on its own: an XML repeated sibling, or a
+/// `.wrapped` entry. Only the key is pushed; the index is put into whatever issues the
+/// element raised, after the fact, as the JSON body does for its nested elements. Pushing
+/// `.index` as well cost a release call per element on a clean decode (destroying the
+/// popped component), for a value read only when something failed.
+@_documentation(visibility: internal)
+@inlinable @inline(__always)
+public func _assayElement<T>(
+    _ path: inout [PathComponent], _ sink: inout IssueSink, _ key: String, _ index: Int,
+    _ body: (inout [PathComponent], inout IssueSink) -> T?
+) -> T? {
+    path.append(.key(key))
+    let mark = sink.checkpoint()
+    let r = body(&path, &sink)
+    if sink.checkpoint() != mark { sink._insert(since: mark, .index(index), at: path.count) }
+    path.removeLast()
+    return r
+}
+
+/// A sequence's elements, each decoded with the path naming it: `.index(i)` is pushed once
+/// and rewritten in place per element, as the JSON body does, so a clean decode costs no
+/// allocation for the diagnostic path. Nil when `v` is not a sequence; a failed element is
+/// dropped, having reported.
+@_documentation(visibility: internal)
+@inlinable
+public func _assaySequence<T>(
+    _ path: inout [PathComponent], _ v: RawValue,
+    _ element: (RawValue, inout [PathComponent]) -> T?
+) -> [T]? {
+    guard case .sequence(let xs) = v else { return nil }
+    var out: [T] = []
+    out.reserveCapacity(xs.count)
+    path.append(.index(0))
+    for i in xs.indices {
+        path[path.count &- 1] = .index(i)
+        if let e = element(xs[i], &path) { out.append(e) }
+    }
+    path.removeLast()
+    return out
+}
+
+/// `_assaySequence` for a FIELD: the key is pushed only once `v` is known to be a
+/// sequence. An XML repeated sibling tries this form first and is not one, so pushing
+/// first cost a push and a pop per sibling for nothing.
+@_documentation(visibility: internal)
+@inlinable
+public func _assaySequence<T>(
+    _ path: inout [PathComponent], _ key: String, _ v: RawValue,
+    _ element: (RawValue, inout [PathComponent]) -> T?
+) -> [T]? {
+    guard case .sequence = v else { return nil }
+    path.append(.key(key))
+    defer { path.removeLast() }
+    return _assaySequence(&path, v, element)
+}
+
+/// `_assayMapping` for a FIELD, pushing the key only once `v` is known to be a mapping.
+@_documentation(visibility: internal)
+@inlinable
+public func _assayMapping<T>(
+    _ path: inout [PathComponent], _ key: String, _ v: RawValue,
+    _ value: (RawValue, inout [PathComponent]) -> T?
+) -> [String: T]? {
+    guard case .mapping = v else { return nil }
+    path.append(.key(key))
+    defer { path.removeLast() }
+    return _assayMapping(&path, v, value)
+}
+
+/// A mapping's values, each decoded with the path naming its key. Duplicate keys keep the
+/// LAST value: XML's projection can legally produce repeats (`<tag/><tag/>`), and last-wins
+/// matches the JSON body.
+@_documentation(visibility: internal)
+@inlinable
+public func _assayMapping<T>(
+    _ path: inout [PathComponent], _ v: RawValue,
+    _ value: (RawValue, inout [PathComponent]) -> T?
+) -> [String: T]? {
+    guard case .mapping(let ms) = v else { return nil }
+    var out: [String: T] = [:]
+    out.reserveCapacity(ms.count)
+    for m in ms {
+        path.append(.key(m.key))
+        if let x = value(m.value, &path) { out[m.key] = x }
+        path.removeLast()
+    }
+    return out
+}
+
+/// `_assayPushed` for any component: an element's `.index(i)`, or a dictionary entry's key.
+@_documentation(visibility: internal)
+@inlinable @inline(__always)
+public func _assayPushed<T>(
+    _ path: inout [PathComponent], _ component: PathComponent,
+    _ body: (inout [PathComponent]) -> T?
+) -> T? {
+    path.append(component)
     defer { path.removeLast() }
     return body(&path)
 }

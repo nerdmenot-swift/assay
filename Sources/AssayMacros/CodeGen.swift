@@ -725,33 +725,40 @@ extension SchemaMacro {
             singleClose = "    }\n        \(pad)"
         }
 
+        // A date, nested array or dictionary element reports against the FIELD (and, one
+        // level in, its own index or key); the position in THIS array is put in after the
+        // fact, on the failure path only. `grid[1][1]` read `grid[1]` (the inner index
+        // alone) and a date element named no element at all until 2026-09-19.
+        let ck = "__ack\(i)_\(depth)"
+        let mark = "\(pad)        let \(ck) = sink.checkpoint()\n"
+        let insertIndex = "\(pad)        if sink.checkpoint() != \(ck) { sink._insert(since: \(ck), .index(\(ix)), at: path.count + 1) }\n"
         let inner: String
         if isDateType(element) {
-            inner = "\(pad)        if let \(elt) = reader._decodeDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map({ \(element)(timeIntervalSince1970: $0) }) { \(arr).append(\(elt)) }\n"
+            inner = mark + "\(pad)        if let \(elt) = reader._decodeDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map({ \(element)(timeIntervalSince1970: $0) }) { \(arr).append(\(elt)) }\n" + insertIndex
         } else if let call = scalarCall(element, key: key, elementIndex: ix) {
             // `arr.count` is the index this element is about to occupy, which is exactly
             // the position a reader needs to be told about.
             inner = "\(pad)        if let \(elt) = reader.\(call) { \(arr).append(\(elt)) }\n"
         } else if let sub = arrayElement(element) {
             // Nested array. Decode into a local, then append it.
-            inner = """
+            inner = mark + """
             \(pad)        var \(elt): [\(sub)]? = nil
             \(arrayDecode(element: sub, index: i, key: key, optional: false,
                           pad: pad + "        ", slot: elt, depth: depth + 1,
                           dateFormatsRef: dateFormatsRef, ctx: ctx))
             \(pad)        if let \(elt) = \(elt) { \(arr).append(\(elt)) }
 
-            """
+            """ + insertIndex
         } else if let sub = dictionaryValue(element) {
             // [[String: Int]] — a dictionary element inside an array.
-            inner = """
+            inner = mark + """
             \(pad)        var \(elt): [String: \(sub)]? = nil
             \(dictDecode(value: sub, index: i, key: key, optional: false,
                          pad: pad + "        ", slot: elt, depth: depth + 1,
                          dateFormatsRef: dateFormatsRef, ctx: ctx))
             \(pad)        if let \(elt) = \(elt) { \(arr).append(\(elt)) }
 
-            """
+            """ + insertIndex
         } else {
             inner = """
             \(pad)        \(epath)[\(epath).count &- 1] = .index(\(ix))

@@ -214,10 +214,19 @@ extension IssueSink {
     @inlinable
     @_documentation(visibility: internal)
     public mutating func _insertKey(since checkpoint: Int, _ key: String, at position: Int) {
+        _insert(since: checkpoint, .key(key), at: position)
+    }
+
+    /// `_insertKey` for any component. An array element whose issues name the FIELD — a
+    /// nested array, a dictionary or a date inside an array — gets its `.index(i)` put in
+    /// after the fact, on the path that already failed, so a clean decode pays nothing.
+    @inline(never)
+    @_documentation(visibility: internal)
+    public mutating func _insert(since checkpoint: Int, _ c: PathComponent, at position: Int) {
         var i = checkpoint
         while i < issues.count {
             let p = position < issues[i].path.count ? position : issues[i].path.count
-            issues[i].path.insert(.key(key), at: p)
+            issues[i].path.insert(c, at: p)
             i &+= 1
         }
     }

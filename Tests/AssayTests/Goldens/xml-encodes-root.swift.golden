@@ -174,12 +174,11 @@ nonisolated public static func _assay(
                     __f1 = __v._assayString(&sink, path, "body", coerce: true, at: __sp1)
                 } else if __k == "tags" {
                     __presence |= 4
-                    if let __r = __v.sequence.map({ $0.compactMap { __e0 in __e0._assayString(&sink, path, "tags", coerce: true) } }) {
+                    if let __r = Assay._assaySequence(&path, "tags", __v, { __e0, path in __e0._assayString(&sink, path, "", coerce: true) }) {
                     __f2 = __r
                 } else if case .mapping(let __wm2) = __v {
-                    __f2 = __wm2.compactMap { __wmm2 in
-                        let __ev2 = __wmm2.value
-                        return __ev2._assayString(&sink, path, "tags", coerce: true)
+                    __f2 = __wm2.enumerated().compactMap { (__wi2, __wmm2) in
+                        Assay._assayElement(&path, &sink, "tags", __wi2, { path, sink in __wmm2.value._assayString(&sink, path, "", coerce: true) })
                     }
                 } else if __v.isNull {
                     __f2 = []

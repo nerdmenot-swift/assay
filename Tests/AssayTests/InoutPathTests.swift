@@ -103,8 +103,10 @@ struct InoutPathTests {
             T.diagnose(yaml: yaml).issues.map(\.path.pathDescription)
         }
         #expect(paths(IPOuter.self, "a:\n  x: bad\nb: bad\n") == ["a.x", "b"])
-        #expect(paths(IPList.self, "items:\n- x: bad\n- x: 1\ntail: bad\n") == ["items.x", "tail"])
-        #expect(paths(IPMap.self, "m:\n  k:\n    x: bad\nafter: bad\n") == ["m.x", "after"])
+        // Elements carry their index and dictionary entries their key, as on the JSON
+        // path. These read `items.x` and `m.x` until the element-path fix the same day.
+        #expect(paths(IPList.self, "items:\n- x: bad\n- x: 1\ntail: bad\n") == ["items[0].x", "tail"])
+        #expect(paths(IPMap.self, "m:\n  k:\n    x: bad\nafter: bad\n") == ["m.k.x", "after"])
     }
 
     @Test("a clean decode through every nesting shape")

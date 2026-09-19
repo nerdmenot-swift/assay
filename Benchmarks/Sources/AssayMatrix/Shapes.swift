@@ -235,6 +235,16 @@ func allAxes() -> [Axis] {
                 stringElement(fields: 5, key: shortKey) { _ in v } })
         },
         // Undeclared keys: the structural skip must be linear in what it skips.
+        // Escaped strings × element count. The axis above holds the document small, so it
+        // could not see what this one exists for: until 2026-09-19 every escaped string
+        // reserved the REST OF THE DOCUMENT (masked to 16 bits) as its unescape buffer, so
+        // heap per call grew with elements × document size. Sizes stay under 64 kB, where
+        // the mask cannot wrap and hide it.
+        Axis(name: "escaped-elements", shape: "escapes-100", tasks: ["struct", "skip", "value"],
+             sizes: [50, 100, 200, 400]) { n in
+            document((0..<n).map { i in
+                stringElement(fields: 5, key: shortKey) { _ in "line\nbreak\(i)" } })
+        },
         Axis(name: "unknown-key-length", shape: "unknown-5", tasks: ["struct", "skip", "value"],
              sizes: lengths) { len in
             document((0..<fixed).map { _ in

@@ -70,29 +70,77 @@ extension AssayReader {
         }
     }
 
-    /// The escape path: cold-marked, copies into a local buffer, resolves `\uXXXX`
-    /// including surrogate pairs.
+    /// The escape path: cold-marked, resolves `\uXXXX` including surrogate pairs.
     ///
     /// The fork between "can memcpy" and "must transform" is one of the largest in any
     /// decoder, which is why the corpus has a dedicated `escaped` shape.
+    ///
+    /// SIZED BY THE STRING, NOT THE DOCUMENT. Until 2026-09-19 this reserved
+    /// `(count - start) & 0xFFFF` bytes for its buffer — the rest of the DOCUMENT, masked to
+    /// 16 bits — for every escaped string, however short. Decoding a ~100 kB document whose
+    /// values all carried one `\n` allocated 318 MB, 1,986× the least its result needed, and
+    /// heap per call grew with elements × document size: slope 2.00 on `count.py scale`'s
+    /// `escaped-elements` axis, while instructions stayed linear, because reserving memory
+    /// does not touch it. No timing ever showed it; the floors did (docs/EFFICIENCY.md, row 6).
+    ///
+    /// A decoded string is never longer than its escaped source — an escape shrinks
+    /// (`\n` 2→1, `\uXXXX` 6→≤3, a surrogate pair 12→4) — so the distance to the closing
+    /// quote is an exact upper bound. Under `stackUnescapeLimit` the bytes go to the stack
+    /// and the only heap block is the String itself, none at all when it fits inline; above
+    /// it they go straight into the String's own storage. One pass to find the quote, one
+    /// to decode, and no reallocation in either.
     @inline(never)
     @usableFromInline
     mutating func scanStringSlow(from start: Int) -> String? {
-        var out = [UInt8]()
-        out.reserveCapacity((count &- start) & 0xFFFF)
-        unsafe out.append(contentsOf: UnsafeBufferPointer(start: base + start, count: cursor - start))
+        var end = cursor
+        while end < count {
+            let c = unsafe base[end]
+            if c == 0x22 { break }
+            end &+= c == 0x5C ? 2 : 1
+        }
+        let bound = min(end, count) &- start
+        if bound <= Self.stackUnescapeLimit {
+            return unsafe withUnsafeTemporaryAllocation(of: UInt8.self,
+                                                        capacity: max(bound, 1)) { buffer in
+                let out = buffer.baseAddress!
+                guard let n = unsafe unescape(from: start, into: out) else { return nil }
+                return unsafe String(decoding: UnsafeBufferPointer(start: out, count: n),
+                                     as: UTF8.self)
+            }
+        }
+        var decoded = true
+        let s = unsafe String(unsafeUninitializedCapacity: bound) { buffer in
+            guard let n = unsafe unescape(from: start, into: buffer.baseAddress!) else {
+                decoded = false
+                return 0
+            }
+            return n
+        }
+        return decoded ? s : nil
+    }
+
+    /// `withUnsafeTemporaryAllocation`'s stack cliff: above 1,024 bytes it heap-allocates
+    /// anyway (CLAUDE.md, corrected premises), so there is nothing to gain past it.
+    @usableFromInline static var stackUnescapeLimit: Int { 1_024 }
+
+    /// Unescape the string that began at `start` into `out`, which the caller has sized to
+    /// the distance to the closing quote. Returns the byte count written, with the cursor
+    /// past the quote; nil on a malformed string, with `escapeErrorAt` set where one applies.
+    @usableFromInline
+    mutating func unescape(from start: Int, into out: UnsafeMutablePointer<UInt8>) -> Int? {
+        var n = cursor &- start
+        unsafe out.update(from: base + start, count: n)
 
         while cursor < count {
             let c = unsafe base[cursor]
             if c == 0x22 {
                 cursor &+= 1
-                return unsafe out.withUnsafeBufferPointer {
-                    unsafe String(decoding: $0, as: UTF8.self)
-                }
+                return n
             }
             if c != 0x5C {
                 if c < 0x20 { return nil }        // RFC 8259 §7, as on the fast path
-                out.append(c)
+                unsafe out[n] = c
+                n &+= 1
                 cursor &+= 1
                 continue
             }
@@ -109,15 +157,16 @@ extension AssayReader {
             }
             let e = unsafe base[cursor]
             cursor &+= 1
+            let byte: UInt8
             switch e {
-            case 0x22: out.append(0x22)          // \"
-            case 0x5C: out.append(0x5C)          // backslash
-            case 0x2F: out.append(0x2F)          // /
-            case 0x62: out.append(0x08)          // \b
-            case 0x66: out.append(0x0C)          // \f
-            case 0x6E: out.append(0x0A)          // \n
-            case 0x72: out.append(0x0D)          // \r
-            case 0x74: out.append(0x09)          // \t
+            case 0x22: byte = 0x22                // \"
+            case 0x5C: byte = 0x5C                // backslash
+            case 0x2F: byte = 0x2F                // /
+            case 0x62: byte = 0x08                // \b
+            case 0x66: byte = 0x0C                // \f
+            case 0x6E: byte = 0x0A                // \n
+            case 0x72: byte = 0x0D                // \r
+            case 0x74: byte = 0x09                // \t
             case 0x75:                            // \uXXXX
                 guard let scalar = scanUnicodeEscape() else {
                     // A lone surrogate or a non-hex digit. Remember where, then scan on
@@ -129,7 +178,8 @@ extension AssayReader {
                     _ = skipString()
                     return nil
                 }
-                appendUTF8(scalar, to: &out)
+                n &+= unsafe writeUTF8(scalar, to: out + n)
+                continue
             default:
                 // ANY OTHER ESCAPE IS INVALID, and it gets the same treatment the `\u`
                 // arm got on 2026-09-10 — which was written for exactly this and applied
@@ -143,9 +193,12 @@ extension AssayReader {
                 _ = skipString()
                 return nil
             }
+            unsafe out[n] = byte
+            n &+= 1
         }
         return nil
     }
+
 
     /// Branch-free hex nibble decode, after swift-extras-json's `hexAsciiTo4Bits`.
     /// IkigaJSON's `firstIndex(of:)` linear search over a 16-element array is the
@@ -186,23 +239,28 @@ extension AssayReader {
         return 0x10000 &+ ((hi &- 0xD800) << 10) &+ (lo &- 0xDC00)
     }
 
+    /// Encode `scalar` as UTF-8 at `out`; returns the byte count (1-4).
     @inlinable @inline(__always)
-    func appendUTF8(_ scalar: UInt32, to out: inout [UInt8]) {
+    func writeUTF8(_ scalar: UInt32, to out: UnsafeMutablePointer<UInt8>) -> Int {
         switch scalar {
         case 0..<0x80:
-            out.append(UInt8(scalar))
+            unsafe out[0] = UInt8(scalar)
+            return 1
         case 0x80..<0x800:
-            out.append(UInt8(0xC0 | (scalar >> 6)))
-            out.append(UInt8(0x80 | (scalar & 0x3F)))
+            unsafe out[0] = UInt8(0xC0 | (scalar >> 6))
+            unsafe out[1] = UInt8(0x80 | (scalar & 0x3F))
+            return 2
         case 0x800..<0x10000:
-            out.append(UInt8(0xE0 | (scalar >> 12)))
-            out.append(UInt8(0x80 | ((scalar >> 6) & 0x3F)))
-            out.append(UInt8(0x80 | (scalar & 0x3F)))
+            unsafe out[0] = UInt8(0xE0 | (scalar >> 12))
+            unsafe out[1] = UInt8(0x80 | ((scalar >> 6) & 0x3F))
+            unsafe out[2] = UInt8(0x80 | (scalar & 0x3F))
+            return 3
         default:
-            out.append(UInt8(0xF0 | (scalar >> 18)))
-            out.append(UInt8(0x80 | ((scalar >> 12) & 0x3F)))
-            out.append(UInt8(0x80 | ((scalar >> 6) & 0x3F)))
-            out.append(UInt8(0x80 | (scalar & 0x3F)))
+            unsafe out[0] = UInt8(0xF0 | (scalar >> 18))
+            unsafe out[1] = UInt8(0x80 | ((scalar >> 12) & 0x3F))
+            unsafe out[2] = UInt8(0x80 | ((scalar >> 6) & 0x3F))
+            unsafe out[3] = UInt8(0x80 | (scalar & 0x3F))
+            return 4
         }
     }
 }

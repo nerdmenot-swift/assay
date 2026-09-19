@@ -2398,3 +2398,20 @@ with escapes. Ledger row 6 has the fix. Full table: `docs/EFFICIENCY.md`, "Floor
 Not done, and stated so: Step 5 of the plan also proposed Cachegrind data reads per input byte
 to catch hidden second passes. Instructions per input byte catch the same class far more
 cheaply, and cache simulation multiplies Valgrind's run time, so it was dropped.
+
+### The escape path, fixed (2026-09-19)
+
+`scanStringSlow` now finds the closing quote first (a decoded string can only be shorter than
+its escaped source) and unescapes into exactly that many bytes: on the stack up to 1,024,
+straight into the String's storage above. Per call, old → new, nothing else in the matrix moved:
+
+| cell | heap | blocks | instructions |
+|---|---|---|---|
+| escapes-100/struct | 318 MB → 328 kB (−99.9%) | 10,019 → 14 | −53% |
+| escapes-100/skip | 127 MB → 132 kB | 4,014 → 14 | −40% |
+| escapes-100/value | 319 MB → 1.6 MB | 18,021 → 8,016 | −36% |
+| escapes-10/struct | 45 MB → 328 kB (−99.3%) | 1,014 → 14 | −12% |
+
+`escapes-100/struct` is now byte-for-byte what `base/struct` costs. The new `escaped-elements`
+axis measured heap slope 2.00 before and 0.99 after, and it is in the gate, so this cannot
+come back unnoticed.

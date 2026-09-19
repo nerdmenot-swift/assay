@@ -36,6 +36,12 @@ Retain, release, allocation and uniqueness counts agree almost everywhere. The e
 Instructions differ by a few percent either way. That is why each architecture has its own
 baseline.
 
+**How the x86-64 baseline moves.** There is no x86-64 machine here, so a change that moves
+counts can re-record only the aarch64 baseline before it is pushed. The x86-64 job then
+reports the difference once. Its uploaded `counts-x86_64` artifact is read, checked to move in
+the same direction as aarch64, and committed as `counts-baseline.x86_64.json` in a follow-up
+commit. The aarch64 baseline is the reviewed gate; x86-64 trails it by one commit.
+
 ## Decision rule
 
 1. **Resource counters first**: allocations, retained bytes, peak live bytes, retain/release

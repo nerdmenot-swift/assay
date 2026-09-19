@@ -2478,3 +2478,12 @@ and pop on one buffer instead of allocating `path + [.key(k)]` per nesting level
 Every other decode cell pays one release more per CALL (the top-level path is destroyed once),
 and nested-3 pays two uniqueness checks per element for the push and pop. Encode, RawValue and
 validate still take the path by value.
+
+### Encode: keys written in one append (2026-09-19)
+
+The macro knows every ordinary key at compile time, so it now emits the key's finished JSON text
+(`"f0":`) and the writer appends it once rather than a byte at a time. **−20.7% instructions on
+`base/encode`**, on top of the −34% from runs and borrowing; −12% to −22% across the encode
+cells, and nothing else moved. The test written for keys needing escapes found a separate
+DECODE bug, which is open in `ROADMAP.md`: a document key written with a JSON escape never
+matches its field, and that includes Python's default output for non-ASCII keys.

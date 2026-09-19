@@ -143,7 +143,7 @@ extension SchemaMacro {
             inner += encodePathNode(child, fields: fields, segment: seg, indent: indent + 4)
         }
         return """
-        \(pad)w.key("\(segment)")
+        \(pad)\(keyStatement(segment))
         \(pad)w.beginObject()
         \(inner)\(pad)w.endObject()
 
@@ -179,7 +179,7 @@ extension SchemaMacro {
             // An absent optional writes an explicit null: `nil` decoded from either an
             // absent key or a null, and null is the form that round-trips through both.
             return """
-                    w.key("\(key)")
+                    \(keyStatement(key))
                     if let __e\(i) = \(value) {
             \(writeCall(base, "__e\(i)", key: key, index: i, indent: 12))
                     } else {
@@ -189,13 +189,26 @@ extension SchemaMacro {
             """
         }
         return """
-                w.key("\(key)")
+                \(keyStatement(key))
         \(writeCall(base, value, key: key, index: i, indent: 8))
 
         """
     }
 
     /// The expression that writes one non-optional value of `type`.
+    /// The statement that writes a static key. For an ordinary key it is ONE append of the
+    /// key's complete JSON text (`"name":`) through `JSONWriter._key(encoded:)`, instead of one
+    /// append per byte. That applies only when the key's spelling IS its value and needs no
+    /// JSON escaping: no backslash, no quote, no control character. The macro sees a key as
+    /// its Swift SOURCE spelling (`we\"ird`, backslash included), so any key with an escape in
+    /// it keeps `w.key("…")`, which re-embeds the spelling in a literal and escapes the value
+    /// at run time. A first version escaped the spelling itself and double-escaped such keys;
+    /// `EncodingTests.oddKeys` caught it.
+    static func keyStatement(_ key: String) -> String {
+        let plain = key.unicodeScalars.allSatisfy { $0.value >= 0x20 && $0 != "\"" && $0 != "\\" }
+        return plain ? "w._key(encoded: \"\\\"\(key)\\\":\")" : "w.key(\"\(key)\")"
+    }
+
     static func writeCall(
         _ type: String, _ expr: String, key: String, index i: Int, indent: Int,
         /// The path a NESTED schema value is encoded at, when the caller has one ready —

@@ -63,6 +63,15 @@ struct EncFloat: Equatable {
 }
 
 @Schema(encodes: true)
+struct EncOddKeys: Equatable {
+    @Key("we\"ird") var quote: Int
+    @Key("back\\slash") var slash: Int
+    @Key("tab\tkey") var tab: Int
+}
+
+@Schema struct EncPlainKey: Equatable { @Key("café") var value: Int }
+
+@Schema(encodes: true)
 struct EncFloatList: Equatable { var items: [EncFloat] }
 
 @Suite("Encoding")
@@ -170,6 +179,29 @@ struct EncodingTests {
             #expect(issue?.message.contains("cannot be represented in JSON") == true)
             // Partial output is still handed back — the point of diagnoseEncode.
             #expect(!d.bytes.isEmpty)
+        }
+    }
+
+    @Test("keys needing JSON escapes encode correctly and round-trip")
+    func oddKeys() throws {
+        // Keys are emitted as pre-encoded JSON text (`"name":`) since 2026-09-19; this is
+        // the key a naive emitter would break on — quote, backslash, control character.
+        let v = EncOddKeys(quote: 1, slash: 2, tab: 3)
+        let json = String(decoding: try v.encodedJSON(), as: UTF8.self)
+        #expect(json == #"{"we\"ird":1,"back\\slash":2,"tab\tkey":3}"#)
+    }
+
+    /// KNOWN BUG, found by the test above: the DECODER matches keys on their raw bytes, so a
+    /// document key written with a JSON escape never matches its field. `KeyRange.simple` is
+    /// computed by `scanKey` and read by nothing. The round trip above fails for that reason,
+    /// and so does ordinary interop — Python's `json.dumps` escapes non-ASCII by default, so
+    /// a key `café` arrives as `"caf\u00e9"`. ROADMAP.md, known gaps.
+    @Test("a document key written with an escape matches its field (known bug)")
+    func escapedDocumentKeys() {
+        withKnownIssue("keys are matched on raw bytes; escapes are never resolved") { () throws in
+            let v = EncOddKeys(quote: 1, slash: 2, tab: 3)
+            #expect(try EncOddKeys.parse(json: try v.encodedJSON()) == v)
+            #expect(try EncPlainKey.parse(json: #"{"caf\u00e9":1}"#).value == 1)
         }
     }
 

@@ -379,7 +379,7 @@ extension SchemaMacro {
         for c in cases {
             arms += """
                     case .\(c.identifier)(let __v):
-                        w.key("\(tag)")
+                        \(SchemaMacro.keyStatement(tag))
                         w.write("\(c.wireName)")
                         __v._assayEncodeMembers(into: &w, into: &sink, at: path)
 

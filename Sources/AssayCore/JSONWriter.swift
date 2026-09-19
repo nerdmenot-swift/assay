@@ -121,6 +121,19 @@ public struct JSONWriter: ~Copyable {
         needsComma = false
     }
 
+    /// A key the MACRO has already encoded: the complete JSON text `"name":`, quotes, escapes
+    /// and colon included, as one literal. One append instead of `key(_:)`'s one per byte.
+    /// Every `Array.append` re-checks uniqueness, and on `base/encode` keys were most of the
+    /// ~42 such checks left per element after 2026-09-19's string-run fix.
+    @inlinable
+    public mutating func _key(encoded k: StaticString) {
+        separate()
+        unsafe out.append(contentsOf: UnsafeBufferPointer(start: k.utf8Start,
+                                                          count: k.utf8CodeUnitCount))
+        if pretty { byte(0x20) }
+        needsComma = false
+    }
+
     /// A runtime key — dictionary fields and `@Extras`.
     @inlinable
     public mutating func key(_ k: String) {

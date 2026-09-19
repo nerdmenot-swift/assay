@@ -222,11 +222,11 @@ nonisolated public func _assayEncodeMembers(
     into sink: inout Assay.IssueSink,
     at path: [Assay.PathComponent]
 ) {
-        w.key("id")
+        w._key(encoded: "\"id\":")
         w.write(self.id)
-        w.key("body")
+        w._key(encoded: "\"body\":")
         w.write(self.body)
-        w.key("tags")
+        w._key(encoded: "\"tags\":")
         w.beginArray()
         for __a2 in self.tags {
             w.write(__a2)

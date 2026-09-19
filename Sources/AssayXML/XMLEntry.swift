@@ -82,7 +82,7 @@ extension RawDecodable {
             return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         __assayCheckXMLRoot(Self.self, doc, &sink)
-        let raw = RawValue(doc)
+        let raw = RawValue(consuming: consume doc)
         var __rootPath: [PathComponent] = []
         let value = Self._assay(from: raw, into: &sink, at: &__rootPath)
         return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
@@ -139,7 +139,8 @@ extension ContextualRawDecodable {
         }
         __assayCheckXMLRoot(Self.self, doc, &sink)
         var __rootPath: [PathComponent] = []
-        let value = Self._assay(from: RawValue(doc), into: &sink, at: &__rootPath, context: context)
+        let value = Self._assay(from: RawValue(consuming: consume doc), into: &sink,
+                                at: &__rootPath, context: context)
         return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
@@ -213,6 +214,6 @@ extension WireFormat {
         matches: { $0.names("xml") },
         decode: { bytes, sink, limits in
             guard let doc = XML.decode(bytes, into: &sink, limits: limits) else { return nil }
-            return RawValue(doc)
+            return RawValue(consuming: consume doc)
         })
 }

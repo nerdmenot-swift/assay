@@ -311,4 +311,102 @@ extension RawValue {
     public init(_ document: XML.Document) {
         self.init(document.root)
     }
+
+    /// The same projection, taking the document by value and MOVING its strings into the
+    /// result. The struct-decode doors parse, project and drop; borrowing copied every
+    /// child out of `children` (the copy retains its name, attributes and children), and
+    /// the tree then released all of it. `docs/EFFICIENCY.md` row 14 is the same change
+    /// for YAML and TOML, with the traps it found.
+    @usableFromInline
+    init(consuming document: consuming XML.Document) {
+        var root = XML.Element(name: XML.Name(""))
+        swap(&root, &document.root)
+        self.init(consuming: consume root)
+    }
+
+    @usableFromInline
+    init(consuming element: consuming XML.Element) {
+        var attributes: [XML.Attribute] = []
+        swap(&attributes, &element.attributes)
+        var children: [XML.Node] = []
+        swap(&children, &element.children)
+
+        // The leaf test first, as in the borrowing form. One text child, the ordinary
+        // leaf, moves out whole; anything else concatenates as `text` does.
+        if attributes.isEmpty, !children.contains(where: { if case .element = $0 { true } else { false } }) {
+            if children.count == 1 {
+                switch children.removeLast() {
+                case .text(let s), .cdata(let s): self = .string(s)
+                default: self = .string("")
+                }
+                return
+            }
+            var text = ""
+            for c in children {
+                switch c {
+                case .text(let s), .cdata(let s): text += s
+                default: break
+                }
+            }
+            self = .string(text)
+            return
+        }
+
+        // Written straight into the result's storage: `append` inside these closures
+        // re-checked uniqueness per member. Capacity is exact or over by the whitespace
+        // runs that are dropped; `count` says how many were written.
+        let capacity = attributes.count + children.count
+        let members = unsafe children.withUnsafeMutableBufferPointer { kids in
+                unsafe [Member](unsafeUninitializedCapacity: capacity) { dst, count in
+                    // Skipped when empty, which is most elements: mutable access to the
+                    // empty-array singleton goes through the make-unique path every time.
+                    if !attributes.isEmpty {
+                        unsafe attributes.withUnsafeMutableBufferPointer { attrs in
+                            for i in attrs.indices {
+                                var key = ""
+                                unsafe swap(&key, &attrs[i].name.local)
+                                var value = ""
+                                unsafe swap(&value, &attrs[i].value)
+                                unsafe (dst.baseAddress! + count).initialize(
+                                    to: .init(key: consume key, value: .string(consume value),
+                                              span: attrs[i].valueSpan))
+                                count += 1
+                            }
+                        }
+                    }
+                    for i in kids.indices {
+                        var child = XML.Node.text("")
+                        unsafe swap(&child, &kids[i])
+                        // Bound OUTSIDE the switch: a switch subject lives to the end of
+                        // the case body, and an element still shared with it would copy
+                        // its arrays on the first mutation, and so would every element
+                        // under it.
+                        var element: XML.Element? = nil
+                        var text: String? = nil
+                        switch consume child {
+                        case .element(let e): element = e
+                        case .text(let s), .cdata(let s): text = s
+                        case .comment, .processingInstruction: break
+                        }
+                        if var e = element.take() {
+                            var key = ""
+                            swap(&key, &e.name.local)
+                            let span = e.contentSpan
+                            unsafe (dst.baseAddress! + count).initialize(
+                                to: .init(key: consume key,
+                                          value: RawValue(consuming: consume e), span: span))
+                            count += 1
+                        } else if let s = text.take(), !s.utf8.allSatisfy({
+                            $0 == 0x20 || $0 == 0x09 || $0 == 0x0A || $0 == 0x0D
+                        }) {
+                            unsafe (dst.baseAddress! + count).initialize(
+                                to: .init(key: "", value: .string(s)))
+                            count += 1
+                        }
+                    }
+                }
+        }
+
+        self = .mapping(members)
+    }
 }

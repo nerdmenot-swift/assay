@@ -7,9 +7,10 @@ import Assay
 import AssayCore
 @testable import AssayYAML
 @testable import AssayTOML
+@testable import AssayXML
 
 //===----------------------------------------------------------------------===//
-// `RawValue(consuming:)` moves a YAML or TOML tree's strings into the projection instead of
+// `RawValue(consuming:)` moves a YAML, TOML or XML tree's strings into the projection instead of
 // retaining them (docs/EFFICIENCY.md). It is a second implementation of the same function,
 // so the borrowing `RawValue(_:)` is its oracle: identical output on every shape, including
 // the two a shape flag can get wrong — an EMPTY mapping must not come back as an empty
@@ -74,5 +75,26 @@ import AssayCore
         let node = try #require(TOML.decode(Array(text.utf8), into: &sink))
         #expect(sink.isValid)
         #expect(RawValue(consuming: node) == RawValue(node))
+    }
+}
+
+@Suite struct XMLConsumingProjectionTests {
+
+    static let documents: [String] = [
+        "<doc><items><f0>a</f0><f1>b</f1></items><items><f0>c</f0><f1/></items></doc>",
+        "<r id=\"7\" kind=\"x\"><name>n</name>  <tag>t1</tag><tag>t2</tag></r>",
+        "<r>text <b>bold</b> tail<![CDATA[<raw>]]><!-- c --><?pi data?></r>",
+        "<r><a>one<!-- c -->two<![CDATA[three]]></a><e/><w>   </w></r>",
+        "<r xmlns:p=\"urn:p\"><p:x p:attr=\"v\">1</p:x></r>",
+        "<only>leaf</only>",
+        "<empty/>",
+    ]
+
+    @Test(arguments: documents)
+    func matchesTheBorrowingProjection(_ text: String) throws {
+        var sink = IssueSink()
+        let doc = try #require(XML.decode(Array(text.utf8), into: &sink))
+        #expect(sink.isValid)
+        #expect(RawValue(consuming: doc) == RawValue(doc))
     }
 }

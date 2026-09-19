@@ -26,11 +26,12 @@ extension JSONAssayable where Self: RawRepresentable, RawValue == String {
     public static func _assay(
         from reader: inout AssayReader,
         into sink: inout IssueSink,
-        at path: [PathComponent]
+        at path: inout [PathComponent]
     ) -> Self? {
         reader.beginValue()
+        let start = reader.byteOffset
         guard let s = reader.scanString() else {
-            reader.reportTypeMismatch(&sink, path, expected: "string")
+            reader._mismatch(&sink, path, from: start, expected: "string")
             return nil
         }
         guard let v = Self(rawValue: s) else {
@@ -46,11 +47,12 @@ extension JSONAssayable where Self: RawRepresentable & CaseIterable, RawValue ==
     public static func _assay(
         from reader: inout AssayReader,
         into sink: inout IssueSink,
-        at path: [PathComponent]
+        at path: inout [PathComponent]
     ) -> Self? {
         reader.beginValue()
+        let start = reader.byteOffset
         guard let s = reader.scanString() else {
-            reader.reportTypeMismatch(&sink, path, expected: "string")
+            reader._mismatch(&sink, path, from: start, expected: "string")
             return nil
         }
         guard let v = Self(rawValue: s) else {
@@ -106,11 +108,12 @@ extension JSONAssayable where Self: RawRepresentable, RawValue == Int {
     public static func _assay(
         from reader: inout AssayReader,
         into sink: inout IssueSink,
-        at path: [PathComponent]
+        at path: inout [PathComponent]
     ) -> Self? {
         reader.beginValue()
+        let start = reader.byteOffset
         guard let i = reader.scanInt64(), let n = Int(exactly: i) else {
-            reader.reportTypeMismatch(&sink, path, expected: "integer")
+            reader._mismatch(&sink, path, from: start, expected: "integer")
             return nil
         }
         guard let v = Self(rawValue: n) else {

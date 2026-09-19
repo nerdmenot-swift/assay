@@ -116,11 +116,12 @@ extension UUID {
     nonisolated public static func _assay(
         from reader: inout AssayReader,
         into sink: inout IssueSink,
-        at path: [PathComponent]
+        at path: inout [PathComponent]
     ) -> UUID? {
         reader.beginValue()
+        let start = reader.byteOffset
         guard reader.currentByte == 0x22, let text = reader.scanString() else {
-            reader.reportTypeMismatch(&sink, path, expected: "uuid")
+            reader._mismatch(&sink, path, from: start, expected: "uuid")
             return nil
         }
         guard let u = _assayParse(text) else {

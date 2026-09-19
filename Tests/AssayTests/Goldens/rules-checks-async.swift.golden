@@ -19,10 +19,11 @@ nonisolated static let __assayKeyTable: [UInt8] = {
 nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: inout [Assay.PathComponent]
 ) -> GoldenRules? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
         return nil
     }
     guard reader.enterContainer(&sink) else { return nil }
@@ -74,10 +75,12 @@ nonisolated public static func _assay(
                         let __ss1 = reader.byteOffset
                         if reader.tryConsume(0x5B) {
                             var __arr1_0: [Int] = []
+                            var __ix1_0 = 0
                             if !reader.tryConsume(0x5D) {
                                 __arr1_0.reserveCapacity(reader._countArrayElements())
                                 while true {
-                                if let __e1_0 = reader._decodeInt(&sink, path, "t", __arr1_0.count) { __arr1_0.append(__e1_0) }
+                                if let __e1_0 = reader._decodeInt(&sink, path, "t", __ix1_0) { __arr1_0.append(__e1_0) }
+                                    __ix1_0 &+= 1
                                     if reader.tryConsume(0x2C) { continue }
                                     break
                                 }
@@ -96,6 +99,7 @@ nonisolated public static func _assay(
                         // was EMPTY at the top level -- worse than the missing element index
                         // this change set out to fix, and found by a test written for that.
                         reader.reportTypeMismatch(&sink, path + [.key("t")], expected: "array")
+                        _ = reader.skipValue(&sink)
                         }
 
                         __sp1 = Assay.SourceSpan(lo: __ss1, len: reader.byteOffset &- __ss1)
@@ -130,10 +134,12 @@ nonisolated public static func _assay(
                         __presence |= 32
                         if reader.tryConsume(0x5B) {
                             var __arr5_0: [String] = []
+                            var __ix5_0 = 0
                             if !reader.tryConsume(0x5D) {
                                 __arr5_0.reserveCapacity(reader._countArrayElements())
                                 while true {
-                                if let __e5_0 = reader._decodeString(&sink, path, "s", __arr5_0.count) { __arr5_0.append(__e5_0) }
+                                if let __e5_0 = reader._decodeString(&sink, path, "s", __ix5_0) { __arr5_0.append(__e5_0) }
+                                    __ix5_0 &+= 1
                                     if reader.tryConsume(0x2C) { continue }
                                     break
                                 }
@@ -152,6 +158,7 @@ nonisolated public static func _assay(
                         // was EMPTY at the top level -- worse than the missing element index
                         // this change set out to fix, and found by a test written for that.
                         reader.reportTypeMismatch(&sink, path + [.key("s")], expected: "array")
+                        _ = reader.skipValue(&sink)
                         }
 
                     } else {

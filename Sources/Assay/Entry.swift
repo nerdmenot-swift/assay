@@ -99,7 +99,10 @@ extension JSONAssayable {
         var reader = unsafe AssayReader(base: base, count: count, limits: limits)
 
         reader.advanceBy(unsafe UTF8Validation.bomLength(base, count))
-        let v = Self._assay(from: &reader, into: &sink, at: [])
+        // One path buffer for the whole decode: nested schemas push and pop on it (see
+        // `JSONAssayable`), so it never allocates on a clean document.
+        var path: [PathComponent] = []
+        let v = Self._assay(from: &reader, into: &sink, at: &path)
 
         // Trailing content is an error, not a shrug.
         // TRAILING CONTENT IS ONLY MEANINGFUL AFTER A VALUE PARSED. When decode failed the

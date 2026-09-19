@@ -208,7 +208,7 @@ extension SchemaMacro {
             arms += """
                     if __tag == "\(c.wireName)" {
                         guard let __v = \(c.payloadType!)._assay(
-                            from: &reader, into: &sink, at: path) else { return nil }
+                            from: &reader, into: &sink, at: &path) else { return nil }
                         return .\(c.identifier)(__v)
                     }
 
@@ -221,7 +221,7 @@ extension SchemaMacro {
         nonisolated public static func _assay(
             from reader: inout Assay.AssayReader,
             into sink: inout Assay.IssueSink,
-            at path: [Assay.PathComponent]
+            at path: inout [Assay.PathComponent]
         ) -> \(typeName)? {
             // The whole reader state, not just the cursor: the scan enters a container and a
             // malformed document can leave that unbalanced. docs/UNIONS.md §1.
@@ -284,7 +284,7 @@ extension SchemaMacro {
                 // no key of its own.
                 decode = "reader.\(call)"
             } else {
-                decode = "\(c.payloadType!)._assay(from: &reader, into: &sink, at: path)"
+                decode = "\(c.payloadType!)._assay(from: &reader, into: &sink, at: &path)"
             }
             if keep {
                 return """
@@ -319,7 +319,7 @@ extension SchemaMacro {
         nonisolated public static func _assay(
             from reader: inout Assay.AssayReader,
             into sink: inout Assay.IssueSink,
-            at path: [Assay.PathComponent]
+            at path: inout [Assay.PathComponent]
         ) -> \(typeName)? {
             let __mark = reader.mark
             let __ck = sink.checkpoint()

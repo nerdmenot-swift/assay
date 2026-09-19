@@ -100,7 +100,8 @@ extension ContextualJSONAssayable {
         var reader = unsafe AssayReader(base: base, count: count, limits: limits)
 
         reader.advanceBy(unsafe UTF8Validation.bomLength(base, count))
-        let v = Self._assay(from: &reader, into: &sink, at: [], context: context)
+        var path: [PathComponent] = []
+        let v = Self._assay(from: &reader, into: &sink, at: &path, context: context)
 
         // TRAILING CONTENT IS ONLY MEANINGFUL AFTER A VALUE PARSED. When decode failed the
         // reader stopped wherever the syntax error was, so bytes always remain — and this

@@ -8,11 +8,12 @@ extension GoldenArrayOfSchemas: Assay.JSONAssayable {nonisolated static let __as
 nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: inout [Assay.PathComponent]
 ) -> GoldenArrayOfSchemas? {
     Assay._assayRequireJSON(GoldenArrayElement.self)
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
         return nil
     }
     guard reader.enterContainer(&sink) else { return nil }
@@ -55,14 +56,16 @@ nonisolated public static func _assay(
                         __presence |= 2
                         if reader.tryConsume(0x5B) {
                             var __arr1_0: [GoldenArrayElement] = []
+                            var __ix1_0 = 0
                             var __ap1_0 = path
                             __ap1_0.append(.key("items"))
                             __ap1_0.append(.index(0))
                             if !reader.tryConsume(0x5D) {
                                 while true {
-                                __ap1_0[__ap1_0.count &- 1] = .index(__arr1_0.count)
+                                __ap1_0[__ap1_0.count &- 1] = .index(__ix1_0)
                                 if let __e1_0 = GoldenArrayElement._assay(
-                                    from: &reader, into: &sink, at: __ap1_0) { __arr1_0.append(__e1_0) }
+                                    from: &reader, into: &sink, at: &__ap1_0) { __arr1_0.append(__e1_0) }
+                                    __ix1_0 &+= 1
                                     if reader.tryConsume(0x2C) { continue }
                                     break
                                 }
@@ -81,6 +84,7 @@ nonisolated public static func _assay(
                         // was EMPTY at the top level -- worse than the missing element index
                         // this change set out to fix, and found by a test written for that.
                         reader.reportTypeMismatch(&sink, path + [.key("items")], expected: "array")
+                        _ = reader.skipValue(&sink)
                         }
 
                     } else {

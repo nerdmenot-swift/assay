@@ -10,10 +10,11 @@ extension GoldenNarrow: Assay.JSONAssayable, Assay.RawDecodable {nonisolated sta
 nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: inout [Assay.PathComponent]
 ) -> GoldenNarrow? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
         return nil
     }
     guard reader.enterContainer(&sink) else { return nil }
@@ -51,10 +52,12 @@ nonisolated public static func _assay(
                         __presence |= 1
                         if reader.tryConsume(0x5B) {
                             var __arr0_0: [String] = []
+                            var __ix0_0 = 0
                             if !reader.tryConsume(0x5D) {
                                 __arr0_0.reserveCapacity(reader._countArrayElements())
                                 while true {
-                                if let __e0_0 = reader._decodeString(&sink, path, "tags", __arr0_0.count) { __arr0_0.append(__e0_0) }
+                                if let __e0_0 = reader._decodeString(&sink, path, "tags", __ix0_0) { __arr0_0.append(__e0_0) }
+                                    __ix0_0 &+= 1
                                     if reader.tryConsume(0x2C) { continue }
                                     break
                                 }
@@ -76,6 +79,7 @@ nonisolated public static func _assay(
                             // was EMPTY at the top level -- worse than the missing element index
                             // this change set out to fix, and found by a test written for that.
                             reader.reportTypeMismatch(&sink, path + [.key("tags")], expected: "array")
+                            _ = reader.skipValue(&sink)
                             }
                                 }
 
@@ -94,10 +98,12 @@ nonisolated public static func _assay(
                         __presence |= 4
                         if reader.tryConsume(0x5B) {
                             var __arr2_0: [UInt8] = []
+                            var __ix2_0 = 0
                             if !reader.tryConsume(0x5D) {
                                 __arr2_0.reserveCapacity(reader._countArrayElements())
                                 while true {
-                                if let __e2_0 = reader._decodeUInt8(&sink, path, "bytes", __arr2_0.count) { __arr2_0.append(__e2_0) }
+                                if let __e2_0 = reader._decodeUInt8(&sink, path, "bytes", __ix2_0) { __arr2_0.append(__e2_0) }
+                                    __ix2_0 &+= 1
                                     if reader.tryConsume(0x2C) { continue }
                                     break
                                 }
@@ -116,6 +122,7 @@ nonisolated public static func _assay(
                         // was EMPTY at the top level -- worse than the missing element index
                         // this change set out to fix, and found by a test written for that.
                         reader.reportTypeMismatch(&sink, path + [.key("bytes")], expected: "array")
+                        _ = reader.skipValue(&sink)
                         }
 
                     } else {

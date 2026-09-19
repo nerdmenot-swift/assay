@@ -11,10 +11,11 @@ nonisolated static let __assayKeyTable: [UInt8] = {
 nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: inout [Assay.PathComponent]
 ) -> GoldenDescribes? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
         return nil
     }
     guard reader.enterContainer(&sink) else { return nil }

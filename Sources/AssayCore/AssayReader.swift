@@ -440,6 +440,20 @@ public struct AssayReader: ~Copyable {
             location: SourceSpan(lo: ended ? Swift.max(0, count - 1) : cursor, len: 1)))
     }
 
+    /// A value of the wrong type: rewind to where it began, report it there, and CONSUME it,
+    /// so the caller carries on at the next member. Reporting without consuming was the bug
+    /// every container and scalar-special decoder had until 2026-09-19. The caller then read
+    /// the leftover value where it expected ',' or '}', and one false `malformed_document`
+    /// replaced every later issue in the document.
+    @inline(never)
+    public mutating func _mismatch(
+        _ sink: inout IssueSink, _ path: [PathComponent], from start: Int, expected: String
+    ) {
+        cursor = start
+        reportTypeMismatch(&sink, path, expected: expected)
+        _ = skipValue(&sink)
+    }
+
     @inline(never)
     public mutating func reportTypeMismatch(
         _ sink: inout IssueSink,

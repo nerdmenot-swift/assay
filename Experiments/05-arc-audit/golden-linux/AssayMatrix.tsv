@@ -115,7 +115,7 @@ specialized static DocInt._assay(from:into:at:)	release	13
 specialized static DocInt._assay(from:into:at:)	retain	2
 specialized static DocLongKeys._assay(from:into:at:)	release	13
 specialized static DocLongKeys._assay(from:into:at:)	retain	2
-specialized static DocNested._assay(from:into:at:)	release	13
+specialized static DocNested._assay(from:into:at:)	release	12
 specialized static DocNested._assay(from:into:at:)	retain	2
 specialized static DocOptional._assay(from:into:at:)	release	13
 specialized static DocOptional._assay(from:into:at:)	retain	2
@@ -129,11 +129,9 @@ specialized static M5._assay(from:into:at:)	release	46
 specialized static MArray._assay(from:into:at:)	release	53
 specialized static MArray._assay(from:into:at:)	retain	1
 specialized static MInner1._assay(from:into:at:)	release	14
-specialized static MInner1._assay(from:into:at:)	retain	1
 specialized static MInner2._assay(from:into:at:)	release	6
 specialized static MLongKeys._assay(from:into:at:)	release	46
-specialized static MNested._assay(from:into:at:)	release	46
-specialized static MNested._assay(from:into:at:)	retain	1
+specialized static MNested._assay(from:into:at:)	release	47
 specialized static MOptional._assay(from:into:at:)	release	26
 specialized static MPrefix._assay(from:into:at:)	release	14
 specialized static MValidated._assay(from:into:at:)	release	53

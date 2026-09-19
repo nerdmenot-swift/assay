@@ -2465,3 +2465,16 @@ For objects the pre-count is a second pass over most of the document. That is pa
 instructions a resource win may cost, so only scalar arrays pre-count. The first
 measurement of the scalar-only version was **stale**: SwiftPM had not re-expanded the macros
 in `AssayMatrix` after the `CodeGen` edit. `count.sh` now always rebuilds that module.
+
+### The diagnostic path, `inout` (2026-09-19)
+
+The JSON `_assay` entry point takes `at path: inout [PathComponent]`. Nested schemas push, call
+and pop on one buffer instead of allocating `path + [.key(k)]` per nesting level per element.
+
+| cell | instructions | heap blocks | heap bytes | object retains |
+|---|---|---|---|---|
+| nested-3/struct | **−33.4%** | 4,014 → **15** | **−56.5%** | 4,004 → 4 |
+
+Every other decode cell pays one release more per CALL (the top-level path is destroyed once),
+and nested-3 pays two uniqueness checks per element for the push and pop. Encode, RawValue and
+validate still take the path by value.

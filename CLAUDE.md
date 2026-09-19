@@ -300,6 +300,17 @@ extension User {
 }
 ```
 
+**Changed 2026-09-19: the diagnostic path is `inout`.** The real generated requirement is
+`_assay(from reader: inout AssayReader, into sink: inout IssueSink, at path: inout [PathComponent]) -> Self?`.
+It was `at path: [PathComponent]` by value, and a by-value path forces every nested schema to
+build `path + [.key(k)]`, which always allocates: one heap block per nesting level per element
+(4,000 of `nested-3`'s 4,014 per call). Now a caller pushes, calls, and pops, and one buffer
+serves the whole decode: nested-3 −33% instructions, 4,014 → 15 blocks, −56% heap. The rule
+for any body: leave `path` as you found it; every push brackets one non-throwing call, and a
+body with `@Key(path:)` groups also restores the depth in a `defer`. Decided on the counts
+(`docs/EFFICIENCY.md` row 7) with the user's go-ahead. Encode, RawValue and validate still take
+the path by value.
+
 `public protocol Assayable: Sendable` — marker protocol, zero runtime cost, and it prevents
 `-default-isolation MainActor` inference. `AssayError` must stay pointer-sized (serde_json:
 "a larger Error type was substantially slower").

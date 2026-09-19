@@ -8,10 +8,11 @@ extension GoldenArrayElement: Assay.JSONAssayable {nonisolated static let __assa
 nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: inout [Assay.PathComponent]
 ) -> GoldenArrayElement? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
         return nil
     }
     guard reader.enterContainer(&sink) else { return nil }

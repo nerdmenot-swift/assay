@@ -60,7 +60,8 @@ struct RewindTests {
             let mark = sink.checkpoint()
 
             // Branch 1: wrong shape — `b` is a String, not an Int.
-            let first = RewindInner._assay(from: &reader, into: &sink, at: [])
+            var __p1: [PathComponent] = []
+            let first = RewindInner._assay(from: &reader, into: &sink, at: &__p1)
             #expect(first == nil, "branch 1 must fail on this document")
             #expect(sink.checkpoint() > mark, "and must have reported something")
 
@@ -70,7 +71,8 @@ struct RewindTests {
             #expect(sink.checkpoint() == mark, "the failed branch's issues are gone")
 
             // Branch 2: right shape.
-            let second = RewindAlt._assay(from: &reader, into: &sink, at: [])
+            var __p2: [PathComponent] = []
+            let second = RewindAlt._assay(from: &reader, into: &sink, at: &__p2)
             return second
         }
         #expect(ok == RewindAlt(a: 1, b: "text"),
@@ -98,14 +100,16 @@ struct RewindTests {
             // depth budget of four, a leak of even one level per attempt exhausts it long
             // before the twentieth.
             for _ in 0..<20 {
-                _ = RewindPair._assay(from: &reader, into: &sink, at: [])
+                var __p3: [PathComponent] = []
+                _ = RewindPair._assay(from: &reader, into: &sink, at: &__p3)
                 reader.restore(m)
                 sink.rollback(to: issueMark)
             }
 
             // The valid document that follows, on the same reader.
             reader.seek(to: bad.utf8.count)
-            return RewindPair._assay(from: &reader, into: &sink, at: [])
+            var __p4: [PathComponent] = []
+            return RewindPair._assay(from: &reader, into: &sink, at: &__p4)
         }
         #expect(ok == RewindPair(x: RewindInner(a: 1, b: 2)), """
                 twenty failed branches left the reader unusable. If `restore(_:)` is what \
@@ -130,12 +134,14 @@ struct RewindTests {
             let m = reader.mark
             let issueMark = sink.checkpoint()
             for _ in 0..<20 {
-                _ = RewindArray._assay(from: &reader, into: &sink, at: [])
+                var __p5: [PathComponent] = []
+                _ = RewindArray._assay(from: &reader, into: &sink, at: &__p5)
                 reader.restore(m)
                 sink.rollback(to: issueMark)
             }
             reader.seek(to: bad.utf8.count)
-            return RewindArray._assay(from: &reader, into: &sink, at: [])
+            var __p6: [PathComponent] = []
+            return RewindArray._assay(from: &reader, into: &sink, at: &__p6)
         }
         #expect(ok == RewindArray(xs: [1, 2]), """
                 a malformed array left the enclosing object's container entered, and twenty \
@@ -164,12 +170,14 @@ struct RewindTests {
             let start = reader.byteOffset
             let issueMark = sink.checkpoint()
             for _ in 0..<20 {
-                _ = RewindArray._assay(from: &reader, into: &sink, at: [])
+                var __p7: [PathComponent] = []
+                _ = RewindArray._assay(from: &reader, into: &sink, at: &__p7)
                 reader.seek(to: start)          // cursor only — no depth restore
                 sink.rollback(to: issueMark)
             }
             reader.seek(to: bad.utf8.count)
-            return RewindArray._assay(from: &reader, into: &sink, at: [])
+            var __p8: [PathComponent] = []
+            return RewindArray._assay(from: &reader, into: &sink, at: &__p8)
         }
         #expect(ok == RewindArray(xs: [1, 2]), """
                 a generated failure path entered a container and did not leave it. `restore` \
@@ -186,11 +194,13 @@ struct RewindTests {
             let start = reader.byteOffset
             let mark = sink.checkpoint()
             for _ in 0..<5 {
-                _ = RewindInner._assay(from: &reader, into: &sink, at: [])
+                var __p9: [PathComponent] = []
+                _ = RewindInner._assay(from: &reader, into: &sink, at: &__p9)
                 reader.seek(to: start)
                 sink.rollback(to: mark)
             }
-            _ = RewindAlt._assay(from: &reader, into: &sink, at: [])
+            var __p10: [PathComponent] = []
+            _ = RewindAlt._assay(from: &reader, into: &sink, at: &__p10)
             return sink.checkpoint()
         }
         #expect(count == 0, "five failed branches left \(count) issues behind")
@@ -209,7 +219,8 @@ struct RewindTests {
             _ = reader.skipValue(&sink)
             let afterSkip = reader.byteOffset
             reader.seek(to: start)
-            let v = RewindAlt._assay(from: &reader, into: &sink, at: [])
+            var __p11: [PathComponent] = []
+            let v = RewindAlt._assay(from: &reader, into: &sink, at: &__p11)
             return (afterSkip > start, v)
         }
         #expect(found.0, "the pre-scan must actually advance")

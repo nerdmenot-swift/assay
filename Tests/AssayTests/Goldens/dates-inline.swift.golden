@@ -13,10 +13,11 @@ nonisolated static let __assayKeyTable: [UInt8] = {
 nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: inout [Assay.PathComponent]
 ) -> GoldenDates? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
         return nil
     }
     guard reader.enterContainer(&sink) else { return nil }
@@ -84,8 +85,10 @@ nonisolated public static func _assay(
                         if reader._consumeNullIfPresent() {
                             reader._nullNotAllowed(&sink, path, "id", "UUID")
                         } else {
+                            path.append(.key("id"))
                             __f4 = UUID._assay(
-                                from: &reader, into: &sink, at: path + [.key("id")])
+                                from: &reader, into: &sink, at: &path)
+                            path.removeLast()
                         }
                     } else {
                         _ = reader.skipValue(&sink)

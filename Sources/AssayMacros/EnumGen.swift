@@ -174,11 +174,12 @@ extension SchemaMacro {
             nonisolated public static func _assay(
                 from reader: inout Assay.AssayReader,
                 into sink: inout Assay.IssueSink,
-                at path: [Assay.PathComponent]
+                at path: inout [Assay.PathComponent]
             ) -> \(typeName)? {
                 reader.beginValue()
+                let __start = reader.byteOffset
                 guard let __s = reader.scanString() else {
-                    reader.reportTypeMismatch(&sink, path, expected: "string")
+                    reader._mismatch(&sink, path, from: __start, expected: "string")
                     return nil
                 }
                 return _assayFromWire(__s)

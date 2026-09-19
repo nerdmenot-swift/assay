@@ -55,7 +55,7 @@ static Assayer<>.raw.getter	ref	1
 static Assayer<>.string.getter	ref	1
 static AssayerBacked._assay(from:into:at:)	release	11
 static AssayerBacked._assay(from:into:at:)	retain	4
-static ContextualJSONAssayable._decode(base:count:into:limits:context:)	release	4
+static ContextualJSONAssayable._decode(base:count:into:limits:context:)	release	7
 static ContextualJSONAssayable._decode(base:count:into:limits:context:)	retain	2
 static ContextualJSONAssayable._decode(base:count:into:limits:context:)	stack-allocated-ref	1
 static ContextualJSONAssayable.diagnose(json:context:limits:sourceName:)	release	5
@@ -72,7 +72,7 @@ static ContextualRawDecodable.diagnose(body:contentType:accepting:context:limits
 static ContextualValidatable.diagnose(_:context:limits:)	release	1
 static ContextualValidatable.diagnose(_:context:limits:)	retain	2
 static ContextualValidatable.validate(_:context:limits:)	release	3
-static JSONAssayable._decode(base:count:into:limits:)	release	4
+static JSONAssayable._decode(base:count:into:limits:)	release	7
 static JSONAssayable._decode(base:count:into:limits:)	retain	2
 static JSONAssayable._decode(base:count:into:limits:)	stack-allocated-ref	1
 static JSONAssayable.diagnose(json:limits:sourceName:)	release	5

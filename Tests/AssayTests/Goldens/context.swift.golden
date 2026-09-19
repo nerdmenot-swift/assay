@@ -10,11 +10,12 @@ nonisolated static let __assayKeyTable: [UInt8] = {
 nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent],
+    at path: inout [Assay.PathComponent],
             context: GoldenCtx
 ) -> GoldenContext? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
         return nil
     }
     guard reader.enterContainer(&sink) else { return nil }
@@ -58,8 +59,10 @@ nonisolated public static func _assay(
                         if reader._consumeNullIfPresent() {
                             reader._nullNotAllowed(&sink, path, "n", "GoldenNested")
                         } else {
+                            path.append(.key("n"))
                             __f1 = GoldenNested._assay(
-                                from: &reader, into: &sink, at: path + [.key("n")], context: context)
+                                from: &reader, into: &sink, at: &path, context: context)
+                            path.removeLast()
                         }
                     } else {
                         _ = reader.skipValue(&sink)

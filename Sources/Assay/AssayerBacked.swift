@@ -76,7 +76,7 @@ extension AssayerBacked {
     /// measurement rather than a prediction. `docs/ASSAYER.md` records what is owed.
     @inlinable
     public nonisolated static func _assay(
-        from reader: inout AssayReader, into sink: inout IssueSink, at path: [PathComponent]
+        from reader: inout AssayReader, into sink: inout IssueSink, at path: inout [PathComponent]
     ) -> Self? {
         guard let raw = RawValue._collectJSON(from: &reader, into: &sink, at: path) else {
             return nil

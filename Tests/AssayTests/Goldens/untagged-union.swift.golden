@@ -3,7 +3,7 @@ extension GoldenUntagged: Assay.JSONAssayable {nonisolated static let __assayVar
 nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: inout [Assay.PathComponent]
 ) -> GoldenUntagged? {
     let __mark = reader.mark
     let __ck = sink.checkpoint()
@@ -37,7 +37,7 @@ nonisolated public static func _assay(
         if !__verbose { sink.rollback(to: __ck) }
 
         guard reader._chargeUnionAttempt(&sink, path) else { return nil }
-        if let __v = GoldenB._assay(from: &reader, into: &sink, at: path) {
+        if let __v = GoldenB._assay(from: &reader, into: &sink, at: &path) {
             return .b(__v)
         }
         __n = sink.checkpoint() - __ck
@@ -63,7 +63,7 @@ nonisolated public static func _assay(
                 _ = reader._decodeDouble(&sink, path, "number")
             }
             if __closest == "b" {
-                _ = GoldenB._assay(from: &reader, into: &sink, at: path)
+                _ = GoldenB._assay(from: &reader, into: &sink, at: &path)
             }
     }
     reader.restore(__mark)

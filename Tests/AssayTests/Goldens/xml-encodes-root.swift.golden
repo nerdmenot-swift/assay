@@ -9,10 +9,11 @@ extension GoldenXML: Assay.JSONAssayable, Assay.RawDecodable, Assay.JSONEncodabl
 nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: inout [Assay.PathComponent]
 ) -> GoldenXML? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
         return nil
     }
     guard reader.enterContainer(&sink) else { return nil }
@@ -63,10 +64,12 @@ nonisolated public static func _assay(
                         __presence |= 4
                         if reader.tryConsume(0x5B) {
                             var __arr2_0: [String] = []
+                            var __ix2_0 = 0
                             if !reader.tryConsume(0x5D) {
                                 __arr2_0.reserveCapacity(reader._countArrayElements())
                                 while true {
-                                if let __e2_0 = reader._decodeString(&sink, path, "tags", __arr2_0.count) { __arr2_0.append(__e2_0) }
+                                if let __e2_0 = reader._decodeString(&sink, path, "tags", __ix2_0) { __arr2_0.append(__e2_0) }
+                                    __ix2_0 &+= 1
                                     if reader.tryConsume(0x2C) { continue }
                                     break
                                 }
@@ -85,6 +88,7 @@ nonisolated public static func _assay(
                         // was EMPTY at the top level -- worse than the missing element index
                         // this change set out to fix, and found by a test written for that.
                         reader.reportTypeMismatch(&sink, path + [.key("tags")], expected: "array")
+                        _ = reader.skipValue(&sink)
                         }
 
                     } else {

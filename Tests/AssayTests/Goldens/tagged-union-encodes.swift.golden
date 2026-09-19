@@ -3,7 +3,7 @@ extension GoldenTagged: Assay.JSONAssayable, Assay.JSONEncodableSchema {nonisola
 nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: inout [Assay.PathComponent]
 ) -> GoldenTagged? {
     // The whole reader state, not just the cursor: the scan enters a container and a
     // malformed document can leave that unbalanced. docs/UNIONS.md §1.
@@ -23,12 +23,12 @@ nonisolated public static func _assay(
 
         if __tag == "click" {
             guard let __v = GoldenA._assay(
-                from: &reader, into: &sink, at: path) else { return nil }
+                from: &reader, into: &sink, at: &path) else { return nil }
             return .click(__v)
         }
         if __tag == "pv" {
             guard let __v = GoldenB._assay(
-                from: &reader, into: &sink, at: path) else { return nil }
+                from: &reader, into: &sink, at: &path) else { return nil }
             return .pageView(__v)
         }
     // The tag was read and names nothing this enum declares. One issue, with a

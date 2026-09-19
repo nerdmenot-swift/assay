@@ -35,15 +35,19 @@ esac
 SUBSET=""
 case " $* " in *" --cells "*) SUBSET=--subset ;; esac
 
+# ALWAYS re-expand the macros (the `touch` inside the container script). An incremental
+# SwiftPM build does not reliably re-run macro expansion in a dependent module when the macro
+# IMPLEMENTATION changes, so after an edit to AssayMacros this measured the old generated
+# code: found 2026-09-19, when a CodeGen change counted identically to the version before it.
+# Touching the module's sources recompiles them, and compiling a file re-expands its macros.
+# Deleting the module's build directory instead broke SwiftPM's cached build plan. Nothing
+# inside the container script may contain a double quote: it is one double-quoted string.
+#
 # The mount point is /assay because the directory name IS the package name.
 docker run --rm -v "$ROOT:/assay" -v assay-count-build:/build -w /assay/Benchmarks "$IMAGE" \
   bash -lc "
 set -euo pipefail
-# ALWAYS re-expand the macros. An incremental SwiftPM build does not reliably re-run macro
-# expansion in a dependent module when the macro IMPLEMENTATION changes, so after an edit to
-# AssayMacros this measured the old generated code: found 2026-09-19, when a CodeGen change
-# counted identically to the version before it. Rebuilding AssayMatrix alone is cheap.
-rm -rf /build/release/AssayMatrix.build /build/release/AssayMatrix
+touch Sources/AssayMatrix/*.swift
 # A failed build must stop here: filtering its output through grep once hid one.
 swift build -c release --product AssayMatrix -j \${JOBS:-1} --scratch-path /build > /tmp/build.log 2>&1 \
   || { grep -E 'error' /tmp/build.log | head -20; exit 1; }

@@ -119,7 +119,7 @@ public protocol ContextualJSONAssayable: ContextualAssayable {
     nonisolated static func _assay(
         from reader: inout AssayReader,
         into sink: inout IssueSink,
-        at path: [PathComponent],
+        at path: inout [PathComponent],
         context: AssayContext
     ) -> Self?
 }
@@ -157,9 +157,9 @@ extension JSONAssayable {
     @inlinable
     public nonisolated static func _assay<C>(
         from reader: inout AssayReader, into sink: inout IssueSink,
-        at path: [PathComponent], context: C
+        at path: inout [PathComponent], context: C
     ) -> Self? {
-        _assay(from: &reader, into: &sink, at: path)
+        _assay(from: &reader, into: &sink, at: &path)
     }
 }
 
@@ -181,11 +181,19 @@ extension RawDecodable {
 /// The requirement is concrete, monomorphic, and emitted into the *user's* module: there
 /// is no generic parameter, so there is nothing for cross-module specialization to fail
 /// at. That is the single most important structural reason a macro decoder can be fast.
+///
+/// THE PATH IS `inout` (since 2026-09-19), like the sink beside it. It is read only when
+/// something fails, and passing it by value meant every nested schema had to build a new
+/// array to hand down (`path + [.key("inner")]`, which always allocates): one heap block per
+/// nesting level per element, 4,000 of `nested-3`'s 4,014 per call. A caller now pushes a
+/// component, calls, and pops, and one buffer serves the whole decode. The rule for a body:
+/// leave `path` as you found it. Every push brackets exactly one non-throwing call, so no
+/// return can come between them.
 public protocol JSONAssayable: Assayable {
     nonisolated static func _assay(
         from reader: inout AssayReader,
         into sink: inout IssueSink,
-        at path: [PathComponent]
+        at path: inout [PathComponent]
     ) -> Self?
 }
 

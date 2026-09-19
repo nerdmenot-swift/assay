@@ -184,14 +184,25 @@ extension SchemaMacro {
         let requires = ctx.isEmpty
             ? nestedNominalTypes(fields).map { "    Assay._assayRequireJSON(\($0).self)\n" }.joined()
             : ""
+        // Every "wrong type for a container" arm below CONSUMES the value after reporting
+        // it, as a scalar mismatch always did: the entry check here, the array arm and the
+        // dictionary arm. Until 2026-09-19 none of them did, so the caller read the value
+        // where it expected ',' or '}', and every later issue in the document was replaced by
+        // one false `malformed_document` — `diagnose` stopped collecting at the first
+        // wrong-typed array, object or map. InoutPathTests pins it.
         out += """
         nonisolated public static func _assay(
             from reader: inout Assay.AssayReader,
             into sink: inout Assay.IssueSink,
-            at path: [Assay.PathComponent]\(ctxParam)
+            at path: inout [Assay.PathComponent]\(ctxParam)
         ) -> \(typeName)? {
-        \(requires)    guard reader.tryConsume(0x7B) else {
+        \(requires)\(groups.isEmpty ? "" : """
+            let __pathDepth = path.count
+            defer { if path.count > __pathDepth { path.removeSubrange(__pathDepth...) } }
+
+        """)    guard reader.tryConsume(0x7B) else {
                 reader.reportTypeMismatch(&sink, path, expected: "object")
+                _ = reader.skipValue(&sink)
                 return nil
             }
             guard reader.enterContainer(&sink) else { return nil }
@@ -315,11 +326,12 @@ extension SchemaMacro {
 
     /// The descent for one path group: consume an object and dispatch on the next segment.
     ///
-    /// `path` is SHADOWED rather than threaded — `let path = path + [.key("profile")]` at the
-    /// top of the block, so every nested emitter reports at the deeper path with no change to
-    /// any of them. Threading a path expression through `decodeStatement`, `arrayDecode`,
-    /// `dictDecode` and `scalarCall` would have touched every emitted call in the file to say
-    /// something the language already says.
+    /// `path` is PUSHED on entry to the block and popped on the way out, so every nested
+    /// emitter reports at the deeper path with no change to any of them. Until 2026-09-19 it
+    /// was shadowed (`let path = path + [.key("profile")]`), which allocated a new array per
+    /// group per element; the path is `inout` now (see `JSONAssayable`). An early `return`
+    /// inside the block — a malformed object, or a malformed array anywhere below — skips the
+    /// pop, so a body with groups also restores the path's depth in a `defer` (`decodeBody`).
     ///
     /// The three failure shapes are the three branches, and their reasoning is in
     /// `PathKeys.swift`'s header: an object descends, a null or absence leaves the slots
@@ -356,7 +368,7 @@ extension SchemaMacro {
 
         return """
         \(pad)if reader.tryConsume(0x7B) {
-        \(pad)    let path = path + [.key("\(segment)")]
+        \(pad)    path.append(.key("\(segment)"))
         \(pad)    if !reader.tryConsume(0x7D) {
         \(pad)        while true {
         \(pad)            guard let \(key) = reader.scanKey(), reader.expect(0x3A) else {
@@ -376,6 +388,7 @@ extension SchemaMacro {
         \(pad)            return nil
         \(pad)        }
         \(pad)    }
+        \(pad)    path.removeLast()
         \(pad)} else if reader._consumeNullIfPresent() {
         \(pad)    // An explicit null intermediate is absence, same as a missing one: the
         \(pad)    // slots below stay unset and the presence rules decide what that means.
@@ -647,8 +660,10 @@ extension SchemaMacro {
                     ? "__f\(i) = nil"
                     : "reader._nullNotAllowed(&sink, path, \"\(key)\", \"\(base)\")")
         \(pad)} else {
+        \(pad)    path.append(.key("\(key)"))
         \(pad)    __f\(i) = \(base)._assay(
-        \(pad)        from: &reader, into: &sink, at: path + [.key("\(key)")]\(ctxArg))
+        \(pad)        from: &reader, into: &sink, at: &path\(ctxArg))
+        \(pad)    path.removeLast()
         \(pad)}
         """
     }
@@ -671,6 +686,11 @@ extension SchemaMacro {
         let target = slot ?? "__f\(i)"
         let arr = "__arr\(i)_\(depth)"
         let elt = "__e\(i)_\(depth)"
+        // The element's POSITION, counted whether or not it decoded. This was `arr.count`,
+        // the number decoded so far, until 2026-09-19, so every element after a failed one
+        // was reported one index too low: element 2 of `[bad, ok, bad]` came out as
+        // `items[1]`. Found by InoutPathTests; nothing had asserted a path past a failure.
+        let ix = "__ix\(i)_\(depth)"
         // ONE PATH PER ARRAY, NOT ONE PER ELEMENT.
         //
         // This emitted `at: path + [.key("k"), .index(n)]` per element until 2026-09-13.
@@ -708,7 +728,7 @@ extension SchemaMacro {
         let inner: String
         if isDateType(element) {
             inner = "\(pad)        if let \(elt) = reader._decodeDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map({ \(element)(timeIntervalSince1970: $0) }) { \(arr).append(\(elt)) }\n"
-        } else if let call = scalarCall(element, key: key, elementIndex: "\(arr).count") {
+        } else if let call = scalarCall(element, key: key, elementIndex: ix) {
             // `arr.count` is the index this element is about to occupy, which is exactly
             // the position a reader needs to be told about.
             inner = "\(pad)        if let \(elt) = reader.\(call) { \(arr).append(\(elt)) }\n"
@@ -734,9 +754,9 @@ extension SchemaMacro {
             """
         } else {
             inner = """
-            \(pad)        \(epath)[\(epath).count &- 1] = .index(\(arr).count)
+            \(pad)        \(epath)[\(epath).count &- 1] = .index(\(ix))
             \(pad)        if let \(elt) = \(element)._assay(
-            \(pad)            from: &reader, into: &sink, at: \(epath)\(ctxArg)) { \(arr).append(\(elt)) }
+            \(pad)            from: &reader, into: &sink, at: &\(epath)\(ctxArg)) { \(arr).append(\(elt)) }
 
             """
         }
@@ -765,12 +785,15 @@ extension SchemaMacro {
         let precount = (isDateType(element) || scalarCall(element, key: key) != nil)
             ? "\(pad)        \(arr).reserveCapacity(reader._countArrayElements())\n"
             : ""
+        let usesIx = inner.containsSubstring(ix)
+        let ixDecl = usesIx ? "\(pad)    var \(ix) = 0\n" : ""
+        let ixStep = usesIx ? "\(pad)            \(ix) &+= 1\n" : ""
         return """
         \(pad)if reader.tryConsume(0x5B) {
         \(pad)    var \(arr): [\(element)] = []
-        \(epathDecl)\(pad)    if !reader.tryConsume(0x5D) {
+        \(ixDecl)\(epathDecl)\(pad)    if !reader.tryConsume(0x5D) {
         \(precount)\(pad)        while true {
-        \(inner)\(pad)            if reader.tryConsume(0x2C) { continue }
+        \(inner)\(ixStep)\(pad)            if reader.tryConsume(0x2C) { continue }
         \(pad)            break
         \(pad)        }
         \(pad)        guard reader.tryConsume(0x5D) else {
@@ -788,6 +811,7 @@ extension SchemaMacro {
         \(pad)\(single.isEmpty ? "" : "    ")// was EMPTY at the top level -- worse than the missing element index
         \(pad)\(single.isEmpty ? "" : "    ")// this change set out to fix, and found by a test written for that.
         \(pad)\(single.isEmpty ? "" : "    ")reader.reportTypeMismatch(&sink, path + [.key("\(key)")], expected: "array")
+        \(pad)\(single.isEmpty ? "" : "    ")_ = reader.skipValue(&sink)
         \(pad)\(singleClose)}
 
         """
@@ -852,9 +876,11 @@ extension SchemaMacro {
             """
         } else {
             inner = """
+            \(pad)            path.append(.key("\(key)"))
+            \(pad)            path.append(.key(__dks\(i)_\(depth)))
             \(pad)            if let \(elt) = \(value)._assay(
-            \(pad)                from: &reader, into: &sink,
-            \(pad)                at: path + [.key("\(key)"), .key(__dks\(i)_\(depth))]\(ctxArg)) { \(dict)[__dks\(i)_\(depth)] = \(elt) }
+            \(pad)                from: &reader, into: &sink, at: &path\(ctxArg)) { \(dict)[__dks\(i)_\(depth)] = \(elt) }
+            \(pad)            path.removeLast(2)
 
             """
         }
@@ -888,6 +914,7 @@ extension SchemaMacro {
         \(pad)    // was EMPTY at the top level -- worse than the missing element index
         \(pad)    // this change set out to fix, and found by a test written for that.
         \(pad)    reader.reportTypeMismatch(&sink, path + [.key("\(key)")], expected: "object")
+        \(pad)    _ = reader.skipValue(&sink)
         \(pad)}
 
         """

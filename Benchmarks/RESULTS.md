@@ -2435,3 +2435,16 @@ written. The ratchet failed `fields-2/encode` on it (+2,000 String retains) whil
 cell improved, and borrowing the storage instead fixed it. One `slow_alloc` more per call
 (not per element) on `values-long/encode` is the output buffer growing in a different
 sequence; total heap blocks there fell from 2,011 to 13.
+
+### Validate: a borrow that worked, and three that did not (2026-09-19)
+
+`FormatValidators.withBytes` copied each String to call `withUTF8`. Borrowing the storage
+instead gives **−14.2% instructions on `base/validate`** and 10,000 fewer retain/release
+pairs, across every validate cell and nothing else.
+
+The same idea failed three times on the two other copies, the element and the `Rule`.
+Array subscript, buffer subscript and `UnsafePointer.pointee` all counted exactly the same as
+iterating by value. The batch-loop variant also ADDED a retain per element, and together they
+made the net win smaller (−10.7%) than the one change alone. They were reverted on the counts.
+Worth carrying: in Swift, how you spell a read does not decide whether it copies. The
+optimiser decides, based on what it can prove about the memory across the call.

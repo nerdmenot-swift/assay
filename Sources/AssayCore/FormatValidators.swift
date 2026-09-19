@@ -60,6 +60,15 @@ public enum FormatValidators {
     /// the only `unsafe` in the file.
     @inline(__always)
     static func withBytes<R>(_ s: String, _ body: (Span<UInt8>) -> R) -> R {
+        // BORROWED when the String is native, which is always for a decoded one. The copy
+        // `withUTF8` needs cost a retain and a release per validated String — 10,000 of each
+        // per `base/validate` call (count.py explain, 2026-09-19) — and is kept only for a
+        // bridged String without contiguous UTF-8.
+        if let r = unsafe s.utf8.withContiguousStorageIfAvailable({ buffer in
+            body(unsafe Span(_unsafeElements: buffer))
+        }) {
+            return r
+        }
         var copy = s
         return copy.withUTF8 { buffer in body(unsafe Span(_unsafeElements: buffer)) }
     }

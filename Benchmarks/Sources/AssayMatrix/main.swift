@@ -180,6 +180,20 @@ if args.count >= 5, args[1] == "task" {
 if args.count >= 6, args[1] == "count" {
     runCount(shape: args[2], taskName: args[3], path: args[4], k: Int(args[5]) ?? 1)
 }
+// `AssayMatrix axes <dir>` — writes every scaling-axis fixture and prints one line per point,
+// `axis shape task size path`, for `count.py scale`.
+if args.count >= 3, args[1] == "axes" {
+    let out = URL(fileURLWithPath: args[2])
+    try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+    for axis in allAxes() {
+        for size in axis.sizes {
+            let path = out.appendingPathComponent("\(axis.name)-\(size).json")
+            try? Data(axis.build(size)).write(to: path)
+            for task in axis.tasks { say("\(axis.name) \(axis.shape) \(task) \(size) \(path.path)") }
+        }
+    }
+    exit(0)
+}
 // `AssayMatrix cells <dir>` — writes every fixture into `dir` and prints the applicable
 // cells, one `shape task` per line. The counting driver needs the grid without the timing
 // parent, and taking it from here keeps one definition of which cells exist.

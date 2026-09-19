@@ -9,6 +9,7 @@
 #   Benchmarks/count.sh                          # count every cell, compare to the baseline
 #   Benchmarks/count.sh --save                   # ...and overwrite the baseline
 #   Benchmarks/count.sh explain --cell base/struct --fn bridge_release
+#   Benchmarks/count.sh scale [--axes elements,depth]   # the linearity gate
 #
 # The container is aarch64 under Colima/Docker Desktop, so this produces the AARCH64
 # baseline. x86-64 comes from CI (.github/workflows/efficiency.yml), which uploads its
@@ -28,6 +29,7 @@ MODE=compare
 case "${1:-}" in
   --save) MODE=save; shift ;;
   explain) MODE=explain; shift ;;
+  scale) MODE=scale; shift ;;
 esac
 
 SUBSET=""
@@ -44,6 +46,7 @@ B=/build/release/AssayMatrix
 ARCH=\$(uname -m)
 case $MODE in
   explain) python3 count.py explain --binary \$B $* ;;
+  scale)   python3 count.py scale --binary \$B --jobs 2 $* ;;
   save)    python3 count.py run --binary \$B --out counts-baseline.\$ARCH.json --jobs 2 $* ;;
   compare) python3 count.py run --binary \$B --out /tmp/counts.json --jobs 2 $*
            python3 count.py compare --baseline counts-baseline.\$ARCH.json --current /tmp/counts.json $SUBSET ;;

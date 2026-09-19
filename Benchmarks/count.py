@@ -7,6 +7,7 @@
     count.py run     --binary AssayMatrix [--out counts.json] [--cells base/struct,...] [--jobs N]
     count.py compare --baseline counts-baseline.<arch>.json --current counts.json [--strict]
     count.py explain --binary AssayMatrix --cell base/struct [--fn swift_release] [--top 15]
+    count.py scale   --binary AssayMatrix [--axes elements,depth] [--out scale.json]
 
 WHY THIS EXISTS. CLAUDE.md forbids gating CI on wall clock and says package-benchmark's
 instruction counter silently reports zero on hosted runners (no PMU). Both are right, and
@@ -183,6 +184,110 @@ def cmd_run(a):
     return 1 if errors else 0
 
 
+def per_call(binary, shape, task, path, scratch, tag):
+    """Ir, heap bytes and heap blocks for ONE call, by the K_LO/K_HI difference."""
+    lo, out = run_callgrind(binary, shape, task, path, K_LO, os.path.join(scratch, tag + ".lo"))
+    if lo is None:
+        return None, out
+    hi, out = run_callgrind(binary, shape, task, path, K_HI, os.path.join(scratch, tag + ".hi"))
+    if hi is None:
+        return None, out
+    span = K_HI - K_LO
+    r = {"ir": (hi[0] - lo[0]) / span}
+    d_lo = run_dhat(binary, shape, task, path, K_LO)
+    d_hi = run_dhat(binary, shape, task, path, K_HI)
+    if d_lo and d_hi:
+        r["heap_bytes"] = (d_hi[0] - d_lo[0]) / span
+    return r, None
+
+
+def slope(points):
+    """(least-squares log-log slope, slope between the last two points)."""
+    import math
+    pts = [(math.log(x), math.log(y)) for x, y in points if y > 0]
+    if len(pts) < 2:
+        return None, None
+    mx = sum(p[0] for p in pts) / len(pts)
+    my = sum(p[1] for p in pts) / len(pts)
+    den = sum((p[0] - mx) ** 2 for p in pts)
+    fit = sum((p[0] - mx) * (p[1] - my) for p in pts) / den if den else None
+    tail = (pts[-1][1] - pts[-2][1]) / (pts[-1][0] - pts[-2][0])
+    return fit, tail
+
+
+# A slope, not a time: machine speed cancels, so the threshold is absolute. 1.10 admits a
+# linear cost plus a shrinking constant and refuses n log n at these sizes (whose tail slope
+# is ~1.14 from 1,000 to 2,000) as well as anything quadratic. Heap bytes below this many per
+# call are too small for a slope to mean anything and are reported but not gated.
+MAX_SLOPE = 1.10
+MIN_HEAP_FOR_SLOPE = 4096
+
+
+def cmd_scale(a):
+    fixtures = tempfile.mkdtemp(prefix="assay-axes-")
+    lines = subprocess.run([a.binary, "axes", fixtures], capture_output=True, text=True,
+                           check=True).stdout.splitlines()
+    points = [l.split() for l in lines if l.strip()]
+    if a.axes:
+        want = set(a.axes.split(","))
+        points = [p for p in points if p[0] in want]
+    scratch = tempfile.mkdtemp(prefix="assay-scale-")
+
+    def one(p):
+        axis, shape, task, size, path = p
+        r, err = per_call(a.binary, shape, task, path, scratch, f"{axis}.{task}.{size}")
+        return (axis, task, int(size)), r, err
+
+    series = collections.defaultdict(list)
+    errors = []
+    with ThreadPoolExecutor(max_workers=a.jobs) as pool:
+        for key, r, err in pool.map(one, points):
+            if r is None:
+                if "DECLINED" not in (err or ""):
+                    errors.append(f"{key}: {err}")
+                continue
+            series[(key[0], key[1])].append((key[2], r))
+
+    lines, fails, doc = [], [], {}
+    lines.append("### Scaling — cost against size, per call\n")
+    lines.append(f"Log-log slope of instructions and heap bytes over each axis. 1.0 is linear; "
+                 f"the gate is the TAIL slope (last two sizes) at {MAX_SLOPE}.\n")
+    lines.append("| axis | verb | sizes | Ir fit | Ir tail | heap fit | heap tail | |")
+    lines.append("|---|---|---|---:|---:|---:|---:|---|")
+    for (axis, task), pts in sorted(series.items()):
+        pts.sort()
+        ir_fit, ir_tail = slope([(x, r["ir"]) for x, r in pts])
+        heap = [(x, r.get("heap_bytes", 0)) for x, r in pts]
+        h_fit, h_tail = slope(heap)
+        heap_gated = heap[-1][1] >= MIN_HEAP_FOR_SLOPE
+        bad = (ir_tail is not None and ir_tail > MAX_SLOPE) or \
+              (heap_gated and h_tail is not None and h_tail > MAX_SLOPE)
+        if bad:
+            fails.append(f"{axis}/{task}")
+        f = lambda v: "—" if v is None else f"{v:.2f}"
+        lines.append(f"| {axis} | {task} | {pts[0][0]}–{pts[-1][0]} | {f(ir_fit)} | "
+                     f"{f(ir_tail)} | {f(h_fit)} | {f(h_tail) if heap_gated else '(small)'} | "
+                     f"{'FAIL' if bad else ''} |")
+        doc[f"{axis}/{task}"] = {"points": [{"size": x, **r} for x, r in pts],
+                                 "ir_slope": ir_fit, "ir_tail": ir_tail,
+                                 "heap_slope": h_fit, "heap_tail": h_tail}
+    if errors:
+        lines.append(f"\n**{len(errors)} point(s) failed to run:**")
+        lines += [f"- {e[:200]}" for e in errors]
+    if fails:
+        lines.append(f"\n**{len(fails)} series super-linear:** {', '.join(fails)}")
+    text = "\n".join(lines)
+    print(text)
+    if a.out:
+        with open(a.out, "w") as fh:
+            json.dump({"meta": {"arch": platform.machine(), "toolchain": toolchain()},
+                       "series": doc}, fh, indent=1, sort_keys=True)
+    if os.environ.get("GITHUB_STEP_SUMMARY"):
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as fh:
+            fh.write(text + "\n")
+    return 1 if fails or errors else 0
+
+
 def fmt(v):
     return f"{v:,.0f}" if abs(v) >= 100 else f"{v:,.1f}"
 
@@ -304,6 +409,11 @@ def main():
     c.add_argument("--strict", action="store_true")
     c.add_argument("--subset", action="store_true",
                    help="the current run counted only some cells (run --cells)")
+    sc = sub.add_parser("scale")
+    sc.add_argument("--binary", required=True)
+    sc.add_argument("--axes")
+    sc.add_argument("--out")
+    sc.add_argument("--jobs", type=int, default=os.cpu_count() or 1)
     e = sub.add_parser("explain")
     e.add_argument("--binary", required=True)
     e.add_argument("--cell", required=True)
@@ -311,7 +421,8 @@ def main():
                    help="a WATCH key (release, bridge_release, malloc, ...) or a symbol")
     e.add_argument("--top", type=int, default=15)
     a = p.parse_args()
-    return {"run": cmd_run, "compare": cmd_compare, "explain": cmd_explain}[a.cmd](a)
+    return {"run": cmd_run, "compare": cmd_compare, "explain": cmd_explain,
+            "scale": cmd_scale}[a.cmd](a)
 
 
 if __name__ == "__main__":

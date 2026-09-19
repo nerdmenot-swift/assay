@@ -52,12 +52,21 @@ jobs:
             echo "No $baseline yet: reporting only. Commit this run's artifact as the baseline." \
               | tee -a "$GITHUB_STEP_SUMMARY"
           fi
+      # Linearity: the log-log slope of cost against size on every axis in
+      # Benchmarks/Sources/AssayMatrix/Shapes.swift (`allAxes`). Absolute, so no baseline:
+      # a tail slope above 1.10 on instructions or heap bytes is super-linear and fails.
+      - name: Scaling gate
+        if: always()
+        working-directory: Benchmarks
+        run: python3 count.py scale --binary .build/release/AssayMatrix --out /tmp/scale.json
       - name: Keep the counts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: counts-${{ matrix.arch }}
-          path: /tmp/counts.json
+          path: |
+            /tmp/counts.json
+            /tmp/scale.json
 
   arc-audit:
     name: Static ARC audit

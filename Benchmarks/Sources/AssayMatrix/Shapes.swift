@@ -187,3 +187,89 @@ func allShapes() -> [Shape] {
 
     return out
 }
+
+// MARK: - Scaling axes
+//
+// A shape is one point. An AXIS is one property swept over four sizes, with everything else
+// held still, so the log-log slope of cost against size says whether a verb is linear in that
+// property — the question no single-size benchmark can answer, and the one the O(n²) `.trim`
+// and the Character-by-Character namespace lookup both got wrong without any benchmark
+// noticing. `Benchmarks/count.py scale` measures each point with Valgrind and gates the slope.
+//
+// Each axis borrows an existing shape's NAME for dispatch, because the decode type is chosen
+// by shape name (`Tasks.swift`), and a sweep must change the size and nothing else.
+
+struct Axis {
+    let name: String
+    /// The shape whose decode type this axis's documents fit.
+    let shape: String
+    let tasks: [String]
+    let sizes: [Int]
+    let build: (Int) -> [UInt8]
+}
+
+func allAxes() -> [Axis] {
+    let value: (Int) -> String = { "v\($0)" }
+    // The size ladders are ×2 over three steps where the size is an element count (8× total,
+    // enough to separate n from n log n from n²) and ×4 where it is a byte length, because a
+    // byte-length cost is small per byte and needs the wider range to rise above the constant.
+    let counts = [250, 500, 1_000, 2_000]
+    let lengths = [16, 64, 256, 1_024]
+    let fixed = 200
+    return [
+        Axis(name: "elements", shape: "base",
+             tasks: ["struct", "diagnose", "skip", "value", "raw", "encode", "validate"],
+             sizes: counts) { n in
+            document((0..<n).map { _ in stringElement(fields: 5, key: shortKey, value: value) })
+        },
+        Axis(name: "value-length", shape: "base",
+             tasks: ["struct", "skip", "value", "encode", "validate"], sizes: lengths) { len in
+            document((0..<fixed).map { _ in
+                stringElement(fields: 5, key: shortKey) { _ in String(repeating: "x", count: len) } })
+        },
+        // Escaped values take the slow path, which has its own buffer and its own loop.
+        Axis(name: "escaped-length", shape: "escapes-100", tasks: ["struct", "value"],
+             sizes: lengths) { len in
+            let v = String(repeating: "ab\n", count: max(1, len / 3))
+            return document((0..<fixed).map { _ in
+                stringElement(fields: 5, key: shortKey) { _ in v } })
+        },
+        // Undeclared keys: the structural skip must be linear in what it skips.
+        Axis(name: "unknown-key-length", shape: "unknown-5", tasks: ["struct", "skip", "value"],
+             sizes: lengths) { len in
+            document((0..<fixed).map { _ in
+                "{" + (0..<5).map { "\(quote(shortKey($0))):\(quote("v\($0)"))" }
+                    .joined(separator: ",") + ","
+                + (0..<5).map { "\(quote("u\($0)" + String(repeating: "k", count: len))):\"w\"" }
+                    .joined(separator: ",") + "}" })
+        },
+        Axis(name: "unknown-key-count", shape: "unknown-5", tasks: ["struct", "skip"],
+             sizes: [5, 10, 20, 40]) { k in
+            document((0..<fixed).map { _ in
+                "{" + (0..<5).map { "\(quote(shortKey($0))):\(quote("v\($0)"))" }
+                    .joined(separator: ",") + ","
+                + (0..<k).map { "\(quote("u\($0)")):\"w\"" }.joined(separator: ",") + "}" })
+        },
+        Axis(name: "array-length", shape: "array-10", tasks: ["struct", "value", "raw"],
+             sizes: [10, 40, 160, 640]) { len in
+            document((0..<fixed).map { _ in
+                "{\"f0\":\"v0\",\"f1\":\"v1\",\"f2\":\"v2\",\"f3\":\"v3\",\"tags\":["
+                + (0..<len).map { "\"t\($0)\"" }.joined(separator: ",") + "]}" })
+        },
+        // Depth stays under `Limits.maxDepth` (64) with the two wrapping levels.
+        Axis(name: "depth", shape: "base", tasks: ["value", "raw"], sizes: [7, 14, 28, 56]) { d in
+            document([String(repeating: "[", count: d) + "1" + String(repeating: "]", count: d)])
+        },
+        // One wide object: the generic tree's own per-member cost, with no struct to help.
+        Axis(name: "object-width", shape: "base", tasks: ["value", "raw"], sizes: counts) { n in
+            document(["{" + (0..<n).map { "\"k\($0)\":\($0)" }.joined(separator: ",") + "}"])
+        },
+        // Every element carries a type error. Past `maxIssues` the sink stops keeping them,
+        // and the decode must stay linear on both sides of that line.
+        Axis(name: "issues", shape: "errors-100", tasks: ["diagnose", "value"], sizes: counts) { n in
+            document((0..<n).map { _ in
+                "{\"f0\":123," + (1..<5).map { "\(quote(shortKey($0))):\(quote("v\($0)"))" }
+                    .joined(separator: ",") + "}" })
+        },
+    ]
+}

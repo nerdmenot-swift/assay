@@ -2355,3 +2355,27 @@ four releases per field. `count.py` now ignores calls whose caller is the runtim
 Also found: **`AssayMatrix` had never compiled on Linux.** Glibc's `stdout` is a mutable global
 that Swift 6 mode rejects, and `RUSAGE_SELF` imports as an enum there. Nothing had built it
 off a Mac until this needed to.
+
+## Scaling: is every verb linear? (2026-09-19)
+
+`Benchmarks/count.sh scale` (or `count.py scale` on Linux). Nine axes, each sweeping ONE
+property over four sizes with everything else held still, and the log-log slope of per-call
+instructions and heap bytes over them. The gate is the TAIL slope (last two sizes) at 1.10:
+that admits linear cost plus a shrinking constant, and refuses n log n at these sizes (tail
+≈1.14) as well as anything quadratic. It is absolute, so it needs no baseline.
+
+**All 28 series are linear** on aarch64 Linux. Instruction tail slopes run 0.69–1.07, and the
+steepest is `depth/value` at 1.07. Heap bytes are no steeper than instructions anywhere. The
+escaped-length heap slope is suspiciously flat at 0.05, and that is ledger row 6, not a
+finding.
+
+**Verified in both directions.** Inserting object members at the front instead of appending
+(a textbook quadratic) failed exactly `object-width/value` at 1.85, while `elements/value`
+and `object-width/raw` (whose tree is built in setup) stayed at 1.00. Reverting restored 1.02.
+
+The portable half is `Tests/AssayTests/ScalingTests.swift`: the same question as a
+wall-clock RATIO inside one process (8× input must cost < 16×, best-of-five interleaved), for
+JSON, YAML, XML and TOML, on every platform the suite runs, Windows included. It found a
+parser bug on its first run, unrelated to cost: YAML indentless block sequences (`items:\n- a`)
+are refused, and one form is silently mis-parsed. That is recorded in `ROADMAP.md` and pinned
+with `withKnownIssue`.

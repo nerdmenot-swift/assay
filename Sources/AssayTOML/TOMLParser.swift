@@ -79,7 +79,7 @@ extension TOML {
         }
         return withParser(bytes, &sink, limits, empty: .table([])) { parser, reader, sink in
             guard parser.parseBody(&reader, &sink) else { return nil }
-            return parser.finish(parser.root)
+            return parser.finish(0)
         }
     }
 
@@ -97,7 +97,7 @@ extension TOML {
         }
         return withParser(bytes, &sink, limits, empty: .mapping([])) { parser, reader, sink in
             guard parser.parseBody(&reader, &sink) else { return nil }
-            return parser.finishRaw(parser.root)
+            return parser.finishRaw(0)
         }
     }
 
@@ -127,10 +127,16 @@ extension TOML {
 
 extension TOML {
 
-    /// A table while the document is still being read. A class, because a dotted key or a
-    /// header reaches into the tree at an arbitrary depth and mutates one node; with value
-    /// types that is a path-copying write per line.
-    final class TableBuilder {
+    /// A table while the document is still being read.
+    ///
+    /// AN ARENA, NOT A CLASS. A dotted key or a header reaches into the tree at an arbitrary
+    /// depth and mutates one table, so tables are addressed by INDEX into the parser's
+    /// `tables` and mutated in place through it. They were a `final class` until
+    /// 2026-09-20, for the same reason, and every property access on a class instance is a
+    /// DYNAMIC exclusivity check: `swift_beginAccess`, its thread-local access set and the
+    /// matching end, about 15% of `base/toml` (callgrind), plus an object allocation per
+    /// table. Through the `inout` parser the checks are static and free.
+    struct TableBuilder {
         enum Origin {
             /// `[a]` — explicitly defined; a second header is an error.
             case header
@@ -147,15 +153,18 @@ extension TOML {
             var span: SourceSpan?
         }
 
-        var origin: Origin
         /// ONE array of slots. Until 2026-09-19 this was three parallel arrays (keys,
         /// entries, spans) and a `Dictionary` index, each growing on its own: about 29 heap
         /// blocks per five-key `[[items]]` record (count.py `base/toml`).
         var slots: [Slot] = []
-        /// Built only once a table outgrows `linearLimit`. Below that, a scan of a handful of
-        /// short keys is cheaper than hashing one, the same trade YAML's merge makes; above
-        /// it, lookups stay O(1), so a wide table is still linear to build.
-        var index: [String: Int]? = nil
+        var origin: Origin
+        /// Where this table's key index lives in `Parser.indexes`, or -1. The index is built
+        /// only once a table outgrows `linearLimit`: below that, a scan of a handful of short
+        /// keys is cheaper than hashing one, the same trade YAML's merge makes; above it,
+        /// lookups stay O(1), so a wide table is still linear to build. Out of line because
+        /// almost no table has one, and an inline `[String: Int]?` made every arena entry
+        /// half as large again (+1.5% to +4.3% heap bytes as the arena grew).
+        var indexID: Int32 = -1
         static var linearLimit: Int { 16 }
 
         /// `reserve` is shape memory: the size of the table the parser just left, which for
@@ -166,12 +175,45 @@ extension TOML {
             if reserve > 0 { slots.reserveCapacity(reserve) }
         }
 
-        func find(_ key: String) -> Int? {
-            if let index { return index[key] }
+    }
+
+    enum Entry {
+        /// A closed value: a scalar, a static array, or an inline table.
+        case value(Node)
+        /// An open table, reachable by later headers and dotted keys: its index in `tables`.
+        case table(Int)
+        /// `[[a]]` — headers append; `[a.b]` descends into the last. Its index in `arrays`.
+        case array(Int)
+    }
+
+    struct Parser {
+        let limits: Limits
+        /// Every table of the document, the root at index 0 (`TableBuilder`).
+        var tables: [TableBuilder] = [TableBuilder(origin: .header)]
+        /// Every `[[a]]`, each the list of its element tables' indices.
+        var arrays: [[Int]] = []
+        /// Key indexes for the tables that outgrew `TableBuilder.linearLimit`.
+        var indexes: [[String: Int]] = []
+        /// The table the current `key = value` lines land in; changed by each header.
+        var current = 0
+        /// `parseKeyPath`'s reused buffer.
+        var keyPathBuffer: [KeySegment] = []
+
+        init(limits: Limits) {
+            self.limits = limits
+        }
+
+        /// `TableBuilder.find`, reading the arena in place. Calling the method on
+        /// `tables[t]` took a mutable access to the element (a uniqueness check per lookup)
+        /// and copied the key it compared against.
+        func find(_ key: borrowing String, in t: Int) -> Int? {
+            let id = tables[t].indexID
+            if id >= 0 { return indexes[Int(id)][copy key] }
+            let n = tables[t].slots.count
             var i = 0
-            while i < slots.count {
-                if slots[i].key == key { return i }
-                i += 1
+            while i < n {
+                if tables[t].slots[i].key == key { return i }
+                i &+= 1
             }
             return nil
         }
@@ -179,47 +221,27 @@ extension TOML {
         @discardableResult
         /// `consuming`: the caller's key and entry MOVE into the slot. Borrowed parameters
         /// made every stored key and value a copy (count.py explain, 2026-09-19).
-        func add(_ key: consuming String, _ entry: consuming Entry, span: SourceSpan?) -> Int {
-            let i = slots.count
+        mutating func add(
+            _ key: consuming String, _ entry: consuming Entry, span: SourceSpan?, to t: Int
+        ) -> Int {
+            let i = tables[t].slots.count
+            let id = tables[t].indexID
             // The index takes its copy of the key BEFORE the slot takes the key itself.
-            if index != nil { index![copy key] = i }
-            slots.append(Slot(key: consume key, entry: consume entry, span: span))
-            if index == nil, slots.count > Self.linearLimit {
-                var built = [String: Int](minimumCapacity: slots.count * 2)
-                for (j, slot) in slots.enumerated() { built[slot.key] = j }
-                index = built
+            if id >= 0 { indexes[Int(id)][copy key] = i }
+            tables[t].slots.append(TableBuilder.Slot(key: consume key, entry: consume entry,
+                                                     span: span))
+            if id < 0, tables[t].slots.count > TableBuilder.linearLimit {
+                var built = [String: Int](minimumCapacity: tables[t].slots.count * 2)
+                for (j, slot) in tables[t].slots.enumerated() { built[slot.key] = j }
+                indexes.append(built)
+                tables[t].indexID = Int32(indexes.count &- 1)
             }
             return i
         }
-    }
 
-    /// `[[a]]` — a class for the same reason as `TableBuilder`: appending through an enum
-    /// payload copies the whole array each time, and 20,000 sections is a legal document.
-    final class ArrayBuilder {
-        var elements: [TableBuilder]
-        init(_ first: TableBuilder) { elements = [first] }
-    }
-
-    enum Entry {
-        /// A closed value: a scalar, a static array, or an inline table.
-        case value(Node)
-        /// An open table, reachable by later headers and dotted keys.
-        case table(TableBuilder)
-        /// `[[a]]` — headers append; `[a.b]` descends into the last.
-        case array(ArrayBuilder)
-    }
-
-    struct Parser {
-        let limits: Limits
-        let root = TableBuilder(origin: .header)
-        /// The table the current `key = value` lines land in; changed by each header.
-        var current: TableBuilder
-        /// `parseKeyPath`'s reused buffer.
-        var keyPathBuffer: [KeySegment] = []
-
-        init(limits: Limits) {
-            self.limits = limits
-            self.current = root
+        mutating func newTable(_ origin: TableBuilder.Origin, reserve: Int = 0) -> Int {
+            tables.append(TableBuilder(origin: origin, reserve: reserve))
+            return tables.count &- 1
         }
     }
 }
@@ -249,7 +271,7 @@ extension TOML.Parser {
         r.advanceBy(1)
         let isArray = r.currentByte == UInt8(ascii: "[")
         if isArray { r.advanceBy(1) }
-        guard let path = parseKeyPath(&r, &sink) else { return false }
+        guard var path = parseKeyPath(&r, &sink) else { return false }
         skipSpace(&r)
         guard r.currentByte == UInt8(ascii: "]") else {
             r.report(&sink, .tomlUnterminatedTableHeader)
@@ -269,8 +291,8 @@ extension TOML.Parser {
             return false
         }
         let span = SourceSpan(lo: headerStart, len: r.byteOffset - headerStart)
-        let defined = define(path: path, array: isArray, span: span,
-                             reserve: current.slots.count, &r, &sink)
+        let defined = define(path: &path, array: isArray, span: span,
+                             reserve: tables[current].slots.count, &r, &sink)
         keyPathBuffer = consume path
         guard let table = defined else { return false }
         current = table
@@ -279,7 +301,7 @@ extension TOML.Parser {
 
     /// `key = value`, into `table`. Also the body of an inline table.
     mutating func parseKeyValue(
-        _ r: inout AssayReader, _ sink: inout IssueSink, into table: TOML.TableBuilder
+        _ r: inout AssayReader, _ sink: inout IssueSink, into table: Int
     ) -> Bool {
         guard var path = parseKeyPath(&r, &sink) else { return false }
         skipSpace(&r)
@@ -305,46 +327,58 @@ extension TOML.Parser {
     // MARK: The two walks
 
     /// A header. Intermediates may be anything open; the last segment is defined here.
-    func define(
-        path: [KeySegment], array: Bool, span: SourceSpan, reserve: Int,
+    mutating func define(
+        path: inout [KeySegment], array: Bool, span: SourceSpan, reserve: Int,
         _ r: inout AssayReader, _ sink: inout IssueSink
-    ) -> TOML.TableBuilder? {
-        var table = root
+    ) -> Int? {
+        var table = 0
         for seg in path.dropLast() {
             guard let next = descend(table, seg, creating: .implicit, throughArrays: true, &r, &sink) else {
                 return nil
             }
             table = next
         }
-        let last = path[path.count - 1]
-        if let i = table.find(last.text) {
-            switch table.slots[i].entry {
-            case .table(let existing) where !array && existing.origin == .implicit:
-                existing.origin = .header
-                table.slots[i].span = span
+        // Moved out, as in `assign`.
+        var key = ""
+        var keySpan = SourceSpan(lo: 0, len: 0)
+        unsafe path.withUnsafeMutableBufferPointer {
+            unsafe swap(&key, &$0[$0.count - 1].text)
+            keySpan = unsafe $0[$0.count - 1].span
+        }
+        if let i = find(key, in: table) {
+            let entry = tables[table].slots[i].entry
+            switch entry {
+            case .table(let existing) where !array && tables[existing].origin == .implicit:
+                tables[existing].origin = .header
+                tables[table].slots[i].span = span
                 return existing
-            case .array(let elements) where array:
-                let element = TOML.TableBuilder(origin: .header, reserve: reserve)
-                elements.elements.append(element)
+            case .array(let a) where array:
+                let element = newTable(.header, reserve: reserve)
+                arrays[a].append(element)
                 return element
             case .table, .array:
-                r.report(&sink, .tomlRedefinedTable, params: ["key": .string(last.text)], span: last.span)
+                r.report(&sink, .tomlRedefinedTable, params: ["key": .string(key)], span: keySpan)
                 return nil
             case .value(let v):
-                r.report(&sink, closedCode(v), params: ["key": .string(last.text)], span: last.span)
+                r.report(&sink, closedCode(v), params: ["key": .string(key)], span: keySpan)
                 return nil
             }
         }
-        let element = TOML.TableBuilder(origin: .header, reserve: reserve)
-        table.add(last.text, array ? .array(TOML.ArrayBuilder(element)) : .table(element), span: span)
+        let element = newTable(.header, reserve: reserve)
+        if array {
+            arrays.append([element])
+            add(consume key, .array(arrays.count &- 1), span: span, to: table)
+        } else {
+            add(consume key, .table(element), span: span, to: table)
+        }
         return element
     }
 
     /// A `key = value` line. Intermediates may only be tables that dotted keys created,
     /// and the last segment must be new.
-    func assign(
+    mutating func assign(
         path: inout [KeySegment], value: consuming TOML.Node, span: SourceSpan,
-        into start: TOML.TableBuilder, _ r: inout AssayReader, _ sink: inout IssueSink
+        into start: Int, _ r: inout AssayReader, _ sink: inout IssueSink
     ) -> Bool {
         var table = start
         for seg in path.dropLast() {
@@ -353,42 +387,44 @@ extension TOML.Parser {
             }
             table = next
         }
-        let last = path[path.count - 1]
-        if table.find(last.text) != nil {
-            r.report(&sink, .duplicateKey, params: ["received": .string(last.text)], span: last.span)
-            return false
-        }
-        // The key MOVES into the slot: the path is this line's own, and the buffer it
-        // goes back to is cleared before its next use.
+        // The key MOVES out of the path first, and both the lookup and the slot use that:
+        // the path is this line's own, and the buffer it goes back to is cleared before its
+        // next use. Reading `path[last].text` for the lookup copied it.
         var key = ""
         unsafe path.withUnsafeMutableBufferPointer { unsafe swap(&key, &$0[$0.count - 1].text) }
-        table.add(consume key, .value(consume value), span: span)
+        if find(key, in: table) != nil {
+            r.report(&sink, .duplicateKey, params: ["received": .string(key)],
+                     span: path[path.count - 1].span)
+            return false
+        }
+        add(consume key, .value(consume value), span: span, to: table)
         return true
     }
 
     /// One intermediate step of either walk. `creating` is the origin a missing table
     /// gets; `throughArrays` is whether `[[a]]` may be stepped into (headers yes, dotted
     /// keys no — `a.b = 1` when `a` is an array of tables is an error).
-    func descend(
-        _ table: TOML.TableBuilder, _ seg: KeySegment, creating: TOML.TableBuilder.Origin,
+    mutating func descend(
+        _ table: Int, _ seg: KeySegment, creating: TOML.TableBuilder.Origin,
         throughArrays: Bool, _ r: inout AssayReader, _ sink: inout IssueSink
-    ) -> TOML.TableBuilder? {
-        guard let i = table.find(seg.text) else {
-            let child = TOML.TableBuilder(origin: creating)
-            table.add(seg.text, .table(child), span: nil)
+    ) -> Int? {
+        guard let i = find(seg.text, in: table) else {
+            let child = newTable(creating)
+            add(seg.text, .table(child), span: nil, to: table)
             return child
         }
-        switch table.slots[i].entry {
+        let entry = tables[table].slots[i].entry
+        switch entry {
         case .table(let child):
             // A header may pass through any open table. Dotted keys may only extend a
             // table that dotted keys made: `[a] b.c = 1` after `[a.b]` is an error.
-            if creating == .dotted, child.origin != .dotted {
+            if creating == .dotted, tables[child].origin != .dotted {
                 r.report(&sink, .tomlRedefinedTable, params: ["key": .string(seg.text)], span: seg.span)
                 return nil
             }
             return child
-        case .array(let elements) where throughArrays:
-            return elements.elements[elements.elements.count - 1]
+        case .array(let a) where throughArrays:
+            return arrays[a][arrays[a].count &- 1]
         case .array:
             r.report(&sink, .tomlNotATable, params: ["key": .string(seg.text)], span: seg.span)
             return nil
@@ -411,9 +447,9 @@ extension TOML.Parser {
     /// straight after, so each key and value MOVES into the node. Copying was a String
     /// retain per key and an outlined node copy per value (count.py explain, `base/toml`).
     /// `.value(.bool(false))` is the placeholder, trivial to destroy.
-    func finish(_ table: TOML.TableBuilder) -> TOML.Node {
+    mutating func finish(_ table: Int) -> TOML.Node {
         var slots: [TOML.TableBuilder.Slot] = []
-        swap(&slots, &table.slots)
+        swap(&slots, &tables[table].slots)
         let members = unsafe slots.withUnsafeMutableBufferPointer { src in
             unsafe [TOML.Member](unsafeUninitializedCapacity: src.count) { dst, count in
                 for i in src.indices {
@@ -425,7 +461,9 @@ extension TOML.Parser {
                     switch consume entry {
                     case .value(let v): value = v
                     case .table(let t): value = finish(t)
-                    case .array(let ts): value = .array(ts.elements.map(finish))
+                    // The index list is copied out first: `finish` mutates `self`, which a
+                    // closure over `arrays[a]` would still be reading.
+                    case .array(let a): let ts = arrays[a]; value = .array(ts.map { finish($0) })
                     }
                     unsafe (dst.baseAddress! + i).initialize(
                         to: TOML.Member(key: consume key, value: value, span: src[i].span))
@@ -438,9 +476,9 @@ extension TOML.Parser {
 
     /// `finish`, producing the `RawValue` projection directly: the same drain, the same
     /// placeholders, with `RawValue(consuming:)` for the closed values.
-    func finishRaw(_ table: TOML.TableBuilder) -> RawValue {
+    mutating func finishRaw(_ table: Int) -> RawValue {
         var slots: [TOML.TableBuilder.Slot] = []
-        swap(&slots, &table.slots)
+        swap(&slots, &tables[table].slots)
         let members = unsafe slots.withUnsafeMutableBufferPointer { src in
             unsafe [RawValue.Member](unsafeUninitializedCapacity: src.count) { dst, count in
                 for i in src.indices {
@@ -455,7 +493,7 @@ extension TOML.Parser {
                     switch consume entry {
                     case .value(let v): closed = v; value = .null
                     case .table(let t): value = finishRaw(t)
-                    case .array(let ts): value = .sequence(ts.elements.map(finishRaw))
+                    case .array(let a): let ts = arrays[a]; value = .sequence(ts.map { finishRaw($0) })
                     }
                     var moved = value
                     if let v = closed.take() { moved = RawValue(consuming: consume v) }

@@ -89,7 +89,7 @@ extension TOML.Parser {
         guard r.enterContainer(&sink) else { return nil }
         defer { r.leaveContainer() }
         r.advanceBy(1)
-        let table = TOML.TableBuilder(origin: .header)
+        let table = newTable(.header)
         skipSpace(&r)
         if r.currentByte == UInt8(ascii: "}") { r.advanceBy(1); return .table([]) }
         while true {

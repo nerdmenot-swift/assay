@@ -141,17 +141,43 @@ public struct JSONWriter: ~Copyable {
         needsComma = true
     }
 
+    /// RUNS, not bytes. Until 2026-09-19 this appended one byte at a time, and every
+    /// `Array.append` re-checks that the buffer is uniquely referenced: `count.py` measured
+    /// 90,008 uniqueness checks per `base/encode` call in this function alone, about 4.5 per
+    /// string written. Now the bytes between two characters that need escaping go in with one
+    /// `append(contentsOf:)`, which for real payload text is the whole string.
     @inlinable
     mutating func writeStringBody(_ v: String) {
         byte(0x22)
-        for c in v.utf8 {
-            if c < 0x20 || c == 0x22 || c == 0x5C {
-                writeEscaped(c)
-            } else {
-                out.append(c)
-            }
+        // BORROWED, not copied. `var v = v; v.withUTF8` did the same job and cost a String
+        // retain per string written (count.py: +2,000 per call on fields-2/encode). A native
+        // String always has contiguous UTF-8, so the copy is only for a bridged one.
+        let borrowed: Void? = unsafe v.utf8.withContiguousStorageIfAvailable { unsafe appendEscaping($0) }
+        if borrowed == nil {
+            var copy = v
+            copy.withUTF8 { unsafe appendEscaping($0) }
         }
         byte(0x22)
+    }
+
+    @inlinable
+    mutating func appendEscaping(_ bytes: UnsafeBufferPointer<UInt8>) {
+        var run = 0
+        var i = 0
+        while i < bytes.count {
+            let c = unsafe bytes[i]
+            if c < 0x20 || c == 0x22 || c == 0x5C {
+                if i > run {
+                    unsafe out.append(contentsOf: UnsafeBufferPointer(rebasing: bytes[run..<i]))
+                }
+                writeEscaped(c)
+                run = i &+ 1
+            }
+            i &+= 1
+        }
+        if run < bytes.count {
+            unsafe out.append(contentsOf: UnsafeBufferPointer(rebasing: bytes[run...]))
+        }
     }
 
     /// The six escapes JSON names, and `\u00XX` for every other control byte. Cold: real

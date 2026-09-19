@@ -2415,3 +2415,23 @@ straight into the String's storage above. Per call, old → new, nothing else in
 `escapes-100/struct` is now byte-for-byte what `base/struct` costs. The new `escaped-elements`
 axis measured heap slope 2.00 before and 0.99 after, and it is in the gate, so this cannot
 come back unnoticed.
+
+### Encode: one path per array, strings in runs (2026-09-19)
+
+Two causes, both found with `count.py explain`. An array of nested schemas was encoded at
+`path + [.key(k)]` inside the loop, one heap allocation per element and no index in the path.
+And `JSONWriter.writeStringBody` appended one byte at a time, re-checking buffer uniqueness
+on every byte. Per call, old → new; no decode, validate or value cell moved:
+
+| cell | instructions | heap blocks | heap bytes |
+|---|---|---|---|
+| base/encode | −34% | 2,009 → 11 | −30% |
+| fields-2/encode | −50% | 2,008 → 10 | −46% |
+| values-long/encode | −66% | 2,011 → 13 | −10% |
+| escapes-100/encode | −41% | 2,010 → 12 | −18% |
+
+The first version of the string fix copied each String to call `withUTF8`, one retain per string
+written. The ratchet failed `fields-2/encode` on it (+2,000 String retains) while every other
+cell improved, and borrowing the storage instead fixed it. One `slow_alloc` more per call
+(not per element) on `values-long/encode` is the output buffer growing in a different
+sequence; total heap blocks there fell from 2,011 to 13.

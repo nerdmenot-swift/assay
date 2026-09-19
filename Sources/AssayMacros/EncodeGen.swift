@@ -197,7 +197,10 @@ extension SchemaMacro {
 
     /// The expression that writes one non-optional value of `type`.
     static func writeCall(
-        _ type: String, _ expr: String, key: String, index i: Int, indent: Int
+        _ type: String, _ expr: String, key: String, index i: Int, indent: Int,
+        /// The path a NESTED schema value is encoded at, when the caller has one ready —
+        /// an array element's `__ep` below. nil means `path + [.key(key)]`.
+        nestedPath: String? = nil
     ) -> String {
         let pad = String(repeating: " ", count: indent)
 
@@ -210,10 +213,35 @@ extension SchemaMacro {
             return "\(pad)w.writeDate(\(expr).timeIntervalSince1970, \(dateFormatsExpr(i)), &sink, path, \"\(key)\")"
         }
         if let element = arrayElement(type) {
+            // ONE PATH PER ARRAY, rewritten in place — the decode side's 2026-09-13 fix,
+            // which this side never got. Until 2026-09-19 a nested-schema element was encoded
+            // `at: path + [.key(k)]` INSIDE the loop: one heap allocation per element (2,000
+            // per `base/encode` call, all of its per-element blocks), and no `.index(n)`, so
+            // an issue in element 7 was reported at `items` rather than `items[7]`. The path
+            // is read only when something fails; rewriting its last component keeps the
+            // buffer uniquely referenced, so the happy path copies nothing.
+            let ep = "__ep\(i)_\(indent)", n = "__en\(i)_\(indent)"
+            let body = writeCall(element, "__a\(i)", key: key, index: i, indent: indent + 4,
+                                 nestedPath: ep)
+            guard body.containsSubstring(ep) else {
+                return """
+                \(pad)w.beginArray()
+                \(pad)for __a\(i) in \(expr) {
+                \(body)
+                \(pad)}
+                \(pad)w.endArray()
+                """
+            }
             return """
             \(pad)w.beginArray()
+            \(pad)var \(ep) = path
+            \(pad)\(ep).append(.key("\(key)"))
+            \(pad)\(ep).append(.index(0))
+            \(pad)var \(n) = 0
             \(pad)for __a\(i) in \(expr) {
-            \(writeCall(element, "__a\(i)", key: key, index: i, indent: indent + 4))
+            \(pad)    \(ep)[\(ep).count &- 1] = .index(\(n))
+            \(pad)    \(n) &+= 1
+            \(body)
             \(pad)}
             \(pad)w.endArray()
             """
@@ -243,7 +271,7 @@ extension SchemaMacro {
         default:
             // A nested @Schema type. Its own `encodes: true` is enforced by the compiler:
             // without it there is no `_assayEncode` to call, and the error names the type.
-            return "\(pad)\(expr)._assayEncode(into: &w, into: &sink, at: path + [.key(\"\(key)\")])"
+            return "\(pad)\(expr)._assayEncode(into: &w, into: &sink, at: \(nestedPath ?? "path + [.key(\"\(key)\")]"))"
         }
     }
 

@@ -62,6 +62,9 @@ struct EncFloat: Equatable {
     var value: Double
 }
 
+@Schema(encodes: true)
+struct EncFloatList: Equatable { var items: [EncFloat] }
+
 @Suite("Encoding")
 struct EncodingTests {
 
@@ -168,6 +171,20 @@ struct EncodingTests {
             // Partial output is still handed back — the point of diagnoseEncode.
             #expect(!d.bytes.isEmpty)
         }
+    }
+
+    @Test("an issue inside an array element names the element's index")
+    func arrayElementPath() {
+        // Until 2026-09-19 a nested-schema array element was encoded at `path + [.key(k)]`
+        // with no index, so this reported `items.value`. It also allocated that path once
+        // per element; the fix builds one path per array and rewrites its last component.
+        let v = EncFloatList(items: [EncFloat(value: 1), EncFloat(value: 2),
+                                     EncFloat(value: .nan), EncFloat(value: 4)])
+        let d = v.diagnoseEncodeJSON()
+        #expect(d.issues.map(\.path.pathDescription) == ["items[2].value"])
+        // And a clean array reports nothing and round-trips.
+        let clean = EncFloatList(items: [EncFloat(value: 1), EncFloat(value: 2)])
+        #expect(clean.diagnoseEncodeJSON().isValid)
     }
 
     @Test("encode throws with every issue, and renders through the same renderers")

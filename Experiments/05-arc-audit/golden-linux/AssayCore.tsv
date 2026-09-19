@@ -111,8 +111,8 @@ JSONWriter.write(_:_:_:_:)	retain	10
 JSONWriter.writeDate(_:_:_:_:_:)	release	1
 JSONWriter.writeEscaped(_:)	release	1
 JSONWriter.writeInteger(_:)	release	2
-JSONWriter.writeStringBody(_:)	release	1
-JSONWriter.writeStringBody(_:)	retain	1
+JSONWriter.writeStringBody(_:)	release	3
+JSONWriter.writeStringBody(_:)	retain	2
 JSONWriter.writeUnsignedInteger(_:)	release	2
 NegotiationFailure.issue.getter	release	3
 NegotiationFailure.issue.getter	retain	7

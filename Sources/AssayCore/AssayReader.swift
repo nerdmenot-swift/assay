@@ -572,6 +572,17 @@ extension AssayReader {
         return i >= 0 && i < count ? unsafe base[i] : nil
     }
 
+    /// Bytes between the cursor and the previous newline (or the start): the cursor's
+    /// column, for indentation-sensitive formats. Unchecked: `i` stays in `1...cursor`. The
+    /// YAML parser asked this through `byte(absolute:)`, a bounds check and an Optional per
+    /// byte, and it was 7% of `base/yaml` (callgrind, 2026-09-20).
+    @inlinable
+    public func _columnSinceNewline() -> Int {
+        var i = cursor
+        while i > 0, unsafe base[i &- 1] != 0x0A { i &-= 1 }
+        return cursor &- i
+    }
+
     /// Absolute byte, or nil.
     @inlinable
     public func byte(absolute i: Int) -> UInt8? {

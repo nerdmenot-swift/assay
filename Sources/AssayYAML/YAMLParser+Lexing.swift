@@ -18,13 +18,7 @@ extension YAML.Parser {
     }
 
     func currentColumn(_ r: inout AssayReader) -> Int {
-        var i = r.byteOffset
-        var column = 0
-        while i > 0, r.byte(absolute: i - 1) != 0x0A {
-            i -= 1
-            column += 1
-        }
-        return column
+        r._columnSinceNewline()
     }
 
     mutating func skipInlineSpace(_ r: inout AssayReader) {

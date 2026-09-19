@@ -140,6 +140,13 @@ def count_cell(binary, fixtures, shape, task, scratch):
     if d_lo and d_hi:
         cell["heap_bytes"] = (d_hi[0] - d_lo[0]) / span
         cell["heap_blocks"] = (d_hi[1] - d_lo[1]) / span
+    # The floor: the least heap the RESULT can occupy (Floors.swift). Computed natively, not
+    # under Valgrind — it is arithmetic over a decoded value, not a measurement. Reported
+    # beside the measured heap and never gated: it says how much is LEFT, not what moved.
+    fl = subprocess.run([binary, "floor", shape, task, path], capture_output=True, text=True)
+    m = re.search(r"FLOOR blocks=(\d+) bytes=(\d+)", fl.stdout)
+    if m:
+        cell["floor_blocks"], cell["floor_bytes"] = int(m.group(1)), int(m.group(2))
     return cell
 
 
@@ -172,7 +179,8 @@ def cmd_run(a):
                     f"ERROR {cell['error']}" if "error" in cell else
                     f"{cell['ir'] / cell['elements']:.0f} Ir/elem  "
                     f"{cell['release'] + cell['bridge_release']:.0f} releases  "
-                    f"{cell.get('heap_blocks', 0):.0f} blocks")
+                    f"{cell.get('heap_blocks', 0):.0f} blocks"
+                    + (f" (floor {cell['floor_blocks']})" if "floor_blocks" in cell else ""))
             print(f"[{i:3d}/{len(cells)}] {name:28s} {note}", flush=True)
     doc = {"meta": {"arch": platform.machine(), "toolchain": toolchain(),
                     "k": [K_LO, K_HI], "unit": "per call of the verb"},

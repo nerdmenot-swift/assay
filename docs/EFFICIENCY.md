@@ -38,6 +38,26 @@ Out of scope by construction:
 - **Async in the decode path.** CLAUDE.md rule 7 keeps decode synchronous for the
   `swifterror` register, and async stays in `@AsyncCheck`.
 
+## Floors
+
+Each cell's heap is set against the least its RESULT can occupy (`Floors.swift`): one block
+per non-empty array and per String over 15 bytes, and nothing for anything stored inline.
+Measured ÷ floor, blocks and bytes, per call on 2,000 elements (aarch64, 2026-09-19):
+
+| cell | blocks | bytes | reading |
+|---|---:|---:|---|
+| values-long/struct | 1.00× | 1.27× | at the floor; bytes are malloc rounding plus array growth |
+| values-date/struct | 1.00× | 1.40× | at the floor |
+| base/struct, and most struct cells | 14× | 2.05× | array growth (row 2) |
+| array-10/struct | 5.0× | 3.04× | inner arrays grow too (row 2) |
+| nested-3/struct | 4,014× | 4.72× | two blocks per element (row 7) |
+| base/encode | 2,009× | 3.59× | a block per element (row 8) |
+| escapes-10/struct | 1,014× | **282×** | the escape path's reservation (row 6) |
+| escapes-100/struct | 10,019× | **1,986×** | the same, per escaped value |
+
+`validate` has a floor of zero and allocates one 56-byte block per call. Blocks against a
+floor of 1 read as huge ratios; the bytes column is the one to rank by.
+
 ## The ledger
 
 Numbers are per call of the verb on a 2,000-element fixture, from
@@ -47,8 +67,10 @@ its experiment is run, then **kept** or **reverted** with the counts that decide
 | # | observation | hypothesis | predicted counter change | status |
 |---|---|---|---|---|
 | 1 | `base/struct`: 10,000 `swift_bridgeObjectRelease` calls inside `AssayReader.scanString()`, one per decoded String field; `values-int` has none. Forcing every string to the heap made it DISAPPEAR (20,002 → 14,002), and `values-long` shows the same — so it is on the SMALL-string path only | a temporary created and released on the small-string branch of `String(unsafeUninitializedCapacity:)` | −1 bridge release per String field, −10,000 on `base/struct` | open |
-| 2 | `base/struct`: 14 heap blocks for a 2,000-element top-level array, 12 of them `_consumeAndCreateNew` reallocations | the top-level array grows by doubling because nothing sizes it; the floor is ~2 blocks | fewer blocks and copied bytes; needs an element-count estimate that costs less than it saves | open |
+| 2 | FLOORS: every Array grows by doubling. The top-level 2,000-element array costs 14 blocks against a floor of 1 (12 `_consumeAndCreateNew` reallocations), which is the 2.05× on bytes nearly every struct cell shows; each 10-element inner array in `array-10` costs 5 blocks against 1 | nothing sizes an array before filling it. Inner arrays are the cheap case: the element count can be counted with the structural skip before decoding, or grown from a small reserved capacity. The top-level one needs an estimate that costs less than it saves | `array-10`: 5 → ~1 block per element; struct cells from 2.05× toward ~1.1× bytes | open |
 | 3 | ARC audit: the generated `M20._assay` holds 462 release sites against `M5`'s 46 (9 per field at 5 fields, 23 at 20) | every throwing exit destroys every live `__fN: String?` local, so sites grow ~fields² | fewer sites, smaller generated functions; no runtime change expected (the sites are on error paths) | open |
 | 4 | `base/validate`: 30,000 `swift_bridgeObjectRetain` and 30,000 releases per call, 3 of each per String field, for one allocated block | the rule engine copies String values it could borrow; `borrowing` parameters on the rule entry points should remove the pairs | −30,000 retains and −30,000 releases on `base/validate`, no block change | open |
 | 5 | `base/encode`: 106,011 `swift_isUniquelyReferenced` calls per call, 53 per element (`base/struct` does 2) | the writer appends to its `[UInt8]` in small pieces and every append re-checks uniqueness; a reserved buffer written through one `withUnsafeMutableBufferPointer`-style scope would check once per document | uniqueness checks from ~53 to ~0 per element; instructions down | open |
-| 6 | `count.py scale`: on the `escaped-length` axis, heap bytes barely grow (tail slope 0.05) while instructions grow linearly (0.90). Decoded escaped values of ~700 bytes cannot be small strings, so heap bytes should rise roughly with length | either the fixture is not what it looks like, or the escape slow path allocates in a way whose size does not follow the output. Verify before believing either | a first step: `count.py explain` on `escapes-100`-shaped points at two lengths, `--fn malloc` | open |
+| 6 | FLOORS: escaped strings allocate **282× the floor at 10% escaped values and 1,986× at 100%**: 318 MB of heap per call on a ~100 kB document. It is also why escaped-length heap bytes looked flat | `scanStringSlow` reserves `(count - start) & 0xFFFF`, the REST OF THE DOCUMENT masked to 16 bits, not the string's own length, so every escaped value reserves up to 64 kB. Find the closing quote first and decode into exactly that many bytes, on the stack when it fits under 1,024 | escapes-100: ~10,000 blocks and 318 MB → the floor (1 block for the array plus the long strings); a new axis, escaped strings × element count, fails before and passes after | **next** |
+| 7 | FLOORS: `nested-3/struct` allocates 4,014 blocks against a floor of 1 — two per element, for nested structs that live inline | something in the nested decode path boxes or builds a per-element array (a diagnostic path, as in the three earlier cases of that mistake?) — `count.py explain --fn alloc_object` first | −4,000 blocks | open |
+| 8 | FLOORS: `encode` allocates ~1 block per element (2,009 for 2,000) against a floor of 1 output buffer | a per-element temporary in the generated encode body or the writer; likely the same root as row 5 | −2,000 blocks; bytes toward ~1.1× | open |

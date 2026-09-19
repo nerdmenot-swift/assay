@@ -180,6 +180,17 @@ if args.count >= 5, args[1] == "task" {
 if args.count >= 6, args[1] == "count" {
     runCount(shape: args[2], taskName: args[3], path: args[4], k: Int(args[5]) ?? 1)
 }
+// `AssayMatrix floor <shape> <task> <path>` — the least heap the verb's result can occupy
+// (Floors.swift), for `count.py` to set the measured heap against.
+if args.count >= 5, args[1] == "floor" {
+    guard let data = FileManager.default.contents(atPath: args[4]) else { exit(2) }
+    if let f = floor(shape: args[2], task: args[3], bytes: [UInt8](data)) {
+        say("FLOOR blocks=\(f.blocks) bytes=\(f.bytes)")
+    } else {
+        say("NOFLOOR")
+    }
+    exit(0)
+}
 // `AssayMatrix axes <dir>` — writes every scaling-axis fixture and prints one line per point,
 // `axis shape task size path`, for `count.py scale`.
 if args.count >= 3, args[1] == "axes" {

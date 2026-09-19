@@ -2379,3 +2379,22 @@ JSON, YAML, XML and TOML, on every platform the suite runs, Windows included. It
 parser bug on its first run, unrelated to cost: YAML indentless block sequences (`items:\n- a`)
 were refused, and one form was silently mis-parsed. Fixed the same day and checked against
 the Yams/libyaml oracle on nine new corpus documents; `ROADMAP.md` has the record.
+
+## Floors: how much is left (2026-09-19)
+
+`count.py` now sets each cell's measured heap against the least its RESULT can occupy
+(`Benchmarks/Sources/AssayMatrix/Floors.swift`): one block per non-empty array and per String
+over 15 bytes, walked from the decoded value with `Mirror`. It is reported, never gated. It
+answers the question no comparison with another library can, which is how much is left.
+
+Most struct cells sit at **2.05× bytes, 14 blocks against 1**. That is array growth, one
+reallocation per doubling. `values-long` is at the block floor exactly (1.00×). The outlier is
+the escape path: **282× the floor at 10% escaped values, 1,986× at 100%, 318 MB of heap per
+call** on a ~100 kB document. `scanStringSlow` reserves the rest of the DOCUMENT (masked to 16
+bits) for every escaped string, rather than the string's own length. The linearity gate did
+not see it: its escaped-length axis used a small document, and no axis grew the element count
+with escapes. Ledger row 6 has the fix. Full table: `docs/EFFICIENCY.md`, "Floors".
+
+Not done, and stated so: Step 5 of the plan also proposed Cachegrind data reads per input byte
+to catch hidden second passes. Instructions per input byte catch the same class far more
+cheaply, and cache simulation multiplies Valgrind's run time, so it was dropped.

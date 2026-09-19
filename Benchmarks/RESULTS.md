@@ -2377,5 +2377,5 @@ The portable half is `Tests/AssayTests/ScalingTests.swift`: the same question as
 wall-clock RATIO inside one process (8× input must cost < 16×, best-of-five interleaved), for
 JSON, YAML, XML and TOML, on every platform the suite runs, Windows included. It found a
 parser bug on its first run, unrelated to cost: YAML indentless block sequences (`items:\n- a`)
-are refused, and one form is silently mis-parsed. That is recorded in `ROADMAP.md` and pinned
-with `withKnownIssue`.
+were refused, and one form was silently mis-parsed. Fixed the same day and checked against
+the Yams/libyaml oracle on nine new corpus documents; `ROADMAP.md` has the record.

@@ -7,39 +7,38 @@ import Assay
 import AssayYAML
 
 //===----------------------------------------------------------------------===//
-// KNOWN BUG, pinned rather than fixed: the INDENTLESS block sequence.
-//
-// YAML lets a block sequence that is a mapping's value sit at the SAME indentation as its key:
+// The INDENTLESS block sequence: a mapping value's sequence at the KEY's indentation.
 //
 //     items:
 //     - a
 //     - b
 //
-// That is valid YAML 1.2, and it is how Kubernetes manifests, GitHub Actions workflows and
-// docker-compose files are commonly written. Assay's parser only accepts the sequence
-// indented under the key. Found 2026-09-19 by the portable scaling test, whose YAML fixture
-// used this form; the Yams differential never caught it because the corpus never uses it.
-//
-// Two failure modes, and the second is the serious one:
-//   * `items:\n- a\n- b\n` and `items:\n- name: x\n  n: 0\n` are REJECTED — loud, and a user
-//     can work around it by indenting.
-//   * `items:\n- name: x\n` is ACCEPTED AND WRONG: it parses as `{items: "", "- name": "x"}`.
-//     A decode against a schema then reports `items` as the wrong type rather than the
-//     document as malformed, which points the user at the wrong line.
-//
-// `withKnownIssue` keeps both visible: the suite passes today, and the moment the parser
-// accepts these correctly the known issue stops occurring and the test FAILS, asking for
-// this wrapper to be removed.
+// Valid YAML 1.2 (§8.2.1), and how Kubernetes manifests, GitHub Actions workflows and
+// docker-compose files are commonly written. Found 2026-09-19 by the portable scaling test,
+// whose fixture used this form, and fixed the same day. Until then two things were wrong,
+// and the second was the serious one:
+//   * `items:\n- a\n- b\n` and `items:\n- name: x\n  n: 0\n` were REFUSED;
+//   * `items:\n- name: x\n` was ACCEPTED AND WRONG, as `{items: "", "- name": "x"}` — the dash
+//     line went back to the mapping loop as a KEY, and a schema then reported `items` as
+//     the wrong type rather than the document as malformed.
+// The Yams differential never caught it because its corpus never used the form; it does
+// now (`indentless-*` in Benchmarks/Sources/DiffFuzz/OracleCorpus.swift).
 //===----------------------------------------------------------------------===//
 
 @Schema(formats: .all) struct IndentlessDoc: Equatable { var items: [String] }
 @Schema(formats: .all) struct IndentlessRow: Equatable { var name: String }
 @Schema(formats: .all) struct IndentlessRows: Equatable { var items: [IndentlessRow] }
+@Schema(formats: .all) struct IndentlessTwo: Equatable { var items: [String]; var copy: [String] }
+@Schema(formats: .all) struct IndentlessNext: Equatable { var items: [String]; var next: Int }
+@Schema(formats: .all) struct K8sPort: Equatable { var containerPort: Int }
+@Schema(formats: .all) struct K8sContainer: Equatable { var name: String; var ports: [K8sPort] = [] }
+@Schema(formats: .all) struct K8sSpec: Equatable { var containers: [K8sContainer] }
+@Schema(formats: .all) struct K8sPod: Equatable { var spec: K8sSpec }
 
-@Suite("YAML — indentless block sequences (known bug)")
+@Suite("YAML — indentless block sequences")
 struct YAMLIndentlessSequenceTests {
 
-    @Test("the indented form decodes, which is what the known issue is measured against")
+    @Test("the indented form decodes, as it always did")
     func indentedWorks() throws {
         #expect(try IndentlessDoc.parse(yaml: "items:\n  - a\n  - b\n") ==
                 IndentlessDoc(items: ["a", "b"]))
@@ -48,27 +47,56 @@ struct YAMLIndentlessSequenceTests {
     }
 
     @Test("a sequence of scalars at the key's indentation")
-    func scalars() {
-        withKnownIssue("indentless block sequences are not parsed — see file header") { () throws in
-            #expect(try IndentlessDoc.parse(yaml: "items:\n- a\n- b\n") ==
-                    IndentlessDoc(items: ["a", "b"]))
-        }
+    func scalars() throws {
+        #expect(try IndentlessDoc.parse(yaml: "items:\n- a\n- b\n") ==
+                IndentlessDoc(items: ["a", "b"]))
     }
 
     @Test("a sequence of mappings at the key's indentation")
-    func mappings() {
-        withKnownIssue("indentless block sequences are not parsed — see file header") { () throws in
-            #expect(try IndentlessRows.parse(yaml: "items:\n- name: x\n- name: y\n") ==
-                    IndentlessRows(items: [IndentlessRow(name: "x"), IndentlessRow(name: "y")]))
-        }
+    func mappings() throws {
+        #expect(try IndentlessRows.parse(yaml: "items:\n- name: x\n- name: y\n") ==
+                IndentlessRows(items: [IndentlessRow(name: "x"), IndentlessRow(name: "y")]))
     }
 
-    @Test("the one-entry form is accepted and MIS-PARSED, not refused")
+    @Test("the one-entry form, which was silently mis-parsed, has one key")
     func silentMisparse() throws {
-        withKnownIssue("parses as {items: \"\", \"- name\": \"x\"} — see file header") { () throws in
-            let node = try YAML.parse(Array("items:\n- name: x\n".utf8))
-            guard case .mapping(let pairs) = node else { Issue.record("not a mapping"); return }
-            #expect(pairs.count == 1, "\(pairs.map(\.key))")
+        let node = try YAML.parse(Array("items:\n- name: x\n".utf8))
+        guard case .mapping(let pairs) = node else { Issue.record("not a mapping"); return }
+        #expect(pairs.count == 1, "\(pairs.map(\.key))")
+        guard case .sequence(let xs)? = pairs.first?.value else {
+            Issue.record("items is not a sequence"); return
         }
+        #expect(xs.count == 1)
+    }
+
+    @Test("the sequence ends at the next key, and an anchor on the key covers it")
+    func boundaries() throws {
+        #expect(try IndentlessTwo.parse(yaml: "items: &l\n- a\n- b\ncopy: *l\n") ==
+                IndentlessTwo(items: ["a", "b"], copy: ["a", "b"]))
+        #expect(try IndentlessNext.parse(yaml: "items:\n# note\n- a\nnext: 1\n") ==
+                IndentlessNext(items: ["a"], next: 1))
+    }
+
+    @Test("a Kubernetes-shaped document: indentless at two levels")
+    func kubernetesShape() throws {
+        let pod = try K8sPod.parse(yaml: """
+            spec:
+              containers:
+              - name: web
+                ports:
+                - containerPort: 80
+              - name: side
+            """)
+        #expect(pod.spec.containers == [
+            K8sContainer(name: "web", ports: [K8sPort(containerPort: 80)]),
+            K8sContainer(name: "side"),
+        ])
+    }
+
+    @Test("a mapping at the key's column is still a sibling, not a value")
+    func siblingNotValue() throws {
+        let node = try YAML.parse(Array("a:\nb: 1\n".utf8))
+        guard case .mapping(let pairs) = node else { Issue.record("not a mapping"); return }
+        #expect(pairs.count == 2)
     }
 }

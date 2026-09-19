@@ -55,10 +55,10 @@ struct ScalingTests {
                 "{\"name\":\"\(v)\",\"n\":\($0),\"tags\":[\"a\",\"b\"]}" }
                 .joined(separator: ",") + "]}"
         case .yaml:
-            // Indented under the key: the indentless form is a known parser bug
-            // (YAMLIndentlessSequenceTests) and this test is about cost, not that.
+            // Indentless, the way most real YAML is written. This fixture found that the
+            // parser refused the form (fixed 2026-09-19, YAMLIndentlessSequenceTests).
             return "items:\n" + (0..<n).map {
-                "  - name: \(v)\n    n: \($0)\n    tags: [a, b]\n" }.joined()
+                "- name: \(v)\n  n: \($0)\n  tags: [a, b]\n" }.joined()
         case .xml:
             return "<doc>" + (0..<n).map {
                 "<items><name>\(v)</name><n>\($0)</n><tags>a</tags><tags>b</tags></items>" }

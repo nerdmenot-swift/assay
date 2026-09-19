@@ -253,7 +253,11 @@ extension YAML {
             _ r: inout AssayReader,
             _ sink: inout IssueSink,
             indent: Int,
-            depth: Int
+            depth: Int,
+            /// True for a block mapping's VALUE, where a block sequence may sit at the key's
+            /// own column rather than past it (YAML 1.2 §8.2.1). Nowhere else: a sequence
+            /// entry at its parent sequence's column is a sibling, not a child.
+            indentlessSequence: Bool = false
         ) -> Node? {
             guard depth < limits.maxDepth else {
                 r.report(&sink, .depthExceeded, params: ["maxDepth": .int(limits.maxDepth)])
@@ -323,6 +327,8 @@ extension YAML {
                 if column > indent, let block = tryParseBlock(&r, &sink,
                                                              indent: column, depth: depth) {
                     node = block
+                } else if indentlessSequence, column == indent, isSequenceEntry(&r) {
+                    node = parseBlockSequence(&r, &sink, indent: column, depth: depth)
                 } else {
                     node = parseFlowScalar(&r, &sink, indent: indent)
                 }

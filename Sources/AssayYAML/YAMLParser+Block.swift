@@ -58,6 +58,12 @@ extension YAML.Parser {
         return .sequence(items)
     }
 
+    /// `- ` (or `-` at end of line): a block-sequence entry indicator. `---` is not one.
+    mutating func isSequenceEntry(_ r: inout AssayReader) -> Bool {
+        guard r.currentByte == UInt8(ascii: "-"), let next = r.byte(at: 1) else { return false }
+        return next == 0x20 || next == 0x0A || next == 0x0D
+    }
+
     mutating func parseBlockMapping(
         _ r: inout AssayReader,
         _ sink: inout IssueSink,
@@ -116,16 +122,29 @@ extension YAML.Parser {
                 || r.currentByte == UInt8(ascii: "#") {
                 skipBlanksAndComments(&r)
                 let nextColumn = currentColumn(&r)
-                if r.atEnd || nextColumn <= indent {
+                // A nested value is indented past the key — or is a block SEQUENCE at the
+                // key's own column. YAML 1.2 §8.2.1 lets a mapping value's sequence sit at
+                // the key's indentation ("indentless"), and it is how Kubernetes, GitHub
+                // Actions and compose files are written. Only a sequence: a mapping at that
+                // column is the next sibling key.
+                //
+                // Until 2026-09-19 this was `nextColumn <= indent` → empty, and the dash line
+                // then went back to this loop as a KEY: `items:\n- a` was refused, and
+                // `items:\n- name: x` parsed as `{items: "", "- name": "x"}`, which is not
+                // YAML at all — a plain scalar cannot begin with "- ".
+                if r.atEnd || nextColumn < indent
+                    || (nextColumn == indent && !isSequenceEntry(&r)) {
                     value = .scalar(YAML.Scalar(content: ""))
                 } else {
-                    guard let v = parseNode(&r, &sink, indent: indent,
-                                            depth: depth + 1) else { return nil }
+                    guard let v = parseNode(&r, &sink, indent: indent, depth: depth + 1,
+                                            indentlessSequence: true) else { return nil }
                     value = v
                 }
             } else {
-                guard let v = parseNode(&r, &sink, indent: indent,
-                                        depth: depth + 1) else { return nil }
+                // Same line — which may still be only properties (`key: &a` or `key: !!seq`)
+                // with the sequence itself indentless on the lines below.
+                guard let v = parseNode(&r, &sink, indent: indent, depth: depth + 1,
+                                        indentlessSequence: true) else { return nil }
                 value = v
             }
 

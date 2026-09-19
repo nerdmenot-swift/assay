@@ -31,6 +31,21 @@ let handWrittenYAML: [(name: String, text: String)] = [
     ("flow-in-block", "a: [1, 2, 3]\nb: {x: 1, y: 2}\n"),
     ("empty-values", "a:\nb: ~\nc: null\nd: \"\"\n"),
 
+    // INDENTLESS block sequences — a mapping value's sequence at the KEY's column, YAML 1.2
+    // §8.2.1, and how Kubernetes, GitHub Actions and compose files are written. Refused, and
+    // in one form silently mis-parsed as a key named "- name", until 2026-09-19; this corpus
+    // never used the form, which is why the oracle never saw it. The last three are the
+    // boundaries: a sibling key after it, an anchor on the key, a comment in between.
+    ("indentless-scalars", "items:\n- a\n- b\n"),
+    ("indentless-one-mapping", "items:\n- name: x\n"),
+    ("indentless-mappings", "items:\n- name: x\n  n: 0\n- name: y\n  n: 1\n"),
+    ("indentless-nested", "a:\n  b:\n  - x\n  c: 2\n"),
+    ("indentless-in-sequence", "- a:\n  - x\n  - y\n- b: 1\n"),
+    ("indentless-then-key", "items:\n- a\nnext: 1\n"),
+    ("indentless-anchored", "items: &l\n- a\n- b\ncopy: *l\n"),
+    ("indentless-after-comment", "items:\n# note\n- a\n"),
+    ("indentless-k8s", "spec:\n  containers:\n  - name: web\n    ports:\n    - containerPort: 80\n  - name: side\n"),
+
     // Multi-line plain scalars — YAML 1.2 §7.3.3. A line break inside one folds to a
     // single space and a blank line becomes a newline, which is fiddly enough that the
     // parser refused them outright until 2026-08-14. The last two are NOT valid YAML: a

@@ -381,7 +381,7 @@ extension SchemaMacro {
                     case .\(c.identifier)(let __v):
                         \(SchemaMacro.keyStatement(tag))
                         w.write("\(c.wireName)")
-                        __v._assayEncodeMembers(into: &w, into: &sink, at: path)
+                        __v._assayEncodeMembers(into: &w, into: &sink, at: &path)
 
             """
         }
@@ -389,7 +389,7 @@ extension SchemaMacro {
         nonisolated public func _assayEncodeMembers(
             into w: inout Assay.JSONWriter,
             into sink: inout Assay.IssueSink,
-            at path: [Assay.PathComponent]
+            at path: inout [Assay.PathComponent]
         ) {
             switch self {
         \(arms)    }
@@ -398,10 +398,10 @@ extension SchemaMacro {
         nonisolated public func _assayEncode(
             into w: inout Assay.JSONWriter,
             into sink: inout Assay.IssueSink,
-            at path: [Assay.PathComponent]
+            at path: inout [Assay.PathComponent]
         ) {
             w.beginObject()
-            self._assayEncodeMembers(into: &w, into: &sink, at: path)
+            self._assayEncodeMembers(into: &w, into: &sink, at: &path)
             w.endObject()
         }
         """
@@ -426,7 +426,7 @@ extension SchemaMacro {
             if scalarCall(type, key: c.identifier) == nil {
                 // A schema variant. Its own `encodes: true` is enforced by the compiler,
                 // and the path does NOT gain a component: a union member has no key.
-                write = "__v._assayEncode(into: &w, into: &sink, at: path)"
+                write = "__v._assayEncode(into: &w, into: &sink, at: &path)"
             } else if type == "Double" || type == "Float" {
                 // Q4: NaN and infinity have no JSON spelling. The case name stands in for
                 // the key, exactly as it does in the decode path's issues.
@@ -444,7 +444,7 @@ extension SchemaMacro {
         nonisolated public func _assayEncode(
             into w: inout Assay.JSONWriter,
             into sink: inout Assay.IssueSink,
-            at path: [Assay.PathComponent]
+            at path: inout [Assay.PathComponent]
         ) {
             switch self {
         \(arms)    }

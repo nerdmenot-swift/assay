@@ -223,7 +223,7 @@ extension SchemaMacro {
                 nonisolated public func _assayEncode(
                     into w: inout Assay.JSONWriter,
                     into sink: inout Assay.IssueSink,
-                    at path: [Assay.PathComponent]
+                    at path: inout [Assay.PathComponent]
                 ) {
                 \(guardExpr)    w.write(_assayWire)
                 }

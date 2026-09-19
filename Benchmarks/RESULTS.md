@@ -2497,3 +2497,11 @@ every key read and cost **+1.5% to +4.8%** instructions, and it made `array-10` 
 uniqueness check (4,000 → 26,000 per call). The ratchet caught both. Storing the byte pointer in
 `KeyRange` once instead: **median 0.00% across all 105 cells**, range −3.7% to +2.0%, no call or
 allocation counter moved.
+
+### Encode's path, `inout` too (2026-09-19)
+
+The same change as decode, on `JSONEncodableSchema._assayEncode`. The matrix had no nested encode
+cell, so `nested-3/encode` was added and measured on the old code first: **4,012 heap blocks per
+call, two per element**, as decode had. After: **−37.7% instructions, 4,012 → 13 blocks, −49% heap
+bytes**, retains 4,001 → 1. Every flat encode cell pays one release more per call, for the
+top-level path.

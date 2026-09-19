@@ -41,26 +41,26 @@ nonisolated public static func _assay(
 nonisolated public func _assayEncodeMembers(
     into w: inout Assay.JSONWriter,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: inout [Assay.PathComponent]
 ) {
     switch self {
         case .click(let __v):
             w._key(encoded: "\"type\":")
             w.write("click")
-            __v._assayEncodeMembers(into: &w, into: &sink, at: path)
+            __v._assayEncodeMembers(into: &w, into: &sink, at: &path)
         case .pageView(let __v):
             w._key(encoded: "\"type\":")
             w.write("pv")
-            __v._assayEncodeMembers(into: &w, into: &sink, at: path)
+            __v._assayEncodeMembers(into: &w, into: &sink, at: &path)
     }
 }
 
 nonisolated public func _assayEncode(
     into w: inout Assay.JSONWriter,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: inout [Assay.PathComponent]
 ) {
     w.beginObject()
-    self._assayEncodeMembers(into: &w, into: &sink, at: path)
+    self._assayEncodeMembers(into: &w, into: &sink, at: &path)
     w.endObject()
 }}

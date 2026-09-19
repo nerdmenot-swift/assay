@@ -108,17 +108,17 @@ extension SchemaMacro {
         nonisolated public func _assayEncodeMembers(
             into w: inout Assay.JSONWriter,
             into sink: inout Assay.IssueSink,
-            at path: [Assay.PathComponent]
+            at path: inout [Assay.PathComponent]
         ) {
         \(lines)}
 
         nonisolated public func _assayEncode(
             into w: inout Assay.JSONWriter,
             into sink: inout Assay.IssueSink,
-            at path: [Assay.PathComponent]
+            at path: inout [Assay.PathComponent]
         ) {
             w.beginObject()
-            self._assayEncodeMembers(into: &w, into: &sink, at: path)
+            self._assayEncodeMembers(into: &w, into: &sink, at: &path)
             w.endObject()
         }
         """
@@ -284,7 +284,17 @@ extension SchemaMacro {
         default:
             // A nested @Schema type. Its own `encodes: true` is enforced by the compiler:
             // without it there is no `_assayEncode` to call, and the error names the type.
-            return "\(pad)\(expr)._assayEncode(into: &w, into: &sink, at: \(nestedPath ?? "path + [.key(\"\(key)\")]"))"
+            // The path is `inout` (see `JSONEncodableSchema`): an array element passes its
+            // per-array path by reference, and anything else pushes the key, calls, and pops,
+            // instead of allocating `path + [.key(k)]` per nested value per element.
+            if let nestedPath {
+                return "\(pad)\(expr)._assayEncode(into: &w, into: &sink, at: &\(nestedPath))"
+            }
+            return """
+            \(pad)path.append(.key("\(key)"))
+            \(pad)\(expr)._assayEncode(into: &w, into: &sink, at: &path)
+            \(pad)path.removeLast()
+            """
         }
     }
 

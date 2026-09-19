@@ -221,7 +221,8 @@ extension JSONEncodableSchema {
     public func encodedJSON(pretty: Bool = false) throws -> [UInt8] {
         var sink = IssueSink()
         var w = JSONWriter(pretty: pretty)
-        _assayEncode(into: &w, into: &sink, at: [])
+        var path: [PathComponent] = []
+        _assayEncode(into: &w, into: &sink, at: &path)
         let bytes = w.finish()
         guard sink.isValid else {
             throw AssayError(issues: sink.issues,
@@ -238,7 +239,8 @@ extension JSONEncodableSchema {
     public func diagnoseEncodeJSON(pretty: Bool = false) -> EncodeDiagnosis {
         var sink = IssueSink()
         var w = JSONWriter(pretty: pretty)
-        _assayEncode(into: &w, into: &sink, at: [])
+        var path: [PathComponent] = []
+        _assayEncode(into: &w, into: &sink, at: &path)
         let bytes = w.finish()
         return EncodeDiagnosis(bytes: bytes, issues: sink.issues, warnings: sink.warnings)
     }

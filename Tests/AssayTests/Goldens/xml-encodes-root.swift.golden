@@ -220,7 +220,7 @@ nonisolated public static func _assay(
 nonisolated public func _assayEncodeMembers(
     into w: inout Assay.JSONWriter,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: inout [Assay.PathComponent]
 ) {
         w._key(encoded: "\"id\":")
         w.write(self.id)
@@ -237,10 +237,10 @@ nonisolated public func _assayEncodeMembers(
 nonisolated public func _assayEncode(
     into w: inout Assay.JSONWriter,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: inout [Assay.PathComponent]
 ) {
     w.beginObject()
-    self._assayEncodeMembers(into: &w, into: &sink, at: path)
+    self._assayEncodeMembers(into: &w, into: &sink, at: &path)
     w.endObject()
 }
 

@@ -308,8 +308,9 @@ build `path + [.key(k)]`, which always allocates: one heap block per nesting lev
 serves the whole decode: nested-3 −33% instructions, 4,014 → 15 blocks, −56% heap. The rule
 for any body: leave `path` as you found it; every push brackets one non-throwing call, and a
 body with `@Key(path:)` groups also restores the depth in a `defer`. Decided on the counts
-(`docs/EFFICIENCY.md` row 7) with the user's go-ahead. Encode, RawValue and validate still take
-the path by value.
+(`docs/EFFICIENCY.md` row 7) with the user's go-ahead. JSON encode (`_assayEncode`) followed the
+same day (nested-3/encode −37.7% instructions, 4,012 → 13 blocks); RawValue, XML and validate
+still take the path by value.
 
 `public protocol Assayable: Sendable` — marker protocol, zero runtime cost, and it prevents
 `-default-isolation MainActor` inference. `AssayError` must stay pointer-sized (serde_json:

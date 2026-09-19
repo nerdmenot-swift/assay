@@ -72,6 +72,9 @@ struct EncOddKeys: Equatable {
 @Schema struct EncPlainKey: Equatable { @Key("café") var value: Int }
 
 @Schema(encodes: true)
+struct EncNestedFloats: Equatable { var inner: EncFloat; var list: [EncFloat]; var b: Double }
+
+@Schema(encodes: true)
 struct EncFloatList: Equatable { var items: [EncFloat] }
 
 @Suite("Encoding")
@@ -198,6 +201,17 @@ struct EncodingTests {
     func oddKeysRoundTrip() throws {
         let v = EncOddKeys(quote: 1, slash: 2, tab: 3)
         #expect(try EncOddKeys.parse(json: try v.encodedJSON()) == v)
+    }
+
+    @Test("encode issues inside a nested value, an element, and after both, keep exact paths")
+    func nestedEncodePaths() {
+        // The encode path is `inout` since 2026-09-19 (push, call, pop). A leak would put a
+        // later issue under the wrong prefix.
+        let v = EncNestedFloats(inner: EncFloat(value: .nan),
+                                list: [EncFloat(value: 1), EncFloat(value: .infinity)],
+                                b: .nan)
+        #expect(v.diagnoseEncodeJSON().issues.map(\.path.pathDescription)
+                == ["inner.value", "list[1].value", "b"])
     }
 
     @Test("an issue inside an array element names the element's index")

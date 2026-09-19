@@ -41,7 +41,7 @@ nonisolated public static func _assay(
 nonisolated public func _assayEncode(
     into w: inout Assay.JSONWriter,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: inout [Assay.PathComponent]
 ) {
     w.write(_assayWire)
 }

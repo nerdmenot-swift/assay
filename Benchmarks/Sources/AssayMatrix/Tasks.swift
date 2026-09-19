@@ -173,8 +173,11 @@ func allTasks() -> [Task] {
     // and put `encode` in a different unit from every other row in the table.
     add("encode", "encodedJSON() — the write path",
         applies: { (fiveStringShapes.contains($0) && !$0.hasPrefix("errors"))
-                    || $0 == "fields-2" || $0 == "fields-20" }) { shape, b in
+                    || $0 == "fields-2" || $0 == "fields-20" || $0 == "nested-3" }) { shape, b in
         switch shape {
+        case "nested-3":
+            guard let d = try? DocNested.parse(json: b) else { return nil }
+            return { (try? d.encodedJSON()) != nil ? d.items.count : nil }
         case "fields-2":
             guard let d = try? Doc2.parse(json: b) else { return nil }
             return { (try? d.encodedJSON()) != nil ? d.items.count : nil }

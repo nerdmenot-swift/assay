@@ -29,7 +29,7 @@ public protocol JSONEncodableSchema: Assayable {
     nonisolated func _assayEncode(
         into w: inout JSONWriter,
         into sink: inout IssueSink,
-        at path: [PathComponent]
+        at path: inout [PathComponent]
     )
 }
 

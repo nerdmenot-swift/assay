@@ -88,7 +88,8 @@ struct UnknownEnumTests {
         let v = Loose.other("brand-new")
         var sink = IssueSink()
         var w = JSONWriter()
-        v._assayEncode(into: &w, into: &sink, at: [])
+        var path: [PathComponent] = []
+        v._assayEncode(into: &w, into: &sink, at: &path)
         #expect(sink.isValid)
         #expect(String(decoding: w.finish(), as: UTF8.self) == "\"brand-new\"")
     }

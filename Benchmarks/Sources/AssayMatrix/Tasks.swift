@@ -20,6 +20,8 @@ import Foundation
 import Assay
 import AssayYAML
 import AssayTOML
+import AssayXML
+import CorpusRender
 import AssayCore
 
 /// Keeps a decoded value alive across the measurement without the optimiser proving the
@@ -232,10 +234,21 @@ func allTasks() -> [Task] {
         }
     }
 
+    add("xml", "XML.parse — the element tree", applies: { treeFormatShapes.contains($0) }) { _, b in
+        var sink = IssueSink(limits: .default)
+        guard let v = JSON.Value.decode(b, into: &sink, limits: .default) else { return nil }
+        let text = Array(renderXML(RawValue(v)).utf8)
+        return {
+            guard let doc = try? XML.parse(text),
+                  case .element(let items)? = doc.root.children.first else { return nil }
+            return items.children.count
+        }
+    }
+
     return out
 }
 
-/// Shapes the YAML and TOML tasks run on: enough to separate record width, nesting, arrays,
+/// Shapes the YAML, TOML and XML tasks run on: enough to separate record width, nesting, arrays,
 /// long values and escapes, without paying Valgrind for every shape twice more.
 private let treeFormatShapes: Set<String> = [
     "base", "fields-20", "nested-3", "array-10", "values-long", "escapes-10", "values-int",

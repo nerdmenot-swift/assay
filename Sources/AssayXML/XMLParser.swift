@@ -91,6 +91,8 @@ extension XML {
         static let attributeSetThreshold = 16
 
         let limits: Limits
+        /// Element child counts by depth, for `parseElement`'s reservation.
+        var hints = _ShapeHints()
         /// Internal general entities from the DOCTYPE internal subset.
         var entities: [String: String] = [:]
         /// Entities currently being expanded, so `<!ENTITY a "&a;">` is caught as a cycle
@@ -285,11 +287,14 @@ extension XML {
             let contentStart = r.byteOffset
 
             var children: [XML.Node] = []
-            // Elements with children usually have several, and the profile showed this
-            // array's 1->2->4 growth chain as the largest single source of allocation in
-            // the parser. A leaf over-reserves three slots of a transient buffer, which is
-            // cheaper than the reallocations it avoids everywhere else.
-            children.reserveCapacity(4)
+            // At least 4, as before (the profile showed the 1->2->4 chain as the parser's
+            // largest source of allocation), RAISED by shape memory (`_ShapeHints`) to what the
+            // previous element at this depth held, so a five-child record no longer grows
+            // 4 -> 8. Not lowered by it: siblings of different shapes share a depth (four
+            // one-child leaves, then a ten-child `<tags>`), and a hint of 1 inherited from a leaf
+            // made `<tags>` grow 1 -> 2 -> 4 -> 8 -> 16. That cost array-10/xml 2,000 blocks per
+            // call when tried (count.py, 2026-09-19). A floor of 4 cannot do worse than before.
+            children.reserveCapacity(Swift.max(hints.items(at: depth), 4))
             var contentEnd = contentStart
 
             while true {
@@ -352,6 +357,7 @@ extension XML {
                 if !text.isEmpty { children.append(.text(text)) }
             }
 
+            hints.setItems(Swift.max(children.count, 1), at: depth)
             return XML.Element(name: name, attributes: attributes, children: children,
                                contentSpan: SourceSpan(
                                    lo: contentStart,

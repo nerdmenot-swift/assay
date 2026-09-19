@@ -102,6 +102,9 @@ let package = Package(
                 // so nothing counted what the other hand-written parsers allocate.
                 .product(name: "AssayYAML", package: "assay"),
                 .product(name: "AssayTOML", package: "assay"),
+                .product(name: "AssayXML", package: "assay"),
+                // The xml task renders fixtures with the oracles' own renderer.
+                "CorpusRender",
             ],
             path: "Sources/AssayMatrix",
             swiftSettings: [.swiftLanguageMode(.v6)]

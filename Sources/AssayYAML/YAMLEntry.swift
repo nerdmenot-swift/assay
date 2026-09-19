@@ -29,9 +29,9 @@ public import AssayCore
 func __assayYAMLDocument(
     _ bytes: [UInt8], into sink: inout IssueSink, limits: Limits
 ) -> RawValue? {
-    let docs = YAML.decodeAll(bytes, into: &sink, limits: limits)
+    var docs = YAML.decodeAll(bytes, into: &sink, limits: limits)
     guard sink.isValid else { return nil }
-    guard let doc = docs.first else {
+    guard !docs.isEmpty else {
         sink.add(Issue(code: .yamlEmptyStream))
         return nil
     }
@@ -40,8 +40,11 @@ func __assayYAMLDocument(
         // `parseAll(yaml:)` exists for the multi-document case.
         sink.add(Issue(code: .yamlMultipleDocuments,
                        params: ["count": .int(docs.count)]))
+        docs.removeSubrange(1...)
     }
-    guard let raw = RawValue(doc) else {
+    // Moved out, not copied: the tree dies here, so its strings can go straight into
+    // the projection. `RawValue(consuming:)`.
+    guard let raw = RawValue(consuming: docs.removeLast()) else {
         sink.add(Issue(code: .yamlUnrepresentableKey,
                        params: ["reason": .string(
                            "a mapping key is not a plain scalar; parse to YAML.Node instead")]))
@@ -100,8 +103,8 @@ extension RawDecodable {
         var sink = IssueSink(limits: limits)
         let docs = YAML.decodeAll(Array(text.utf8), into: &sink, limits: limits)
         var out: [Self] = []
-        for doc in docs {
-            guard let raw = RawValue(doc) else {
+        for doc in consume docs {
+            guard let raw = RawValue(consuming: doc) else {
                 sink.add(Issue(code: .yamlUnrepresentableKey))
                 continue
             }
@@ -171,16 +174,17 @@ extension WireFormat {
         name: "yaml",
         matches: { $0.names("yaml") || $0.names("x-yaml") },
         decode: { bytes, sink, limits in
-            let docs = YAML.decodeAll(bytes, into: &sink, limits: limits)
-            guard let doc = docs.first else {
+            var docs = YAML.decodeAll(bytes, into: &sink, limits: limits)
+            guard !docs.isEmpty else {
                 sink.add(Issue(code: .yamlEmptyStream))
                 return nil
             }
             if docs.count > 1 {
                 sink.add(Issue(code: .yamlMultipleDocuments,
                                params: ["count": .int(docs.count)]))
+                docs.removeSubrange(1...)
             }
-            guard let raw = RawValue(doc) else {
+            guard let raw = RawValue(consuming: docs.removeLast()) else {
                 sink.add(Issue(code: .yamlUnrepresentableKey,
                                params: ["reason": .string(
                                    "a mapping key is not a plain scalar; "

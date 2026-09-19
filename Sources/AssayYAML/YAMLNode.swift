@@ -273,6 +273,74 @@ extension RawValue {
         self = .string(c)
     }
 
+    /// The same projection, but taking the tree by value and MOVING every scalar's text into
+    /// the result rather than retaining it.
+    ///
+    /// The struct-decode doors parse a tree, project it, and drop it; the borrowing form
+    /// above retained each `String` into the `RawValue` and released it again when the tree
+    /// died — a retain/release pair per scalar, per key, for nothing. Each child is swapped
+    /// out of its array for an empty placeholder (an empty array is a static singleton, so
+    /// the swap neither retains nor allocates), which leaves the element uniquely held by
+    /// this frame and lets its payload move. The placeholders are not free — destroying one
+    /// is a `swift_release` on the immortal empty-array storage, a call with no atomic in it
+    /// — and that is the trade `docs/EFFICIENCY.md` records: ~30k String retain/release
+    /// pairs per 1,000 documents for ~8k of those calls.
+    @usableFromInline
+    init?(consuming node: consuming YAML.Node) {
+        // The payload is bound OUTSIDE the switch. A switch subject lives until the end of
+        // the matched case's body, so a `case .sequence(var items)` that mutated in place
+        // shared its buffer with the still-live subject and every swap copied the array.
+        var items: [YAML.Node] = []
+        var pairs: [YAML.Pair] = []
+        let isSequence: Bool
+        switch consume node {
+        case .scalar(let s):
+            self = RawValue(resolving: s)
+            return
+        case .sequence(let xs): items = xs; isSequence = true
+        case .mapping(let ps): pairs = ps; isSequence = false
+        }
+
+        // Both loops write straight into the result's storage. `append` inside a closure
+        // re-checked uniqueness on every element, which the borrowing form did not pay.
+        var ok = true
+        if isSequence {
+            let out = unsafe items.withUnsafeMutableBufferPointer { src in
+                unsafe [RawValue](unsafeUninitializedCapacity: src.count) { dst, count in
+                    for i in src.indices {
+                        var item = YAML.Node.sequence([])
+                        unsafe swap(&item, &src[i])
+                        guard let v = RawValue(consuming: consume item) else {
+                            ok = false; break
+                        }
+                        unsafe (dst.baseAddress! + count).initialize(to: v)
+                        count += 1
+                    }
+                }
+            }
+            guard ok else { return nil }
+            self = .sequence(out)
+            return
+        }
+        let out = unsafe pairs.withUnsafeMutableBufferPointer { src in
+            unsafe [RawValue.Member](unsafeUninitializedCapacity: src.count) { dst, count in
+                for i in src.indices {
+                    guard case .scalar(let k) = unsafe src[i].key else { ok = false; break }
+                    var value = YAML.Node.sequence([])
+                    unsafe swap(&value, &src[i].value)
+                    guard let v = RawValue(consuming: consume value) else {
+                        ok = false; break
+                    }
+                    unsafe (dst.baseAddress! + count).initialize(
+                        to: .init(key: k.content, value: v, span: src[i].valueSpan))
+                    count += 1
+                }
+            }
+        }
+        guard ok else { return nil }
+        self = .mapping(out)
+    }
+
     /// Returns nil when the node contains a mapping key that is not a plain scalar, since
     /// `RawValue.mapping` is `String`-keyed by construction.
     public init?(_ node: YAML.Node) {

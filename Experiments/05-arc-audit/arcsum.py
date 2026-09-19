@@ -41,7 +41,11 @@ def summarise(path):
         if fm and sm:
             counts[(fm.group(1), KINDS.get(sm.group(1), sm.group(1).replace(" ", "-")))] += 1
     mangled = sorted({f for f, _ in counts})
-    out = subprocess.run(["swift", "demangle", "--simplified"], input="\n".join(mangled),
+    # FULL demangling, parameter types included. `--simplified` drops them, so overloads
+    # collapse to one key: the JSON `_assay(from:into:at:)` and the RawValue one merged, and
+    # giving a fixture type `formats: .all` read as its JSON decoder "gaining" the RawValue
+    # decoder's sites (2026-09-19). Merged keys would hide a real change in either overload.
+    out = subprocess.run(["swift", "demangle", "--compact"], input="\n".join(mangled),
                          capture_output=True, text=True).stdout.splitlines()
     dem = dict(zip(mangled, out)) if len(out) == len(mangled) else {m: m for m in mangled}
     merged = collections.Counter()

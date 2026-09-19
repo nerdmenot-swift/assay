@@ -1,106 +1,122 @@
-Assayer.diagnose(_:limits:sourceName:)	release	7
-Assayer.diagnose(_:limits:sourceName:)	retain	9
-Assayer.diagnose(json:limits:sourceName:)	release	6
-Assayer.diagnose(json:limits:sourceName:)	retain	10
-Assayer.map<A>(_:)	retain	3
-Assayer.optional()	box	1
-Assayer.optional()	ref	1
-Assayer.optional()	retain	2
-Assayer.parse(json:limits:sourceName:)	release	2
-Assayer.parse(json:limits:sourceName:)	retain	1
-Assayer.validate(_:)	ref	1
-Assayer.validate(_:)	retain	10
-AssayerPlan.__allocating_init(_:)	ref	1
-AssayerPlan.run(_:_:_:_:_:)	release	52
-AssayerPlan.run(_:_:_:_:_:)	retain	39
-AssayerPlan.run(_:_:_:_:_:)	stack-allocated-ref	1
-Diagnosis.description.getter	release	5
-Diagnosis.description.getter	retain	1
-Diagnosis.get()	retain	3
-Diagnosis.init(sink:value:source:sourceName:)	release	1
-Diagnosis.init(sink:value:source:sourceName:)	retain	2
-EncodeDiagnosis.description.getter	release	7
-EncodeDiagnosis.description.getter	retain	2
-EncodeDiagnosis.get()	retain	3
-EncodeDiagnosis.render(_:)	release	1
-EncodeDiagnosis.render(_:)	retain	1
-JSONEncodableSchema.diagnoseEncodeJSON(pretty:)	release	1
-JSONEncodableSchema.encodedJSON(pretty:)	release	4
-JSONEncodableSchema.encodedJSON(pretty:)	retain	1
-JSONEncodableSchema.jsonText(pretty:)	release	1
-_unknownVariant(_:_:received:options:span:)	release	5
-_unknownVariant(_:_:received:options:span:)	retain	6
-closure #1 in closure #1 in static Validatable<>.diagnose<A>(_:limits:)	ref	1
-closure #1 in closure #1 in static Validatable<>.diagnose<A>(_:limits:)	release	1
-closure #1 in static Assayer.array(of:)	release	2
-closure #1 in static Assayer.array(of:)	retain	1
-closure #1 in static Assayer.lazy(_:)	release	1
-closure #1 in static Assayer<>.raw.getter	retain	1
-closure #1 in static Assayer<>.string.getter	retain	1
-closure #1 in static Validatable<>.diagnose<A>(_:limits:)	release	6
-closure #1 in static Validatable<>.diagnose<A>(_:limits:)	retain	3
-closure #2 in static Assayer.lazy(_:)	release	2
-closure #2 in static Assayer<>.object(_:)	retain	1
-static Assayer.array(of:)	box	1
-static Assayer.array(of:)	ref	1
-static Assayer.array(of:)	retain	2
-static Assayer.lazy(_:)	ref	1
-static Assayer.lazy(_:)	retain	2
-static Assayer<>.bool.getter	ref	1
-static Assayer<>.double.getter	ref	1
-static Assayer<>.int.getter	ref	1
-static Assayer<>.object(_:)	box	1
-static Assayer<>.object(_:)	ref	1
-static Assayer<>.object(_:)	retain	2
-static Assayer<>.raw.getter	ref	1
-static Assayer<>.string.getter	ref	1
-static AssayerBacked._assay(from:into:at:)	release	10
-static AssayerBacked._assay(from:into:at:)	retain	3
-static ContextualJSONAssayable._decode(base:count:into:limits:context:)	release	7
-static ContextualJSONAssayable._decode(base:count:into:limits:context:)	retain	2
-static ContextualJSONAssayable._decode(base:count:into:limits:context:)	stack-allocated-ref	1
-static ContextualJSONAssayable.diagnose(json:context:limits:sourceName:)	release	5
-static ContextualJSONAssayable.diagnose(json:context:limits:sourceName:)	retain	8
-static ContextualJSONAssayable.diagnose(json:context:limits:sourceName:)	stack-allocated-ref	1
-static ContextualJSONAssayable.parse(json:context:limits:sourceName:)	release	3
-static ContextualJSONAssayable.parse(json:context:limits:sourceName:)	retain	1
-static ContextualJSONAssayable<>.diagnose(json:context:limits:sourceName:)	release	7
-static ContextualJSONAssayable<>.diagnose(json:context:limits:sourceName:)	retain	5
-static ContextualJSONAssayable<>.parse(json:context:limits:sourceName:)	release	3
-static ContextualJSONAssayable<>.parse(json:context:limits:sourceName:)	retain	1
-static ContextualRawDecodable.diagnose(body:contentType:accepting:context:limits:sourceName:)	release	14
-static ContextualRawDecodable.diagnose(body:contentType:accepting:context:limits:sourceName:)	retain	9
-static ContextualValidatable.diagnose(_:context:limits:)	release	1
-static ContextualValidatable.diagnose(_:context:limits:)	retain	2
-static ContextualValidatable.validate(_:context:limits:)	release	3
-static JSONAssayable._decode(base:count:into:limits:)	release	7
-static JSONAssayable._decode(base:count:into:limits:)	retain	2
-static JSONAssayable._decode(base:count:into:limits:)	stack-allocated-ref	1
-static JSONAssayable.diagnose(json:limits:sourceName:)	release	5
-static JSONAssayable.diagnose(json:limits:sourceName:)	retain	8
-static JSONAssayable.diagnose(json:limits:sourceName:)	stack-allocated-ref	1
-static JSONAssayable.parse(json:limits:sourceName:)	release	3
-static JSONAssayable.parse(json:limits:sourceName:)	retain	1
-static JSONAssayable<>._assay(from:into:at:)	release	7
-static JSONAssayable<>._assay(from:into:at:)	retain	2
-static JSONAssayable<>.diagnose(json:limits:sourceName:)	release	7
-static JSONAssayable<>.diagnose(json:limits:sourceName:)	retain	5
-static JSONAssayable<>.parse(json:limits:sourceName:)	release	3
-static JSONAssayable<>.parse(json:limits:sourceName:)	retain	1
-static RawDecodable.diagnose(body:contentType:accepting:limits:sourceName:)	release	14
-static RawDecodable.diagnose(body:contentType:accepting:limits:sourceName:)	retain	9
-static RawDecodable<>._assay(from:into:at:)	release	3
-static RawDecodable<>._assay(from:into:at:)	retain	2
-static RawDecodable<>.diagnose(body:contentType:accepting:limits:sourceName:)	release	17
-static RawDecodable<>.diagnose(body:contentType:accepting:limits:sourceName:)	retain	9
-static Validatable.diagnose(_:at:limits:)	release	1
-static Validatable.diagnose(_:at:limits:)	retain	2
-static Validatable.diagnose<A>(_:limits:)	release	3
-static Validatable.diagnose<A>(_:limits:)	retain	2
-static Validatable.validate(_:at:limits:)	release	3
-static Validatable.validate(_:limits:)	release	3
-static Validatable.validate<A>(_:limits:)	release	3
-static Validatable<>.diagnose(_:limits:)	release	3
-static Validatable<>.diagnose<A>(_:limits:)	release	5
-static Validatable<>.validate(_:limits:)	release	3
-static Validatable<>.validate<A>(_:limits:)	release	3
+(extension in Assay):Assay.JSONEncodableSchema.diagnoseEncodeJSON(pretty: Swift.Bool) -> Assay.EncodeDiagnosis	release	1
+(extension in Assay):Assay.JSONEncodableSchema.encodedJSON(pretty: Swift.Bool) throws -> [Swift.UInt8]	release	4
+(extension in Assay):Assay.JSONEncodableSchema.encodedJSON(pretty: Swift.Bool) throws -> [Swift.UInt8]	retain	1
+(extension in Assay):Assay.JSONEncodableSchema.jsonText(pretty: Swift.Bool) throws -> Swift.String	release	1
+Assay.(_unknownVariant in _F8626C2230E1253B62F0212D29B74123)(_: inout AssayCore.IssueSink, _: [AssayCore.PathComponent], received: Swift.String, options: [Swift.String]?, span: AssayCore.SourceSpan?) -> ()	release	5
+Assay.(_unknownVariant in _F8626C2230E1253B62F0212D29B74123)(_: inout AssayCore.IssueSink, _: [AssayCore.PathComponent], received: Swift.String, options: [Swift.String]?, span: AssayCore.SourceSpan?) -> ()	retain	6
+Assay.Assayer.diagnose(_: AssayCore.RawValue, limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	release	7
+Assay.Assayer.diagnose(_: AssayCore.RawValue, limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	retain	9
+Assay.Assayer.diagnose(json: Swift.String, limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	release	2
+Assay.Assayer.diagnose(json: Swift.String, limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	retain	1
+Assay.Assayer.diagnose(json: [Swift.UInt8], limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	release	4
+Assay.Assayer.diagnose(json: [Swift.UInt8], limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	retain	9
+Assay.Assayer.map<A where A1: Swift.Sendable>(@Sendable (A) -> A1?) -> Assay.Assayer<A1>	retain	3
+Assay.Assayer.optional() -> Assay.Assayer<A?>	box	1
+Assay.Assayer.optional() -> Assay.Assayer<A?>	ref	1
+Assay.Assayer.optional() -> Assay.Assayer<A?>	retain	2
+Assay.Assayer.parse(json: Swift.String, limits: AssayCore.Limits, sourceName: Swift.String) throws -> A	release	2
+Assay.Assayer.parse(json: Swift.String, limits: AssayCore.Limits, sourceName: Swift.String) throws -> A	retain	1
+Assay.Assayer.validate(AssayCore.Rule...) -> Assay.Assayer<A>	ref	1
+Assay.Assayer.validate(AssayCore.Rule...) -> Assay.Assayer<A>	retain	10
+Assay.AssayerPlan.__allocating_init(Assay.AssayerPlan.Node) -> Assay.AssayerPlan	ref	1
+Assay.AssayerPlan.run(AssayCore.RawValue, inout AssayCore.IssueSink, [AssayCore.PathComponent], AssayCore.Limits, Swift.Int) -> AssayCore.RawValue?	release	52
+Assay.AssayerPlan.run(AssayCore.RawValue, inout AssayCore.IssueSink, [AssayCore.PathComponent], AssayCore.Limits, Swift.Int) -> AssayCore.RawValue?	retain	39
+Assay.AssayerPlan.run(AssayCore.RawValue, inout AssayCore.IssueSink, [AssayCore.PathComponent], AssayCore.Limits, Swift.Int) -> AssayCore.RawValue?	stack-allocated-ref	1
+Assay.Diagnosis.description.getter : Swift.String	release	5
+Assay.Diagnosis.description.getter : Swift.String	retain	1
+Assay.Diagnosis.get() throws -> A	retain	3
+Assay.Diagnosis.init(sink: AssayCore.IssueSink, value: A?, source: AssayCore.SourceBytes, sourceName: Swift.String) -> Assay.Diagnosis<A>	release	1
+Assay.Diagnosis.init(sink: AssayCore.IssueSink, value: A?, source: AssayCore.SourceBytes, sourceName: Swift.String) -> Assay.Diagnosis<A>	retain	2
+Assay.EncodeDiagnosis.description.getter : Swift.String	release	7
+Assay.EncodeDiagnosis.description.getter : Swift.String	retain	2
+Assay.EncodeDiagnosis.get() throws -> [Swift.UInt8]	retain	3
+Assay.EncodeDiagnosis.render(AssayCore.RenderStyle) -> Swift.String	release	1
+Assay.EncodeDiagnosis.render(AssayCore.RenderStyle) -> Swift.String	retain	1
+closure #1 () async -> [AssayCore.Issue] in closure #1 (inout Swift.TaskGroup<[AssayCore.Issue]>) async -> [AssayCore.Issue] in static (extension in Assay):Assay.Validatable< where A: Assay.AsyncCheckAssayable>.diagnose<A where A == A1.Element, A1: Swift.Sequence>(_: A1, limits: AssayCore.Limits) async -> Assay.Validation	ref	1
+closure #1 () async -> [AssayCore.Issue] in closure #1 (inout Swift.TaskGroup<[AssayCore.Issue]>) async -> [AssayCore.Issue] in static (extension in Assay):Assay.Validatable< where A: Assay.AsyncCheckAssayable>.diagnose<A where A == A1.Element, A1: Swift.Sequence>(_: A1, limits: AssayCore.Limits) async -> Assay.Validation	release	1
+closure #1 (inout Swift.TaskGroup<[AssayCore.Issue]>) async -> [AssayCore.Issue] in static (extension in Assay):Assay.Validatable< where A: Assay.AsyncCheckAssayable>.diagnose<A where A == A1.Element, A1: Swift.Sequence>(_: A1, limits: AssayCore.Limits) async -> Assay.Validation	release	6
+closure #1 (inout Swift.TaskGroup<[AssayCore.Issue]>) async -> [AssayCore.Issue] in static (extension in Assay):Assay.Validatable< where A: Assay.AsyncCheckAssayable>.diagnose<A where A == A1.Element, A1: Swift.Sequence>(_: A1, limits: AssayCore.Limits) async -> Assay.Validation	retain	3
+closure #1 @Sendable () -> Assay.AssayerPlan in static Assay.Assayer.lazy(@Sendable () -> Assay.Assayer<A>) -> Assay.Assayer<A>	release	1
+closure #1 @Sendable (AssayCore.RawValue) -> AssayCore.RawValue? in static (extension in Assay):Assay.Assayer< where A == AssayCore.RawValue>.raw.getter : Assay.Assayer<AssayCore.RawValue>	retain	1
+closure #1 @Sendable (AssayCore.RawValue) -> Swift.String? in static (extension in Assay):Assay.Assayer< where A == Swift.String>.string.getter : Assay.Assayer<Swift.String>	retain	1
+closure #1 @Sendable (AssayCore.RawValue) -> [A]? in static Assay.Assayer.array(of: Assay.Assayer<A>) -> Assay.Assayer<[A]>	release	2
+closure #1 @Sendable (AssayCore.RawValue) -> [A]? in static Assay.Assayer.array(of: Assay.Assayer<A>) -> Assay.Assayer<[A]>	retain	1
+closure #2 @Sendable (AssayCore.RawValue) -> A? in static Assay.Assayer.lazy(@Sendable () -> Assay.Assayer<A>) -> Assay.Assayer<A>	release	2
+closure #2 @Sendable (AssayCore.RawValue) -> AssayCore.RawValue? in static (extension in Assay):Assay.Assayer< where A == AssayCore.RawValue>.object([(extension in Assay):Assay.Assayer<AssayCore.RawValue>< where A == AssayCore.RawValue>.Field]) -> Assay.Assayer<AssayCore.RawValue>	retain	1
+static (extension in Assay):Assay.Assayer< where A == AssayCore.RawValue>.object([(extension in Assay):Assay.Assayer<AssayCore.RawValue>< where A == AssayCore.RawValue>.Field]) -> Assay.Assayer<AssayCore.RawValue>	box	1
+static (extension in Assay):Assay.Assayer< where A == AssayCore.RawValue>.object([(extension in Assay):Assay.Assayer<AssayCore.RawValue>< where A == AssayCore.RawValue>.Field]) -> Assay.Assayer<AssayCore.RawValue>	ref	1
+static (extension in Assay):Assay.Assayer< where A == AssayCore.RawValue>.object([(extension in Assay):Assay.Assayer<AssayCore.RawValue>< where A == AssayCore.RawValue>.Field]) -> Assay.Assayer<AssayCore.RawValue>	retain	2
+static (extension in Assay):Assay.Assayer< where A == AssayCore.RawValue>.raw.getter : Assay.Assayer<AssayCore.RawValue>	ref	1
+static (extension in Assay):Assay.Assayer< where A == Swift.Bool>.bool.getter : Assay.Assayer<Swift.Bool>	ref	1
+static (extension in Assay):Assay.Assayer< where A == Swift.Double>.double.getter : Assay.Assayer<Swift.Double>	ref	1
+static (extension in Assay):Assay.Assayer< where A == Swift.Int64>.int.getter : Assay.Assayer<Swift.Int64>	ref	1
+static (extension in Assay):Assay.Assayer< where A == Swift.String>.string.getter : Assay.Assayer<Swift.String>	ref	1
+static (extension in Assay):Assay.AssayerBacked._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> A?	release	9
+static (extension in Assay):Assay.AssayerBacked._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> A?	retain	3
+static (extension in Assay):Assay.AssayerBacked._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> A?	release	1
+static (extension in Assay):Assay.ContextualJSONAssayable._decode(base: Swift.UnsafePointer<Swift.UInt8>, count: Swift.Int, into: inout AssayCore.IssueSink, limits: AssayCore.Limits, context: A.AssayContext) -> A?	release	7
+static (extension in Assay):Assay.ContextualJSONAssayable._decode(base: Swift.UnsafePointer<Swift.UInt8>, count: Swift.Int, into: inout AssayCore.IssueSink, limits: AssayCore.Limits, context: A.AssayContext) -> A?	retain	2
+static (extension in Assay):Assay.ContextualJSONAssayable._decode(base: Swift.UnsafePointer<Swift.UInt8>, count: Swift.Int, into: inout AssayCore.IssueSink, limits: AssayCore.Limits, context: A.AssayContext) -> A?	stack-allocated-ref	1
+static (extension in Assay):Assay.ContextualJSONAssayable.diagnose(json: Swift.String, context: A.AssayContext, limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	release	2
+static (extension in Assay):Assay.ContextualJSONAssayable.diagnose(json: Swift.String, context: A.AssayContext, limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	retain	1
+static (extension in Assay):Assay.ContextualJSONAssayable.diagnose(json: [Swift.UInt8], context: A.AssayContext, limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	release	3
+static (extension in Assay):Assay.ContextualJSONAssayable.diagnose(json: [Swift.UInt8], context: A.AssayContext, limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	retain	7
+static (extension in Assay):Assay.ContextualJSONAssayable.diagnose(json: [Swift.UInt8], context: A.AssayContext, limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	stack-allocated-ref	1
+static (extension in Assay):Assay.ContextualJSONAssayable.parse(json: Swift.String, context: A.AssayContext, limits: AssayCore.Limits, sourceName: Swift.String) throws -> A	release	3
+static (extension in Assay):Assay.ContextualJSONAssayable.parse(json: Swift.String, context: A.AssayContext, limits: AssayCore.Limits, sourceName: Swift.String) throws -> A	retain	1
+static (extension in Assay):Assay.ContextualJSONAssayable< where A: Assay.ContextualAsyncCheckAssayable>.diagnose(json: Swift.String, context: A.Assay.ContextualAssayable.AssayContext, limits: AssayCore.Limits, sourceName: Swift.String) async -> Assay.Diagnosis<A>	release	2
+static (extension in Assay):Assay.ContextualJSONAssayable< where A: Assay.ContextualAsyncCheckAssayable>.diagnose(json: Swift.String, context: A.Assay.ContextualAssayable.AssayContext, limits: AssayCore.Limits, sourceName: Swift.String) async -> Assay.Diagnosis<A>	retain	1
+static (extension in Assay):Assay.ContextualJSONAssayable< where A: Assay.ContextualAsyncCheckAssayable>.diagnose(json: [Swift.UInt8], context: A.Assay.ContextualAssayable.AssayContext, limits: AssayCore.Limits, sourceName: Swift.String) async -> Assay.Diagnosis<A>	release	5
+static (extension in Assay):Assay.ContextualJSONAssayable< where A: Assay.ContextualAsyncCheckAssayable>.diagnose(json: [Swift.UInt8], context: A.Assay.ContextualAssayable.AssayContext, limits: AssayCore.Limits, sourceName: Swift.String) async -> Assay.Diagnosis<A>	retain	4
+static (extension in Assay):Assay.ContextualJSONAssayable< where A: Assay.ContextualAsyncCheckAssayable>.parse(json: Swift.String, context: A.Assay.ContextualAssayable.AssayContext, limits: AssayCore.Limits, sourceName: Swift.String) async throws -> A	release	3
+static (extension in Assay):Assay.ContextualJSONAssayable< where A: Assay.ContextualAsyncCheckAssayable>.parse(json: Swift.String, context: A.Assay.ContextualAssayable.AssayContext, limits: AssayCore.Limits, sourceName: Swift.String) async throws -> A	retain	1
+static (extension in Assay):Assay.ContextualRawDecodable.diagnose(body: [Swift.UInt8], contentType: Swift.String?, accepting: [AssayCore.WireFormat], context: A.AssayContext, limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	release	14
+static (extension in Assay):Assay.ContextualRawDecodable.diagnose(body: [Swift.UInt8], contentType: Swift.String?, accepting: [AssayCore.WireFormat], context: A.AssayContext, limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	retain	9
+static (extension in Assay):Assay.ContextualValidatable.diagnose(_: A, context: A.AssayContext, limits: AssayCore.Limits) -> Assay.Validation	release	1
+static (extension in Assay):Assay.ContextualValidatable.diagnose(_: A, context: A.AssayContext, limits: AssayCore.Limits) -> Assay.Validation	retain	2
+static (extension in Assay):Assay.ContextualValidatable.validate(_: A, context: A.AssayContext, limits: AssayCore.Limits) throws(AssayCore.AssayError) -> ()	release	3
+static (extension in Assay):Assay.JSONAssayable._decode(base: Swift.UnsafePointer<Swift.UInt8>, count: Swift.Int, into: inout AssayCore.IssueSink, limits: AssayCore.Limits) -> A?	release	7
+static (extension in Assay):Assay.JSONAssayable._decode(base: Swift.UnsafePointer<Swift.UInt8>, count: Swift.Int, into: inout AssayCore.IssueSink, limits: AssayCore.Limits) -> A?	retain	2
+static (extension in Assay):Assay.JSONAssayable._decode(base: Swift.UnsafePointer<Swift.UInt8>, count: Swift.Int, into: inout AssayCore.IssueSink, limits: AssayCore.Limits) -> A?	stack-allocated-ref	1
+static (extension in Assay):Assay.JSONAssayable.diagnose(json: Swift.String, limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	release	2
+static (extension in Assay):Assay.JSONAssayable.diagnose(json: Swift.String, limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	retain	1
+static (extension in Assay):Assay.JSONAssayable.diagnose(json: [Swift.UInt8], limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	release	3
+static (extension in Assay):Assay.JSONAssayable.diagnose(json: [Swift.UInt8], limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	retain	7
+static (extension in Assay):Assay.JSONAssayable.diagnose(json: [Swift.UInt8], limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	stack-allocated-ref	1
+static (extension in Assay):Assay.JSONAssayable.parse(json: Swift.String, limits: AssayCore.Limits, sourceName: Swift.String) throws -> A	release	3
+static (extension in Assay):Assay.JSONAssayable.parse(json: Swift.String, limits: AssayCore.Limits, sourceName: Swift.String) throws -> A	retain	1
+static (extension in Assay):Assay.JSONAssayable< where A: Assay.AsyncCheckAssayable>.diagnose(json: Swift.String, limits: AssayCore.Limits, sourceName: Swift.String) async -> Assay.Diagnosis<A>	release	2
+static (extension in Assay):Assay.JSONAssayable< where A: Assay.AsyncCheckAssayable>.diagnose(json: Swift.String, limits: AssayCore.Limits, sourceName: Swift.String) async -> Assay.Diagnosis<A>	retain	1
+static (extension in Assay):Assay.JSONAssayable< where A: Assay.AsyncCheckAssayable>.diagnose(json: [Swift.UInt8], limits: AssayCore.Limits, sourceName: Swift.String) async -> Assay.Diagnosis<A>	release	5
+static (extension in Assay):Assay.JSONAssayable< where A: Assay.AsyncCheckAssayable>.diagnose(json: [Swift.UInt8], limits: AssayCore.Limits, sourceName: Swift.String) async -> Assay.Diagnosis<A>	retain	4
+static (extension in Assay):Assay.JSONAssayable< where A: Assay.AsyncCheckAssayable>.parse(json: Swift.String, limits: AssayCore.Limits, sourceName: Swift.String) async throws -> A	release	3
+static (extension in Assay):Assay.JSONAssayable< where A: Assay.AsyncCheckAssayable>.parse(json: Swift.String, limits: AssayCore.Limits, sourceName: Swift.String) async throws -> A	retain	1
+static (extension in Assay):Assay.JSONAssayable< where A: Swift.CaseIterable, A: Swift.RawRepresentable, A.Swift.RawRepresentable.RawValue == Swift.String>._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> A?	release	4
+static (extension in Assay):Assay.JSONAssayable< where A: Swift.CaseIterable, A: Swift.RawRepresentable, A.Swift.RawRepresentable.RawValue == Swift.String>._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> A?	retain	1
+static (extension in Assay):Assay.JSONAssayable< where A: Swift.RawRepresentable, A.Swift.RawRepresentable.RawValue == Swift.Int>._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> A?	release	1
+static (extension in Assay):Assay.JSONAssayable< where A: Swift.RawRepresentable, A.Swift.RawRepresentable.RawValue == Swift.String>._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> A?	release	2
+static (extension in Assay):Assay.JSONAssayable< where A: Swift.RawRepresentable, A.Swift.RawRepresentable.RawValue == Swift.String>._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> A?	retain	1
+static (extension in Assay):Assay.Validatable.diagnose(_: A, at: [AssayCore.PathComponent], limits: AssayCore.Limits) -> Assay.Validation	release	1
+static (extension in Assay):Assay.Validatable.diagnose(_: A, at: [AssayCore.PathComponent], limits: AssayCore.Limits) -> Assay.Validation	retain	2
+static (extension in Assay):Assay.Validatable.diagnose<A where A == A1.Element, A1: Swift.Sequence>(_: A1, limits: AssayCore.Limits) -> Assay.Validation	release	3
+static (extension in Assay):Assay.Validatable.diagnose<A where A == A1.Element, A1: Swift.Sequence>(_: A1, limits: AssayCore.Limits) -> Assay.Validation	retain	2
+static (extension in Assay):Assay.Validatable.validate(_: A, at: [AssayCore.PathComponent], limits: AssayCore.Limits) throws(AssayCore.AssayError) -> ()	release	3
+static (extension in Assay):Assay.Validatable.validate(_: A, limits: AssayCore.Limits) throws(AssayCore.AssayError) -> ()	release	3
+static (extension in Assay):Assay.Validatable.validate<A where A == A1.Element, A1: Swift.Sequence>(_: A1, limits: AssayCore.Limits) throws(AssayCore.AssayError) -> ()	release	3
+static (extension in Assay):Assay.Validatable< where A: Assay.AsyncCheckAssayable>.diagnose(_: A, limits: AssayCore.Limits) async -> Assay.Validation	release	3
+static (extension in Assay):Assay.Validatable< where A: Assay.AsyncCheckAssayable>.diagnose<A where A == A1.Element, A1: Swift.Sequence>(_: A1, limits: AssayCore.Limits) async -> Assay.Validation	release	5
+static (extension in Assay):Assay.Validatable< where A: Assay.AsyncCheckAssayable>.validate(_: A, limits: AssayCore.Limits) async throws(AssayCore.AssayError) -> ()	release	3
+static (extension in Assay):Assay.Validatable< where A: Assay.AsyncCheckAssayable>.validate<A where A == A1.Element, A1: Swift.Sequence>(_: A1, limits: AssayCore.Limits) async throws(AssayCore.AssayError) -> ()	release	3
+static (extension in Assay):AssayCore.RawDecodable.diagnose(body: [Swift.UInt8], contentType: Swift.String?, accepting: [AssayCore.WireFormat], limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	release	14
+static (extension in Assay):AssayCore.RawDecodable.diagnose(body: [Swift.UInt8], contentType: Swift.String?, accepting: [AssayCore.WireFormat], limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	retain	9
+static (extension in Assay):AssayCore.RawDecodable< where A: Assay.JSONAssayable>.diagnose(body: [Swift.UInt8], contentType: Swift.String?, accepting: [AssayCore.WireFormat], limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	release	17
+static (extension in Assay):AssayCore.RawDecodable< where A: Assay.JSONAssayable>.diagnose(body: [Swift.UInt8], contentType: Swift.String?, accepting: [AssayCore.WireFormat], limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	retain	9
+static (extension in Assay):AssayCore.RawDecodable< where A: Swift.CaseIterable, A: Swift.RawRepresentable, A.Swift.RawRepresentable.RawValue == Swift.String>._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> A?	release	2
+static (extension in Assay):AssayCore.RawDecodable< where A: Swift.CaseIterable, A: Swift.RawRepresentable, A.Swift.RawRepresentable.RawValue == Swift.String>._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> A?	retain	1
+static (extension in Assay):AssayCore.RawDecodable< where A: Swift.RawRepresentable, A.Swift.RawRepresentable.RawValue == Swift.Int>._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> A?	release	1
+static (extension in Assay):AssayCore.RawDecodable< where A: Swift.RawRepresentable, A.Swift.RawRepresentable.RawValue == Swift.String>._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> A?	retain	1
+static Assay.Assayer.array(of: Assay.Assayer<A>) -> Assay.Assayer<[A]>	box	1
+static Assay.Assayer.array(of: Assay.Assayer<A>) -> Assay.Assayer<[A]>	ref	1
+static Assay.Assayer.array(of: Assay.Assayer<A>) -> Assay.Assayer<[A]>	retain	2
+static Assay.Assayer.lazy(@Sendable () -> Assay.Assayer<A>) -> Assay.Assayer<A>	ref	1
+static Assay.Assayer.lazy(@Sendable () -> Assay.Assayer<A>) -> Assay.Assayer<A>	retain	2

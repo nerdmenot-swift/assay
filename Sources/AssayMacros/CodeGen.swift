@@ -752,14 +752,24 @@ extension SchemaMacro {
               """
             : ""
 
-        // Geometric growth for now. Exact-sizing needs a counting pre-scan, and
-        // docs/PERFORMANCE.md §9.2 says to measure that trade rather than assume it —
-        // serde_json, the fastest general-purpose decoder in Rust, does not pre-count.
+        // EXACT-SIZED FOR SCALAR ELEMENTS ONLY (2026-09-19): a structural pre-count
+        // (`_countArrayElements`) and one reservation, instead of geometric growth.
+        // docs/PERFORMANCE.md §9.2 said to measure that trade rather than assume it, and the
+        // measurement split it cleanly (docs/EFFICIENCY.md row 2):
+        //   * an array of SCALARS is a few bytes per element to skip, and the reallocations
+        //     it saves dominate: array-10 went −67% heap bytes, 10,014 → 2,003 blocks, and
+        //     −2.1% instructions;
+        //   * an array of OBJECTS makes the pre-count a second pass over most of the
+        //     document: base/struct went −51% heap bytes but +24% instructions (+55% on the
+        //     prefix path), past what a resource win may cost. Those keep geometric growth.
+        let precount = (isDateType(element) || scalarCall(element, key: key) != nil)
+            ? "\(pad)        \(arr).reserveCapacity(reader._countArrayElements())\n"
+            : ""
         return """
         \(pad)if reader.tryConsume(0x5B) {
         \(pad)    var \(arr): [\(element)] = []
         \(epathDecl)\(pad)    if !reader.tryConsume(0x5D) {
-        \(pad)        while true {
+        \(precount)\(pad)        while true {
         \(inner)\(pad)            if reader.tryConsume(0x2C) { continue }
         \(pad)            break
         \(pad)        }

@@ -26,6 +26,9 @@ OUT="${OUT:-$WORK/summary}"
 # Created before the build writes its log into it: CI's first run failed here, because every
 # local run had pointed WORK at a directory that already existed.
 mkdir -p "$WORK"
+# Always re-expand the macros: an incremental build can keep AssayMatrix's generated code
+# from before an AssayMacros change (see Benchmarks/count.sh).
+rm -rf "$WORK"/build/*/release/AssayMatrix.build "$WORK"/build/release/AssayMatrix.build
 
 ( cd "$ROOT/Benchmarks" && swift build -c release --product AssayMatrix \
     -j "${JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}" --scratch-path "$WORK/build" \

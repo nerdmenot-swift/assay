@@ -2448,3 +2448,20 @@ iterating by value. The batch-loop variant also ADDED a retain per element, and 
 made the net win smaller (−10.7%) than the one change alone. They were reverted on the counts.
 Worth carrying: in Swift, how you spell a read does not decide whether it copies. The
 optimiser decides, based on what it can prove about the memory across the call.
+
+### Exact-sized arrays, for scalars only (2026-09-19)
+
+`docs/PERFORMANCE.md` §9.2 said to measure the pre-count trade rather than assume it, and the
+measurement split cleanly. A structural pre-count (`_countArrayElements`) plus one reservation:
+
+| | instructions | heap bytes | blocks |
+|---|---|---|---|
+| array of 10 strings per element (`array-10/struct`) | **−18.2%** | **−57.7%** | 10,014 → 2,014 |
+| top-level array of 2,000 objects (`base/struct`) | **+24%** | −51% | 14 → 3 |
+| the same, prefix path (`base/skip`) | **+35%** | −51% | 14 → 3 |
+
+For scalars the elements are a few bytes each to skip, and the reallocations saved dominate.
+For objects the pre-count is a second pass over most of the document. That is past the +5%
+instructions a resource win may cost, so only scalar arrays pre-count. The first
+measurement of the scalar-only version was **stale**: SwiftPM had not re-expanded the macros
+in `AssayMatrix` after the `CodeGen` edit. `count.sh` now always rebuilds that module.

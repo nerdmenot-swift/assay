@@ -57,6 +57,7 @@ nonisolated public static func _assay(
                         if reader.tryConsume(0x5B) {
                             var __arr1_0: [String] = []
                             if !reader.tryConsume(0x5D) {
+                                __arr1_0.reserveCapacity(reader._countArrayElements())
                                 while true {
                                 if let __e1_0 = reader._decodeString(&sink, path, "c", __arr1_0.count) { __arr1_0.append(__e1_0) }
                                     if reader.tryConsume(0x2C) { continue }

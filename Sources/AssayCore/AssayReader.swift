@@ -336,6 +336,50 @@ public struct AssayReader: ~Copyable {
         return false
     }
 
+    /// How many elements the array starting at the cursor (just past its `[`) holds, found
+    /// with a structural scan that does not move the cursor: top-level commas, with depth
+    /// and string state tracked and nothing decoded. The generated array decode reserves
+    /// exactly this, so an array is ONE allocation instead of a doubling chain — 14 blocks
+    /// for a 2,000-element array, 5 for a 10-element one, before 2026-09-19.
+    ///
+    /// It costs a second structural pass over the array's bytes; `count.py` is what decides
+    /// whether that is worth it (docs/EFFICIENCY.md, row 2). Malformed input returns 0 and
+    /// the decode that follows reports the problem as it always did.
+    @inlinable
+    public func _countArrayElements() -> Int {
+        var i = cursor
+        var depth = 0
+        var commas = 0
+        var sawValue = false
+        while i < count {
+            let c = unsafe base[i]
+            switch c {
+            case 0x22:
+                if depth == 0 { sawValue = true }
+                i &+= 1
+                while i < count {
+                    let d = unsafe base[i]
+                    if d == 0x22 { break }
+                    i &+= d == 0x5C ? 2 : 1
+                }
+            case 0x7B, 0x5B:
+                if depth == 0 { sawValue = true }
+                depth &+= 1
+            case 0x7D, 0x5D:
+                if depth == 0 { return sawValue ? commas &+ 1 : 0 }
+                depth &-= 1
+            case 0x2C:
+                if depth == 0 { commas &+= 1 }
+            case 0x20, 0x0A, 0x09, 0x0D:
+                break
+            default:
+                if depth == 0 { sawValue = true }
+            }
+            i &+= 1
+        }
+        return 0
+    }
+
     /// Depth-counted structural skip: count `{`/`[` against `}`/`]` while respecting
     /// string state, and never touch the contents.
     @inlinable

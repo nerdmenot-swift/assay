@@ -39,6 +39,11 @@ case " $* " in *" --cells "*) SUBSET=--subset ;; esac
 docker run --rm -v "$ROOT:/assay" -v assay-count-build:/build -w /assay/Benchmarks "$IMAGE" \
   bash -lc "
 set -euo pipefail
+# ALWAYS re-expand the macros. An incremental SwiftPM build does not reliably re-run macro
+# expansion in a dependent module when the macro IMPLEMENTATION changes, so after an edit to
+# AssayMacros this measured the old generated code: found 2026-09-19, when a CodeGen change
+# counted identically to the version before it. Rebuilding AssayMatrix alone is cheap.
+rm -rf /build/release/AssayMatrix.build /build/release/AssayMatrix
 # A failed build must stop here: filtering its output through grep once hid one.
 swift build -c release --product AssayMatrix -j \${JOBS:-1} --scratch-path /build > /tmp/build.log 2>&1 \
   || { grep -E 'error' /tmp/build.log | head -20; exit 1; }

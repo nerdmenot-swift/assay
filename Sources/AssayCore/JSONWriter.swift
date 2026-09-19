@@ -26,7 +26,12 @@
 /// Accumulates JSON bytes. A struct passed `inout`, like `IssueSink` — static exclusivity,
 /// no boxing, no escaping capture.
 public struct JSONWriter: ~Copyable {
+    /// The output, ZERO-FILLED to its whole count; the first `length` bytes are written.
+    /// Every write is one `memcpy` into storage that already exists, instead of an
+    /// `Array.append(contentsOf:)` with its generic sequence machinery, which was 39% of
+    /// `base/encode` (callgrind, 2026-09-20). `finish()` truncates to `length` in place.
     @usableFromInline var out: [UInt8]
+    @usableFromInline var length: Int = 0
     /// Whether the container currently being written has had a member yet, so commas are
     /// emitted between members and never before the first.
     @usableFromInline var needsComma: Bool = false
@@ -40,27 +45,64 @@ public struct JSONWriter: ~Copyable {
     @inlinable
     public init(pretty: Bool = false, reservingCapacity capacity: Int = 512) {
         self.pretty = pretty
-        self.out = []
-        self.out.reserveCapacity(capacity)
+        self.out = [UInt8](repeating: 0, count: Swift.max(capacity, 16))
     }
 
     /// The bytes written so far. Consuming, because the writer owns the buffer and there is
-    /// no reason to copy it out.
+    /// no reason to copy it out: the unwritten tail is dropped in place.
     @inlinable
-    public consuming func finish() -> [UInt8] { out }
+    public consuming func finish() -> [UInt8] {
+        var o: [UInt8] = []
+        swap(&o, &out)
+        o.removeSubrange(length...)
+        return o
+    }
 
     // MARK: Structure
 
+    /// Room for `n` more bytes.
     @inlinable @inline(__always)
-    mutating func byte(_ b: UInt8) { out.append(b) }
+    mutating func ensure(_ n: Int) {
+        if length &+ n > out.count { grow(n) }
+    }
+
+    /// Doubling, as `Array` itself grows, so the block count is what `append` gave.
+    @inline(never) @usableFromInline
+    mutating func grow(_ n: Int) {
+        let target = Swift.max(out.count &* 2, length &+ n)
+        out.append(contentsOf: repeatElement(0, count: target &- out.count))
+    }
+
+    @inlinable @inline(__always)
+    mutating func byte(_ b: UInt8) {
+        ensure(1)
+        let at = length
+        unsafe out.withUnsafeMutableBufferPointer { unsafe $0[at] = b }
+        length = at &+ 1
+    }
+
+    /// `n` bytes from `p`, one copy.
+    @inlinable @inline(__always)
+    mutating func put(_ p: UnsafePointer<UInt8>, _ n: Int) {
+        guard n > 0 else { return }
+        ensure(n)
+        let at = length
+        unsafe out.withUnsafeMutableBufferPointer { unsafe ($0.baseAddress! + at).update(from: p, count: n) }
+        length = at &+ n
+    }
+
+    @inlinable @inline(__always)
+    mutating func put(_ literal: StaticString) {
+        unsafe put(literal.utf8Start, literal.utf8CodeUnitCount)
+    }
 
     @inlinable
     mutating func newlineAndIndent() {
         guard pretty else { return }
         if afterKey { afterKey = false; return }
-        guard !out.isEmpty else { return }          // no newline before the first byte
-        out.append(0x0A)
-        for _ in 0..<depth { out.append(0x20); out.append(0x20) }
+        guard length > 0 else { return }            // no newline before the first byte
+        byte(0x0A)
+        for _ in 0..<depth { byte(0x20); byte(0x20) }
     }
 
     @inlinable
@@ -117,7 +159,7 @@ public struct JSONWriter: ~Copyable {
             if c < 0x20 || c == 0x22 || c == 0x5C {
                 writeEscaped(c)
             } else {
-                out.append(c)
+                byte(c)
             }
             i &+= 1
         }
@@ -134,8 +176,7 @@ public struct JSONWriter: ~Copyable {
     @inlinable
     public mutating func _key(encoded k: StaticString) {
         separate()
-        unsafe out.append(contentsOf: UnsafeBufferPointer(start: k.utf8Start,
-                                                          count: k.utf8CodeUnitCount))
+        unsafe put(k.utf8Start, k.utf8CodeUnitCount)
         if pretty { byte(0x20); afterKey = true }
         needsComma = false
     }
@@ -149,10 +190,10 @@ public struct JSONWriter: ~Copyable {
         let n = k.utf8CodeUnitCount
         if !pretty {
             let skip = needsComma ? 0 : 1
-            unsafe out.append(contentsOf: UnsafeBufferPointer(start: start + skip, count: n &- skip))
+            unsafe put(start + skip, n &- skip)
         } else {
             separate()
-            unsafe out.append(contentsOf: UnsafeBufferPointer(start: start + 1, count: n &- 2))
+            unsafe put(start + 1, n &- 2)
             byte(0x20)
             byte(0x22)
         }
@@ -176,10 +217,10 @@ public struct JSONWriter: ~Copyable {
         let start = unsafe k.utf8Start
         let n = k.utf8CodeUnitCount
         if !pretty && needsComma {
-            unsafe out.append(contentsOf: UnsafeBufferPointer(start: start, count: n))
+            unsafe put(start, n)
         } else {
             separate()
-            unsafe out.append(contentsOf: UnsafeBufferPointer(start: start + 1, count: n &- 1))
+            unsafe put(start + 1, n &- 1)
             if pretty { byte(0x20); afterKey = true }
         }
         needsComma = false
@@ -238,7 +279,7 @@ public struct JSONWriter: ~Copyable {
             let c = unsafe bytes[i]
             if c < 0x20 || c == 0x22 || c == 0x5C {
                 if i > run {
-                    unsafe out.append(contentsOf: UnsafeBufferPointer(rebasing: bytes[run..<i]))
+                    unsafe put(bytes.baseAddress! + run, i &- run)
                 }
                 writeEscaped(c)
                 run = i &+ 1
@@ -246,7 +287,7 @@ public struct JSONWriter: ~Copyable {
             i &+= 1
         }
         if run < bytes.count {
-            unsafe out.append(contentsOf: UnsafeBufferPointer(rebasing: bytes[run...]))
+            unsafe put(bytes.baseAddress! + run, bytes.count &- run)
         }
     }
 
@@ -276,9 +317,9 @@ public struct JSONWriter: ~Copyable {
     public mutating func write(_ v: Bool) {
         separate()
         if v {
-            out.append(contentsOf: [0x74, 0x72, 0x75, 0x65])
+            put("true")
         } else {
-            out.append(contentsOf: [0x66, 0x61, 0x6C, 0x73, 0x65])
+            put("false")
         }
         needsComma = true
     }
@@ -286,7 +327,7 @@ public struct JSONWriter: ~Copyable {
     @inlinable
     public mutating func writeNull() {
         separate()
-        out.append(contentsOf: [0x6E, 0x75, 0x6C, 0x6C])
+        put("null")
         needsComma = true
     }
 
@@ -339,7 +380,7 @@ public struct JSONWriter: ~Copyable {
             n /= 10
         }
         var i = digits.count - 1
-        while i >= 0 { out.append(digits[i]); i &-= 1 }
+        while i >= 0 { byte(digits[i]); i &-= 1 }
     }
 
     /// The same digits-backwards trick as `writeInteger`, over the full unsigned range.
@@ -360,7 +401,7 @@ public struct JSONWriter: ~Copyable {
             n /= 10
         }
         var i = digits.count - 1
-        while i >= 0 { out.append(digits[i]); i &-= 1 }
+        while i >= 0 { byte(digits[i]); i &-= 1 }
     }
 
     /// `Double`, with the two values JSON cannot express reported rather than emitted.
@@ -376,7 +417,7 @@ public struct JSONWriter: ~Copyable {
         guard v.isFinite else {
             unrepresentable(&sink, path, key, v)
             separate()
-            out.append(contentsOf: [0x6E, 0x75, 0x6C, 0x6C])
+            put("null")
             needsComma = true
             return
         }
@@ -395,10 +436,11 @@ public struct JSONWriter: ~Copyable {
                 n /= 10
             }
             var i = digits.count - 1
-            while i >= 0 { out.append(digits[i]); i &-= 1 }
+            while i >= 0 { byte(digits[i]); i &-= 1 }
             return
         }
-        out.append(contentsOf: Array(String(v).utf8))
+        var text = String(v)
+        text.withUTF8 { unsafe put($0.baseAddress!, $0.count) }
     }
 
     @inlinable

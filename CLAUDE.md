@@ -475,5 +475,12 @@ which the swiftly 6.3.3 frontend rejects — every build fails in swift-syntax's
 a signal 11. Build with the Command Line Tools' older SDK so numbers stay on the compiler they
 were recorded with: `export SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk`.
 
+**Stale incremental builds in `Benchmarks/` (2026-09-20).** After a change to `@inlinable`
+code in `AssayCore` (or to a macro), SwiftPM can leave a dependent executable holding the
+OLD inlined body or expansion. `DiffFuzz` failed 75 encode checks against a writer whose
+buffer layout had changed, and passed on a clean rebuild. Touch the executable's own sources
+before trusting a run: `touch Benchmarks/Sources/DiffFuzz/*.swift` (`count.sh` already does
+this for `AssayMatrix`).
+
 The user prefers you proceed with judgment rather than stopping to ask clarifying questions.
 State assumptions and continue.

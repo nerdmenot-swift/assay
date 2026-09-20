@@ -157,6 +157,10 @@ func allShapes() -> [Shape] {
         "{\"f0\":\"v0\",\"f1\":\"v1\",\"f2\":\"v2\",\"f3\":\"v3\","
         + "\"tags\":[" + (0..<10).map { "\"t\($0)\"" }.joined(separator: ",") + "]}" }))
 
+    // Sibling collections of objects, plus a dictionary per record: see `MGroup`.
+    add("groups-10", "200 records, each a 10-object array and a 5-key dictionary",
+        document((0..<(n / 10)).map { _ in groupRecord() }))
+
     // ---- absence: the five presence states meet the wire here ----
     add("optional-absent", "5 optional fields, all absent", document((0..<n).map { _ in "{}" }))
     add("optional-null", "5 optional fields, all null", document((0..<n).map { _ in
@@ -199,6 +203,15 @@ func allShapes() -> [Shape] {
 // Each axis borrows an existing shape's NAME for dispatch, because the decode type is chosen
 // by shape name (`Tasks.swift`), and a sweep must change the size and nothing else.
 
+/// One `groups-10` record: an array of objects and a dictionary, the two container shapes a
+/// per-parse size hint exists for.
+func groupRecord(items: Int = 10, keys: Int = 5) -> String {
+    let objects = (0..<items).map { "{\"a\":\"a\($0)\",\"b\":\"b\($0)\"}" }
+        .joined(separator: ",")
+    let tally = (0..<keys).map { "\"k\($0)\":\($0)" }.joined(separator: ",")
+    return "{\"items\":[\(objects)],\"tally\":{\(tally)}}"
+}
+
 struct Axis {
     let name: String
     /// The shape whose decode type this axis's documents fit.
@@ -226,6 +239,12 @@ func allAxes() -> [Axis] {
              tasks: ["struct", "skip", "value", "encode", "validate"], sizes: lengths) { len in
             document((0..<fixed).map { _ in
                 stringElement(fields: 5, key: shortKey) { _ in String(repeating: "x", count: len) } })
+        },
+        // Sibling containers of objects: the count of RECORDS rises, so the per-record
+        // array and dictionary are hinted from the record before them.
+        Axis(name: "groups", shape: "groups-10", tasks: ["struct", "value"],
+             sizes: [125, 250, 500, 1_000]) { n in
+            document((0..<n).map { _ in groupRecord() })
         },
         // Escaped values take the slow path, which has its own buffer and its own loop.
         Axis(name: "escaped-length", shape: "escapes-100", tasks: ["struct", "value"],

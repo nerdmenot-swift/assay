@@ -66,6 +66,7 @@ private func decodedValue(_ shape: String, _ b: [UInt8]) -> Any? {
     case "values-bool":       return try? DocBool.parse(json: b)
     case "nested-3":          return try? DocNested.parse(json: b)
     case "array-10":          return try? DocArray.parse(json: b)
+    case "groups-10":         return try? DocGroup.parse(json: b)
     case "optional-absent", "optional-null": return try? DocOptional.parse(json: b)
     default:                  return try? Doc5.parse(json: b)
     }

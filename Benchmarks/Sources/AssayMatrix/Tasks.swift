@@ -65,6 +65,7 @@ private func decodeStruct(_ shape: String, _ b: [UInt8]) -> Int? {
     case "values-bool":       return (try? DocBool.parse(json: b)).map { $0.items.count }
     case "nested-3":          return (try? DocNested.parse(json: b)).map { $0.items.count }
     case "array-10":          return (try? DocArray.parse(json: b)).map { $0.items.count }
+    case "groups-10":         return (try? DocGroup.parse(json: b)).map { $0.items.count }
     case "optional-absent", "optional-null":
                               return (try? DocOptional.parse(json: b)).map { $0.items.count }
     default:                  return (try? Doc5.parse(json: b)).map { $0.items.count }
@@ -81,6 +82,7 @@ private func diagnoseStruct(_ shape: String, _ b: [UInt8]) -> Int? {
     case "values-bool":       return DocBool.diagnose(json: b).value?.items.count
     case "nested-3":          return DocNested.diagnose(json: b).value?.items.count
     case "array-10":          return DocArray.diagnose(json: b).value?.items.count
+    case "groups-10":         return DocGroup.diagnose(json: b).value?.items.count
     case "optional-absent", "optional-null":
                               return DocOptional.diagnose(json: b).value?.items.count
     default:                  return Doc5.diagnose(json: b).value?.items.count

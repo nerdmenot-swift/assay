@@ -40,12 +40,26 @@ import Assay
 struct ArrayHintTests {
 
     /// `n` records whose arrays hold exactly the lengths given, in order.
+    ///
+    /// Written as statements rather than one `+` chain on purpose: the chain version made
+    /// Swift 6.4's type checker give up ("unable to type-check this expression in reasonable
+    /// time") while 6.3.3 compiled it, which CI found and this machine could not.
     static func doc(_ lengths: [(Int, Int)]) -> [UInt8] {
-        let records = lengths.map { (t, s) in
-            "{\"tags\":[" + (0..<t).map { "\"t\($0)\"" }.joined(separator: ",") + "],"
-            + "\"sizes\":[" + (0..<s).map(String.init).joined(separator: ",") + "]}"
+        var records: [String] = []
+        for (t, s) in lengths {
+            let tags: String = (0..<t).map { "\"t\($0)\"" }.joined(separator: ",")
+            let sizes: String = (0..<s).map { String($0) }.joined(separator: ",")
+            var record: String = "{\"tags\":["
+            record += tags
+            record += "],\"sizes\":["
+            record += sizes
+            record += "]}"
+            records.append(record)
         }
-        return Array(("{\"items\":[" + records.joined(separator: ",") + "]}").utf8)
+        var json: String = "{\"items\":["
+        json += records.joined(separator: ",")
+        json += "]}"
+        return Array(json.utf8)
     }
 
     @Test("arrays that shrink, grow and empty out all decode exactly", arguments: [

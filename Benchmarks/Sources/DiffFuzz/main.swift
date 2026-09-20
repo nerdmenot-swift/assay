@@ -379,6 +379,10 @@ let oracles: [Oracle] = [
             guard let value = try? JSON.Value.parse([UInt8](data)) else { continue }
             generatedXML.append((name, renderXML(RawValue(value))))
         }
+        let (checkedDoors, doorFailures) = runXMLDoorEquivalence(handWrittenXML + generatedXML)
+        for f in doorFailures { fail("xml-doors: \(f)") }
+        print("      XML doors: \(checkedDoors) documents, the direct RawValue parse agrees "
+              + "with projecting the tree")
         let xmlGen = runXMLDifferential(generatedXML)
         report("XML generated (\(generatedXML.count) documents)", "Foundation XMLParser",
                agreed: xmlGen.agreed, bothRejected: xmlGen.bothRejected,

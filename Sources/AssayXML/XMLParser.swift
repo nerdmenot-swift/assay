@@ -55,12 +55,41 @@ extension XML {
         into sink: inout IssueSink,
         limits: Limits = .default
     ) -> Document? {
+        withDocument(bytes, into: &sink, limits: limits, as: XMLNodeBuilder.self)
+    }
+
+    /// Straight to `RawValue`, in ONE pass: no `XML.Element` tree is built only to be
+    /// projected and dropped (`docs/EFFICIENCY.md` rows 12 and 17). This is what
+    /// `parse(xml:)` uses, and it is public so that what it uses can be tested against
+    /// `decode` + `RawValue(_:)`. The root's name travels alongside, because `@XML(root:)`
+    /// is checked against it and a `RawValue` has nowhere to keep it.
+    ///
+    /// Lossy exactly as the projection is (`docs/VALUE-MODELS.md` §5): attributes and child
+    /// elements share one keyspace, and comments, instructions and namespaces are dropped.
+    public static func decodeRaw(
+        _ bytes: [UInt8],
+        into sink: inout IssueSink,
+        limits: Limits = .default
+    ) -> (rootName: String, value: RawValue)? {
+        guard let doc = withDocument(bytes, into: &sink, limits: limits,
+                                     as: XMLRawBuilder.self) else { return nil }
+        return (doc.rootName, doc.value)
+    }
+
+    /// Byte limit, UTF-8 validation, BOM, reader, parser: shared by both doors, so neither
+    /// can grow a check the other lacks.
+    static func withDocument<B: XMLBuilding>(
+        _ bytes: [UInt8],
+        into sink: inout IssueSink,
+        limits: Limits,
+        as builder: B.Type
+    ) -> B.Output? {
         if bytes.count > limits.maxBytes {
             sink.add(Issue(code: .tooManyBytes,
                            params: ["maxBytes": .int(limits.maxBytes)]))
             return nil
         }
-        return unsafe bytes.withUnsafeBufferPointer { buf -> Document? in
+        return unsafe bytes.withUnsafeBufferPointer { buf -> B.Output? in
             guard let base = buf.baseAddress else { return nil }
             // Same whole-buffer UTF-8 pass as the JSON path, for the same reason: it is
             // one linear pass, and it removes validation from every String built after.
@@ -71,7 +100,7 @@ extension XML {
             }
             var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
             reader.advanceBy(unsafe UTF8Validation.bomLength(base, buf.count))
-            var parser = Parser(limits: limits, inputBytes: buf.count)
+            var parser = Parser<B>(limits: limits, inputBytes: buf.count)
             return parser.parseDocument(&reader, &sink)
         }
     }
@@ -80,7 +109,9 @@ extension XML {
 extension XML {
 
     /// The parser state. A struct, and never escaping, so it stays on the stack.
-    struct Parser {
+    /// Generic over what it builds: `XMLNodeBuilder` for the element tree,
+    /// `XMLRawBuilder` for `RawValue` with no tree in between (`XMLBuilder.swift`).
+    struct Parser<B: XMLBuilding> {
 
         /// Where the duplicate-attribute check stops scanning and starts hashing.
         ///
@@ -88,7 +119,7 @@ extension XML {
         /// nothing — the original reasoning, which holds. Above it the scan is quadratic.
         /// 16 is comfortably past "a handful"; the crossover is not sharp, and what
         /// matters is that one exists at all.
-        static let attributeSetThreshold = 16
+        static var attributeSetThreshold: Int { 16 }
 
         let limits: Limits
         /// Element child counts by depth, for `parseElement`'s reservation.
@@ -129,7 +160,7 @@ extension XML {
         mutating func parseDocument(
             _ r: inout AssayReader,
             _ sink: inout IssueSink
-        ) -> XML.Document? {
+        ) -> B.Output? {
             var prolog: [XML.Node] = []
 
             while true {
@@ -174,7 +205,7 @@ extension XML {
                 return nil
             }
 
-            return XML.Document(root: root, prolog: prolog)
+            return B.document(root: root, prolog: prolog)
         }
 
 
@@ -276,7 +307,7 @@ extension XML {
             depth: Int,
             /// Which element child of its parent this is, for the shape-memory key.
             position: Int = 0
-        ) -> XML.Element? {
+        ) -> B.Value? {
             guard depth < limits.maxDepth else {
                 r.report(&sink, .depthExceeded, params: ["maxDepth": .int(limits.maxDepth)])
                 return nil
@@ -317,19 +348,19 @@ extension XML {
             if pushedScope { namespaces.append(scope) }
             defer { if pushedScope { namespaces.removeLast() } }
 
-            let name = resolve(r, nameRange, isAttribute: false)
+            var name = resolve(r, nameRange, isAttribute: false)
             // Resolved OUT OF LINE too, for the same stack reason as `scanAttributes`: the
             // loop's tuples, set and issue construction were in this recursive frame, and a
             // debug build at the default maxDepth of 64 had only a few levels of headroom on a
             // 512 KB thread (Swift Testing's worker stack). Measured 2026-09-19.
-            let attributes = resolveAttributes(r, &sink, rawAttributes, elementName: nameRange)
+            var attributes = resolveAttributes(r, &sink, rawAttributes, elementName: nameRange)
 
             // Empty element: <tag/>. There is no content to underline, so the caret goes
             // under the tag name — the only thing in the document that exists.
             if r.consume("/>") {
-                return XML.Element(name: name, attributes: attributes, children: [],
-                                   contentSpan: SourceSpan(lo: nameStart,
-                                                           len: nameLength))
+                return B.emptyElement(name: consume name, attributes: consume attributes,
+                                      contentSpan: SourceSpan(lo: nameStart,
+                                                              len: nameLength))
             }
             guard r.consume(">") else {
                 r.report(&sink, .xmlUnterminatedTag)
@@ -339,9 +370,11 @@ extension XML {
             // that is what a schema issue about this element is about.
             let contentStart = r.byteOffset
 
-            var children: [XML.Node] = []
-            // Shape memory, out of line (see `childReservation`).
-            children.reserveCapacity(childReservation(depth: depth, position: position))
+            // ONE accumulator, not a handful of locals: this function recurses, so what it
+            // holds is multiplied by depth (see this file's `scanAttributes` note).
+            var children = B.makeChildren(
+                name: &name, attributes: &attributes,
+                reserving: childReservation(depth: depth, position: position))
             var elementChildren = 0
             var contentEnd = contentStart
 
@@ -388,39 +421,42 @@ extension XML {
 
                     if next == UInt8(ascii: "!") {
                         if r.matches("<!--") {
-                            guard let c = parseComment(&r, &sink) else { return nil }
-                            children.append(c)
+                            guard let text = parseCommentText(&r, &sink) else { return nil }
+                            B.appendComment(&children, text)
                             continue
                         }
                         if r.matches("<![CDATA[") {
-                            guard let c = parseCDATA(&r, &sink) else { return nil }
-                            children.append(c)
+                            guard let text = parseCDATAText(&r, &sink) else { return nil }
+                            B.appendText(&children, text, isCDATA: true)
                             continue
                         }
                     }
                     if next == UInt8(ascii: "?") {
-                        guard let pi = parseProcessingInstruction(&r, &sink) else { return nil }
-                        children.append(pi)
+                        guard let pi = parseInstructionParts(&r, &sink) else { return nil }
+                        B.appendInstruction(&children, target: pi.target, data: pi.data)
                         continue
                     }
                     guard let child = parseElement(&r, &sink, depth: depth + 1,
                                                    position: elementChildren) else {
                         return nil
                     }
-                    children.append(.element(child))
+                    B.appendElement(&children, child)
                     elementChildren &+= 1
                     continue
                 }
 
                 guard let text = parseText(&r, &sink) else { return nil }
-                if !text.isEmpty { children.append(.text(text)) }
+                if !text.isEmpty { B.appendText(&children, text, isCDATA: false) }
             }
 
-            recordChildren(children.count, depth: depth, position: position)
-            return XML.Element(name: name, attributes: attributes, children: children,
-                               contentSpan: SourceSpan(
-                                   lo: contentStart,
-                                   len: max(0, contentEnd - contentStart)))
+            recordChildren(B.childCount(children), depth: depth, position: position)
+            // `consume`: MOVE the accumulator into the finished element. Passing it without
+            // this copied the whole thing — three retains per element (count.py explain), the
+            // same trap `docs/EFFICIENCY.md` rows 14 and 16 record.
+            return B.finish(consume children, name: consume name,
+                            attributes: consume attributes,
+                            contentSpan: SourceSpan(lo: contentStart,
+                                                    len: max(0, contentEnd - contentStart)))
         }
 
         /// Parse an element's attributes, up to the `>` or `/>`.
@@ -641,16 +677,24 @@ extension XML {
 
         // MARK: Leaves
 
+        /// The node form, for the prolog and trailing content, where a `Node` is what the
+        /// document keeps. An element's children go through the builder instead.
         mutating func parseComment(
             _ r: inout AssayReader, _ sink: inout IssueSink
         ) -> XML.Node? {
+            parseCommentText(&r, &sink).map { .comment($0) }
+        }
+
+        mutating func parseCommentText(
+            _ r: inout AssayReader, _ sink: inout IssueSink
+        ) -> String? {
             _ = r.consume("<!--")
             let start = r.byteOffset
             while !r.atEnd {
                 if r.matches("-->") {
                     let text = r.string(from: start, to: r.byteOffset)
                     _ = r.consume("-->")
-                    return .comment(normalizeLineEndings(text))
+                    return normalizeLineEndings(text)
                 }
                 r.advanceBy(1)
             }
@@ -658,16 +702,16 @@ extension XML {
             return nil
         }
 
-        mutating func parseCDATA(
+        mutating func parseCDATAText(
             _ r: inout AssayReader, _ sink: inout IssueSink
-        ) -> XML.Node? {
+        ) -> String? {
             _ = r.consume("<![CDATA[")
             let start = r.byteOffset
             while !r.atEnd {
                 if r.matches("]]>") {
                     let text = r.string(from: start, to: r.byteOffset)
                     _ = r.consume("]]>")
-                    return .cdata(normalizeLineEndings(text))
+                    return normalizeLineEndings(text)
                 }
                 r.advanceBy(1)
             }
@@ -675,9 +719,17 @@ extension XML {
             return nil
         }
 
+        /// The node form, for the prolog and trailing content.
         mutating func parseProcessingInstruction(
             _ r: inout AssayReader, _ sink: inout IssueSink
         ) -> XML.Node? {
+            guard let parts = parseInstructionParts(&r, &sink) else { return nil }
+            return .processingInstruction(target: parts.target, data: parts.data)
+        }
+
+        mutating func parseInstructionParts(
+            _ r: inout AssayReader, _ sink: inout IssueSink
+        ) -> (target: String, data: String)? {
             _ = r.consume("<?")
             guard let target = scanName(&r) else {
                 r.report(&sink, .xmlBadPiTarget)
@@ -689,8 +741,7 @@ extension XML {
                 if r.matches("?>") {
                     let data = r.string(from: start, to: r.byteOffset)
                     _ = r.consume("?>")
-                    return .processingInstruction(target: target,
-                                                  data: normalizeLineEndings(data))
+                    return (target, normalizeLineEndings(data))
                 }
                 r.advanceBy(1)
             }

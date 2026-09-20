@@ -241,6 +241,33 @@ struct XMLOracleResult {
     var disagreed: [(name: String, detail: String)] = []
 }
 
+/// The two XML doors against each other: the element tree projected to `RawValue`, and the
+/// direct `RawValue` parse the struct doors use. One parser generic over what it builds
+/// (`XMLBuilder.swift`), so this keeps the second instantiation honest over the whole corpus.
+func runXMLDoorEquivalence(_ documents: [(name: String, text: String)]) -> (Int, [String]) {
+    var checked = 0
+    var failures: [String] = []
+    for (name, text) in documents {
+        let bytes = Array(text.utf8)
+        var treeSink = IssueSink()
+        guard let tree = XML.decode(bytes, into: &treeSink, limits: .default) else { continue }
+        var rawSink = IssueSink()
+        guard let direct = XML.decodeRaw(bytes, into: &rawSink, limits: .default) else {
+            failures.append("\(name): the tree door parsed it and the direct door did not")
+            continue
+        }
+        if treeSink.issues.map(\.code) != rawSink.issues.map(\.code) {
+            failures.append("\(name): issues differ")
+        } else if direct.value != RawValue(tree) {
+            failures.append("\(name): values differ")
+        } else if direct.rootName != tree.root.name.local {
+            failures.append("\(name): root name differs")
+        }
+        checked += 1
+    }
+    return (checked, failures)
+}
+
 func runXMLDifferential(_ documents: [(name: String, text: String)]) -> XMLOracleResult {
     var r = XMLOracleResult()
 

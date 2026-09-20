@@ -40,11 +40,10 @@ public import AssayCore
 /// the bug in the paragraph above gets reintroduced.
 @usableFromInline
 func __assayCheckXMLRoot(
-    _ type: Any.Type, _ doc: XML.Document, _ sink: inout IssueSink
+    _ type: Any.Type, _ actual: String, _ sink: inout IssueSink
 ) {
         guard let rooted = type as? any XMLRooted.Type,
               let expected = rooted._assayXMLExpectedRoot else { return }
-        let actual = doc.root.name.local
         guard actual != expected else { return }
         sink.add(Issue(code: .xmlRootMismatch,
                        path: [],
@@ -78,13 +77,13 @@ extension RawDecodable {
         sourceName: String = "<input>"
     ) -> Diagnosis<Self> {
         var sink = IssueSink(limits: limits)
-        guard let doc = XML.decode(bytes, into: &sink, limits: limits), sink.isValid else {
+        // THE DIRECT DOOR: no `XML.Element` tree is built here at all (`XML.decodeRaw`).
+        guard let doc = XML.decodeRaw(bytes, into: &sink, limits: limits), sink.isValid else {
             return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
-        __assayCheckXMLRoot(Self.self, doc, &sink)
-        let raw = RawValue(consuming: consume doc)
+        __assayCheckXMLRoot(Self.self, doc.rootName, &sink)
         var __rootPath: [PathComponent] = []
-        let value = Self._assay(from: raw, into: &sink, at: &__rootPath)
+        let value = Self._assay(from: doc.value, into: &sink, at: &__rootPath)
         return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
@@ -134,12 +133,12 @@ extension ContextualRawDecodable {
         sourceName: String = "<input>"
     ) -> Diagnosis<Self> {
         var sink = IssueSink(limits: limits)
-        guard let doc = XML.decode(bytes, into: &sink, limits: limits), sink.isValid else {
+        guard let doc = XML.decodeRaw(bytes, into: &sink, limits: limits), sink.isValid else {
             return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
-        __assayCheckXMLRoot(Self.self, doc, &sink)
+        __assayCheckXMLRoot(Self.self, doc.rootName, &sink)
         var __rootPath: [PathComponent] = []
-        let value = Self._assay(from: RawValue(consuming: consume doc), into: &sink,
+        let value = Self._assay(from: doc.value, into: &sink,
                                 at: &__rootPath, context: context)
         return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
@@ -213,7 +212,7 @@ extension WireFormat {
         name: "xml",
         matches: { $0.names("xml") },
         decode: { bytes, sink, limits in
-            guard let doc = XML.decode(bytes, into: &sink, limits: limits) else { return nil }
-            return RawValue(consuming: consume doc)
+            guard let doc = XML.decodeRaw(bytes, into: &sink, limits: limits) else { return nil }
+            return doc.value
         })
 }

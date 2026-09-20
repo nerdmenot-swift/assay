@@ -205,3 +205,35 @@ private extension RawValue {
 }
 
 @Schema(formats: .all) struct YRoundTrip: Equatable { var a: String? }
+
+/// The XML struct doors parse straight to `RawValue` (`XML.decodeRaw`, one parser generic over
+/// what it builds — `XMLBuilder.swift`). It must build exactly what projecting the element
+/// tree builds: the leaf test, attributes before children, whitespace-only runs dropped, and
+/// character data under the reserved empty key.
+@Suite struct XMLDirectDoorTests {
+
+    static var documents: [String] {
+        XMLConsumingProjectionTests.documents + [
+            "<r><a>1</a>text<b>2</b>  <c/></r>",
+            "<r k=\"v\">only text</r>",
+            "<r>  </r>",
+            "<r><a/><a/><a>3</a></r>",
+            "<r>before<!-- c -->after</r>",
+            "<r><![CDATA[raw]]>tail</r>",
+            "<r xmlns:p=\"urn:p\" p:a=\"1\"><p:x>2</p:x></r>",
+        ]
+    }
+
+    @Test(arguments: documents)
+    func matchesTheProjectedTree(_ text: String) throws {
+        let bytes = Array(text.utf8)
+        var treeSink = IssueSink()
+        let tree = try #require(XML.decode(bytes, into: &treeSink, limits: .default))
+        var rawSink = IssueSink()
+        let direct = try #require(XML.decodeRaw(bytes, into: &rawSink, limits: .default))
+
+        #expect(rawSink.issues.map(\.code) == treeSink.issues.map(\.code))
+        #expect(direct.rootName == tree.root.name.local)
+        #expect(direct.value == RawValue(tree))
+    }
+}

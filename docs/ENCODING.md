@@ -303,8 +303,12 @@ These six answers shape an encoder; they do not make one fall out of the decoder
    refusals and which is strictly easier than any of the above.
 5. ~~**Encoding is unbenchmarked.**~~ **Measured 2026-09-08**, so the prohibition this item
    states is lifted. The arm is `Benchmarks/Sources/AssayBench/EncodeBench.swift`:
-   **2.85×** over `Encodable` + `JSONEncoder` at 50 and 200 items, 4.54× on a single-item
-   document where Foundation's fixed cost dominates. YAML and XML are reported as absolute
+   **8.75× at 50 items and 9.04× at 200** over `Encodable` + `JSONEncoder` as of 2026-09-20,
+   and 11.80× on a single-item document where Foundation's fixed cost dominates. It was
+   2.85×/2.80× when first measured on 2026-09-08; the difference is `docs/EFFICIENCY.md`
+   rows 5, 8 and 22 — one diagnostic path per array rather than per element, key literals
+   that carry their own comma and opening quote, and a writer that owns its buffer instead of
+   appending to an `Array` (36,004 uniqueness checks per call, gone). YAML and XML are reported as absolute
    ns/document rather than ratios — there is no comparable Foundation encoder to divide by,
    and a ratio against nothing is how a benchmark starts lying.
 

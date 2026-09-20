@@ -1,45 +1,62 @@
 # Current numbers
 
 **One machine, one run: macOS 26.5.2, Apple silicon (arm64), Apple Swift 6.3.3, `-O`, warm,
-minimum of 5 rounds — 2026-09-13, commit `1487e38`.** None of these is a claim about
+minimum of 5 rounds — 2026-09-20, commit `abf38a8`.** None of these is a claim about
 another platform (`CLAUDE.md`'s honesty rules); Linux and x86-64 have their own sections
 below. Each row links to the journal entry that explains what it measures and what it does
 not. Regenerate with `swift run -c release AssayBench` and replace this table — the numbers
 are machine-specific by design, so this is pasted, not automated.
 
-**The struct rows moved on 2026-09-13** and the reason is one line of the emitter: the
-generated body built a diagnostic path per array element, for a path read only when the
-document is malformed. Total allocations at fifty items went 257 → **159**, so this is less
-work rather than more memory — see [the efficiency audit](#doing-less-not-spending-more).
+**Every row was re-measured on 2026-09-20** at the end of the efficiency campaign
+(`docs/EFFICIENCY.md`), and the campaign is why several of them moved a long way: encoding
+2.98× → **8.75×** (the writers own their buffers, rows 5/22), YAML struct decode 11.09× →
+**18.20×** and TOML node parse 1.51× → **4.06×** (one parser per format building `RawValue`
+directly, rows 12/17 and the TOML arena).
+
+**Two things about comparing this table with the one before it, both learned the hard way.**
+
+*A ratio against Foundation belongs to the machine AND the OS that produced it.* The
+previously published commit was rebuilt and re-run here on 2026-09-20 and measures **9.13–9.30×**
+on the struct arm against the 9.79× published from it a week earlier — the same source, the
+same toolchain, ~6% apart. The dates arm is starker: that commit measures **4.25×** today
+against a published 8.04×. Nothing in the repository changed; the comparison did. Rows here
+are therefore compared against a rebuild of the old commit, never against the old table.
+
+*And the wall clock still catches things the counters do not.* Re-measuring for this table is
+what found the one regression this campaign shipped: an exact reservation for arrays of
+scalars, decided on instruction and allocation counts, cost up to **+39.5%** on the corpus's
+long arrays, because the matrix cell that decided it holds ten-element arrays and the corpus
+holds arrays of 9,510. It is reverted, the ledger's row 2 carries the numbers, and
+`array-640` now exists so the counters can see what the clock saw.
 
 | arm | number | against | journal |
 |---|---|---|---|
-| struct decode, full corpus | **9.79×** mean over 25 files (5.64–18.62) | `JSONDecoder` | [three passes](#three-passes-because-one-number-cannot-answer-three-questions) |
-| prefix decode + unknown-key skip | **6.12×** over 45 files | `JSONDecoder` | same |
-| generic value model | **3.06×** over 75 files | `JSONSerialization` | same |
-| falsification arm (`apimodel`, 5 sizes) | **5.84×** mean (8.36× float-dense) | `JSONDecoder` | [Phase 1](#phase-1--the-falsification-check) |
-| vs ZippyJSON (simdjson + Codable) | **3.58×** faster | ZippyJSON, which is 2.08× over Foundation here | [the owed number](#the-owed-loss-assay-against-yyjson) |
-| vs yyjson, use-case shape | **0.73×** (loses) | yyjson parse + extraction | same |
-| vs yyjson, float-dense | **0.73×** (loses) | same | same |
-| vs yyjson, DOM vs DOM | **0.13×** (loses) | `yyjson_read` | same |
-| YAML node parse | **6.56×** | Yams `compose` | [YAML and XML](#yaml-and-xml-timed-for-the-first-time) |
-| YAML struct decode | **11.09×** | Yams `YAMLDecoder` | same |
-| XML tree parse | **2.33×** (macOS; **0.96×** on Linux) | Foundation `XMLParser` | [XML, made faster](#making-the-xml-parser-faster-by-profiling-rather-than-by-admiring-libxml2) |
-| TOML node parse | **1.51×** | toml++ via TOMLKit | [TOML](#toml-a-fourth-tree-decoder-against-c) |
-| TOML struct decode | **2.41×** | TOMLKit `TOMLDecoder` | same |
-| `Date` fields | **8.04×** | `JSONDecoder` + `.iso8601` | [Dates](#dates-the-unclaimed-win-claimed) |
-| binary plist | **~5.7×** | Foundation `PropertyListDecoder` | [coverage](#the-arms-that-did-not-exist) |
-| XML plist | **~1.4×** | Foundation `PropertyListDecoder` | same |
-| union vs its variant | **1.17×** (the tag scan) | the variant decoded directly | same |
-| `@Inline` vs nesting | **0.82×** (faster) | the nested `@Schema` it replaces | same |
-| `@Wraps` vs `@Validate` | **2.03×** (slower) | the plain field + rule it is sugar for | same |
-| encoding, 50 / 200 items | **2.98× / 2.80×** | `JSONEncoder` | `docs/ENCODING.md` |
-| cold start, 60 types | **7.8×** first decode (median); 6.4× steady | `JSONDecoder` | `ColdStartBench.swift` |
-| multi-megabyte documents | **10.0–10.3×**, ~1,050 MB/s, flat | `JSONDecoder` | `LargeDocBench.swift` |
-| total allocations, 50 items | **159** against Foundation's 378 | `JSONDecoder` | [doing less](#doing-less-not-spending-more) |
-| `T.validate(_:)` | **72 ns** per value, 1 block; **82 ns/row** batched, 0.17× a decode | — | [Validating a value](#validating-a-value-you-already-have) |
+| struct decode, full corpus | **9.14×** mean over 25 files (5.16–18.07) | `JSONDecoder` | [three passes](#three-passes-because-one-number-cannot-answer-three-questions) |
+| prefix decode + unknown-key skip | **5.62×** over 45 files (2.74–8.49) | `JSONDecoder` | same |
+| generic value model | **3.35×** over 75 files | `JSONSerialization` | same |
+| falsification arm (`apimodel`, 5 sizes) | **5.24×** mean (8.13× float-dense) | `JSONDecoder` | [Phase 1](#phase-1--the-falsification-check) |
+| vs ZippyJSON (simdjson + Codable) | **3.61×** faster | ZippyJSON, which is 1.60–1.84× over Foundation here | [the owed number](#the-owed-loss-assay-against-yyjson) |
+| vs yyjson, use-case shape | **0.69×** (loses) | yyjson parse + extraction | same |
+| vs yyjson, float-dense | **0.69×** (loses) | same | same |
+| vs yyjson, DOM vs DOM | **0.16×** (loses) | `yyjson_read` | same |
+| YAML node parse | **8.35×** | Yams `compose` | [YAML and XML](#yaml-and-xml-timed-for-the-first-time) |
+| YAML struct decode | **18.20×** | Yams `YAMLDecoder` | same |
+| XML tree parse | **2.47×** (macOS; **0.96×** on Linux, 2026-08-18) | Foundation `XMLParser` | [XML, made faster](#making-the-xml-parser-faster-by-profiling-rather-than-by-admiring-libxml2) |
+| TOML node parse | **4.06×** | toml++ via TOMLKit | [TOML](#toml-a-fourth-tree-decoder-against-c) |
+| TOML struct decode | **6.55×** | TOMLKit `TOMLDecoder` | same |
+| `Date` fields | **5.40×** mean (4.25× at the previously published commit, measured today) | `JSONDecoder` + `.iso8601` | [Dates](#dates-the-unclaimed-win-claimed) |
+| binary plist | **4.05×** | Foundation `PropertyListDecoder` | [coverage](#the-arms-that-did-not-exist) |
+| XML plist | **1.28×** | Foundation `PropertyListDecoder` | same |
+| union vs its variant | **1.09×** (the tag scan) | the variant decoded directly | same |
+| `@Inline` vs nesting | **0.87×** (faster) | the nested `@Schema` it replaces | same |
+| `@Wraps` vs `@Validate` | **1.80×** (slower) | the plain field + rule it is sugar for | same |
+| encoding, 50 / 200 items | **8.75× / 9.04×** | `JSONEncoder` | `docs/ENCODING.md` |
+| cold start, 60 types | **6.6×** first decode (median); 5.4× steady | `JSONDecoder` | `ColdStartBench.swift` |
+| multi-megabyte documents | **8.57–8.78×**, ~1,040 MB/s, flat | `JSONDecoder` | `LargeDocBench.swift` |
+| total allocations, 50 items | **159** against Foundation's 377 | `JSONDecoder` | [doing less](#doing-less-not-spending-more) |
+| `T.validate(_:)` | **37 ns** per value, 1 block; **46 ns/row** batched, 0.11× a decode | — | [Validating a value](#validating-a-value-you-already-have) |
 | live allocations, `apimodel-8k` struct | gated, **PASS** | absolute thresholds | [Allocations](#allocations) |
-| compile time, 10 fields | **79.4 ms/type** (gate 100) | `Codable`: 4.75× | `docs/COMPILE-TIME.md` |
+| compile time, 10 fields | **80.8 ms/type** (gate 100) | `Codable`: 4.22× | `docs/COMPILE-TIME.md` |
 
 ---
 

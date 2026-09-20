@@ -178,7 +178,7 @@ var createdAt: Date                                   // ISO-8601, the default
 ```
 
 The parsers are hand-written integer arithmetic (Hinnant's days-from-civil), verified against
-Foundation on 2,279 instants **exactly** — no tolerance — and **6.06× faster** than
+Foundation on 2,279 instants **exactly** — no tolerance — and **5.40× faster** than
 `JSONDecoder`'s `.iso8601` strategy on the date-dense corpus shape. A candidate chain tries
 formats in order; a match on anything but the first *warns*, naming both formats, because silent
 tolerance is how a payload drifts formats unnoticed. A total miss reports every format tried and
@@ -364,18 +364,18 @@ Foundation, the thesis is wrong and the SIMD work is moot.*
 
 | pass | baseline | mean |
 |---|---|---|
-| Struct decode, 25 files (`@Schema` vs `Codable`) | Foundation | **9.17×** |
-| Prefix decode + unknown-key skip, 45 files | Foundation | **6.43×** |
-| Generic value model, 75 files (`JSON.Value`) | `JSONSerialization` | **3.11×** |
-| Falsification arm (API-shaped, 512 B – 64 kB) | Foundation | **5.44×** |
-| Float-dense (canada.json-shaped) | Foundation | **8.64×** |
-| Date decode (`[Date]`, corpus date strings) | `JSONDecoder` `.iso8601` | **6.06×** |
-| Dictionary decode (`[String: T]`, the stated worst case) | Foundation | **7.38×** |
-| YAML node parse | Yams (`compose`, libyaml) | **6.56×** |
-| YAML struct decode | Yams `YAMLDecoder` (Codable) | **11.09×** |
-| XML tree parse (asymmetric, and **macOS only** — read `RESULTS.md`) | Foundation `XMLParser` | **1.30×** |
-| TOML node parse | toml++ (`TOMLTable(string:)`, C++) | **1.20×** |
-| TOML struct decode | TOMLKit `TOMLDecoder` (Codable) | **1.97×** |
+| Struct decode, 25 files (`@Schema` vs `Codable`) | Foundation | **9.14×** |
+| Prefix decode + unknown-key skip, 45 files | Foundation | **5.62×** |
+| Generic value model, 75 files (`JSON.Value`) | `JSONSerialization` | **3.35×** |
+| Falsification arm (API-shaped, 512 B – 64 kB) | Foundation | **5.24×** |
+| Float-dense (canada.json-shaped) | Foundation | **8.13×** |
+| Date decode (`[Date]`, corpus date strings) | `JSONDecoder` `.iso8601` | **5.40×** |
+| Dictionary decode (`[String: T]`, the stated worst case) | Foundation | **5.98×** |
+| YAML node parse | Yams (`compose`, libyaml) | **8.35×** |
+| YAML struct decode | Yams `YAMLDecoder` (Codable) | **18.20×** |
+| XML tree parse (asymmetric, and **macOS only** — read `RESULTS.md`) | Foundation `XMLParser` | **2.47×** |
+| TOML node parse | toml++ (`TOMLTable(string:)`, C++) | **4.06×** |
+| TOML struct decode | TOMLKit `TOMLDecoder` (Codable) | **6.55×** |
 
 The thesis in one line: **the parser was never the bottleneck; the `Codable` container boundary
 was.** ZippyJSON bolted simdjson — the fastest JSON parser in existence — onto `Decodable` and
@@ -403,9 +403,9 @@ both timed regions:
 
 | comparison | result |
 |---|---|
-| `@Schema` decode vs yyjson parse **+ extracting the same Swift structs** | **0.65×** — C is ~1.5× faster |
-| float-dense, same comparison (the arm predicted to lose) | **0.78×** — C is ~1.3× faster |
-| `JSON.Value` vs `yyjson_read` (DOM vs DOM) | **0.13×** — C is ~7× faster |
+| `@Schema` decode vs yyjson parse **+ extracting the same Swift structs** | **0.69×** — C is ~1.4× faster |
+| float-dense, same comparison (the arm predicted to lose) | **0.69×** — C is ~1.4× faster |
+| `JSON.Value` vs `yyjson_read` (DOM vs DOM) | **0.16×** — C is ~6× faster |
 
 The DOM row is the one to read carefully: yyjson builds a tape in one arena with strings
 pointing into it, while `JSON.Value` is a Swift enum tree of individually ARC-managed `String`s.

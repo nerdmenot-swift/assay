@@ -84,10 +84,9 @@ import AssayCore
 }
 @Schema struct DocArray: Equatable { var items: [MArray] }
 
-// Sibling collections of OBJECTS, and a dictionary: the two shapes that reserve nothing
-// today. An array of scalars pre-counts exactly (`_countArrayElements`), and the top-level
-// array of records occurs once per document, so neither can show what a per-parse size hint
-// buys. A document of 200 records each holding a 10-object array and a 5-entry dictionary has
+// Sibling collections of OBJECTS, and a dictionary: the two shapes that reserved nothing
+// before the size hints. The top-level array of records occurs once per document, so it
+// cannot show what a per-parse hint buys. A document of 200 records each holding a 10-object array and a 5-entry dictionary has
 // 400 containers that grow by doubling. `docs/EFFICIENCY.md` row 2.
 @Schema struct MGroupItem: Equatable { var a: String; var b: String }
 @Schema struct MGroup: Equatable {

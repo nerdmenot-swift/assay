@@ -54,7 +54,7 @@ nonisolated public static func _assay(
                             var __arr0_0: [String] = []
                             var __ix0_0 = 0
                             if !reader.tryConsume(0x5D) {
-                                __arr0_0.reserveCapacity(reader._countArrayElements())
+                                __arr0_0.reserveCapacity(sink._shapeHint(67))
                                 while true {
                                 if let __e0_0 = reader._decodeString(&sink, path, "tags", __ix0_0) { __arr0_0.append(__e0_0) }
                                     __ix0_0 &+= 1
@@ -67,6 +67,7 @@ nonisolated public static func _assay(
                                     return nil
                                 }
                             }
+                            sink._noteShape(__arr0_0.count, 67)
                             __f0 = __arr0_0
                         } else if reader._consumeNullIfPresent() {
                             reader._nullNotAllowed(&sink, path, "tags", "array")
@@ -100,7 +101,7 @@ nonisolated public static func _assay(
                             var __arr2_0: [UInt8] = []
                             var __ix2_0 = 0
                             if !reader.tryConsume(0x5D) {
-                                __arr2_0.reserveCapacity(reader._countArrayElements())
+                                __arr2_0.reserveCapacity(sink._shapeHint(83))
                                 while true {
                                 if let __e2_0 = reader._decodeUInt8(&sink, path, "bytes", __ix2_0) { __arr2_0.append(__e2_0) }
                                     __ix2_0 &+= 1
@@ -113,6 +114,7 @@ nonisolated public static func _assay(
                                     return nil
                                 }
                             }
+                            sink._noteShape(__arr2_0.count, 83)
                             __f2 = __arr2_0
                         } else if reader._consumeNullIfPresent() {
                             reader._nullNotAllowed(&sink, path, "bytes", "array")

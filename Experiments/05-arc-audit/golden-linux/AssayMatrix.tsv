@@ -33,8 +33,8 @@ AssayMatrix.MNested._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayC
 AssayMatrix.MNested._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	release	2
 AssayMatrix.MNested._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	retain	2
 AssayMatrix.allAxes() -> [AssayMatrix.Axis]	ref	1
-AssayMatrix.allShapes() -> [AssayMatrix.Shape]	release	163
-AssayMatrix.allShapes() -> [AssayMatrix.Shape]	retain	30
+AssayMatrix.allShapes() -> [AssayMatrix.Shape]	release	171
+AssayMatrix.allShapes() -> [AssayMatrix.Shape]	retain	32
 AssayMatrix.allShapes() -> [AssayMatrix.Shape]	stack-allocated-ref	1
 AssayMatrix.fixed(Swift.Double, Swift.Int) -> Swift.String	release	2
 AssayMatrix.fixed(Swift.Double, Swift.Int) -> Swift.String	stack-allocated-ref	1
@@ -85,8 +85,8 @@ closure #12 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatri
 closure #12 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	3
 closure #14 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	3
 closure #16 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	4
-closure #17 (Swift.Int) -> Swift.String in AssayMatrix.allShapes() -> [AssayMatrix.Shape]	release	17
-closure #17 (Swift.Int) -> Swift.String in AssayMatrix.allShapes() -> [AssayMatrix.Shape]	retain	3
+closure #18 (Swift.Int) -> Swift.String in AssayMatrix.allShapes() -> [AssayMatrix.Shape]	release	17
+closure #18 (Swift.Int) -> Swift.String in AssayMatrix.allShapes() -> [AssayMatrix.Shape]	retain	3
 closure #18 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	4
 closure #2 () -> Swift.Int? in closure #18 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	4
 closure #2 () -> Swift.Int? in closure #20 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	4

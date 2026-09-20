@@ -789,30 +789,34 @@ extension SchemaMacro {
               """
             : ""
 
-        // EXACT-SIZED FOR SCALAR ELEMENTS ONLY (2026-09-19): a structural pre-count
-        // (`_countArrayElements`) and one reservation, instead of geometric growth.
-        // docs/PERFORMANCE.md §9.2 said to measure that trade rather than assume it, and the
-        // measurement split it cleanly (docs/EFFICIENCY.md row 2):
-        //   * an array of SCALARS is a few bytes per element to skip, and the reallocations
-        //     it saves dominate: array-10 went −67% heap bytes, 10,014 → 2,003 blocks, and
-        //     −2.1% instructions;
-        //   * an array of OBJECTS makes the pre-count a second pass over most of the
-        //     document: base/struct went −51% heap bytes but +24% instructions (+55% on the
-        //     prefix path), past what a resource win may cost. Those keep geometric growth.
-        //   * an array of OBJECTS instead takes a HINT: what the last array at this site
-        //     held, remembered on the SINK for one parse (`_shapeHint`/`_noteShape`, whose
-        //     comment says why the sink and not the reader). A document of sibling records teaches the first record's size to
-        //     every record after it, and it cannot amplify — a container over-reserves only
-        //     after a larger one at the same site, by at most that one's size.
+        // EVERY ARRAY TAKES A HINT: what the last array at this site held, remembered on the
+        // SINK for one parse (`_shapeHint`/`_noteShape`, whose comment says why the sink and
+        // not the reader). A document of sibling records teaches the first record's size to
+        // every record after it, and it cannot amplify — a container over-reserves only after
+        // a larger one at the same site, by at most that one's size.
+        //
+        // AN ARRAY OF SCALARS RESERVED EXACTLY INSTEAD, from a structural pre-count
+        // (`AssayReader._countArrayElements`), for one day. **That decision is REVERSED
+        // 2026-09-20 and the reason is worth keeping** (docs/EFFICIENCY.md row 2): the
+        // pre-count is a second pass over the array's bytes, and its cost grows with the
+        // array while the reallocations it saves do not — a doubling chain is log(n) mallocs
+        // and ~2n element copies of vectorised `memmove`, against n bytes of byte-at-a-time
+        // structural scan. It measured as a WIN because the only matrix cell with an array of
+        // scalars holds TEN elements per array (`array-10`): −18.2% instructions there. The
+        // corpus, whose arrays run 73 to 9,510 elements, measured the truth —
+        // `arrays-of-scalars` decode +22.8% to +39.5% slower, `floats-dense` +10%,
+        // `long-strings` +19%, 45 cells slower against 25 faster by at most 5.7%, and the
+        // published full-corpus mean 8.99× → 8.16×. A matrix cell (`array-640`) now carries a
+        // long array so the counters see what the clock saw.
+        //
+        // The hint costs nothing per element and keeps the win where it was real: `array-10`
+        // has 2,000 arrays at one site, so every one after the first reserves exactly.
         //
         // The slot is a literal: `(field index, depth)` is the unique compile-time identity of
         // every array and dictionary site in a body, plus a per-type salt.
         let slot = (salt ^ ((i << 3) | Swift.min(depth, 7))) & 0xFF
-        let exact = isDateType(element) || scalarCall(element, key: key) != nil
-        let precount = exact
-            ? "\(pad)        \(arr).reserveCapacity(reader._countArrayElements())\n"
-            : "\(pad)        \(arr).reserveCapacity(sink._shapeHint(\(slot)))\n"
-        let note = exact ? "" : "\(pad)    sink._noteShape(\(arr).count, \(slot))\n"
+        let precount = "\(pad)        \(arr).reserveCapacity(sink._shapeHint(\(slot)))\n"
+        let note = "\(pad)    sink._noteShape(\(arr).count, \(slot))\n"
         let usesIx = inner.containsSubstring(ix)
         let ixDecl = usesIx ? "\(pad)    var \(ix) = 0\n" : ""
         let ixStep = usesIx ? "\(pad)            \(ix) &+= 1\n" : ""

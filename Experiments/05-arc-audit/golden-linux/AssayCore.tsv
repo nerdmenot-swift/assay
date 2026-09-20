@@ -196,7 +196,6 @@ AssayCore.XMLWriter.element(Swift.String, Swift.UInt8) -> ()	release	1
 AssayCore.XMLWriter.endElement(Swift.String) -> ()	release	7
 AssayCore.XMLWriter.endElement(Swift.String) -> ()	retain	2
 AssayCore.XMLWriter.finish() -> AssayCore.EncodedBytes	release	1
-AssayCore.XMLWriter.init(pretty: Swift.Bool, declaration: Swift.Bool) -> AssayCore.XMLWriter	release	2
 AssayCore.XMLWriter.put(Swift.String) -> ()	release	3
 AssayCore.XMLWriter.put(Swift.String) -> ()	retain	2
 AssayCore.XMLWriter.raw(Swift.String) -> ()	release	3

@@ -69,7 +69,7 @@ nonisolated public static func _assay(
                             var __arr2_0: [Int] = []
                             var __ix2_0 = 0
                             if !reader.tryConsume(0x5D) {
-                                __arr2_0.reserveCapacity(reader._countArrayElements())
+                                __arr2_0.reserveCapacity(sink._shapeHint(224))
                                 while true {
                                 if let __e2_0 = reader._decodeInt(&sink, path, "c", __ix2_0) { __arr2_0.append(__e2_0) }
                                     __ix2_0 &+= 1
@@ -82,6 +82,7 @@ nonisolated public static func _assay(
                                     return nil
                                 }
                             }
+                            sink._noteShape(__arr2_0.count, 224)
                             __f2 = __arr2_0
                         } else if reader._consumeNullIfPresent() {
                             reader._nullNotAllowed(&sink, path, "c", "array")

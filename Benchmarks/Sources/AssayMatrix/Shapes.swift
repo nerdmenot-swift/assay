@@ -157,6 +157,15 @@ func allShapes() -> [Shape] {
         "{\"f0\":\"v0\",\"f1\":\"v1\",\"f2\":\"v2\",\"f3\":\"v3\","
         + "\"tags\":[" + (0..<10).map { "\"t\($0)\"" }.joined(separator: ",") + "]}" }))
 
+    // The SAME field with a long array: 31 records of 640 strings against 2,000 of ten, so
+    // both cells hold ~20,000 elements and the only difference is how many are in one
+    // container. It exists because `array-10` alone made the scalar pre-count look like a win
+    // (`docs/EFFICIENCY.md` row 2): a per-array cost is invisible when every array is ten
+    // elements long, and the corpus's arrays run to 9,510.
+    add("array-640", "one array field of 640 strings", document((0..<(n / 64)).map { _ in
+        "{\"f0\":\"v0\",\"f1\":\"v1\",\"f2\":\"v2\",\"f3\":\"v3\","
+        + "\"tags\":[" + (0..<640).map { "\"t\($0)\"" }.joined(separator: ",") + "]}" }))
+
     // Sibling collections of objects, plus a dictionary per record: see `MGroup`.
     add("groups-10", "200 records, each a 10-object array and a 5-key dictionary",
         document((0..<(n / 10)).map { _ in groupRecord() }))

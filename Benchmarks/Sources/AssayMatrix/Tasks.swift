@@ -64,7 +64,8 @@ private func decodeStruct(_ shape: String, _ b: [UInt8]) -> Int? {
     case "values-double":     return (try? DocDouble.parse(json: b)).map { $0.items.count }
     case "values-bool":       return (try? DocBool.parse(json: b)).map { $0.items.count }
     case "nested-3":          return (try? DocNested.parse(json: b)).map { $0.items.count }
-    case "array-10":          return (try? DocArray.parse(json: b)).map { $0.items.count }
+    case "array-10", "array-640":
+                              return (try? DocArray.parse(json: b)).map { $0.items.count }
     case "groups-10":         return (try? DocGroup.parse(json: b)).map { $0.items.count }
     case "optional-absent", "optional-null":
                               return (try? DocOptional.parse(json: b)).map { $0.items.count }
@@ -81,7 +82,8 @@ private func diagnoseStruct(_ shape: String, _ b: [UInt8]) -> Int? {
     case "values-double":     return DocDouble.diagnose(json: b).value?.items.count
     case "values-bool":       return DocBool.diagnose(json: b).value?.items.count
     case "nested-3":          return DocNested.diagnose(json: b).value?.items.count
-    case "array-10":          return DocArray.diagnose(json: b).value?.items.count
+    case "array-10", "array-640":
+                              return DocArray.diagnose(json: b).value?.items.count
     case "groups-10":         return DocGroup.diagnose(json: b).value?.items.count
     case "optional-absent", "optional-null":
                               return DocOptional.diagnose(json: b).value?.items.count
@@ -100,7 +102,7 @@ private func diagnoseElements(_ shape: String, _ b: [UInt8]) -> Int? {
 /// than a type mismatch.
 let stringValuedShapes: Set<String> = [
     "base", "fields-2", "fields-20", "values-long",
-    "escapes-10", "escapes-100", "nested-3", "array-10", "unknown-5", "pretty",
+    "escapes-10", "escapes-100", "nested-3", "array-10", "array-640", "unknown-5", "pretty",
     "errors-1", "errors-10", "errors-100",
 ]
 

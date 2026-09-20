@@ -131,7 +131,8 @@ extension SchemaMacro {
 
         // Dispatch.
         let unknown = unknownArm(policy: policy, extras: extras)
-        let entries = dispatchEntries(fields: fields, groups: groups, ctx: ctx)
+        let entries = dispatchEntries(fields: fields, groups: groups, ctx: ctx,
+                                      salt: shapeSalt(typeName))
         let dispatch = plan.map { windowDispatch(entries: entries, plan: $0, unknown: unknown) }
             ?? lengthBucketDispatch(entries: entries, unknown: unknown)
 
@@ -296,6 +297,15 @@ extension SchemaMacro {
             .trimmingWhitespace()
     }
 
+    /// A per-type offset into the reader's container-size hint table, so two types' field 0
+    /// do not fight over one slot. FNV-1a over the type name, and a collision is harmless
+    /// anyway: a hint only sizes a reservation, and no decoded value depends on it.
+    static func shapeSalt(_ typeName: String) -> Int {
+        var h: UInt32 = 2_166_136_261
+        for b in typeName.utf8 { h = (h ^ UInt32(b)) &* 16_777_619 }
+        return Int(h & 0xFF)
+    }
+
     // MARK: Dispatch shapes
 
     /// Build the top-level arms: one per ordinary field, one per `@Key(path:)` group.
@@ -304,7 +314,7 @@ extension SchemaMacro {
     /// appears at the top level. It is reached through the group's descent, which is what
     /// keeps this single-pass.
     static func dispatchEntries(
-        fields: [SchemaField], groups: [PathGroup], ctx: String
+        fields: [SchemaField], groups: [PathGroup], ctx: String, salt: Int = 0
     ) -> [DispatchEntry] {
         let pad = String(repeating: " ", count: 24)
         var out: [DispatchEntry] = []
@@ -312,14 +322,14 @@ extension SchemaMacro {
             out.append(DispatchEntry(
                 keys: [f.wireKey] + f.aliases,
                 body: pad + "__presence |= \(presenceBit(i))\n"
-                    + decodeStatement(field: f, index: i, indent: 24, ctx: ctx)))
+                    + decodeStatement(field: f, index: i, indent: 24, ctx: ctx, salt: salt)))
         }
         for (g, group) in groups.enumerated() {
             out.append(DispatchEntry(
                 keys: [group.segment],
                 body: pad + "__gpresence |= \(presenceBit(g))\n"
                     + pathDescent(group.node, fields: fields, prefix: [group.segment],
-                                  depth: 0, indent: 24, ctx: ctx)))
+                                  depth: 0, indent: 24, ctx: ctx, salt: salt)))
         }
         return out
     }
@@ -339,7 +349,7 @@ extension SchemaMacro {
     /// reported at the segment and skipped so the outer loop stays synchronised.
     static func pathDescent(
         _ node: PathNode, fields: [SchemaField], prefix: [String],
-        depth: Int, indent: Int, ctx: String
+        depth: Int, indent: Int, ctx: String, salt: Int = 0
     ) -> String {
         let pad = String(repeating: " ", count: indent)
         let key = "__pk\(depth)"
@@ -350,7 +360,7 @@ extension SchemaMacro {
             arms += """
             \(pad)                if reader.keyMatches(\(key), "\(seg)") {
             \(pad)                    __presence |= \(presenceBit(i))
-            \(decodeStatement(field: fields[i], index: i, indent: indent + 20, ctx: ctx))
+            \(decodeStatement(field: fields[i], index: i, indent: indent + 20, ctx: ctx, salt: salt))
             \(pad)                } else
 
             """
@@ -360,7 +370,7 @@ extension SchemaMacro {
             \(pad)                if reader.keyMatches(\(key), "\(seg)") {
             \(pad)                    __gpresence |= \(presenceBit(child.bit))
             \(pathDescent(child, fields: fields, prefix: prefix + [seg],
-                          depth: depth + 1, indent: indent + 20, ctx: ctx))
+                          depth: depth + 1, indent: indent + 20, ctx: ctx, salt: salt))
             \(pad)                } else
 
             """
@@ -558,7 +568,7 @@ extension SchemaMacro {
     }
 
     static func decodeStatement(field f: SchemaField, index i: Int, indent: Int,
-                             ctx: String = "") -> String {
+                             ctx: String = "", salt: Int = 0) -> String {
         let ctxArg = ctx.isEmpty ? "" : ", context: context"
         let pad = String(repeating: " ", count: indent)
         let base = f.decodedType
@@ -569,14 +579,14 @@ extension SchemaMacro {
                 element: element, index: i, key: key,
                 optional: f.isOptional, pad: pad,
                 oneOrMany: f.oneOrMany,
-                dateFormatsRef: dateFormatsRef(f, i), ctx: ctx))
+                dateFormatsRef: dateFormatsRef(f, i), ctx: ctx, salt: salt))
         }
 
         if let value = dictionaryValue(base) {
             return collectionSpan(f, i, pad, dictDecode(
                 value: value, index: i, key: key,
                 optional: f.isOptional, pad: pad,
-                dateFormatsRef: dateFormatsRef(f, i), ctx: ctx))
+                dateFormatsRef: dateFormatsRef(f, i), ctx: ctx, salt: salt))
         }
 
         // Fields carrying @Validate capture their value's span right after the decode,
@@ -681,7 +691,7 @@ extension SchemaMacro {
                             slot: String? = nil, depth: Int = 0,
                             oneOrMany: Bool = false,
                             dateFormatsRef: String = "Assay.DateFormat.defaultFormats",
-                             ctx: String = "") -> String {
+                             ctx: String = "", salt: Int = 0) -> String {
         let ctxArg = ctx.isEmpty ? "" : ", context: context"
         let target = slot ?? "__f\(i)"
         let arr = "__arr\(i)_\(depth)"
@@ -745,7 +755,7 @@ extension SchemaMacro {
             \(pad)        var \(elt): [\(sub)]? = nil
             \(arrayDecode(element: sub, index: i, key: key, optional: false,
                           pad: pad + "        ", slot: elt, depth: depth + 1,
-                          dateFormatsRef: dateFormatsRef, ctx: ctx))
+                          dateFormatsRef: dateFormatsRef, ctx: ctx, salt: salt))
             \(pad)        if let \(elt) = \(elt) { \(arr).append(\(elt)) }
 
             """ + insertIndex
@@ -755,7 +765,7 @@ extension SchemaMacro {
             \(pad)        var \(elt): [String: \(sub)]? = nil
             \(dictDecode(value: sub, index: i, key: key, optional: false,
                          pad: pad + "        ", slot: elt, depth: depth + 1,
-                         dateFormatsRef: dateFormatsRef, ctx: ctx))
+                         dateFormatsRef: dateFormatsRef, ctx: ctx, salt: salt))
             \(pad)        if let \(elt) = \(elt) { \(arr).append(\(elt)) }
 
             """ + insertIndex
@@ -789,9 +799,20 @@ extension SchemaMacro {
         //   * an array of OBJECTS makes the pre-count a second pass over most of the
         //     document: base/struct went −51% heap bytes but +24% instructions (+55% on the
         //     prefix path), past what a resource win may cost. Those keep geometric growth.
-        let precount = (isDateType(element) || scalarCall(element, key: key) != nil)
+        //   * an array of OBJECTS instead takes a HINT: what the last array at this site
+        //     held, remembered on the SINK for one parse (`_shapeHint`/`_noteShape`, whose
+        //     comment says why the sink and not the reader). A document of sibling records teaches the first record's size to
+        //     every record after it, and it cannot amplify — a container over-reserves only
+        //     after a larger one at the same site, by at most that one's size.
+        //
+        // The slot is a literal: `(field index, depth)` is the unique compile-time identity of
+        // every array and dictionary site in a body, plus a per-type salt.
+        let slot = (salt ^ ((i << 3) | Swift.min(depth, 7))) & 0xFF
+        let exact = isDateType(element) || scalarCall(element, key: key) != nil
+        let precount = exact
             ? "\(pad)        \(arr).reserveCapacity(reader._countArrayElements())\n"
-            : ""
+            : "\(pad)        \(arr).reserveCapacity(sink._shapeHint(\(slot)))\n"
+        let note = exact ? "" : "\(pad)    sink._noteShape(\(arr).count, \(slot))\n"
         let usesIx = inner.containsSubstring(ix)
         let ixDecl = usesIx ? "\(pad)    var \(ix) = 0\n" : ""
         let ixStep = usesIx ? "\(pad)            \(ix) &+= 1\n" : ""
@@ -809,7 +830,7 @@ extension SchemaMacro {
         \(pad)            return nil
         \(pad)        }
         \(pad)    }
-        \(pad)    \(target) = \(arr)
+        \(note)\(pad)    \(target) = \(arr)
         \(pad)} else if reader._consumeNullIfPresent() {
         \(pad)    \(optional ? "\(target) = nil" : "reader._nullNotAllowed(&sink, path, \"\(key)\", \"array\")")
         \(pad)} else {
@@ -835,7 +856,7 @@ extension SchemaMacro {
                            optional: Bool, pad: String,
                            slot: String? = nil, depth: Int = 0,
                            dateFormatsRef: String = "Assay.DateFormat.defaultFormats",
-                             ctx: String = "") -> String {
+                             ctx: String = "", salt: Int = 0) -> String {
         let ctxArg = ctx.isEmpty ? "" : ", context: context"
         let target = slot ?? "__f\(i)"
         let dict = "__dd\(i)_\(depth)"
@@ -857,7 +878,7 @@ extension SchemaMacro {
             \(pad)            var \(elt): [\(sub)]? = nil
             \(arrayDecode(element: sub, index: i, key: key, optional: false,
                           pad: pad + "            ", slot: elt, depth: depth + 1,
-                          dateFormatsRef: dateFormatsRef, ctx: ctx))
+                          dateFormatsRef: dateFormatsRef, ctx: ctx, salt: salt))
             \(pad)            if let \(elt) = \(elt) { \(dict)[__dks\(i)_\(depth)] = \(elt) }
             \(pad)            if sink.checkpoint() != __dck\(i)_\(depth) { sink._insertKey(since: __dck\(i)_\(depth), __dks\(i)_\(depth), at: path.count + 1) }
 
@@ -867,7 +888,7 @@ extension SchemaMacro {
             \(pad)            var \(elt): [String: \(sub)]? = nil
             \(dictDecode(value: sub, index: i, key: key, optional: false,
                          pad: pad + "            ", slot: elt, depth: depth + 1,
-                         dateFormatsRef: dateFormatsRef, ctx: ctx))
+                         dateFormatsRef: dateFormatsRef, ctx: ctx, salt: salt))
             \(pad)            if let \(elt) = \(elt) { \(dict)[__dks\(i)_\(depth)] = \(elt) }
             \(pad)            if sink.checkpoint() != __dck\(i)_\(depth) { sink._insertKey(since: __dck\(i)_\(depth), __dks\(i)_\(depth), at: path.count + 1) }
 
@@ -892,9 +913,14 @@ extension SchemaMacro {
             """
         }
 
+        // Dictionaries reserved NOTHING until 2026-09-20 — no pre-count is possible (the
+        // member count is not knowable without scanning the object) — so they take the same
+        // hint arrays of objects take. See `arrayDecode`.
+        let slot = (salt ^ ((i << 3) | Swift.min(depth, 7))) & 0xFF
         return """
         \(pad)if reader.tryConsume(0x7B) {
         \(pad)    var \(dict): [String: \(value)] = [:]
+        \(pad)    \(dict).reserveCapacity(sink._shapeHint(\(slot)))
         \(pad)    if !reader.tryConsume(0x7D) {
         \(pad)        while true {
         \(pad)            guard let \(kTok) = reader.scanKey(), reader.expect(0x3A) else {
@@ -912,6 +938,7 @@ extension SchemaMacro {
         \(pad)            return nil
         \(pad)        }
         \(pad)    }
+        \(pad)    sink._noteShape(\(dict).count, \(slot))
         \(pad)    \(target) = \(dict)
         \(pad)} else if reader._consumeNullIfPresent() {
         \(pad)    \(optional ? "\(target) = nil" : "reader._nullNotAllowed(&sink, path, \"\(key)\", \"dictionary\")")

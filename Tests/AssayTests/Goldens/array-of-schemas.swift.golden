@@ -61,6 +61,7 @@ nonisolated public static func _assay(
                             __ap1_0.append(.key("items"))
                             __ap1_0.append(.index(0))
                             if !reader.tryConsume(0x5D) {
+                                __arr1_0.reserveCapacity(sink._shapeHint(180))
                                 while true {
                                 __ap1_0[__ap1_0.count &- 1] = .index(__ix1_0)
                                 if let __e1_0 = GoldenArrayElement._assay(
@@ -75,6 +76,7 @@ nonisolated public static func _assay(
                                     return nil
                                 }
                             }
+                            sink._noteShape(__arr1_0.count, 180)
                             __f1 = __arr1_0
                         } else if reader._consumeNullIfPresent() {
                             reader._nullNotAllowed(&sink, path, "items", "array")

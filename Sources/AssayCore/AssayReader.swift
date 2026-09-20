@@ -90,6 +90,7 @@ public struct AssayReader: ~Copyable {
     /// reused; a document with none never allocates it. See `scanEscapedKey`.
     @usableFromInline var keyScratch: UnsafeMutablePointer<UInt8>? = nil
     @usableFromInline var keyScratchCapacity: Int = 0
+
     @usableFromInline let limits: Limits
 
     /// The limits this reader was created with. Public because generated code consults
@@ -100,6 +101,7 @@ public struct AssayReader: ~Copyable {
 
     @inlinable
     deinit { unsafe keyScratch?.deallocate() }
+
 
     public init(base: UnsafePointer<UInt8>, count: Int, limits: Limits = .default) {
         unsafe self.base = base

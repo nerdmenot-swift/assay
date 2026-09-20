@@ -142,6 +142,50 @@ public struct Warning: Sendable, Hashable {
 /// **The generated code must never capture this in an escaping closure.** Doing so boxes
 /// it and reintroduces dynamic exclusivity per field.
 public struct IssueSink: Sendable {
+
+    // MARK: Container size hints — per-parse scratch, not a diagnostic
+    //
+    // NOT diagnostics, and a deliberate lodging rather than a natural one. A hint has to
+    // outlive one `_assay` call and die with the parse, and the sink is the only per-parse
+    // value already threaded `inout` through every decode. The reader would be the obvious
+    // home and cannot be: `AssayReader` is the frame of four recursive descent parsers, and
+    // sixteen bytes added to it overflowed the 512 KB stack Swift Testing gives its workers,
+    // turning `AmplificationTests.yamlDeepNesting` into a SIGBUS. The same sixteen bytes here
+    // measured no depth cost at all (probed both ways, 2026-09-20). The alternative — a fourth
+    // parameter on every generated `_assay` — would change every signature on every path.
+    //
+    // TWO slots, matched by site id, which is the common record shape: one array, or an array
+    // and a dictionary. A third site evicts, which only mis-sizes a reservation, and no
+    // decoded value depends on it. `docs/EFFICIENCY.md` row 2.
+    @usableFromInline var hintSiteA: Int32 = -1
+    @usableFromInline var hintSizeA: Int32 = 0
+    @usableFromInline var hintSiteB: Int32 = -1
+    @usableFromInline var hintSizeB: Int32 = 0
+
+    /// What the last container at this site held, or 0 for a site not seen yet.
+    @_documentation(visibility: internal)
+    @inlinable
+    public func _shapeHint(_ site: Int) -> Int {
+        let id = Int32(truncatingIfNeeded: site)
+        if hintSiteA == id { return Int(hintSizeA) }
+        if hintSiteB == id { return Int(hintSizeB) }
+        return 0
+    }
+
+    /// Record what this container held, for the next one at this site.
+    @_documentation(visibility: internal)
+    @inlinable
+    public mutating func _noteShape(_ n: Int, _ site: Int) {
+        let id = Int32(truncatingIfNeeded: site)
+        let size = Int32(clamping: n)
+        if hintSiteA == id || hintSiteA < 0 {
+            hintSiteA = id
+            hintSizeA = size
+        } else {
+            hintSiteB = id
+            hintSizeB = size
+        }
+    }
     public var issues: [Issue] = []
     public var warnings: [Warning] = []
     /// Set when `Limits.maxIssues` was reached, so a caller can tell a hundred-of-a-hundred

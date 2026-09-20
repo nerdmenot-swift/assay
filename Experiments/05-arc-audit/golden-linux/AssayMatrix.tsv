@@ -1,7 +1,7 @@
-AssayMatrix.(decodeStruct in _F59BA0A9BCC4D9DF66BC0146E96B3BD7)(Swift.String, [Swift.UInt8]) -> Swift.Int?	release	40
-AssayMatrix.(decodedValue in _78EEF6CD58B6EFDDEF59FE67D7AEFB6F)(Swift.String, [Swift.UInt8]) -> Any?	release	30
-AssayMatrix.(diagnoseStruct in _F59BA0A9BCC4D9DF66BC0146E96B3BD7)(Swift.String, [Swift.UInt8]) -> Swift.Int?	release	20
-AssayMatrix.(diagnoseStruct in _F59BA0A9BCC4D9DF66BC0146E96B3BD7)(Swift.String, [Swift.UInt8]) -> Swift.Int?	retain	10
+AssayMatrix.(decodeStruct in _F59BA0A9BCC4D9DF66BC0146E96B3BD7)(Swift.String, [Swift.UInt8]) -> Swift.Int?	release	44
+AssayMatrix.(decodedValue in _78EEF6CD58B6EFDDEF59FE67D7AEFB6F)(Swift.String, [Swift.UInt8]) -> Any?	release	33
+AssayMatrix.(diagnoseStruct in _F59BA0A9BCC4D9DF66BC0146E96B3BD7)(Swift.String, [Swift.UInt8]) -> Swift.Int?	release	22
+AssayMatrix.(diagnoseStruct in _F59BA0A9BCC4D9DF66BC0146E96B3BD7)(Swift.String, [Swift.UInt8]) -> Swift.Int?	retain	11
 AssayMatrix.(document in _E4B1A95E9A35F78033C9E0BF0B02B9AD)(_: [Swift.String], pretty: Swift.Bool) -> [Swift.UInt8]	release	8
 AssayMatrix.(document in _E4B1A95E9A35F78033C9E0BF0B02B9AD)(_: [Swift.String], pretty: Swift.Bool) -> [Swift.UInt8]	retain	3
 AssayMatrix.(quote in _E4B1A95E9A35F78033C9E0BF0B02B9AD)(Swift.String) -> Swift.String	release	2
@@ -35,8 +35,8 @@ AssayMatrix.MNested._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayC
 AssayMatrix.MNested._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	release	2
 AssayMatrix.MNested._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	retain	2
 AssayMatrix.allAxes() -> [AssayMatrix.Axis]	ref	1
-AssayMatrix.allShapes() -> [AssayMatrix.Shape]	release	159
-AssayMatrix.allShapes() -> [AssayMatrix.Shape]	retain	29
+AssayMatrix.allShapes() -> [AssayMatrix.Shape]	release	163
+AssayMatrix.allShapes() -> [AssayMatrix.Shape]	retain	30
 AssayMatrix.allShapes() -> [AssayMatrix.Shape]	stack-allocated-ref	1
 AssayMatrix.fixed(Swift.Double, Swift.Int) -> Swift.String	release	2
 AssayMatrix.fixed(Swift.Double, Swift.Int) -> Swift.String	stack-allocated-ref	1
@@ -44,6 +44,7 @@ AssayMatrix.flag(Swift.String) -> Swift.String?	release	5
 AssayMatrix.flag(Swift.String) -> Swift.String?	retain	1
 AssayMatrix.floor(shape: Swift.String, task: Swift.String, bytes: [Swift.UInt8]) -> AssayMatrix.Floor?	release	39
 AssayMatrix.floor(shape: Swift.String, task: Swift.String, bytes: [Swift.UInt8]) -> AssayMatrix.Floor?	retain	4
+AssayMatrix.groupRecord(items: Swift.Int, keys: Swift.Int) -> Swift.String	release	10
 AssayMatrix.measure(binary: Swift.String, shape: Swift.String, task: Swift.String, path: Swift.String, timeout: Swift.Double) -> AssayMatrix.Cell?	begin-exclusive-access-to-value	7
 AssayMatrix.measure(binary: Swift.String, shape: Swift.String, task: Swift.String, path: Swift.String, timeout: Swift.Double) -> AssayMatrix.Cell?	end-exclusive-access-to-value	9
 AssayMatrix.measure(binary: Swift.String, shape: Swift.String, task: Swift.String, path: Swift.String, timeout: Swift.Double) -> AssayMatrix.Cell?	ref	3
@@ -69,22 +70,25 @@ closure #1 () -> Swift.Int? in closure #6 (Swift.String, [Swift.UInt8]) -> (() -
 closure #1 () -> Swift.Int? in closure #8 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	2
 closure #1 (Swift.Int) -> Swift.String in AssayMatrix.allShapes() -> [AssayMatrix.Shape]	release	1
 closure #1 (Swift.Int) -> Swift.String in closure #11 (Swift.Int) -> Swift.String in AssayMatrix.allShapes() -> [AssayMatrix.Shape]	release	2
-closure #1 (Swift.Int) -> Swift.String in closure #6 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	16
-closure #1 (Swift.Int) -> Swift.String in closure #6 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	4
-closure #1 (Swift.Int) -> Swift.String in closure #7 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	14
-closure #1 (Swift.Int) -> Swift.String in closure #7 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	3
+closure #1 (Swift.Int) -> Swift.String in closure #7 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	16
+closure #1 (Swift.Int) -> Swift.String in closure #7 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	4
+closure #1 (Swift.Int) -> Swift.String in closure #8 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	14
+closure #1 (Swift.Int) -> Swift.String in closure #8 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	3
 closure #1 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	retain	2
 closure #10 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	ref	1
-closure #10 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	9
-closure #10 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	2
+closure #10 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	7
+closure #10 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	3
 closure #10 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	3
-closure #11 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	12
+closure #11 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	ref	1
+closure #11 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	9
 closure #11 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	2
+closure #12 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	12
+closure #12 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	2
 closure #12 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	3
 closure #14 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	3
-closure #16 (Swift.Int) -> Swift.String in AssayMatrix.allShapes() -> [AssayMatrix.Shape]	release	17
-closure #16 (Swift.Int) -> Swift.String in AssayMatrix.allShapes() -> [AssayMatrix.Shape]	retain	3
 closure #16 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	4
+closure #17 (Swift.Int) -> Swift.String in AssayMatrix.allShapes() -> [AssayMatrix.Shape]	release	17
+closure #17 (Swift.Int) -> Swift.String in AssayMatrix.allShapes() -> [AssayMatrix.Shape]	retain	3
 closure #18 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	4
 closure #2 () -> Swift.Int? in closure #18 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	4
 closure #2 () -> Swift.Int? in closure #20 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	4
@@ -101,56 +105,57 @@ closure #3 () -> Swift.Int? in closure #8 (Swift.String, [Swift.UInt8]) -> (() -
 closure #3 (Swift.String) -> Swift.Set<Swift.String> in AssayMatrix	release	5
 closure #3 (Swift.String) -> Swift.Set<Swift.String> in AssayMatrix	retain	2
 closure #4 () -> Swift.Int? in closure #8 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	2
+closure #4 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	4
+closure #4 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	1
 closure #4 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	retain	1
-closure #5 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	12
-closure #5 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	2
 closure #5 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	retain	1
+closure #6 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	12
+closure #6 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	2
 closure #6 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	1
 closure #8 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	12
-closure #9 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	ref	1
-closure #9 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	7
-closure #9 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	3
 function signature specialization <Arg[1] = Dead> of AssayMatrix.M5._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	retain	5
 function signature specialization <Arg[1] = Dead> of AssayMatrix.MInner2._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	retain	1
 function signature specialization <Arg[1] = [Constant Propagated Function : closure #1 (Swift.Int) -> Swift.String in AssayMatrix.allAxes() -> Swift.Array<AssayMatrix.Axis>]> of closure #2 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	12
 function signature specialization <Arg[1] = [Constant Propagated Function : closure #1 (Swift.Int) -> Swift.String in AssayMatrix.allAxes() -> Swift.Array<AssayMatrix.Axis>]> of closure #2 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	2
 function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #3 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	11
 function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #3 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	2
-function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #4 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	11
-function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #4 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	2
-function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #6 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	4
-function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #6 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	1
+function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #5 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	11
+function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #5 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	2
 function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #7 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	4
 function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #7 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	1
-function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #8 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	8
-function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #8 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc2._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc2?	release	13
+function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #8 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	4
+function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #8 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	1
+function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #9 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	8
+function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #9 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	2
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc2._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc2?	release	12
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc2._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc2?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc20._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc20?	release	13
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc20._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc20?	release	12
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc20._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc20?	retain	2
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc5._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc5?	release	9
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc5._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc5?	retain	3
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc5._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc5?	release	13
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc5._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc5?	release	12
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc5._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc5?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocArray._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocArray?	release	13
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocArray._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocArray?	release	12
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocArray._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocArray?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocBool._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocBool?	release	13
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocBool._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocBool?	release	12
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocBool._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocBool?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocDouble._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocDouble?	release	13
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocDouble._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocDouble?	release	12
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocDouble._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocDouble?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocInt._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocInt?	release	13
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocGroup._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocGroup?	release	12
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocGroup._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocGroup?	retain	2
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocInt._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocInt?	release	12
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocInt._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocInt?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocLongKeys._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocLongKeys?	release	13
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocLongKeys._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocLongKeys?	release	12
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocLongKeys._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocLongKeys?	retain	2
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocNested._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocNested?	release	9
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocNested._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocNested?	retain	3
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocNested._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocNested?	release	12
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocNested._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocNested?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocOptional._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocOptional?	release	13
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocOptional._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocOptional?	release	12
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocOptional._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocOptional?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocPrefix._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocPrefix?	release	13
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocPrefix._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocPrefix?	release	12
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocPrefix._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocPrefix?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocValidated._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocValidated?	release	13
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocValidated._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocValidated?	release	12
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocValidated._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocValidated?	retain	2
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.M2._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.M2?	release	14
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.M20._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.M20?	release	462
@@ -159,6 +164,9 @@ function signature specialization <Arg[3] = Dead> of static AssayMatrix.M5._assa
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.M5._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.M5?	release	46
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.MArray._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MArray?	release	53
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.MArray._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MArray?	retain	1
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MGroup._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MGroup?	release	30
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MGroup._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MGroup?	retain	4
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MGroupItem._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MGroupItem?	release	14
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.MInner1._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MInner1?	release	10
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.MInner1._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MInner1?	retain	3
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.MInner1._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MInner1?	release	14

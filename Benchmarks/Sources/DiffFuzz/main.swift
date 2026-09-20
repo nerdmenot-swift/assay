@@ -358,6 +358,15 @@ let oracles: [Oracle] = [
                agreed: jsonAsYaml.agreed, bothRejected: jsonAsYaml.bothRejected,
                assayOnly: jsonAsYaml.assayOnlyRejected, oracleOnly: jsonAsYaml.oracleOnlyRejected,
                disagreed: jsonAsYaml.disagreed)
+        // The two doors against each other: the tree projected to `RawValue`, and the direct
+        // parse the struct doors use. Everything above tests the tree door; this is what
+        // keeps the second instantiation honest.
+        let everyDocument = handWrittenYAML + generatedYAML
+            + jsonFiles.map { ($0.name, String(decoding: $0.data, as: UTF8.self)) }
+        let (checkedDoors, doorFailures) = runYAMLDoorEquivalence(everyDocument)
+        for f in doorFailures { fail("yaml-doors: \(f)") }
+        print("      YAML doors: \(checkedDoors) documents, the direct RawValue parse agrees "
+              + "with projecting the tree")
     },
     Oracle(name: "xml", summary: "XML vs Foundation XMLParser, hand-written and generated") {
         let xmlHand = runXMLDifferential(handWrittenXML)

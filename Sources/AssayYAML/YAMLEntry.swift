@@ -29,7 +29,10 @@ public import AssayCore
 func __assayYAMLDocument(
     _ bytes: [UInt8], into sink: inout IssueSink, limits: Limits
 ) -> RawValue? {
-    var docs = YAML.decodeAll(bytes, into: &sink, limits: limits)
+    // THE DIRECT DOOR: no `YAML.Node` tree is built here at all (`YAML.decodeAllRaw`), so
+    // there is no projection to fail. A key `RawValue` cannot represent is reported by the
+    // parser, where the key is read, with the same `.yamlUnrepresentableKey` code.
+    var docs = YAML.decodeAllRaw(bytes, into: &sink, limits: limits)
     guard sink.isValid else { return nil }
     guard !docs.isEmpty else {
         sink.add(Issue(code: .yamlEmptyStream))
@@ -42,15 +45,7 @@ func __assayYAMLDocument(
                        params: ["count": .int(docs.count)]))
         docs.removeSubrange(1...)
     }
-    // Moved out, not copied: the tree dies here, so its strings can go straight into
-    // the projection. `RawValue(consuming:)`.
-    guard let raw = RawValue(consuming: docs.removeLast()) else {
-        sink.add(Issue(code: .yamlUnrepresentableKey,
-                       params: ["reason": .string(
-                           "a mapping key is not a plain scalar; parse to YAML.Node instead")]))
-        return nil
-    }
-    return raw
+    return docs.removeLast()
 }
 
 extension RawDecodable {
@@ -101,13 +96,9 @@ extension RawDecodable {
         limits: Limits = .default
     ) throws -> [Self] {
         var sink = IssueSink(limits: limits)
-        let docs = YAML.decodeAll(Array(text.utf8), into: &sink, limits: limits)
+        let docs = YAML.decodeAllRaw(Array(text.utf8), into: &sink, limits: limits)
         var out: [Self] = []
-        for doc in consume docs {
-            guard let raw = RawValue(consuming: doc) else {
-                sink.add(Issue(code: .yamlUnrepresentableKey))
-                continue
-            }
+        for raw in consume docs {
             var docPath: [PathComponent] = [.index(out.count)]
             if let v = Self._assay(from: raw, into: &sink, at: &docPath) {
                 out.append(v)
@@ -174,7 +165,7 @@ extension WireFormat {
         name: "yaml",
         matches: { $0.names("yaml") || $0.names("x-yaml") },
         decode: { bytes, sink, limits in
-            var docs = YAML.decodeAll(bytes, into: &sink, limits: limits)
+            var docs = YAML.decodeAllRaw(bytes, into: &sink, limits: limits)
             guard !docs.isEmpty else {
                 sink.add(Issue(code: .yamlEmptyStream))
                 return nil
@@ -184,14 +175,7 @@ extension WireFormat {
                                params: ["count": .int(docs.count)]))
                 docs.removeSubrange(1...)
             }
-            guard let raw = RawValue(consuming: docs.removeLast()) else {
-                sink.add(Issue(code: .yamlUnrepresentableKey,
-                               params: ["reason": .string(
-                                   "a mapping key is not a plain scalar; "
-                                   + "parse to YAML.Node instead")]))
-                return nil
-            }
-            return raw
+            return docs.removeLast()
         })
 }
 

@@ -482,5 +482,11 @@ buffer layout had changed, and passed on a clean rebuild. Touch the executable's
 before trusting a run: `touch Benchmarks/Sources/DiffFuzz/*.swift` (`count.sh` already does
 this for `AssayMatrix`).
 
+**Worse, and the same day: a NEW FILE in the library never reaches `Benchmarks`.** SwiftPM
+caches the path dependency's file list in the build plan, so `Sources/AssayYAML/YAMLBuilder.swift`
+was simply absent and the module failed to compile with "cannot find type" — touching the file,
+the manifest and the module's build directory all changed nothing. The fix is to delete the
+plan: `rm -f Benchmarks/.build/release.yaml Benchmarks/.build/build.db`.
+
 The user prefers you proceed with judgment rather than stopping to ask clarifying questions.
 State assumptions and continue.

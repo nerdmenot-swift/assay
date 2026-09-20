@@ -34,7 +34,7 @@ extension YAML.Parser {
     /// here hands it to the caller, which reports against the real structure.
     mutating func parseFlowScalar(
         _ r: inout AssayReader, _ sink: inout IssueSink, indent: Int = Int.max
-    ) -> YAML.Node? {
+    ) -> B.Value? {
         if let q = r.currentByte, q == UInt8(ascii: "\"") || q == UInt8(ascii: "'") {
             return parseQuoted(&r, &sink)
         }
@@ -54,7 +54,7 @@ extension YAML.Parser {
             content += more
             pendingBreaks = 0
         }
-        return .scalar(YAML.Scalar(content: content, style: .plain))
+        return B.scalar(content, style: .plain, tag: nil)
     }
 
     /// One line of a plain scalar, stopping at the newline or an unquoted `#` comment.
@@ -139,7 +139,7 @@ extension YAML.Parser {
 
     mutating func parseQuoted(
         _ r: inout AssayReader, _ sink: inout IssueSink
-    ) -> YAML.Node? {
+    ) -> B.Value? {
         let quote = r.currentByte!
         let double = quote == UInt8(ascii: "\"")
         r.advanceBy(1)
@@ -178,8 +178,7 @@ extension YAML.Parser {
         } else {
             content = raw.replacingOccurrencesOfDoubledQuote()
         }
-        return .scalar(YAML.Scalar(content: content,
-                              style: double ? .doubleQuoted : .singleQuoted))
+        return B.scalar(content, style: double ? .doubleQuoted : .singleQuoted, tag: nil)
     }
 
     func unescapeDouble(
@@ -233,7 +232,7 @@ extension YAML.Parser {
     /// and an optional explicit indentation indicator.
     mutating func parseBlockScalar(
         _ r: inout AssayReader, _ sink: inout IssueSink, indent: Int
-    ) -> YAML.Node? {
+    ) -> B.Value? {
         let folded = r.currentByte == UInt8(ascii: ">")
         r.advanceBy(1)
 
@@ -306,7 +305,7 @@ extension YAML.Parser {
         default: if !content.isEmpty { content += "\n" }    // clip: exactly one
         }
 
-        return .scalar(YAML.Scalar(content: content, style: folded ? .folded : .literal))
+        return B.scalar(content, style: folded ? .folded : .literal, tag: nil)
     }
 }
 

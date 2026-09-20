@@ -148,3 +148,60 @@ import AssayCore
 private extension RawValue {
     var isNaN: Bool { if case .double(let d) = self { return d.isNaN }; return false }
 }
+
+/// The YAML struct doors parse straight to `RawValue` (`YAML.decodeAllRaw`, one parser generic
+/// over what it builds — `YAMLBuilder.swift`). It must build exactly what projecting the node
+/// tree builds, on every shape, and refuse the same documents with the same code.
+@Suite struct YAMLDirectDoorTests {
+
+    static var documents: [String] {
+        YAMLConsumingProjectionTests.documents + [
+            "a: 1\nb:\n  c: [1, 2, {d: e}]\n",
+            "base: &b {k: v, n: 1}\nuse:\n  <<: *b\n  k: own\n",
+            "seq:\n- <<: &m {x: 1}\n- {}\n",
+            "tagged: !!str 12\nplain: 12\nquoted: \"12\"\n",
+            "l: |\n  one\n  two\nf: >\n  folded\n  text\n",
+            "empty:\nnull_: ~\nzero: 0\nneg: -1\nbig: 1e309\n",
+            "# only a comment\n",
+            "- - 1\n  - 2\n- k: v\n",
+        ]
+    }
+
+    @Test(arguments: documents)
+    func matchesTheProjectedTree(_ text: String) throws {
+        let bytes = Array(text.utf8)
+        var treeSink = IssueSink()
+        let docs = YAML.decodeAll(bytes, into: &treeSink, limits: .default)
+        var rawSink = IssueSink()
+        let direct = YAML.decodeAllRaw(bytes, into: &rawSink, limits: .default)
+
+        #expect(direct.count == docs.count)
+        #expect(rawSink.issues.map(\.code) == treeSink.issues.map(\.code))
+        for (d, tree) in zip(direct, docs) {
+            #expect(d == RawValue(tree))
+        }
+    }
+
+    /// A key `RawValue` cannot hold: the tree keeps it, the direct door refuses it, and the
+    /// code is the one the entry point used to report after the projection failed.
+    @Test func refusesAnUnrepresentableKeyWithTheSameCode() {
+        let text = "? [a, b]\n: c\n"
+        var treeSink = IssueSink()
+        let docs = YAML.decodeAll(Array(text.utf8), into: &treeSink, limits: .default)
+        #expect(treeSink.isValid)
+        #expect(docs.first.flatMap { RawValue($0) } == nil)
+
+        var rawSink = IssueSink()
+        _ = YAML.decodeAllRaw(Array(text.utf8), into: &rawSink, limits: .default)
+        #expect(rawSink.issues.first?.code == .yamlUnrepresentableKey)
+    }
+
+    /// And the struct door reports it rather than decoding something wrong.
+    @Test func structDoorReportsTheUnrepresentableKey() {
+        let d = YRoundTrip.diagnose(yaml: "? [a, b]\n: c\n")
+        #expect(d.value == nil)
+        #expect(d.issues.contains { $0.code == .yamlUnrepresentableKey })
+    }
+}
+
+@Schema(formats: .all) struct YRoundTrip: Equatable { var a: String? }

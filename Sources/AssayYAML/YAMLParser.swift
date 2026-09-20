@@ -86,12 +86,40 @@ extension YAML {
         into sink: inout IssueSink,
         limits: Limits = .default
     ) -> [Node] {
+        withStream(bytes, into: &sink, limits: limits, as: YAMLNodeBuilder.self)
+    }
+
+    /// Straight to `RawValue`, in ONE pass: no `YAML.Node` tree is built only to be
+    /// projected and dropped (`docs/EFFICIENCY.md` rows 12 and 17). This is what
+    /// `parse(yaml:)` and `diagnose(yaml:)` use, and it is public so that what they use can
+    /// be tested against `decodeAll` + `RawValue(_:)` document for document.
+    ///
+    /// Lossy exactly as the projection is (`docs/VALUE-MODELS.md` §5): tags, styles and
+    /// anchors do not survive, and a non-string mapping key is reported as
+    /// `.yamlUnrepresentableKey` rather than coerced. `decodeAll` keeps all of it.
+    public static func decodeAllRaw(
+        _ bytes: [UInt8],
+        into sink: inout IssueSink,
+        limits: Limits = .default
+    ) -> [RawValue] {
+        withStream(bytes, into: &sink, limits: limits, as: YAMLRawBuilder.self)
+            .map { YAMLRawBuilder.resolve($0) }
+    }
+
+    /// Byte limit, UTF-8 validation, BOM, reader, parser: shared by both doors, so neither
+    /// can grow a check the other lacks.
+    static func withStream<B: YAMLBuilding>(
+        _ bytes: [UInt8],
+        into sink: inout IssueSink,
+        limits: Limits,
+        as builder: B.Type
+    ) -> [B.Value] {
         if bytes.count > limits.maxBytes {
             sink.add(Issue(code: .tooManyBytes,
                            params: ["maxBytes": .int(limits.maxBytes)]))
             return []
         }
-        return unsafe bytes.withUnsafeBufferPointer { buf -> [Node] in
+        return unsafe bytes.withUnsafeBufferPointer { buf -> [B.Value] in
             guard let base = buf.baseAddress else { return [] }
             if let bad = unsafe UTF8Validation.firstInvalid(base, buf.count) {
                 sink.add(Issue(code: .invalidUTF8, params: ["offset": .int(bad)],
@@ -100,7 +128,7 @@ extension YAML {
             }
             var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
             reader.advanceBy(unsafe UTF8Validation.bomLength(base, buf.count))
-            var parser = Parser(limits: limits)
+            var parser = Parser<B>(limits: limits)
             return parser.parseStream(&reader, &sink)
         }
     }
@@ -108,9 +136,12 @@ extension YAML {
 
 extension YAML {
 
-    struct Parser {
+    /// Generic over what it builds: `YAMLNodeBuilder` for the node tree,
+    /// `YAMLRawBuilder` for `RawValue` with no tree in between. One grammar, two outputs —
+    /// see `YAMLBuilder.swift`.
+    struct Parser<B: YAMLBuilding> {
         let limits: Limits
-        var anchors: [String: Node] = [:]
+        var anchors: [String: B.Value] = [:]
         /// Shape memory: each sequence and mapping reserves what the previous one at its
         /// depth held (`_ShapeHints`). Without it a five-key mapping grew 0 → 1 → 2 → 4 → 8,
         /// four allocations per record (count.py `base/yaml`, 8,001 of 8,014 blocks).
@@ -149,8 +180,8 @@ extension YAML {
 
         mutating func parseStream(
             _ r: inout AssayReader, _ sink: inout IssueSink
-        ) -> [Node] {
-            var docs: [Node] = []
+        ) -> [B.Value] {
+            var docs: [B.Value] = []
             while true {
                 skipBlanksAndComments(&r)
                 if r.atEnd { break }
@@ -160,7 +191,7 @@ extension YAML {
                     r.advanceBy(3)
                     anchors.removeAll(keepingCapacity: true)
                     skipBlanksAndComments(&r)
-                    if r.atEnd { docs.append(.scalar(Scalar(content: ""))); break }
+                    if r.atEnd { docs.append(B.scalar("", style: .plain, tag: nil)); break }
                 }
                 if atLineStart(&r), r.matches("...") {
                     r.advanceBy(3)
@@ -262,7 +293,7 @@ extension YAML {
             /// own column rather than past it (YAML 1.2 §8.2.1). Nowhere else: a sequence
             /// entry at its parent sequence's column is a sibling, not a child.
             indentlessSequence: Bool = false
-        ) -> Node? {
+        ) -> B.Value? {
             guard depth < limits.maxDepth else {
                 r.report(&sink, .depthExceeded, params: ["maxDepth": .int(limits.maxDepth)])
                 return nil
@@ -318,7 +349,7 @@ extension YAML {
             }
 
             skipBlanksAndComments(&r)
-            var node: Node?
+            var node: B.Value?
 
             if r.currentByte == UInt8(ascii: "[") {
                 node = parseFlowSequence(&r, &sink, depth: depth)
@@ -343,12 +374,12 @@ extension YAML {
             // one copy per node (count.py explain, 2026-09-19).
             guard var result = consume node else { return nil }
 
-            // Attach properties to a scalar; a collection carries them only via the anchor
-            // table, since Node has nowhere to hang them.
-            if case .scalar(var s) = result, anchor != nil || tag != nil {
-                s.anchor = anchor
-                s.tag = tag ?? s.tag
-                result = .scalar(s)
+            // Attach the properties scanned above. What that means is the builder's
+            // business: the node model hangs them on a scalar, and the RawValue builder
+            // rewrites the unresolved scalar's tag so resolution sees it (`YAMLBuilder.swift`,
+            // note 1).
+            if anchor != nil || tag != nil {
+                B.decorate(&result, anchor: anchor, tag: tag)
             }
             if let a = anchor {
                 anchors[a] = result
@@ -364,7 +395,7 @@ extension YAML {
             _ sink: inout IssueSink,
             indent: Int,
             depth: Int
-        ) -> Node? {
+        ) -> B.Value? {
             let save = r.byteOffset
 
             // Block sequence: "- " or "-" at end of line.

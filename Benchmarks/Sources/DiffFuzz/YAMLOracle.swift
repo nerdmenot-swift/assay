@@ -362,6 +362,40 @@ func runYAMLDifferential(
     return r
 }
 
+/// The two YAML doors must agree: the tree projected to `RawValue`, and the direct
+/// `RawValue` parse the struct doors use. One parser generic over what it builds
+/// (`YAMLBuilder.swift`), so this is checking the two instantiations, including the issues
+/// they report — over the whole corpus and every mutated input the fuzz produces.
+func runYAMLDoorEquivalence(_ documents: [(name: String, text: String)]) -> (Int, [String]) {
+    var checked = 0
+    var failures: [String] = []
+    for (name, text) in documents {
+        let bytes = Array(text.utf8)
+        var treeSink = IssueSink()
+        let tree = YAML.decodeAll(bytes, into: &treeSink, limits: .default)
+        var rawSink = IssueSink()
+        let direct = YAML.decodeAllRaw(bytes, into: &rawSink, limits: .default)
+
+        // A document the tree door accepts and the projection refuses is the one case where
+        // the two legitimately differ: the direct door reports it during the parse instead.
+        let projected = tree.map { RawValue($0) }
+        if projected.contains(where: { $0 == nil }) {
+            if !rawSink.issues.contains(where: { $0.code == .yamlUnrepresentableKey }) {
+                failures.append("\(name): projection refused but the direct door did not")
+            }
+            checked += 1
+            continue
+        }
+        if treeSink.issues.map(\.code) != rawSink.issues.map(\.code) {
+            failures.append("\(name): issues differ — tree \(treeSink.issues.map(\.code.codeString)) vs direct \(rawSink.issues.map(\.code.codeString))")
+        } else if direct != projected.compactMap({ $0 }) {
+            failures.append("\(name): values differ")
+        }
+        checked += 1
+    }
+    return (checked, failures)
+}
+
 func runJSONAsYAML(_ files: [(name: String, data: Data)]) -> YAMLOracleResult {
     var r = YAMLOracleResult()
     for (name, data) in files {

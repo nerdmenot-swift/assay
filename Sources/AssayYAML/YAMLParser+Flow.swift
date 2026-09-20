@@ -15,13 +15,12 @@ extension YAML.Parser {
 
     mutating func parseFlowSequence(
         _ r: inout AssayReader, _ sink: inout IssueSink, depth: Int
-    ) -> YAML.Node? {
+    ) -> B.Value? {
         guard depth < limits.maxDepth else {
             r.report(&sink, .depthExceeded); return nil
         }
         r.advanceBy(1)                                   // [
-        var items: [YAML.Node] = []
-        items.reserveCapacity(hints.items(at: depth))
+        var items = B.makeItems(reserving: hints.items(at: depth))
         while true {
             skipBlanksAndComments(&r)
             guard let c = r.currentByte else {
@@ -41,14 +40,14 @@ extension YAML.Parser {
                 r.report(&sink, .yamlUnexpectedInFlow)
                 return nil
             }
-            items.append(item)
+            B.append(&items, item)
 
             skipBlanksAndComments(&r)
             // The separator is not optional: after an item only "," or "]" is legal.
             // Falling through on anything else was the other half of the hang.
             switch r.currentByte {
             case UInt8(ascii: ","): r.advanceBy(1)
-            case UInt8(ascii: "]"): r.advanceBy(1); hints.setItems(items.count, at: depth); return .sequence(items)
+            case UInt8(ascii: "]"): r.advanceBy(1); hints.setItems(B.itemCount(items), at: depth); return B.sequence(items)
             case nil:
                 r.report(&sink, .yamlUnterminatedFlowSequence)
                 return nil
@@ -57,19 +56,18 @@ extension YAML.Parser {
                 return nil
             }
         }
-        hints.setItems(items.count, at: depth); return .sequence(items)
+        hints.setItems(B.itemCount(items), at: depth); return B.sequence(items)
     }
 
     mutating func parseFlowMapping(
         _ r: inout AssayReader, _ sink: inout IssueSink, depth: Int
-    ) -> YAML.Node? {
+    ) -> B.Value? {
         guard depth < limits.maxDepth else {
             r.report(&sink, .depthExceeded); return nil
         }
         r.advanceBy(1)                                   // {
-        var pairs: [YAML.Pair] = []
-        pairs.reserveCapacity(hints.members(at: depth))
-        var mergeSources: [YAML.Node] = []
+        var pairs = B.makePairs(reserving: hints.members(at: depth))
+        var mergeSources: [B.Value] = []
         while true {
             skipBlanksAndComments(&r)
             guard let c = r.currentByte else {
@@ -79,7 +77,7 @@ extension YAML.Parser {
             if c == UInt8(ascii: "}") { r.advanceBy(1); break }
 
             let keyStart = r.byteOffset
-            guard let key = parseFlowNode(&r, &sink, depth: depth + 1) else { return nil }
+            guard var key = parseFlowNode(&r, &sink, depth: depth + 1) else { return nil }
             guard r.byteOffset > keyStart else {
                 r.report(&sink, .yamlUnexpectedInFlow)
                 return nil
@@ -94,11 +92,14 @@ extension YAML.Parser {
             let valueStart = r.byteOffset
             guard let value = parseFlowNode(&r, &sink, depth: depth + 1) else { return nil }
 
-            if case .scalar(let ks) = key, ks.content == "<<" {
+            if B.isMergeKey(&key) {
                 mergeSources.append(value)
             } else {
-                pairs.append(YAML.Pair(key: key, value: value,
-                                  valueSpan: trimmedSpan(&r, from: valueStart)))
+                guard B.appendPair(&pairs, key: key, value: value,
+                                   span: trimmedSpan(&r, from: valueStart)) else {
+                    r.report(&sink, .yamlUnrepresentableKey)
+                    return nil
+                }
             }
 
             skipBlanksAndComments(&r)
@@ -106,8 +107,9 @@ extension YAML.Parser {
             case UInt8(ascii: ","): r.advanceBy(1)
             case UInt8(ascii: "}"):
                 r.advanceBy(1)
-                for source in mergeSources { mergeInto(&pairs, from: source) }
-                hints.setMembers(pairs.count, at: depth); return .mapping(pairs)
+                for source in mergeSources { B.merge(&pairs, from: source) }
+                hints.setMembers(B.pairCount(pairs), at: depth)
+                return B.mapping(pairs)
             case nil:
                 r.report(&sink, .yamlUnterminatedFlowMapping)
                 return nil
@@ -116,13 +118,14 @@ extension YAML.Parser {
                 return nil
             }
         }
-        for source in mergeSources { mergeInto(&pairs, from: source) }
-        hints.setMembers(pairs.count, at: depth); return .mapping(pairs)
+        for source in mergeSources { B.merge(&pairs, from: source) }
+        hints.setMembers(B.pairCount(pairs), at: depth)
+        return B.mapping(pairs)
     }
 
     mutating func parseFlowNode(
         _ r: inout AssayReader, _ sink: inout IssueSink, depth: Int
-    ) -> YAML.Node? {
+    ) -> B.Value? {
         skipBlanksAndComments(&r)
         // Captured BEFORE the charge, exactly as `parseNode` does, so an anchored flow
         // node's recorded cost is everything its subtree consumed. Getting this wrong is
@@ -182,7 +185,7 @@ extension YAML.Parser {
             if let q = r.currentByte, q == UInt8(ascii: "\"") || q == UInt8(ascii: "'") {
                 return parseQuoted(&r, &sink)
             }
-            return .scalar(YAML.Scalar(content: scanFlowPlain(&r)))
+            return B.scalar(scanFlowPlain(&r), style: .plain, tag: nil)
         }
 
         // Anchored. `&q *p` is not YAML — an alias is a REFERENCE to an already-anchored
@@ -196,7 +199,7 @@ extension YAML.Parser {
             return nil
         }
 
-        var node: YAML.Node?
+        var node: B.Value?
         if r.currentByte == UInt8(ascii: "[") {
             node = parseFlowSequence(&r, &sink, depth: depth)
         } else if r.currentByte == UInt8(ascii: "{") {
@@ -204,7 +207,7 @@ extension YAML.Parser {
         } else if let q = r.currentByte, q == UInt8(ascii: "\"") || q == UInt8(ascii: "'") {
             node = parseQuoted(&r, &sink)
         } else {
-            node = .scalar(YAML.Scalar(content: scanFlowPlain(&r)))
+            node = B.scalar(scanFlowPlain(&r), style: .plain, tag: nil)
         }
         guard let result = node else { return nil }
         return recordFlowAnchor(anchor, result, budgetAtEntry)
@@ -234,14 +237,11 @@ extension YAML.Parser {
     /// shape of bug this whole change is fixing.
     @inline(never)
     private mutating func recordFlowAnchor(
-        _ anchor: String?, _ node: YAML.Node, _ budgetAtEntry: Int
-    ) -> YAML.Node {
+        _ anchor: String?, _ node: B.Value, _ budgetAtEntry: Int
+    ) -> B.Value {
         guard let a = anchor else { return node }
         var result = node
-        if case .scalar(var s) = result {
-            s.anchor = a
-            result = .scalar(s)
-        }
+        B.decorate(&result, anchor: a, tag: nil)
         anchors[a] = result
         anchorCost[a] = max(1, budgetAtEntry - nodeBudget)
         return result

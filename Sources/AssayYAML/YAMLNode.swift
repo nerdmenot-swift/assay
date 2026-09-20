@@ -37,6 +37,10 @@ public enum YAML {}
 
 extension YAML {
 
+    /// Where a merge stops scanning and starts hashing (`YAMLBuilding.merge`).
+    @usableFromInline
+    static var mergeSetThreshold: Int { 24 }
+
     /// How a scalar was written. Presentation rather than data, retained for round-tripping.
     public enum ScalarStyle: Sendable, Hashable {
         case plain           // key: value
@@ -236,6 +240,20 @@ extension RawValue {
             return
         }
         self = RawValue(_resolvingCoreSchema: s)
+    }
+
+    /// `init(resolving:)` for a caller that owns the text: the String MOVES into the result
+    /// instead of being copied out of a `YAML.Scalar` (one retain per scalar, which on the
+    /// direct YAML door is every value in the document).
+    @usableFromInline
+    init(_resolvingText text: consuming String, style: YAML.ScalarStyle, tag: String?) {
+        guard style == .plain else { self = .string(consume text); return }
+        if tag == nil, let b = text.utf8.first, !Self._mayResolve(b) {
+            self = .string(consume text)
+            return
+        }
+        self = RawValue(_resolvingCoreSchema:
+            YAML.Scalar(content: consume text, style: style, tag: tag))
     }
 
     /// Whether a plain untagged scalar starting with `b` can resolve to anything but a string.

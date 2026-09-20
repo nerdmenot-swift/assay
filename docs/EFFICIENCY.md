@@ -30,8 +30,10 @@ two instruments answer different questions and neither replaces the other.
 The first CI run (2026-09-19) counted every cell on x86-64 and aarch64 hosted runners.
 Retain, release, allocation and uniqueness counts agree almost everywhere. The exceptions:
 - a fixed +1 or +2 per call on x86-64;
-- `slow_alloc`, which is always 0 there because the runtime reaches it differently (heap
-  blocks agree exactly);
+- `slow_alloc`, which was always 0 there because the runtime reaches it differently (heap
+  blocks agree exactly) — **since 2026-09-20 the encode cells are the exception**: the
+  writers own their buffers, and an owned buffer is `malloc`ed through `swift_slowAlloc` on
+  both architectures rather than allocated as a heap object (rows 5/22);
 - a handful of String-release differences, listed in ledger row 1.
 Instructions differ by a few percent either way. That is why each architecture has its own
 baseline.
@@ -59,21 +61,31 @@ Out of scope by construction:
 
 Each cell's heap is set against the least its RESULT can occupy (`Floors.swift`): one block
 per non-empty array and per String over 15 bytes, and nothing for anything stored inline.
-Measured ÷ floor, blocks and bytes, per call on 2,000 elements (aarch64, 2026-09-19):
+Measured ÷ floor, blocks and bytes, per call on 2,000 elements (aarch64, **2026-09-20**, after
+the ledger campaign; the struck-through figures are what the same cells read before it):
 
 | cell | blocks | bytes | reading |
 |---|---:|---:|---|
 | values-long/struct | 1.00× | 1.27× | at the floor; bytes are malloc rounding plus array growth |
 | values-date/struct | 1.00× | 1.40× | at the floor |
-| base/struct, and most struct cells | 14× | 2.05× | array growth (row 2) |
-| array-10/struct | 5.0× | 3.04× | inner arrays grow too (row 2) |
-| nested-3/struct | 4,014× | 4.72× | two blocks per element (row 7) |
-| base/encode | 2,009× | 3.59× | a block per element (row 8) |
+| array-10/struct | ~~5.0×~~ 1.01× | ~~3.04×~~ 1.29× | the pre-count reserves the inner arrays exactly (row 2) |
+| nested-3/struct | ~~4,014×~~ 15× | ~~4.72×~~ 2.05× | one path for the whole decode, not one per element (row 7) |
+| groups-10/struct | 3.07× | 2.15× | arrays of objects and dictionaries now reserve from a hint (row 2) |
+| base/struct, and most struct cells | 14× | 2.05× | the top-level array's own doubling, which row 2 REFUSES to estimate |
+| base/encode | ~~2,009×~~ 11× | ~~3.59×~~ 2.52× | one path per array (row 8), and the buffer is handed over rather than copied out (rows 5/22); the 11 blocks are its doubling |
 | escapes-10/struct | ~~1,014×~~ 14× | ~~282×~~ 2.05× | was the escape path's reservation; fixed (row 6) |
 | escapes-100/struct | ~~10,019×~~ 14× | ~~1,986×~~ 2.05× | the same; now identical to base |
 
+Every cell that still stands above its floor stands there for a reason now recorded in the
+ledger, not for want of looking: the remaining 14 blocks on the struct cells and 11 on encode
+are geometric growth of a container that occurs ONCE per document, and row 2 refuses to
+estimate that from the input because an attacker chooses the input.
+
 `validate` has a floor of zero and allocates one 56-byte block per call. Blocks against a
-floor of 1 read as huge ratios; the bytes column is the one to rank by.
+floor of 1 read as huge ratios; the bytes column is the one to rank by. The tree tasks
+(`yaml-struct`, `xml-struct`, `toml-struct`) have no floor: a floor is the least the RESULT
+can occupy, and those results are `RawValue` graphs whose least occupancy is the thing being
+changed.
 
 ## A trap in the instrument itself
 
@@ -112,4 +124,4 @@ its experiment is run, then **kept** or **reverted** with the counts that decide
 | 19 | Per-function profile of base/xml-struct: `swift_release` 15.2%, and `explain` charged 24,002 String releases to `scanName` and 12,001 to `recordChildren`, which touches no String. Emptying `recordChildren` as an experiment moved them to `parseElement`: they were its own, at return, charged to its last call. Each element built its name as written (`rawName`) and its close tag's name as Strings, only to compare them; and the child loop failed four `matches` (`</`, `<!--`, `<![CDATA[`, `<?`) before reaching the common case, a child element | the close tag is checked against the open tag BYTE FOR BYTE (`sameBytes`) and both names are built only on error paths; the child loop dispatches on the byte after `<` | **KEPT 2026-09-19.** XML **instructions −8.5% to −11.2%** (base/xml −11.2%, array-10 −10.0%, nested-3 −10.5%, xml-struct −8.5%), String releases −24,000 to −64,000 per call; nothing rose. Byte comparison is also the stricter reading: `String ==` would accept a canonically-equivalent end tag, and XML 1.0 §3 (and libxml2) require the same Name | kept |
 | 20 | Per-function profile of base/toml: `swift_beginAccess` 6.5%, `AccessSet::insert` 5.0%, `SwiftTLSContext::get` 3.1%, plus the matching ends: about 15% of the parse was DYNAMIC exclusivity checking, because `TableBuilder` was a class and every access to a class instance's stored property is checked at run time (60,004 begin_access per call on base, 210,004 on fields-20) | tables become an ARENA: a struct per table in the parser's `tables`, addressed by index, reached through the `inout` parser, where exclusivity is static; `[[a]]` becomes an index list. Lookups read the arena in place (a method called on `tables[t]` took a mutable access and copied the key), keys move out of the path before the lookup, and the rarely built key index lives out of line so the arena entry stays small | **KEPT 2026-09-20.** toml **instructions −20.2% to −29.8%**, toml-struct −27% to −28%; `begin_access` 60,004 → **0**; blocks −2,000 (base) to −6,000 (nested-3), one object per table gone. The trades: **+1 uniqueness check per insert** (the arena element's access, non-atomic, against a thread-local access-set insert and removal per property access), and +4,000 releases of empty placeholder Strings on nested-3. Two first versions failed the ratchet and were fixed before keeping: the index inline in each entry cost +1.5% to +4.3% heap bytes as the arena grew, and looking a key up through `path[last].text` copied it (+22,000 to +70,000 String retains) | kept |
 | 21 | Per-function profile of base/yaml: `currentColumn` 7% across its two specialisations. The block parser asks for the cursor's column at every entry and value, and it was computed by walking back to the previous newline through `byte(absolute:)`, a bounds check and an Optional per byte | `AssayReader._columnSinceNewline()`: the same walk, unchecked, below the seam where the unsafe access belongs (rule 11) | **KEPT 2026-09-20.** yaml **instructions −3.3% to −8.9%** (array-10 −8.9%, nested-3 −5.3%, base −5.0%, yaml-struct −3.3%); nothing else moved | kept |
-| 22 | Per-function profile of base/encode after rows 5 and 8: `Array.append(contentsOf:)` over an `UnsafeBufferPointer` was 39% of the call, its generic sequence path paid for every short run a writer appends (a key literal, a value's text, `null`) | the writer's buffer is ZERO-FILLED to its count, with its own `length`; a run is one `memcpy` into storage that exists, a byte one store, growth doubles as `Array` does, and `finish()` truncates in place, so there is no extra copy and no extra block. The rejected alternative (an owned raw buffer copied out at the end) would have cost a block and the output's bytes per call | **KEPT 2026-09-20.** encode **instructions −12.3% to −15.5%** (fields-20 −15.5%, base −14.8%, nested-3 −12.3%); heap unchanged. The one increase is about ten uniqueness checks per CALL, one per growth. Its first differential run reported 75 failures that were a STALE `DiffFuzz` build holding the old inlined writer against the new buffer; a clean rebuild passed (`CLAUDE.md`, working style) | kept |
+| 22 | Per-function profile of base/encode after rows 5 and 8: `Array.append(contentsOf:)` over an `UnsafeBufferPointer` was 39% of the call, its generic sequence path paid for every short run a writer appends (a key literal, a value's text, `null`) | the writer's buffer is ZERO-FILLED to its count, with its own `length`; a run is one `memcpy` into storage that exists, a byte one store, growth doubles as `Array` does, and `finish()` truncates in place, so there is no extra copy and no extra block. The rejected alternative (an owned raw buffer copied out at the end) would have cost a block and the output's bytes per call | **KEPT 2026-09-20.** encode **instructions −12.3% to −15.5%** (fields-20 −15.5%, base −14.8%, nested-3 −12.3%); heap unchanged. The one increase is about ten uniqueness checks per CALL, one per growth. Its first differential run reported 75 failures that were a STALE `DiffFuzz` build holding the old inlined writer against the new buffer; a clean rebuild passed (`CLAUDE.md`, working style). **One counter moves and is a RECATEGORISATION, not a cost**: an owned buffer is `malloc`ed through `swift_slowAlloc`, where an `Array`'s buffer was a heap OBJECT, so every encode cell reads `malloc`/`slow_alloc` 0 → 8-11 and `alloc_object` 10-13 → 2 for the same total — `heap_blocks` is unchanged on every one of them (base/encode 11 → 11, bytes 262,056 → 261,768). The ratchet counts allocations per entry point, so it fails on the rise and the baseline records it | kept |

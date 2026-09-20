@@ -27,7 +27,7 @@ extension Assayable {
 
 
     @available(*, unavailable, message: "this schema does not encode. Add `encodes: true` to its @Schema, e.g. @Schema(encodes: true).")
-    public func encodedJSON(pretty: Bool = false) throws -> [UInt8] {
+    public func encodedJSON(pretty: Bool = false) throws -> EncodedBytes {
         fatalError("unavailable")
     }
 

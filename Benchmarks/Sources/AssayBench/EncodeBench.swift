@@ -140,7 +140,7 @@ func runEncodeBenchmarks() {
             page: payload.page, totalCount: payload.totalCount,
             hasMore: payload.hasMore, items: cItems)
 
-        guard let bytes = try? payload.encodedJSON() else { continue }
+        guard let bytes = try? payload.encodedJSON().toArray() else { continue }
         let reps = max(50, 200_000 / max(1, bytes.count))
 
         let encoder = JSONEncoder()
@@ -176,15 +176,15 @@ func runEncodeBenchmarks() {
         requestId: "req-1", generatedAt: "2026-08-09T12:00:00Z",
         page: 1, totalCount: 50, hasMore: false, items: items)
 
-    if let j = try? payload.encodedJSON() {
+    if let j = try? payload.encodedJSON().toArray() {
         let ns = measure(iterations: 2_000) { _ = try? payload.encodedJSON() }
         print(pad("json", 12) + pad("\(j.count)", 10) + pad(String(format: "%.0f", ns), 14))
     }
-    if let y = try? payload.encodedYAML() {
+    if let y = try? payload.encodedYAML().toArray() {
         let ns = measure(iterations: 2_000) { _ = try? payload.encodedYAML() }
         print(pad("yaml", 12) + pad("\(y.count)", 10) + pad(String(format: "%.0f", ns), 14))
     }
-    if let x = try? payload.encodedXML() {
+    if let x = try? payload.encodedXML().toArray() {
         let ns = measure(iterations: 2_000) { _ = try? payload.encodedXML() }
         print(pad("xml", 12) + pad("\(x.count)", 10) + pad(String(format: "%.0f", ns), 14))
     }

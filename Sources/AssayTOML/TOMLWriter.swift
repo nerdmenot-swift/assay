@@ -28,14 +28,16 @@ extension TOML {
     /// Render a `RawValue` as a TOML document. The value must be a mapping — a TOML
     /// document is a table — and may not contain a null outside a table member; both are
     /// reported to the sink, and the bytes returned are what could be written.
-    public static func encode(_ value: RawValue, into sink: inout IssueSink) -> [UInt8] {
+    public static func encode(
+        _ value: RawValue, into sink: inout IssueSink
+    ) -> EncodedBytes {
         guard case .mapping(let members) = value else {
             sink.add(Issue(code: .tomlRootNotATable, path: []))
-            return []
+            return EncodedBytes()
         }
         var out = ""
         writeTable(members, path: [], into: &out, sink: &sink)
-        return Array(out.utf8)
+        return EncodedBytes(text: out)
     }
 
     /// `[a.b]`-style sections for a table's members, recursively. `path` is the header

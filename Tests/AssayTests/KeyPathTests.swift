@@ -354,7 +354,7 @@ struct KeyPathEncodeTests {
     @Test("two paths under one prefix encode as one nested object")
     func merged() throws {
         let c = EncCard(name: "Ada", avatar: "a.png", views: 3, id: "x")
-        let text = String(decoding: try c.encodedJSON(), as: UTF8.self)
+        let text = try c.encodedJSON().text()
         #expect(text.contains(#""profile":{"#), "got \(text)")
         #expect(!text.contains("profile.name"), "a dotted key does not round-trip: \(text)")
         #expect(text.contains(#""meta":{"stats":{"views":3}}"#), "got \(text)")
@@ -363,13 +363,13 @@ struct KeyPathEncodeTests {
     @Test("round-trip through JSON")
     func roundTripJSON() throws {
         let c = EncCard(name: "Ada", avatar: nil, views: 7, id: "x")
-        #expect(try EncCard.parse(json: Array(c.encodedJSON())) == c)
+        #expect(try EncCard.parse(json: Array(c.encodedJSON().toArray())) == c)
     }
 
     @Test("round-trip through YAML")
     func roundTripYAML() throws {
         let c = EncCard(name: "Ada", avatar: "a.png", views: 0, id: "x")
-        #expect(try EncCard.parse(yaml: c.encodedYAML()) == c)
+        #expect(try EncCard.parse(yaml: c.encodedYAML().toArray()) == c)
     }
 }
 

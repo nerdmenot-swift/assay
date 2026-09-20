@@ -30,11 +30,15 @@ public import AssayCore
 extension YAML {
 
     /// Render a `RawValue` as a YAML document, newline-terminated.
-    public static func encode(_ value: RawValue) -> [UInt8] {
+    ///
+    /// Returns `EncodedBytes` like the other two encoders. This writer builds a `String` and
+    /// has always copied once at the end (`Array(out.utf8)`); the copy now lands in an owned
+    /// buffer instead of an `Array`, which costs the same and keeps one shape across formats.
+    public static func encode(_ value: RawValue) -> EncodedBytes {
         var out = ""
         write(value, into: &out, indent: 0, atLineStart: true)
         if !out.hasSuffix("\n") { out += "\n" }
-        return Array(out.utf8)
+        return EncodedBytes(text: out)
     }
 
     /// `atLineStart` distinguishes "this value begins its own line" (a document root, or

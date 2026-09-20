@@ -495,12 +495,12 @@ struct CapabilityDoorTests {
     @Test("every door on a fully-capable schema reaches its implementation")
     func realMembersWin() throws {
         let v = Full(a: "x")
-        #expect(String(decoding: try v.encodedJSON(), as: UTF8.self) == #"{"a":"x"}"#)
-        #expect(String(decoding: try v.encodedYAML(), as: UTF8.self).contains("a: x"))
+        #expect(try v.encodedJSON().text() == #"{"a":"x"}"#)
+        #expect(try v.encodedYAML().text().contains("a: x"))
         // The root element name comes from the type's own name, which is nested here.
-        #expect(String(decoding: try v.encodedXML(declaration: false), as: UTF8.self)
+        #expect(try v.encodedXML(declaration: false).text()
                     .contains("<a>x</a>"))
-        #expect(String(decoding: try v.encodedTOML(), as: UTF8.self).contains(#"a = "x""#))
+        #expect(try v.encodedTOML().text().contains(#"a = "x""#))
         #expect(Full.jsonSchemaText().contains("\"a\""))
         #expect(try Full.parse(yaml: "a: z") == Full(a: "z"))
         #expect(try Full.parse(toml: #"a = "t""#) == Full(a: "t"))

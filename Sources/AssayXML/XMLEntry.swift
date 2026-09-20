@@ -168,13 +168,13 @@ extension XMLEncodableSchema {
     /// `@XML(root:)` attribute; that attribute is additive later and nothing depends on it.
     public func encodedXML(
         root: String? = nil, pretty: Bool = false, declaration: Bool = true
-    ) throws -> [UInt8] {
+    ) throws -> EncodedBytes {
         var sink = IssueSink()
         var w = XMLWriter(pretty: pretty, declaration: declaration)
         _assayEncodeXML(into: &w, into: &sink, at: [], element: root ?? Self._assayXMLRoot)
         let bytes = w.finish()
         guard sink.isValid else {
-            throw AssayError(issues: sink.issues, source: SourceBytes(bytes),
+            throw AssayError(issues: sink.issues, source: SourceBytes(bytes.toArray()),
                              sourceName: "<encoded.xml>")
         }
         return bytes
@@ -186,12 +186,12 @@ extension XMLEncodableSchema {
         var sink = IssueSink()
         var w = XMLWriter(pretty: pretty, declaration: declaration)
         _assayEncodeXML(into: &w, into: &sink, at: [], element: root ?? Self._assayXMLRoot)
-        return EncodeDiagnosis(bytes: w.finish(), issues: sink.issues,
+        return EncodeDiagnosis(bytes: w.finish().toArray(), issues: sink.issues,
                                warnings: sink.warnings)
     }
 
     public func xmlText(root: String? = nil, pretty: Bool = false) throws -> String {
-        String(decoding: try encodedXML(root: root, pretty: pretty), as: UTF8.self)
+        try encodedXML(root: root, pretty: pretty).text()
     }
 }
 

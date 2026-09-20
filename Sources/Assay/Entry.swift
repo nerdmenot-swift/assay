@@ -218,15 +218,21 @@ extension Diagnosis: CustomStringConvertible {
 extension JSONEncodableSchema {
 
     /// Write this value as JSON, or throw with everything that could not be represented.
-    public func encodedJSON(pretty: Bool = false) throws -> [UInt8] {
+    ///
+    /// Returns `EncodedBytes`, not `[UInt8]`: the writer owns its buffer and hands it over
+    /// here, so nothing copies the document on the way out. `EncodedBytes`'s header carries
+    /// the measurement that decided it, and `toArray()` is the way back to a value type.
+    public func encodedJSON(pretty: Bool = false) throws -> EncodedBytes {
         var sink = IssueSink()
         var w = JSONWriter(pretty: pretty)
         var path: [PathComponent] = []
         _assayEncode(into: &w, into: &sink, at: &path)
         let bytes = w.finish()
         guard sink.isValid else {
+            // Cold, and the only copy on this path: the error carries the partial document
+            // so a renderer can point at it.
             throw AssayError(issues: sink.issues,
-                             source: SourceBytes(bytes),
+                             source: SourceBytes(bytes.toArray()),
                              sourceName: "<encoded>")
         }
         return bytes
@@ -241,14 +247,16 @@ extension JSONEncodableSchema {
         var w = JSONWriter(pretty: pretty)
         var path: [PathComponent] = []
         _assayEncode(into: &w, into: &sink, at: &path)
-        let bytes = w.finish()
+        // `EncodeDiagnosis.bytes` stays `[UInt8]` on purpose — see `EncodedBytes`'s header —
+        // so this path, and only this path, copies.
+        let bytes = w.finish().toArray()
         return EncodeDiagnosis(bytes: bytes, issues: sink.issues, warnings: sink.warnings)
     }
 
     /// Convenience: the encoded bytes as a `String`. The writer only ever emits valid
     /// UTF-8, so this cannot repair.
     public func jsonText(pretty: Bool = false) throws -> String {
-        String(decoding: try encodedJSON(pretty: pretty), as: UTF8.self)
+        try encodedJSON(pretty: pretty).text()
     }
 }
 

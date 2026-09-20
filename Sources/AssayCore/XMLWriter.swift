@@ -27,7 +27,15 @@
 
 /// Accumulates XML bytes. A struct passed `inout`, like `JSONWriter` and `IssueSink`.
 public struct XMLWriter: ~Copyable {
-    @usableFromInline var out: [UInt8]
+    /// OWNED, for the reason `JSONWriter`'s buffer is: a write is a store, and `finish()`
+    /// hands the allocation to `EncodedBytes` instead of copying it out.
+    @usableFromInline var buf: UnsafeMutablePointer<UInt8>
+    @usableFromInline var capacity: Int
+    @usableFromInline var length: Int = 0
+    /// Set by `finish()`, so `deinit` does not free a buffer it has handed over. `discard
+    /// self` — what `JSONWriter.finish()` uses — needs every stored property to be trivially
+    /// destroyed, and this writer keeps an array of per-depth flags.
+    @usableFromInline var handedOver: Bool = false
     /// True while inside a start tag, so `>` is emitted lazily and attributes stay legal.
     @usableFromInline var inStartTag: Bool = false
     @usableFromInline let pretty: Bool
@@ -39,28 +47,64 @@ public struct XMLWriter: ~Copyable {
     @inlinable
     public init(pretty: Bool = false, declaration: Bool = true) {
         self.pretty = pretty
-        self.out = []
-        self.out.reserveCapacity(512)
+        unsafe self.buf = UnsafeMutablePointer<UInt8>.allocate(capacity: 512)
+        self.capacity = 512
         if declaration {
-            out.append(contentsOf: Array(#"<?xml version="1.0" encoding="UTF-8"?>"#.utf8))
-            if pretty { out.append(0x0A) }
+            put(#"<?xml version="1.0" encoding="UTF-8"?>"#)
+            if pretty { byte(0x0A) }
         }
     }
 
-    @inlinable
-    public consuming func finish() -> [UInt8] {
-        if pretty, out.last != 0x0A { out.append(0x0A) }
-        return out
+    /// Frees the buffer unless `finish()` handed it over.
+    deinit { if !handedOver { unsafe buf.deallocate() } }
+
+    public consuming func finish() -> EncodedBytes {
+        if pretty, length > 0, unsafe buf[length &- 1] != 0x0A { byte(0x0A) }
+        handedOver = true
+        return unsafe EncodedBytes(taking: buf, count: length)
     }
 
     @inlinable @inline(__always)
-    mutating func raw(_ s: String) { out.append(contentsOf: s.utf8) }
+    mutating func ensure(_ n: Int) {
+        if length &+ n > capacity { grow(n) }
+    }
+
+    @inline(never) @usableFromInline
+    mutating func grow(_ n: Int) {
+        let target = Swift.max(capacity &* 2, length &+ n)
+        let fresh = unsafe UnsafeMutablePointer<UInt8>.allocate(capacity: target)
+        unsafe fresh.update(from: buf, count: length)
+        unsafe buf.deallocate()
+        unsafe buf = fresh
+        capacity = target
+    }
+
+    @inlinable @inline(__always)
+    mutating func byte(_ b: UInt8) {
+        ensure(1)
+        unsafe buf[length] = b
+        length &+= 1
+    }
+
+    @inlinable @inline(__always)
+    mutating func put(_ s: String) {
+        var text = s
+        unsafe text.withUTF8 { bytes in
+            guard let base = unsafe bytes.baseAddress else { return }
+            ensure(bytes.count)
+            unsafe (buf + length).update(from: base, count: bytes.count)
+            length &+= bytes.count
+        }
+    }
+
+    @inlinable @inline(__always)
+    mutating func raw(_ s: String) { put(s) }
 
     /// Close the start tag if one is open, so content can follow.
     @inlinable
     mutating func closeStartTag() {
         if inStartTag {
-            out.append(0x3E)                     // >
+            byte(0x3E)                     // >
             inStartTag = false
         }
     }
@@ -68,8 +112,8 @@ public struct XMLWriter: ~Copyable {
     @inlinable
     mutating func indent() {
         guard pretty else { return }
-        out.append(0x0A)
-        for _ in 0..<depth { out.append(0x20); out.append(0x20) }
+        byte(0x0A)
+        for _ in 0..<depth { byte(0x20); byte(0x20) }
     }
 
     // MARK: Elements
@@ -79,7 +123,7 @@ public struct XMLWriter: ~Copyable {
         closeStartTag()
         if !hasChildElements.isEmpty { hasChildElements[hasChildElements.count - 1] = true }
         indent()
-        out.append(0x3C)                         // <
+        byte(0x3C)                         // <
         raw(name)
         inStartTag = true
         depth &+= 1
@@ -92,14 +136,14 @@ public struct XMLWriter: ~Copyable {
         let hadChildren = hasChildElements.popLast() ?? false
         if inStartTag {
             // Nothing at all inside: the empty-element form.
-            out.append(contentsOf: [0x2F, 0x3E])  // />
+            put("/>")
             inStartTag = false
             return
         }
         if hadChildren { indent() }
-        out.append(contentsOf: [0x3C, 0x2F])      // </
+        put("</")
         raw(name)
-        out.append(0x3E)
+        byte(0x3E)
     }
 
     /// An attribute. Legal only before any content, which the writer enforces by ignoring
@@ -107,11 +151,11 @@ public struct XMLWriter: ~Copyable {
     @inlinable
     public mutating func attribute(_ name: String, _ value: String) {
         guard inStartTag else { return }
-        out.append(0x20)
+        byte(0x20)
         raw(name)
-        out.append(contentsOf: [0x3D, 0x22])      // ="
+        put("=\"")
         writeEscaped(value, inAttribute: true)
-        out.append(0x22)
+        byte(0x22)
     }
 
     // MARK: Content
@@ -140,11 +184,11 @@ public struct XMLWriter: ~Copyable {
             case UInt8(ascii: "<"): raw("&lt;")
             case UInt8(ascii: ">"): raw("&gt;")
             case UInt8(ascii: "&"): raw("&amp;")
-            case UInt8(ascii: "\""): if inAttribute { raw("&quot;") } else { out.append(b) }
-            case 0x09: if inAttribute { raw("&#9;") } else { out.append(b) }
-            case 0x0A: if inAttribute { raw("&#10;") } else { out.append(b) }
+            case UInt8(ascii: "\""): if inAttribute { raw("&quot;") } else { byte(b) }
+            case 0x09: if inAttribute { raw("&#9;") } else { byte(b) }
+            case 0x0A: if inAttribute { raw("&#10;") } else { byte(b) }
             case 0x0D: raw("&#13;")
-            default: out.append(b)
+            default: byte(b)
             }
         }
     }

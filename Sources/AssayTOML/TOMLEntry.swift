@@ -84,12 +84,12 @@ extension RawDecodable {
 extension RawEncodableSchema {
 
     /// Write this value as a TOML document, or throw with everything that went wrong.
-    public func encodedTOML() throws -> [UInt8] {
+    public func encodedTOML() throws -> EncodedBytes {
         var sink = IssueSink()
         let raw = _assayEncodeRaw(into: &sink, at: [])
         let bytes = TOML.encode(raw, into: &sink)
         guard sink.isValid else {
-            throw AssayError(issues: sink.issues, source: SourceBytes(bytes),
+            throw AssayError(issues: sink.issues, source: SourceBytes(bytes.toArray()),
                              sourceName: "<encoded.toml>")
         }
         return bytes
@@ -99,13 +99,13 @@ extension RawEncodableSchema {
     public func diagnoseEncodeTOML() -> EncodeDiagnosis {
         var sink = IssueSink()
         let raw = _assayEncodeRaw(into: &sink, at: [])
-        let bytes = TOML.encode(raw, into: &sink)
+        let bytes = TOML.encode(raw, into: &sink).toArray()
         return EncodeDiagnosis(bytes: bytes, issues: sink.issues, warnings: sink.warnings)
     }
 
     /// The encoded document as text.
     public func tomlText() throws -> String {
-        String(decoding: try encodedTOML(), as: UTF8.self)
+        try encodedTOML().text()
     }
 }
 

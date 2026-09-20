@@ -22,13 +22,11 @@ AssayMatrix.DocNested._assayEncodeMembers(into: inout AssayCore.JSONWriter, into
 AssayMatrix.DocNested._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	retain	2
 AssayMatrix.DocNested._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	release	2
 AssayMatrix.DocNested._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	retain	2
-AssayMatrix.DocNested._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	release	2
-AssayMatrix.DocNested._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	retain	2
+AssayMatrix.DocNested._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	release	4
+AssayMatrix.DocNested._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	retain	4
 AssayMatrix.MInner1._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	release	1
 AssayMatrix.MInner1._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	release	1
 AssayMatrix.MInner1._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	retain	3
-AssayMatrix.MInner1._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	release	1
-AssayMatrix.MInner1._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	retain	1
 AssayMatrix.MNested._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	release	1
 AssayMatrix.MNested._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	release	1
 AssayMatrix.MNested._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	retain	5
@@ -42,7 +40,7 @@ AssayMatrix.fixed(Swift.Double, Swift.Int) -> Swift.String	release	2
 AssayMatrix.fixed(Swift.Double, Swift.Int) -> Swift.String	stack-allocated-ref	1
 AssayMatrix.flag(Swift.String) -> Swift.String?	release	5
 AssayMatrix.flag(Swift.String) -> Swift.String?	retain	1
-AssayMatrix.floor(shape: Swift.String, task: Swift.String, bytes: [Swift.UInt8]) -> AssayMatrix.Floor?	release	39
+AssayMatrix.floor(shape: Swift.String, task: Swift.String, bytes: [Swift.UInt8]) -> AssayMatrix.Floor?	release	47
 AssayMatrix.floor(shape: Swift.String, task: Swift.String, bytes: [Swift.UInt8]) -> AssayMatrix.Floor?	retain	4
 AssayMatrix.groupRecord(items: Swift.Int, keys: Swift.Int) -> Swift.String	release	10
 AssayMatrix.measure(binary: Swift.String, shape: Swift.String, task: Swift.String, path: Swift.String, timeout: Swift.Double) -> AssayMatrix.Cell?	begin-exclusive-access-to-value	7
@@ -67,7 +65,7 @@ closure #1 () -> Swift.Int? in closure #4 (Swift.String, [Swift.UInt8]) -> (() -
 closure #1 () -> Swift.Int? in closure #5 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	5
 closure #1 () -> Swift.Int? in closure #6 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	3
 closure #1 () -> Swift.Int? in closure #6 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	retain	1
-closure #1 () -> Swift.Int? in closure #8 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	2
+closure #1 () -> Swift.Int? in closure #8 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	1
 closure #1 (Swift.Int) -> Swift.String in AssayMatrix.allShapes() -> [AssayMatrix.Shape]	release	1
 closure #1 (Swift.Int) -> Swift.String in closure #11 (Swift.Int) -> Swift.String in AssayMatrix.allShapes() -> [AssayMatrix.Shape]	release	2
 closure #1 (Swift.Int) -> Swift.String in closure #7 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	16
@@ -93,7 +91,7 @@ closure #18 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.
 closure #2 () -> Swift.Int? in closure #18 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	4
 closure #2 () -> Swift.Int? in closure #20 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	4
 closure #2 () -> Swift.Int? in closure #22 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	2
-closure #2 () -> Swift.Int? in closure #8 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	2
+closure #2 () -> Swift.Int? in closure #8 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	1
 closure #2 (Swift.String) -> Swift.Set<Swift.String> in AssayMatrix	release	5
 closure #2 (Swift.String) -> Swift.Set<Swift.String> in AssayMatrix	retain	2
 closure #2 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	retain	2
@@ -101,10 +99,10 @@ closure #20 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.
 closure #22 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	16
 closure #22 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	retain	3
 closure #3 () -> Swift.Int? in closure #22 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	2
-closure #3 () -> Swift.Int? in closure #8 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	2
+closure #3 () -> Swift.Int? in closure #8 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	1
 closure #3 (Swift.String) -> Swift.Set<Swift.String> in AssayMatrix	release	5
 closure #3 (Swift.String) -> Swift.Set<Swift.String> in AssayMatrix	retain	2
-closure #4 () -> Swift.Int? in closure #8 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	2
+closure #4 () -> Swift.Int? in closure #8 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	1
 closure #4 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	4
 closure #4 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	1
 closure #4 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	retain	1
@@ -194,3 +192,4 @@ one-time initialization function for __assayRules_3_0	ref	2
 one-time initialization function for __assayRules_4_0	ref	2
 one-time initialization function for stringValuedShapes	release	2
 one-time initialization function for stringValuedShapes	retain	1
+protocol witness for Assay.XMLEncodableSchema._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> () in conformance AssayMatrix.MInner1 : Assay.XMLEncodableSchema in AssayMatrix	retain	1

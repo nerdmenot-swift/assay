@@ -53,7 +53,7 @@ extension Assayable {
     // for the refusal to be the overload that is chosen.
     @available(*, unavailable, message: "this schema does not encode XML. It needs both `encodes: true` and the format — e.g. @Schema(formats: .xml, encodes: true).")
     public func encodedXML(root: String? = nil, pretty: Bool = false,
-                           declaration: Bool = true) throws -> [UInt8] {
+                           declaration: Bool = true) throws -> EncodedBytes {
         fatalError("unavailable")
     }
 }

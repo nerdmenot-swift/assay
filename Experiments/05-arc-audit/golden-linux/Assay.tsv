@@ -1,7 +1,6 @@
 (extension in Assay):Assay.JSONEncodableSchema.diagnoseEncodeJSON(pretty: Swift.Bool) -> Assay.EncodeDiagnosis	release	1
-(extension in Assay):Assay.JSONEncodableSchema.encodedJSON(pretty: Swift.Bool) throws -> [Swift.UInt8]	release	4
-(extension in Assay):Assay.JSONEncodableSchema.encodedJSON(pretty: Swift.Bool) throws -> [Swift.UInt8]	retain	1
-(extension in Assay):Assay.JSONEncodableSchema.jsonText(pretty: Swift.Bool) throws -> Swift.String	release	1
+(extension in Assay):Assay.JSONEncodableSchema.encodedJSON(pretty: Swift.Bool) throws -> AssayCore.EncodedBytes	release	4
+(extension in Assay):Assay.JSONEncodableSchema.encodedJSON(pretty: Swift.Bool) throws -> AssayCore.EncodedBytes	retain	2
 Assay.(_unknownVariant in _F8626C2230E1253B62F0212D29B74123)(_: inout AssayCore.IssueSink, _: [AssayCore.PathComponent], received: Swift.String, options: [Swift.String]?, span: AssayCore.SourceSpan?) -> ()	release	5
 Assay.(_unknownVariant in _F8626C2230E1253B62F0212D29B74123)(_: inout AssayCore.IssueSink, _: [AssayCore.PathComponent], received: Swift.String, options: [Swift.String]?, span: AssayCore.SourceSpan?) -> ()	retain	6
 Assay.Assayer.diagnose(_: AssayCore.RawValue, limits: AssayCore.Limits, sourceName: Swift.String) -> Assay.Diagnosis<A>	release	7

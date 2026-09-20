@@ -52,7 +52,7 @@ extension Assayable {
     // The encode side needs BOTH `encodes: true` and the format, so the message names both
     // rather than sending the reader back for a second compile to discover the other half.
     @available(*, unavailable, message: "this schema does not encode YAML. It needs both `encodes: true` and the format — e.g. @Schema(formats: .yaml, encodes: true).")
-    public func encodedYAML() throws -> [UInt8] {
+    public func encodedYAML() throws -> EncodedBytes {
         fatalError("unavailable")
     }
 }

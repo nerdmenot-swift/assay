@@ -50,6 +50,6 @@ struct KeyAliasTests {
         #expect(try v.tomlText().contains(#""first name" = "Ada""#))
         #expect(try v.tomlText().contains(#"e-mail = "a@x.io""#), "a bare key: `-` is a bare-key character")
         #expect(try Spaced.parse(toml: try v.tomlText()) == v)
-        #expect(try Spaced.parse(json: try v.encodedJSON()) == v)
+        #expect(try Spaced.parse(json: try v.encodedJSON().toArray()) == v)
     }
 }

@@ -26,11 +26,14 @@
 /// Accumulates JSON bytes. A struct passed `inout`, like `IssueSink` — static exclusivity,
 /// no boxing, no escaping capture.
 public struct JSONWriter: ~Copyable {
-    /// The output, ZERO-FILLED to its whole count; the first `length` bytes are written.
-    /// Every write is one `memcpy` into storage that already exists, instead of an
-    /// `Array.append(contentsOf:)` with its generic sequence machinery, which was 39% of
-    /// `base/encode` (callgrind, 2026-09-20). `finish()` truncates to `length` in place.
-    @usableFromInline var out: [UInt8]
+    /// OWNED, not an `Array`. A write is a store: no uniqueness check, no closure, no
+    /// generic sequence machinery. Through an `Array` those checks were 36,004 per
+    /// `base/encode` call even after the run and key-literal work, because `Array` cannot
+    /// know the writer is its only owner. `finish()` hands the buffer to `EncodedBytes`
+    /// (`discard self`), so nothing is copied on the way out either; `EncodedBytes`'s header
+    /// carries the argument for the API this shape requires.
+    @usableFromInline var buf: UnsafeMutablePointer<UInt8>
+    @usableFromInline var capacity: Int
     @usableFromInline var length: Int = 0
     /// Whether the container currently being written has had a member yet, so commas are
     /// emitted between members and never before the first.
@@ -45,17 +48,25 @@ public struct JSONWriter: ~Copyable {
     @inlinable
     public init(pretty: Bool = false, reservingCapacity capacity: Int = 512) {
         self.pretty = pretty
-        self.out = [UInt8](repeating: 0, count: Swift.max(capacity, 16))
+        let cap = Swift.max(capacity, 16)
+        unsafe self.buf = UnsafeMutablePointer<UInt8>.allocate(capacity: cap)
+        self.capacity = cap
     }
 
-    /// The bytes written so far. Consuming, because the writer owns the buffer and there is
-    /// no reason to copy it out: the unwritten tail is dropped in place.
-    @inlinable
-    public consuming func finish() -> [UInt8] {
-        var o: [UInt8] = []
-        swap(&o, &out)
-        o.removeSubrange(length...)
-        return o
+    /// Frees the buffer if the writer is dropped without finishing — an encode that threw
+    /// part-way, for instance.
+    deinit { unsafe buf.deallocate() }
+
+    /// The bytes written, handed over. `discard self` suppresses the `deinit` above, so the
+    /// allocation moves to `EncodedBytes` rather than being copied or freed.
+    ///
+    /// NOT `@inlinable`: `discard` is not allowed in an inlinable member of a type that is not
+    /// `@frozen`, and this runs once per encode, where a call costs nothing measurable.
+    public consuming func finish() -> EncodedBytes {
+        let p = unsafe buf
+        let n = length
+        discard self
+        return unsafe EncodedBytes(taking: p, count: n)
     }
 
     // MARK: Structure
@@ -63,22 +74,26 @@ public struct JSONWriter: ~Copyable {
     /// Room for `n` more bytes.
     @inlinable @inline(__always)
     mutating func ensure(_ n: Int) {
-        if length &+ n > out.count { grow(n) }
+        if length &+ n > capacity { grow(n) }
     }
 
-    /// Doubling, as `Array` itself grows, so the block count is what `append` gave.
+    /// Doubling, as `Array` itself grew, so the block count is what it was before the buffer
+    /// became owned.
     @inline(never) @usableFromInline
     mutating func grow(_ n: Int) {
-        let target = Swift.max(out.count &* 2, length &+ n)
-        out.append(contentsOf: repeatElement(0, count: target &- out.count))
+        let target = Swift.max(capacity &* 2, length &+ n)
+        let fresh = unsafe UnsafeMutablePointer<UInt8>.allocate(capacity: target)
+        unsafe fresh.update(from: buf, count: length)
+        unsafe buf.deallocate()
+        unsafe buf = fresh
+        capacity = target
     }
 
     @inlinable @inline(__always)
     mutating func byte(_ b: UInt8) {
         ensure(1)
-        let at = length
-        unsafe out.withUnsafeMutableBufferPointer { unsafe $0[at] = b }
-        length = at &+ 1
+        unsafe buf[length] = b
+        length &+= 1
     }
 
     /// `n` bytes from `p`, one copy.
@@ -86,9 +101,8 @@ public struct JSONWriter: ~Copyable {
     mutating func put(_ p: UnsafePointer<UInt8>, _ n: Int) {
         guard n > 0 else { return }
         ensure(n)
-        let at = length
-        unsafe out.withUnsafeMutableBufferPointer { unsafe ($0.baseAddress! + at).update(from: p, count: n) }
-        length = at &+ n
+        unsafe (buf + length).update(from: p, count: n)
+        length &+= n
     }
 
     @inlinable @inline(__always)

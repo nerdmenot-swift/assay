@@ -82,10 +82,10 @@ func floor(shape: String, task: String, bytes b: [UInt8]) -> Floor? {
         // One contiguous output buffer, exactly as long as the document it writes.
         let n: Int?
         switch shape {
-        case "fields-2": n = (try? Doc2.parse(json: b)).flatMap { try? $0.encodedJSON() }?.count
-        case "fields-20": n = (try? Doc20.parse(json: b)).flatMap { try? $0.encodedJSON() }?.count
-        case "nested-3": n = (try? DocNested.parse(json: b)).flatMap { try? $0.encodedJSON() }?.count
-        default: n = (try? Doc5.parse(json: b)).flatMap { try? $0.encodedJSON() }?.count
+        case "fields-2": n = (try? Doc2.parse(json: b)).flatMap { try? $0.encodedJSON().toArray() }?.count
+        case "fields-20": n = (try? Doc20.parse(json: b)).flatMap { try? $0.encodedJSON().toArray() }?.count
+        case "nested-3": n = (try? DocNested.parse(json: b)).flatMap { try? $0.encodedJSON().toArray() }?.count
+        default: n = (try? Doc5.parse(json: b)).flatMap { try? $0.encodedJSON().toArray() }?.count
         }
         return n.map { Floor(blocks: 1, bytes: objectHeader + $0) }
     default:                   return nil

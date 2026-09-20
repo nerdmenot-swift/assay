@@ -99,7 +99,7 @@ struct IntegerWidthTests {
     @Test("round-trip through JSON is exact at the extremes")
     func roundTrip() throws {
         let v = try Widths.parse(json: Array(Self.atLimits.utf8))
-        let again = try Widths.parse(json: try v.encodedJSON())
+        let again = try Widths.parse(json: try v.encodedJSON().toArray())
         #expect(again == v)
     }
 
@@ -112,7 +112,7 @@ struct IntegerWidthTests {
     @Test("an unsigned value above Int64.max encodes as itself, not as a negative")
     func unsignedEncodingIsNotReinterpreted() throws {
         let v = Widths(i8: 0, i16: 0, u8: 0, u16: 0, u32: 0, u64: UInt64.max)
-        let text = String(decoding: try v.encodedJSON(), as: UTF8.self)
+        let text = try v.encodedJSON().text()
         #expect(text.contains("18446744073709551615"))
         #expect(!text.contains("-1"))
     }

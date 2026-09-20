@@ -130,12 +130,12 @@ extension RawDecodable {
 extension RawEncodableSchema {
 
     /// Write this value as a YAML document, or throw with everything that went wrong.
-    public func encodedYAML() throws -> [UInt8] {
+    public func encodedYAML() throws -> EncodedBytes {
         var sink = IssueSink()
         let raw = _assayEncodeRaw(into: &sink, at: [])
         let bytes = YAML.encode(raw)
         guard sink.isValid else {
-            throw AssayError(issues: sink.issues, source: SourceBytes(bytes),
+            throw AssayError(issues: sink.issues, source: SourceBytes(bytes.toArray()),
                              sourceName: "<encoded.yaml>")
         }
         return bytes
@@ -145,14 +145,14 @@ extension RawEncodableSchema {
     public func diagnoseEncodeYAML() -> EncodeDiagnosis {
         var sink = IssueSink()
         let raw = _assayEncodeRaw(into: &sink, at: [])
-        return EncodeDiagnosis(bytes: YAML.encode(raw),
+        return EncodeDiagnosis(bytes: YAML.encode(raw).toArray(),
                                issues: sink.issues, warnings: sink.warnings)
     }
 
     /// The encoded document as text. YAML is a human-facing format, so this is usually
     /// the spelling you want.
     public func yamlText() throws -> String {
-        String(decoding: try encodedYAML(), as: UTF8.self)
+        try encodedYAML().text()
     }
 }
 

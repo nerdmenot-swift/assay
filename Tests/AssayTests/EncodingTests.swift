@@ -91,7 +91,7 @@ struct EncodingTests {
          "items":[{"id":"i1","amount":2.5},{"id":"i2","amount":-3}]}
         """
         let original = try EncPayload.parse(json: Array(json.utf8))
-        let encoded = try original.encodedJSON()
+        let encoded = try original.encodedJSON().toArray()
         let again = try EncPayload.parse(json: encoded)
         #expect(again == original, "round-trip must be identity")
     }
@@ -102,7 +102,7 @@ struct EncodingTests {
         let v = try EncPayload.parse(json: Array(json.utf8))
         // Dictionaries have no order, so the encoder sorts keys. Without that the law
         // above would be untestable and diffs would be noise.
-        #expect(try v.encodedJSON() == v.encodedJSON())
+        #expect(try v.encodedJSON().toArray() == v.encodedJSON().toArray())
         let text = try v.jsonText()
         #expect(text.contains(#""counts":{"a":1,"b":2}"#), "dictionary keys must be sorted")
     }
@@ -114,7 +114,7 @@ struct EncodingTests {
         let v = try EncTransformed.parse(json: Array(#"{"tags":["b","a"]}"#.utf8))
         let text = try v.jsonText()
         #expect(text == #"{"tags":["a","b"]}"#, "got \(text)")
-        #expect(try EncTransformed.parse(json: v.encodedJSON()) == v)
+        #expect(try EncTransformed.parse(json: v.encodedJSON().toArray()) == v)
     }
 
     // MARK: Q6 — defaults and @Extras
@@ -129,7 +129,7 @@ struct EncodingTests {
         #expect(text.contains(#""retries":3"#))
         #expect(text.contains(#""tags":[]"#))
         #expect(text.contains(#""counts":{}"#))
-        #expect(try EncPayload.parse(json: v.encodedJSON()) == v)
+        #expect(try EncPayload.parse(json: v.encodedJSON().toArray()) == v)
     }
 
     @Test("@Extras are written back, so a decode-edit-encode proxy loses nothing")
@@ -137,7 +137,7 @@ struct EncodingTests {
         let json = #"{"id":"x","extra_a":1,"extra_b":{"k":"v"},"extra_c":[1,2]}"#
         let v = try EncOpen.parse(json: Array(json.utf8))
         #expect(v.rest.count == 3)
-        let again = try EncOpen.parse(json: v.encodedJSON())
+        let again = try EncOpen.parse(json: v.encodedJSON().toArray())
         #expect(again == v, "collected keys must survive the round trip")
     }
 
@@ -164,7 +164,7 @@ struct EncodingTests {
         #expect(try v.jsonText() == #"{"score":0}"#)
         // And the re-parse is clean: the salvage is not repeated, which is exactly why
         // this is an exception rather than a violation.
-        let again = EncFallback.diagnose(json: try v.encodedJSON())
+        let again = EncFallback.diagnose(json: try v.encodedJSON().toArray())
         #expect(again.warnings.isEmpty)
         #expect(again.value == v)
     }
@@ -190,7 +190,7 @@ struct EncodingTests {
         // Keys are emitted as pre-encoded JSON text (`"name":`) since 2026-09-19; this is
         // the key a naive emitter would break on — quote, backslash, control character.
         let v = EncOddKeys(quote: 1, slash: 2, tab: 3)
-        let json = String(decoding: try v.encodedJSON(), as: UTF8.self)
+        let json = try v.encodedJSON().text()
         #expect(json == #"{"we\"ird":1,"back\\slash":2,"tab\tkey":3}"#)
     }
 
@@ -200,7 +200,7 @@ struct EncodingTests {
     @Test("keys needing escapes round-trip")
     func oddKeysRoundTrip() throws {
         let v = EncOddKeys(quote: 1, slash: 2, tab: 3)
-        #expect(try EncOddKeys.parse(json: try v.encodedJSON()) == v)
+        #expect(try EncOddKeys.parse(json: try v.encodedJSON().toArray()) == v)
     }
 
     @Test("encode issues inside a nested value, an element, and after both, keep exact paths")
@@ -245,7 +245,7 @@ struct EncodingTests {
     func escaping() throws {
         let nasty = "quote\" backslash\\ newline\n tab\t control\u{01} unicode café 😀"
         let v = EncItem(id: nasty, amount: 0)
-        let again = try EncItem.parse(json: v.encodedJSON())
+        let again = try EncItem.parse(json: v.encodedJSON().toArray())
         #expect(again.id == nasty)
         let text = try v.jsonText()
         #expect(text.contains("\\\""), "quote must be escaped")
@@ -259,7 +259,7 @@ struct EncodingTests {
         let v = try EncPayload.parse(json: Array(json.utf8))
         #expect(v.note == nil)
         #expect(try v.jsonText().contains(#""note":null"#))
-        #expect(try EncPayload.parse(json: v.encodedJSON()) == v)
+        #expect(try EncPayload.parse(json: v.encodedJSON().toArray()) == v)
     }
 
     @Test("integers write exactly, including the extremes")
@@ -268,7 +268,7 @@ struct EncodingTests {
             let v = EncPayload(requestId: "r", page: n, ratio: 0, active: true, note: nil,
                                tags: [], counts: [:], retries: 0,
                                nested: EncItem(id: "n", amount: 0), items: [])
-            let again = try EncPayload.parse(json: v.encodedJSON())
+            let again = try EncPayload.parse(json: v.encodedJSON().toArray())
             #expect(again.page == n, "\(n) did not round-trip")
         }
     }
@@ -278,7 +278,7 @@ struct EncodingTests {
         for d in [0.0, 1.0, -1.5, 0.1, 1e300, 1e-300, .greatestFiniteMagnitude,
                   .leastNormalMagnitude, 3.141592653589793] {
             let v = EncItem(id: "x", amount: d)
-            let again = try EncItem.parse(json: v.encodedJSON())
+            let again = try EncItem.parse(json: v.encodedJSON().toArray())
             #expect(again.amount.bitPattern == d.bitPattern,
                     "\(d) round-tripped to \(again.amount)")
         }

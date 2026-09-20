@@ -69,6 +69,7 @@ AssayCore.CompiledPattern.__allocating_init(Swift.String) -> AssayCore.CompiledP
 AssayCore.CompiledPattern.init(Swift.String) -> AssayCore.CompiledPattern	release	2
 AssayCore.CompiledPattern.init(Swift.String) -> AssayCore.CompiledPattern	retain	1
 AssayCore.DateFormat.displayName.getter : Swift.String	release	1
+AssayCore.EncodedBytes.init(text: Swift.String) -> AssayCore.EncodedBytes	release	3
 AssayCore.FieldDescriptor.init(wireKey: Swift.String, aliases: [Swift.String], propertyName: Swift.String, type: AssayCore.TypeDescriptor, wireType: AssayCore.TypeDescriptor?, isRequired: Swift.Bool, rules: [AssayCore.Rule]) -> AssayCore.FieldDescriptor	release	1
 AssayCore.FieldDescriptor.init(wireKey: Swift.String, aliases: [Swift.String], propertyName: Swift.String, type: AssayCore.TypeDescriptor, wireType: AssayCore.TypeDescriptor?, isRequired: Swift.Bool, rules: [AssayCore.Rule]) -> AssayCore.FieldDescriptor	retain	1
 AssayCore.Issue.description.getter : Swift.String	release	1
@@ -108,9 +109,9 @@ AssayCore.JSONWriter.unrepresentable(inout AssayCore.IssueSink, [AssayCore.PathC
 AssayCore.JSONWriter.unrepresentable(inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString, Swift.Double) -> ()	retain	2
 AssayCore.JSONWriter.unrepresentable(inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString, Swift.Double) -> ()	stack-allocated-ref	1
 AssayCore.JSONWriter.write(AssayCore.JSON.Value, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	release	3
-AssayCore.JSONWriter.write(AssayCore.JSON.Value, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	retain	3
+AssayCore.JSONWriter.write(AssayCore.JSON.Value, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	retain	7
 AssayCore.JSONWriter.write(AssayCore.RawValue, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	release	3
-AssayCore.JSONWriter.write(AssayCore.RawValue, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	retain	3
+AssayCore.JSONWriter.write(AssayCore.RawValue, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	retain	7
 AssayCore.JSONWriter.write(Swift.Double, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	release	5
 AssayCore.JSONWriter.writeDate(Swift.Double, [AssayCore.DateFormat], inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> ()	release	1
 AssayCore.JSONWriter.writeEscaped(Swift.UInt8) -> ()	release	1
@@ -169,18 +170,15 @@ AssayCore.SourceBytes.withUnsafeBytes<A>((Swift.UnsafeRawBufferPointer) throws -
 AssayCore.Warning.description.getter : Swift.String	release	1
 AssayCore.Warning.message.getter : Swift.String	release	2
 AssayCore.Warning.message.getter : Swift.String	retain	8
-AssayCore.XMLWriter.attribute(Swift.String, Swift.Bool) -> ()	release	3
-AssayCore.XMLWriter.attribute(Swift.String, Swift.Bool) -> ()	retain	1
-AssayCore.XMLWriter.attribute(Swift.String, Swift.Int) -> ()	release	3
-AssayCore.XMLWriter.attribute(Swift.String, Swift.Int) -> ()	retain	1
-AssayCore.XMLWriter.attribute(Swift.String, Swift.Int32) -> ()	release	3
-AssayCore.XMLWriter.attribute(Swift.String, Swift.Int32) -> ()	retain	1
-AssayCore.XMLWriter.attribute(Swift.String, Swift.Int64) -> ()	release	3
-AssayCore.XMLWriter.attribute(Swift.String, Swift.Int64) -> ()	retain	1
-AssayCore.XMLWriter.attribute(Swift.String, Swift.String) -> ()	retain	1
-AssayCore.XMLWriter.attribute(Swift.String, Swift.UInt) -> ()	release	3
-AssayCore.XMLWriter.attribute(Swift.String, Swift.UInt) -> ()	retain	1
-AssayCore.XMLWriter.beginElement(Swift.String) -> ()	retain	1
+AssayCore.XMLWriter.attribute(Swift.String, Swift.Bool) -> ()	release	1
+AssayCore.XMLWriter.attribute(Swift.String, Swift.Int) -> ()	release	1
+AssayCore.XMLWriter.attribute(Swift.String, Swift.Int32) -> ()	release	1
+AssayCore.XMLWriter.attribute(Swift.String, Swift.Int64) -> ()	release	1
+AssayCore.XMLWriter.attribute(Swift.String, Swift.String) -> ()	release	5
+AssayCore.XMLWriter.attribute(Swift.String, Swift.String) -> ()	retain	2
+AssayCore.XMLWriter.attribute(Swift.String, Swift.UInt) -> ()	release	1
+AssayCore.XMLWriter.beginElement(Swift.String) -> ()	release	3
+AssayCore.XMLWriter.beginElement(Swift.String) -> ()	retain	2
 AssayCore.XMLWriter.doubleText(Swift.Double, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> Swift.String	release	2
 AssayCore.XMLWriter.doubleText(Swift.Double, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> Swift.String	retain	2
 AssayCore.XMLWriter.doubleText(Swift.Double, inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString) -> Swift.String	stack-allocated-ref	1
@@ -195,10 +193,15 @@ AssayCore.XMLWriter.element(Swift.String, Swift.UInt16) -> ()	release	1
 AssayCore.XMLWriter.element(Swift.String, Swift.UInt32) -> ()	release	1
 AssayCore.XMLWriter.element(Swift.String, Swift.UInt64) -> ()	release	1
 AssayCore.XMLWriter.element(Swift.String, Swift.UInt8) -> ()	release	1
-AssayCore.XMLWriter.endElement(Swift.String) -> ()	retain	1
-AssayCore.XMLWriter.finish() -> [Swift.UInt8]	release	4
-AssayCore.XMLWriter.raw(Swift.String) -> ()	retain	1
-AssayCore.XMLWriter.writeEscaped(_: Swift.String, inAttribute: Swift.Bool) -> ()	release	1
+AssayCore.XMLWriter.endElement(Swift.String) -> ()	release	7
+AssayCore.XMLWriter.endElement(Swift.String) -> ()	retain	2
+AssayCore.XMLWriter.finish() -> AssayCore.EncodedBytes	release	1
+AssayCore.XMLWriter.init(pretty: Swift.Bool, declaration: Swift.Bool) -> AssayCore.XMLWriter	release	2
+AssayCore.XMLWriter.put(Swift.String) -> ()	release	3
+AssayCore.XMLWriter.put(Swift.String) -> ()	retain	2
+AssayCore.XMLWriter.raw(Swift.String) -> ()	release	3
+AssayCore.XMLWriter.raw(Swift.String) -> ()	retain	2
+AssayCore.XMLWriter.writeEscaped(_: Swift.String, inAttribute: Swift.Bool) -> ()	release	15
 AssayCore.XMLWriter.writeEscaped(_: Swift.String, inAttribute: Swift.Bool) -> ()	retain	1
 AssayCore._assayAliasMatched(inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString, Swift.StaticString) -> ()	release	2
 AssayCore._assayAliasMatched(inout AssayCore.IssueSink, [AssayCore.PathComponent], Swift.StaticString, Swift.StaticString) -> ()	retain	1

@@ -55,7 +55,7 @@ struct XMLEncodingTests {
         <items key="i1"><value>10</value></items><items key="i2"><value>20</value></items></XDoc>
         """
         let original = try XDoc.parse(xml: xml)
-        let encoded = try original.encodedXML()
+        let encoded = try original.encodedXML().toArray()
         let again = try XDoc.parse(xml: encoded)
         #expect(again == original,
                 "round-trip must be identity; encoded:\n\(String(decoding: encoded, as: UTF8.self))")
@@ -77,7 +77,7 @@ struct XMLEncodingTests {
                      wrapped: [], nested: XLeaf(key: "k", value: 0), items: [])
         let text = try v.xmlText()
         #expect(text.contains("<tags>a</tags><tags>b</tags>"), "got:\n\(text)")
-        #expect(try XDoc.parse(xml: v.encodedXML()) == v)
+        #expect(try XDoc.parse(xml: v.encodedXML().toArray()) == v)
     }
 
     /// The case `.wrapped` exists for, and the one that would fail if unwrapped were the
@@ -91,7 +91,7 @@ struct XMLEncodingTests {
         #expect(text.contains("<wrapped/>") || text.contains("<wrapped></wrapped>"),
                 "an empty wrapped array must still write its wrapper:\n\(text)")
         #expect(!text.contains("<tags"), "an empty unwrapped array writes nothing")
-        #expect(try XDoc.parse(xml: v.encodedXML()) == v)
+        #expect(try XDoc.parse(xml: v.encodedXML().toArray()) == v)
     }
 
     @Test("nested schemas and arrays of them round-trip")
@@ -99,7 +99,7 @@ struct XMLEncodingTests {
         let v = XDoc(id: 1, name: "n", ratio: 2.5, active: true, tags: ["x"],
                      wrapped: ["w"], nested: XLeaf(key: "nk", value: 9),
                      items: [XLeaf(key: "a", value: 1), XLeaf(key: "b", value: 2)])
-        let again = try XDoc.parse(xml: v.encodedXML())
+        let again = try XDoc.parse(xml: v.encodedXML().toArray())
         #expect(again == v)
     }
 
@@ -108,14 +108,14 @@ struct XMLEncodingTests {
         let v = XText(lang: "en", body: "hello world")
         let text = try v.xmlText()
         #expect(text.contains(#"<XText lang="en">hello world</XText>"#), "got:\n\(text)")
-        #expect(try XText.parse(xml: v.encodedXML()) == v)
+        #expect(try XText.parse(xml: v.encodedXML().toArray()) == v)
     }
 
     @Test("markup in content and attributes is escaped, and survives")
     func escaping() throws {
         let nasty = "a<b>&c\"d'e\nf\tg"
         let v = XText(lang: nasty, body: nasty)
-        let again = try XText.parse(xml: v.encodedXML())
+        let again = try XText.parse(xml: v.encodedXML().toArray())
         #expect(again.body == nasty, "text did not survive")
         // Attribute-value normalisation would eat a raw tab or newline, so they must be
         // written as character references.
@@ -127,7 +127,7 @@ struct XMLEncodingTests {
         let v = XText(lang: "en", body: "x")
         #expect(try v.xmlText().contains("<XText "))
         #expect(try v.xmlText(root: "message").contains("<message "))
-        #expect(try XText.parse(xml: v.encodedXML(root: "message")) == v)
+        #expect(try XText.parse(xml: v.encodedXML(root: "message").toArray()) == v)
     }
 
     @Test("non-finite doubles are reported — XML has no numeric type to hold them")
@@ -143,7 +143,7 @@ struct XMLEncodingTests {
     func stable() throws {
         let v = XDoc(id: 1, name: "n", ratio: 1, active: true, tags: ["b", "a"],
                      wrapped: ["z"], nested: XLeaf(key: "k", value: 1), items: [])
-        #expect(try v.encodedXML() == v.encodedXML())
+        #expect(try v.encodedXML().toArray() == v.encodedXML().toArray())
     }
 }
 

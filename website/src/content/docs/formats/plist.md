@@ -51,7 +51,7 @@ the end of the file, an offset table, and every value resolved by index through 
 
 ```text
 // 'bplist00' + 86 bytes, written by PropertyListSerialization
-62 70 6c 69 73 74 30 30 d3 01 02 03 04 05 06 58 …
+62 70 6c 69 73 74 30 30 d3 01 02 03 04 05 06 54 …
 ```
 
 ```text

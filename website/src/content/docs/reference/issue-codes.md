@@ -167,7 +167,6 @@ wording.
 | `xml_bad_name` | Invalid name. |
 | `xml_bad_pi_target` | Invalid processing instruction target. |
 | `xml_entity_expansion_limit` | Entity expansion limit exceeded. |
-| `xml_expected_element` | Expected an element. |
 | `xml_expected_equals` | Expected '=' after attribute name. |
 | `xml_external_dtd_ignored` | External DTD subset ignored (never fetched). |
 | `xml_external_entity_ignored` | External entity ignored (never fetched). |

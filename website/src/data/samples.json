@@ -1,9 +1,9 @@
 {
   "stats": {
     "version": "0.1.0",
-    "tests": 696,
-    "suites": 118,
-    "codes": 119,
+    "tests": 798,
+    "suites": 139,
+    "codes": 118,
     "formats": [
       "JSON",
       "YAML",
@@ -15,97 +15,122 @@
   "numbers": [
     {
       "arm": "struct decode, full corpus",
-      "number": "9.79× mean over 25 files (5.64–18.62)",
+      "number": "9.14× mean over 25 files (5.16–18.07)",
       "against": "JSONDecoder"
     },
     {
       "arm": "prefix decode + unknown-key skip",
-      "number": "6.12× over 45 files",
+      "number": "5.62× over 45 files (2.74–8.49)",
       "against": "JSONDecoder"
     },
     {
       "arm": "generic value model",
-      "number": "3.06× over 75 files",
+      "number": "3.35× over 75 files",
       "against": "JSONSerialization"
     },
     {
       "arm": "falsification arm (apimodel, 5 sizes)",
-      "number": "5.84× mean (8.36× float-dense)",
+      "number": "5.24× mean (8.13× float-dense)",
       "against": "JSONDecoder"
     },
     {
       "arm": "vs ZippyJSON (simdjson + Codable)",
-      "number": "3.58× faster",
-      "against": "ZippyJSON, which is 2.08× over Foundation here"
+      "number": "3.61× faster",
+      "against": "ZippyJSON, which is 1.60–1.84× over Foundation here"
     },
     {
       "arm": "vs yyjson, use-case shape",
-      "number": "0.73× (loses)",
+      "number": "0.69× (loses)",
       "against": "yyjson parse + extraction"
     },
     {
       "arm": "vs yyjson, float-dense",
-      "number": "0.73× (loses)",
+      "number": "0.69× (loses)",
       "against": "same"
     },
     {
       "arm": "vs yyjson, DOM vs DOM",
-      "number": "0.13× (loses)",
+      "number": "0.16× (loses)",
       "against": "yyjson_read"
     },
     {
       "arm": "YAML node parse",
-      "number": "6.56×",
+      "number": "8.35×",
       "against": "Yams compose"
     },
     {
       "arm": "YAML struct decode",
-      "number": "11.09×",
+      "number": "18.20×",
       "against": "Yams YAMLDecoder"
     },
     {
       "arm": "XML tree parse",
-      "number": "2.33× (macOS; 0.96× on Linux)",
+      "number": "2.47× (macOS; 0.96× on Linux, 2026-08-18)",
       "against": "Foundation XMLParser"
     },
     {
       "arm": "TOML node parse",
-      "number": "1.20×",
+      "number": "4.06×",
       "against": "toml++ via TOMLKit"
     },
     {
       "arm": "TOML struct decode",
-      "number": "1.97×",
+      "number": "6.55×",
       "against": "TOMLKit TOMLDecoder"
     },
     {
       "arm": "Date fields",
-      "number": "6.06×",
+      "number": "5.40× mean (4.25× at the previously published commit, measured today)",
       "against": "JSONDecoder + .iso8601"
     },
     {
+      "arm": "binary plist",
+      "number": "4.05×",
+      "against": "Foundation PropertyListDecoder"
+    },
+    {
+      "arm": "XML plist",
+      "number": "1.28×",
+      "against": "Foundation PropertyListDecoder"
+    },
+    {
+      "arm": "union vs its variant",
+      "number": "1.09× (the tag scan)",
+      "against": "the variant decoded directly"
+    },
+    {
+      "arm": "@Inline vs nesting",
+      "number": "0.87× (faster)",
+      "against": "the nested @Schema it replaces"
+    },
+    {
+      "arm": "@Wraps vs @Validate",
+      "number": "1.80× (slower)",
+      "against": "the plain field + rule it is sugar for"
+    },
+    {
       "arm": "encoding, 50 / 200 items",
-      "number": "2.98× / 2.80×",
+      "number": "8.75× / 9.04×",
       "against": "JSONEncoder"
     },
     {
       "arm": "cold start, 60 types",
-      "number": "7.8× first decode (median); 6.4× steady",
+      "number": "6.6× first decode (median); 5.4× steady",
       "against": "JSONDecoder"
     },
     {
       "arm": "multi-megabyte documents",
-      "number": "10.0–10.3×, ~1,050 MB/s, flat",
+      "number": "8.57–8.78×, ~1,040 MB/s, flat",
       "against": "JSONDecoder"
     },
     {
       "arm": "total allocations, 50 items",
-      "number": "159 against Foundation's 378",
+      "number": "159 against Foundation's 377",
       "against": "JSONDecoder"
     },
     {
       "arm": "T.validate(_:)",
-      "number": "72 ns per value, 1 block; 82 ns/row batched, 0.17× a decode",
+      "number": "37 ns per value, 1 block; 46 ns/row batched, 0.11× a decode",
       "against": "—"
     },
     {
@@ -115,8 +140,8 @@
     },
     {
       "arm": "compile time, 10 fields",
-      "number": "79.4 ms/type (gate 100)",
-      "against": "Codable: 4.75×"
+      "number": "80.8 ms/type (gate 100)",
+      "against": "Codable: 4.22×"
     }
   ],
   "renders": {
@@ -144,15 +169,15 @@
     },
     "json.trailingComma": {
       "source": "{\"title\": \"x\", \"link\": \"y\", \"reading_minutes\": 1,}",
-      "render": "bad.json:1:50: error: is not a well-formed document\n  1 │ {\"title\": \"x\", \"link\": \"y\", \"reading_minutes\": 1,}\n    │                                                  ^\n\nbad.json:1:50: error: unexpected content after the end of the document\n  1 │ {\"title\": \"x\", \"link\": \"y\", \"reading_minutes\": 1,}\n    │                                                  ^\n\n2 errors\n"
+      "render": "bad.json:1:50: error: is not well-formed: expected a key in double quotes\n  1 │ {\"title\": \"x\", \"link\": \"y\", \"reading_minutes\": 1,}\n    │                                                  ^\n\n1 error\n"
     },
     "json.unquoted": {
       "source": "{title: \"x\"}",
-      "render": "bad.json:1:2: error: is not a well-formed document\n  1 │ {title: \"x\"}\n    │  ^\n\nbad.json:1:2: error: unexpected content after the end of the document\n  1 │ {title: \"x\"}\n    │  ^\n\n2 errors\n"
+      "render": "bad.json:1:2: error: is not well-formed: expected a key in double quotes\n  1 │ {title: \"x\"}\n    │  ^\n\n1 error\n"
     },
     "json.truncated": {
       "source": "{\"title\": \"x\", \"link\":",
-      "render": "bad.json: error: link must be a string\n\nbad.json: error: is not a well-formed document\n\n2 errors\n"
+      "render": "bad.json:1:22: error: is not well-formed: the input ended where ',' or '}' was expected\n  1 │ {\"title\": \"x\", \"link\":\n    │                      ^\n\nbad.json: error: link must be a string\n\n2 errors\n"
     },
     "json.overflow": {
       "source": "{\"count\": 99999999999, \"ratio\": 0.5, \"enabled\": true}",
@@ -204,7 +229,7 @@
     },
     "yaml.nested": {
       "source": "name: eu-prod\nservers:\n  - host: a.internal\n    port: 8080\n  - host: b.internal\n    port: 8081\n    tls: false\nlabels:\n  tier: prod\n  team: platform",
-      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"tier\": \"prod\", \"team\": \"platform\"])"
+      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"team\": \"platform\", \"tier\": \"prod\"])"
     },
     "yaml.flow": {
       "source": "name: eu-prod\nservers: [{host: a.internal, port: 8080}, {host: b.internal, port: 8081}]\nlabels: {tier: prod}",
@@ -264,7 +289,7 @@
     },
     "xml.nestedNoCoerce": {
       "source": "<cluster>\n  <name>eu-prod</name>\n  <servers><host>a.internal</host><port>8080</port></servers>\n  <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>\n</cluster>",
-      "render": "cluster.xml:3:41: error: servers.port must be an integer, found \"8080\"\n  1 │ <cluster>\n  2 │   <name>eu-prod</name>\n  3 │   <servers><host>a.internal</host><port>8080</port></servers>\n    │                                         ^^^^\n  4 │   <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>\n\ncluster.xml:4:41: error: servers.port must be an integer, found \"8081\"\n  2 │   <name>eu-prod</name>\n  3 │   <servers><host>a.internal</host><port>8080</port></servers>\n  4 │   <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>\n    │                                         ^^^^\n  5 │ </cluster>\n\ncluster.xml:4:57: error: servers.tls must be a boolean, found \"false\"\n  2 │   <name>eu-prod</name>\n  3 │   <servers><host>a.internal</host><port>8080</port></servers>\n  4 │   <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>\n    │                                                         ^^^^^\n  5 │ </cluster>\n\n3 errors\n"
+      "render": "cluster.xml:3:41: error: servers[0].port must be an integer, found \"8080\"\n  1 │ <cluster>\n  2 │   <name>eu-prod</name>\n  3 │   <servers><host>a.internal</host><port>8080</port></servers>\n    │                                         ^^^^\n  4 │   <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>\n\ncluster.xml:4:41: error: servers[1].port must be an integer, found \"8081\"\n  2 │   <name>eu-prod</name>\n  3 │   <servers><host>a.internal</host><port>8080</port></servers>\n  4 │   <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>\n    │                                         ^^^^\n  5 │ </cluster>\n\ncluster.xml:4:57: error: servers[1].tls must be a boolean, found \"false\"\n  2 │   <name>eu-prod</name>\n  3 │   <servers><host>a.internal</host><port>8080</port></servers>\n  4 │   <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>\n    │                                                         ^^^^^\n  5 │ </cluster>\n\n3 errors\n"
     },
     "xml.noCoerce": {
       "source": "<deployment><name>api</name><image>img:1</image><replicas>3</replicas></deployment>",
@@ -292,7 +317,7 @@
     },
     "toml.tables": {
       "source": "name = \"eu-prod\"\n\n[[servers]]\nhost = \"a.internal\"\nport = 8080\n\n[[servers]]\nhost = \"b.internal\"\nport = 8081\ntls = false\n\n[labels]\ntier = \"prod\"\nteam = \"platform\"",
-      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"team\": \"platform\", \"tier\": \"prod\"])"
+      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"tier\": \"prod\", \"team\": \"platform\"])"
     },
     "toml.inline": {
       "source": "name = \"eu-prod\"\nservers = [{host = \"a.internal\", port = 8080}]\nlabels = {tier = \"prod\"}",
@@ -323,7 +348,7 @@
       "render": "Deployment(name: \"api\", image: \"img:1\", replicas: 3, region: \"eu-west-1\", healthCheck: nil)"
     },
     "plist.binary": {
-      "source": "// 'bplist00' + 86 bytes, written by PropertyListSerialization\n62 70 6c 69 73 74 30 30 d3 01 02 03 04 05 06 58 …",
+      "source": "// 'bplist00' + 86 bytes, written by PropertyListSerialization\n62 70 6c 69 73 74 30 30 d3 01 02 03 04 05 06 54 …",
       "render": "Deployment(name: \"api\", image: \"img:1\", replicas: 3, region: \"eu-west-1\", healthCheck: nil)"
     },
     "plist.badType": {
@@ -460,7 +485,7 @@
     },
     "cb.bounds": {
       "source": "{\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}",
-      "render": "b.json:1:14: error: replicas must be at least 1\n  1 │ {\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}\n    │              ^\n\nb.json:1:25: error: port must be between 1 and 65535\n  1 │ {\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}\n    │                         ^^^^^\n\nb.json:1:44: error: quantity must be positive\n  1 │ {\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}\n    │                                            ^^\n\nb.json:1:59: error: minutes must be a multiple of 15\n  1 │ {\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}\n    │                                                           ^^\n\nb.json:1:72: error: score must be a finite number\n  1 │ {\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}\n    │                                                                        ^^^^^\n\n5 errors\n"
+      "render": "b.json:1:14: error: replicas must be at least 1\n  1 │ {\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}\n    │              ^\n\nb.json:1:25: error: port must be between 1 and 65535\n  1 │ {\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}\n    │                         ^^^^^\n\nb.json:1:44: error: quantity must be positive\n  1 │ {\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}\n    │                                            ^^\n\nb.json:1:59: error: minutes must be a multiple of 15\n  1 │ {\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}\n    │                                                           ^^\n\nb.json:1:72: error: score number is out of range\n  1 │ {\"replicas\": 0, \"port\": 70000, \"quantity\": -1, \"minutes\": 20, \"score\": 1e999}\n    │                                                                        ^^^^^\n\n5 errors\n"
     },
     "cb.sizes": {
       "source": "{\"bio\": \"\", \"code\": \"abc\", \"tags\": [], \"ids\": [1, 1], \"parts\": [\"a\", \"toolongvalue\"]}",

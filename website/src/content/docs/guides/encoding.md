@@ -12,9 +12,24 @@ struct Article {
     var readingMinutes: Int
 }
 
-let bytes = try article.encodedJSON()
-let text  = try article.jsonText()
+let bytes = try article.encodedJSON()   // EncodedBytes: an owned buffer, not a copy
+let text  = try article.jsonText()     // String
 ```
+
+`EncodedBytes` is `~Copyable`, because it owns the allocation the writer wrote into and frees
+it exactly once. That is what lets a write be a store rather than an `Array` append with a
+uniqueness check behind it, and it is why nothing is copied on the way out:
+
+```swift
+try article.encodedJSON().withUnsafeBytes { try socket.write($0) }   // no copy
+let array = try article.encodedJSON().toArray()                      // one copy, asked for
+let string = try article.encodedJSON().text()                        // UTF-8, no repair
+```
+
+An `EncodedBytes` cannot be stored twice, put in an array, or captured by an escaping
+closure. `toArray()` is the way out when you need those things, and `EncodeDiagnosis.bytes`
+below is an ordinary `[UInt8]` on purpose — it is the diagnostic path, meant to be stored and
+passed around.
 
 Adding it costs about 5% of the type's compile time. The design note that justified making
 it opt-in guessed it would roughly double the per-field code; the code does double, the
@@ -32,7 +47,8 @@ try config.encodedXML()     // and xmlText()
 try config.encodedTOML()    // and tomlText()
 ```
 
-Against Foundation's `Encodable` + `JSONEncoder`, JSON encoding measures about 2.85×. That
+Against Foundation's `Encodable` + `JSONEncoder`, JSON encoding measures about 8.75× at 50
+items and 9.04× at 200. That
 is a measurement, not a thesis — the decode multiple has an argument behind it (deleting the
 Codable container boundary) and this one does not. It is there so the cost is known and a
 regression is visible.

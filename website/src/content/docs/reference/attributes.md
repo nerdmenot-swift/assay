@@ -71,7 +71,7 @@ with a message naming the fix.
 | `T.validate(_ value:)` | any rules | throws; decodes nothing |
 | `T.diagnose(_ value:)` | any rules | `Diagnosis<T>` |
 | `T.jsonSchema(for:)` | `describes: true` | a JSON Schema descriptor |
-| `value.encodedJSON()` / `jsonText()` | `encodes: true` | `[UInt8]` / `String`, throws |
+| `value.encodedJSON()` / `jsonText()` | `encodes: true` | `EncodedBytes` / `String`, throws |
 | `value.diagnoseEncodeJSON()` | `encodes: true` | `EncodeDiagnosis` |
 
 Every `parse`/`diagnose` takes `limits:` and `sourceName:`.

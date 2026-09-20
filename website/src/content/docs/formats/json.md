@@ -144,15 +144,11 @@ A trailing comma, which is the one everybody hits:
 ```
 
 ```text
-bad.json:1:50: error: is not a well-formed document
+bad.json:1:50: error: is not well-formed: expected a key in double quotes
   1 │ {"title": "x", "link": "y", "reading_minutes": 1,}
     │                                                  ^
 
-bad.json:1:50: error: unexpected content after the end of the document
-  1 │ {"title": "x", "link": "y", "reading_minutes": 1,}
-    │                                                  ^
-
-2 errors
+1 error
 ```
 
 An unquoted key, which is JavaScript and not JSON:
@@ -162,15 +158,11 @@ An unquoted key, which is JavaScript and not JSON:
 ```
 
 ```text
-bad.json:1:2: error: is not a well-formed document
+bad.json:1:2: error: is not well-formed: expected a key in double quotes
   1 │ {title: "x"}
     │  ^
 
-bad.json:1:2: error: unexpected content after the end of the document
-  1 │ {title: "x"}
-    │  ^
-
-2 errors
+1 error
 ```
 
 A truncated document, where there is no byte to point at because the bytes ran out:
@@ -180,9 +172,11 @@ A truncated document, where there is no byte to point at because the bytes ran o
 ```
 
 ```text
-bad.json: error: link must be a string
+bad.json:1:22: error: is not well-formed: the input ended where ',' or '}' was expected
+  1 │ {"title": "x", "link":
+    │                      ^
 
-bad.json: error: is not a well-formed document
+bad.json: error: link must be a string
 
 2 errors
 ```

@@ -80,21 +80,21 @@ field should be tolerant. The policy is identical on every format: `"3"` becomes
 ```
 
 ```text
-cluster.xml:3:41: error: servers.port must be an integer, found "8080"
+cluster.xml:3:41: error: servers[0].port must be an integer, found "8080"
   1 │ <cluster>
   2 │   <name>eu-prod</name>
   3 │   <servers><host>a.internal</host><port>8080</port></servers>
     │                                         ^^^^
   4 │   <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>
 
-cluster.xml:4:41: error: servers.port must be an integer, found "8081"
+cluster.xml:4:41: error: servers[1].port must be an integer, found "8081"
   2 │   <name>eu-prod</name>
   3 │   <servers><host>a.internal</host><port>8080</port></servers>
   4 │   <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>
     │                                         ^^^^
   5 │ </cluster>
 
-cluster.xml:4:57: error: servers.tls must be a boolean, found "false"
+cluster.xml:4:57: error: servers[1].tls must be a boolean, found "false"
   2 │   <name>eu-prod</name>
   3 │   <servers><host>a.internal</host><port>8080</port></servers>
   4 │   <servers><host>b.internal</host><port>8081</port><tls>false</tls></servers>

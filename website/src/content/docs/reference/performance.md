@@ -13,27 +13,32 @@ it is said so.
 
 | Arm | Number | Against |
 |---|---|---|
-| struct decode, full corpus | **9.79× mean over 25 files (5.64–18.62)** | JSONDecoder |
-| prefix decode + unknown-key skip | **6.12× over 45 files** | JSONDecoder |
-| generic value model | **3.06× over 75 files** | JSONSerialization |
-| falsification arm (apimodel, 5 sizes) | **5.84× mean (8.36× float-dense)** | JSONDecoder |
-| vs ZippyJSON (simdjson + Codable) | **3.58× faster** | ZippyJSON, which is 2.08× over Foundation here |
-| vs yyjson, use-case shape | **0.73× (loses)** | yyjson parse + extraction |
-| vs yyjson, float-dense | **0.73× (loses)** | same |
-| vs yyjson, DOM vs DOM | **0.13× (loses)** | yyjson_read |
-| YAML node parse | **6.56×** | Yams compose |
-| YAML struct decode | **11.09×** | Yams YAMLDecoder |
-| XML tree parse | **2.33× (macOS; 0.96× on Linux)** | Foundation XMLParser |
-| TOML node parse | **1.20×** | toml++ via TOMLKit |
-| TOML struct decode | **1.97×** | TOMLKit TOMLDecoder |
-| Date fields | **6.06×** | JSONDecoder + .iso8601 |
-| encoding, 50 / 200 items | **2.98× / 2.80×** | JSONEncoder |
-| cold start, 60 types | **7.8× first decode (median); 6.4× steady** | JSONDecoder |
-| multi-megabyte documents | **10.0–10.3×, ~1,050 MB/s, flat** | JSONDecoder |
-| total allocations, 50 items | **159 against Foundation's 378** | JSONDecoder |
-| T.validate(_:) | **72 ns per value, 1 block; 82 ns/row batched, 0.17× a decode** | — |
+| struct decode, full corpus | **9.14× mean over 25 files (5.16–18.07)** | JSONDecoder |
+| prefix decode + unknown-key skip | **5.62× over 45 files (2.74–8.49)** | JSONDecoder |
+| generic value model | **3.35× over 75 files** | JSONSerialization |
+| falsification arm (apimodel, 5 sizes) | **5.24× mean (8.13× float-dense)** | JSONDecoder |
+| vs ZippyJSON (simdjson + Codable) | **3.61× faster** | ZippyJSON, which is 1.60–1.84× over Foundation here |
+| vs yyjson, use-case shape | **0.69× (loses)** | yyjson parse + extraction |
+| vs yyjson, float-dense | **0.69× (loses)** | same |
+| vs yyjson, DOM vs DOM | **0.16× (loses)** | yyjson_read |
+| YAML node parse | **8.35×** | Yams compose |
+| YAML struct decode | **18.20×** | Yams YAMLDecoder |
+| XML tree parse | **2.47× (macOS; 0.96× on Linux, 2026-08-18)** | Foundation XMLParser |
+| TOML node parse | **4.06×** | toml++ via TOMLKit |
+| TOML struct decode | **6.55×** | TOMLKit TOMLDecoder |
+| Date fields | **5.40× mean (4.25× at the previously published commit, measured today)** | JSONDecoder + .iso8601 |
+| binary plist | **4.05×** | Foundation PropertyListDecoder |
+| XML plist | **1.28×** | Foundation PropertyListDecoder |
+| union vs its variant | **1.09× (the tag scan)** | the variant decoded directly |
+| @Inline vs nesting | **0.87× (faster)** | the nested @Schema it replaces |
+| @Wraps vs @Validate | **1.80× (slower)** | the plain field + rule it is sugar for |
+| encoding, 50 / 200 items | **8.75× / 9.04×** | JSONEncoder |
+| cold start, 60 types | **6.6× first decode (median); 5.4× steady** | JSONDecoder |
+| multi-megabyte documents | **8.57–8.78×, ~1,040 MB/s, flat** | JSONDecoder |
+| total allocations, 50 items | **159 against Foundation's 377** | JSONDecoder |
+| T.validate(_:) | **37 ns per value, 1 block; 46 ns/row batched, 0.11× a decode** | — |
 | live allocations, apimodel-8k struct | **gated, PASS** | absolute thresholds |
-| compile time, 10 fields | **79.4 ms/type (gate 100)** | Codable: 4.75× |
+| compile time, 10 fields | **80.8 ms/type (gate 100)** | Codable: 4.22× |
 
 ## What the big number means
 

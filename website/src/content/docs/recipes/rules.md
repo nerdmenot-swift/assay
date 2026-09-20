@@ -37,7 +37,7 @@ b.json:1:59: error: minutes must be a multiple of 15
   1 │ {"replicas": 0, "port": 70000, "quantity": -1, "minutes": 20, "score": 1e999}
     │                                                           ^^
 
-b.json:1:72: error: score must be a finite number
+b.json:1:72: error: score number is out of range
   1 │ {"replicas": 0, "port": 70000, "quantity": -1, "minutes": 20, "score": 1e999}
     │                                                                        ^^^^^
 

@@ -34,7 +34,7 @@
 //   * COMMENTS AND PROCESSING INSTRUCTIONS CONTRIBUTE NOTHING.
 //===----------------------------------------------------------------------===//
 
-public import AssayCore
+import AssayCore
 
 /// What an XML parse builds. Two conformances: the node tree, and `RawValue` directly.
 protocol XMLBuilding {

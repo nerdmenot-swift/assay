@@ -231,7 +231,7 @@ struct EncodingTests {
     @Test("encode throws with every issue, and renders through the same renderers")
     func encodeThrows() {
         let v = EncFloat(value: .nan)
-        #expect(throws: AssayError.self) { try v.encodedJSON() }
+        #expect(throws: AssayError.self) { _ = try v.encodedJSON() }
         let d = v.diagnoseEncodeJSON()
         // The whole point of reusing Issue: the machine renderers work unchanged.
         #expect(d.render(.json).contains("unrepresentable_value"))

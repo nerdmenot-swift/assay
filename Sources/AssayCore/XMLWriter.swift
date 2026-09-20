@@ -26,6 +26,7 @@
 //===----------------------------------------------------------------------===//
 
 /// Accumulates XML bytes. A struct passed `inout`, like `JSONWriter` and `IssueSink`.
+@safe
 public struct XMLWriter: ~Copyable {
     /// OWNED, for the reason `JSONWriter`'s buffer is: a write is a store, and `finish()`
     /// hands the allocation to `EncodedBytes` instead of copying it out.
@@ -49,10 +50,24 @@ public struct XMLWriter: ~Copyable {
         self.pretty = pretty
         unsafe self.buf = UnsafeMutablePointer<UInt8>.allocate(capacity: 512)
         self.capacity = 512
-        if declaration {
-            put(#"<?xml version="1.0" encoding="UTF-8"?>"#)
-            if pretty { byte(0x0A) }
+        // The prolog is stored by hand rather than written through `put`. A MUTATING METHOD
+        // MAY NOT BE CALLED INSIDE THIS INITIALISER: `pretty` is a `let`, so `self` is not
+        // mutable here — "mutating method 'put' may not be used on immutable value
+        // 'self.pretty'". Worth recording HOW that was found, because it is the trap: the
+        // macOS 6.3.3 toolchain these numbers are taken on accepted it, and Linux 6.2, the
+        // newest Xcode and every other CI leg rejected it. The literal is fixed ASCII and
+        // always fits the first allocation, so the stores need no `ensure`.
+        guard declaration else { return }
+        var n = 0
+        for b in #"<?xml version="1.0" encoding="UTF-8"?>"#.utf8 {
+            unsafe buf[n] = b
+            n &+= 1
         }
+        if pretty {
+            unsafe buf[n] = 0x0A
+            n &+= 1
+        }
+        self.length = n
     }
 
     /// Frees the buffer unless `finish()` handed it over.
@@ -72,7 +87,7 @@ public struct XMLWriter: ~Copyable {
     @inline(never) @usableFromInline
     mutating func grow(_ n: Int) {
         let target = Swift.max(capacity &* 2, length &+ n)
-        let fresh = unsafe UnsafeMutablePointer<UInt8>.allocate(capacity: target)
+        let fresh = UnsafeMutablePointer<UInt8>.allocate(capacity: target)
         unsafe fresh.update(from: buf, count: length)
         unsafe buf.deallocate()
         unsafe buf = fresh
@@ -89,8 +104,8 @@ public struct XMLWriter: ~Copyable {
     @inlinable @inline(__always)
     mutating func put(_ s: String) {
         var text = s
-        unsafe text.withUTF8 { bytes in
-            guard let base = unsafe bytes.baseAddress else { return }
+        text.withUTF8 { bytes in
+            guard let base = bytes.baseAddress else { return }
             ensure(bytes.count)
             unsafe (buf + length).update(from: base, count: bytes.count)
             length &+= bytes.count

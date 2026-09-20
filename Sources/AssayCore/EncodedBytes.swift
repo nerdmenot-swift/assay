@@ -33,6 +33,7 @@
 /// bytes.withUnsafeBytes { try? socket.write($0) }   // no copy
 /// let array = try user.encodedJSON().toArray()      // one copy, where you asked for it
 /// ```
+@safe
 public struct EncodedBytes: ~Copyable {
 
     /// Owned. Nil only for the empty case, which allocates nothing.
@@ -65,9 +66,9 @@ public struct EncodedBytes: ~Copyable {
         var text = text
         var storage: UnsafeMutablePointer<UInt8>? = nil
         var count = 0
-        unsafe text.withUTF8 { bytes in
-            guard let base = unsafe bytes.baseAddress, !bytes.isEmpty else { return }
-            let p = unsafe UnsafeMutablePointer<UInt8>.allocate(capacity: bytes.count)
+        text.withUTF8 { bytes in
+            guard let base = bytes.baseAddress, !bytes.isEmpty else { return }
+            let p = UnsafeMutablePointer<UInt8>.allocate(capacity: bytes.count)
             unsafe p.update(from: base, count: bytes.count)
             unsafe storage = p
             count = bytes.count

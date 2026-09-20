@@ -80,7 +80,7 @@ struct UnknownEnumTests {
         #expect(issue?.received == "archived")
         #expect(issue?.message.contains("roundTrips: true") == true,
                 "the error must name the escape hatch")
-        #expect(throws: AssayError.self) { try v.encodedJSON() }
+        #expect(throws: AssayError.self) { _ = try v.encodedJSON() }
     }
 
     @Test("@Unknown(roundTrips: true) writes it back faithfully")

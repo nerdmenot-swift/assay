@@ -25,6 +25,7 @@
 
 /// Accumulates JSON bytes. A struct passed `inout`, like `IssueSink` — static exclusivity,
 /// no boxing, no escaping capture.
+@safe
 public struct JSONWriter: ~Copyable {
     /// OWNED, not an `Array`. A write is a store: no uniqueness check, no closure, no
     /// generic sequence machinery. Through an `Array` those checks were 36,004 per
@@ -82,7 +83,7 @@ public struct JSONWriter: ~Copyable {
     @inline(never) @usableFromInline
     mutating func grow(_ n: Int) {
         let target = Swift.max(capacity &* 2, length &+ n)
-        let fresh = unsafe UnsafeMutablePointer<UInt8>.allocate(capacity: target)
+        let fresh = UnsafeMutablePointer<UInt8>.allocate(capacity: target)
         unsafe fresh.update(from: buf, count: length)
         unsafe buf.deallocate()
         unsafe buf = fresh

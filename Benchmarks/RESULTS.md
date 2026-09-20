@@ -2576,3 +2576,94 @@ moves them instead.
 
 Two borrowing spellings that look equivalent were measured and reverted. The optimiser already
 handled one, and the other added a release per key.
+
+---
+
+# The re-measurement at the end of the campaign, and the two things it found (2026-09-20)
+
+The efficiency campaign in `docs/EFFICIENCY.md` closed rows 2, 3, 4, 5, 12, 17 and 22, all of
+them decided on Callgrind and DHAT counts. The last step was to re-run `AssayBench` and
+replace the table at the top of this file. That step was supposed to be bookkeeping. It was
+not, and both surprises are worth keeping.
+
+## A Foundation-relative ratio belongs to the OS, not only to the code
+
+The re-run put struct decode at 8.2–8.4× against **9.79× published a week earlier**, so the
+first hypothesis was that the campaign had cost something the counters could not see. The
+check that settles it is cheap and was not obvious: **rebuild the previously published commit
+and run it now.**
+
+| build, all measured 2026-09-20 | struct decode, 25 files | dates |
+|---|---:|---:|
+| `1487e38` — the commit this table was published from | 9.13–9.30× | 4.25× |
+| its published table, 2026-09-13 | 9.79× | 8.04× |
+| `511f48b` — immediately before the campaign | 8.30–8.43× | |
+| `abf38a8` — today, campaign complete | **9.14×** | **5.40×** |
+
+The old commit does not reproduce its own published numbers on the same machine with the same
+toolchain: ~6% out on the struct arm and a factor of 1.9 on dates. Nothing in the repository
+changed between those two runs of it. So a ratio against Foundation is a statement about a
+machine *and* an OS on a day, and comparing this table against the last one measures the day
+as much as the code. Every row here is therefore compared against a **rebuild** of the old
+commit. Assay's own instruction counts, which are deterministic to 0.001%, moved by 29
+instructions in 4.6 million across the whole campaign on `base/struct` — that is the number
+to trust about whether work was added, and it says none was.
+
+## The wall clock caught what the counters were blind to
+
+Between those two rows sits a real regression, and it is the one the counters shipped.
+
+`ab68b67` gave arrays of scalars an exact reservation from a structural pre-count, on
+`array-10/struct`'s −18.2% instructions and 10,014 → 2,014 blocks. Measured one commit from
+its parent on the corpus:
+
+| arm | before | after | |
+|---|---:|---:|---|
+| arrays-of-scalars 8k | 7,512 ns | 9,920 ns | **+32.1%** |
+| arrays-of-scalars 64k | 57,503 ns | 80,196 ns | **+39.5%** |
+| floats-dense 8k | 27,238 ns | 30,098 ns | +10.5% |
+| long-strings 64k (prefix arm) | 24,279 ns | 28,977 ns | +19.4% |
+| 25-file struct mean | 8.99× | 8.16× | 45 cells slower, 25 faster by ≤5.7% |
+
+A pre-count is a second pass whose cost grows with the array, while what it saves does not: a
+doubling chain is log(n) mallocs and ~2n element copies of vectorised `memmove`, against n
+bytes of byte-at-a-time structural scan. **The matrix could not see it because its only
+array-of-scalars cell holds ten elements**, where the scan is sixty bytes; the corpus's arrays
+run 73 to 9,510.
+
+Scalar arrays now take the same per-site size hint every other container takes — reserve what
+the last array at this site held, scan nothing — which did not exist when the pre-count was
+decided:
+
+| | pre-count | hint |
+|---|---:|---:|
+| array-10/struct | 6,166 Ir/elem, 2,014 blocks | **5,726** (−7.1%), 2,018 |
+| array-640/struct (new cell) | 230,383 Ir/elem, 39 blocks | **188,920** (−18.0%), 49 |
+| arrays-of-scalars-64k, wall clock | 79,303 ns | **52,970 ns** (plain doubling: 57,503) |
+
+The hint beats both the pre-count and the doubling it replaced. The extra blocks are the first
+array at each site, which still grows geometrically because a hint is cold until a container
+has been seen; that and `array-10`'s uniqueness checks (2,000 → 24,000, ten per record inside
+`String.init(unsafeUninitializedCapacity:)`) are recorded in row 2 as stated trades.
+
+`array-640` — 31 records of 640 strings, the same ~20,000 elements as `array-10` with 64× more
+per container — now exists so the counters can see what the clock saw. The general rule went
+into `docs/EFFICIENCY.md`: before deciding a row, name the fixture that would fail if the
+change were wrong, and if there is not one, add it. **This is what a wall-clock arm on real
+documents is for, in a programme whose gates are all counters.**
+
+## What the campaign did to the published numbers
+
+| arm | before the campaign | now |
+|---|---:|---:|
+| encoding, 50 / 200 items | 2.98× / 2.80× | **8.75× / 9.04×** |
+| YAML struct decode | 11.09× | **18.20×** |
+| YAML node parse | 6.56× | **8.35×** |
+| TOML node parse / struct decode | 1.51× / 2.41× | **4.06× / 6.55×** |
+| XML tree parse (macOS) | 2.33× | **2.47×** |
+| `T.validate(_:)`, per value / per row | 72 ns / 82 ns | **37 ns / 46 ns** |
+| binary plist | ~5.7× | 4.05× (the old figure was never re-measured after the OS moved) |
+
+The encode and tree-decode rows are the campaign's own work: one diagnostic path per array
+rather than per element, key literals carrying their own punctuation, writers that own their
+buffers, and one parser per format building `RawValue` with no tree in between.

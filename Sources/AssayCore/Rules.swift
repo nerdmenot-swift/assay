@@ -16,7 +16,14 @@
 // along — which is what makes `replicas: 0` render with a caret under the 0.
 //===----------------------------------------------------------------------===//
 
-extension Rule {
+// THE METHODS LIVE ON `Storage`, NOT ON `Rule` (2026-09-20).
+//
+// A validation applies its rules straight out of a `static let` array, and a `Rule` is a
+// struct holding one reference: copying it out per application was 10,000 retain/release
+// pairs per `base/validate` call. Reaching the methods through the box lets the loops below
+// BORROW it (`_assayEachRule`) instead. `kind` and `message` are `Storage`'s own stored
+// properties, so every body below is unchanged from when it sat on `Rule`.
+extension Rule.Storage {
 
     // MARK: String
 
@@ -101,7 +108,7 @@ extension Rule {
                      v)
             }
         case .all(let rules):
-            for r in rules { r.applyString(v, override, field, span, path, &sink) }
+            _assayEachRule(rules) { $0.applyString(v, override, field, span, path, &sink) }
         case .messageOnly:
             break                                     // carried via the override channel
         default:
@@ -219,8 +226,8 @@ extension Rule {
                  ["bound": .string(bound)], nil)
 
         case .all(let rules):
-            for r in rules {
-                r.applyNumber(v, isInteger: isInteger, override, field, span, path, &sink)
+            _assayEachRule(rules) {
+                $0.applyNumber(v, isInteger: isInteger, override, field, span, path, &sink)
             }
         case .messageOnly:
             break
@@ -266,8 +273,8 @@ extension Rule {
                 emit(&sink, .empty, field, span, path, override, [:], "0 items")
             }
         case .all(let rules):
-            for r in rules {
-                r.applyCollectionCount(count, override, field, span, path, &sink)
+            _assayEachRule(rules) {
+                $0.applyCollectionCount(count, override, field, span, path, &sink)
             }
         default:
             break
@@ -312,6 +319,28 @@ extension Rule {
     }
 }
 
+// MARK: - Borrowing a rule out of its array
+
+/// Apply `body` to each rule's storage WITHOUT copying the rule out of the array.
+///
+/// `for r in rules` loads a `Rule` out of the buffer, which retains its box and releases it
+/// again per application — 10,000 pairs per `base/validate` call, for a value the callee only
+/// reads. The rules live in a `static let` on the schema type, which outlives every call made
+/// here, so an unretained reference to the box cannot dangle; `_withUnsafeGuaranteedRef` is
+/// what tells the optimiser that. The closure is non-escaping, so capturing `&sink` inside it
+/// is statically enforced exclusivity, not a box (CLAUDE.md rule 3).
+///
+/// `_withUnsafeGuaranteedRef` is underscored stdlib API. It is used here and nowhere else, and
+/// `docs/EFFICIENCY.md` row 4 records what it bought.
+@inlinable
+func _assayEachRule(_ rules: [Rule], _ body: (Rule.Storage) -> Void) {
+    unsafe rules.withUnsafeBufferPointer { buf in
+        for i in buf.indices {
+            unsafe Unmanaged.passUnretained(buf[i].storage)._withUnsafeGuaranteedRef(body)
+        }
+    }
+}
+
 // MARK: - The entry points generated code calls
 
 /// One call per @Validate attribute; the rules array is a `static let` on the schema type.
@@ -320,7 +349,7 @@ public func _assayValidate(
     _ v: String, _ rules: [Rule], override: String?, field: StaticString,
     at span: SourceSpan?, path: [PathComponent], _ sink: inout IssueSink
 ) {
-    for r in rules { r.applyString(v, override, field, span, path, &sink) }
+    _assayEachRule(rules) { $0.applyString(v, override, field, span, path, &sink) }
 }
 
 @inlinable
@@ -328,8 +357,8 @@ public func _assayValidate(
     _ v: Int64, _ rules: [Rule], override: String?, field: StaticString,
     at span: SourceSpan?, path: [PathComponent], _ sink: inout IssueSink
 ) {
-    for r in rules {
-        r.applyNumber(Double(v), isInteger: true, override, field, span, path, &sink)
+    _assayEachRule(rules) {
+        $0.applyNumber(Double(v), isInteger: true, override, field, span, path, &sink)
     }
 }
 
@@ -338,8 +367,8 @@ public func _assayValidate(
     _ v: UInt64, _ rules: [Rule], override: String?, field: StaticString,
     at span: SourceSpan?, path: [PathComponent], _ sink: inout IssueSink
 ) {
-    for r in rules {
-        r.applyNumber(Double(v), isInteger: true, override, field, span, path, &sink)
+    _assayEachRule(rules) {
+        $0.applyNumber(Double(v), isInteger: true, override, field, span, path, &sink)
     }
 }
 
@@ -348,8 +377,8 @@ public func _assayValidate(
     _ v: Double, _ rules: [Rule], override: String?, field: StaticString,
     at span: SourceSpan?, path: [PathComponent], _ sink: inout IssueSink
 ) {
-    for r in rules {
-        r.applyNumber(v, isInteger: false, override, field, span, path, &sink)
+    _assayEachRule(rules) {
+        $0.applyNumber(v, isInteger: false, override, field, span, path, &sink)
     }
 }
 
@@ -359,7 +388,7 @@ public func _assayValidate(
     _ v: [String], _ rules: [Rule], override: String?, field: StaticString,
     at span: SourceSpan?, path: [PathComponent], _ sink: inout IssueSink
 ) {
-    for r in rules {
+    _assayEachRule(rules) { r in
         if let inner = r.eachRules {
             // ONE PATH PER FIELD, NOT ONE PER ELEMENT, and the index written in place.
             //
@@ -382,8 +411,8 @@ public func _assayValidate(
             let message = r.message ?? override
             for (i, element) in v.enumerated() {
                 elementPath[last] = .index(i)
-                for rule in inner {
-                    rule.applyString(element, message, "", span, elementPath, &sink)
+                _assayEachRule(inner) {
+                    $0.applyString(element, message, "", span, elementPath, &sink)
                 }
             }
         } else if r.isUnique {
@@ -401,13 +430,20 @@ public func _assayValidate(
     _ v: [Int], _ rules: [Rule], override: String?, field: StaticString,
     at span: SourceSpan?, path: [PathComponent], _ sink: inout IssueSink
 ) {
-    for r in rules {
+    _assayEachRule(rules) { r in
         if let inner = r.eachRules {
+            // One path per field and one message per rule, as the `[String]` overload
+            // above has done since 2026-09-13; these two still built a path per element
+            // and re-read `r.message` per element per rule until 2026-09-20.
+            var elementPath = path
+            elementPath.append(.key(String(describing: field)))
+            elementPath.append(.index(0))
+            let last = elementPath.count &- 1
+            let message = r.message ?? override
             for (i, element) in v.enumerated() {
-                let elementPath = path + [.key(String(describing: field)), .index(i)]
-                for rule in inner {
-                    rule.applyNumber(Double(element), isInteger: true,
-                                     r.message ?? override, "", span, elementPath, &sink)
+                elementPath[last] = .index(i)
+                _assayEachRule(inner) {
+                    $0.applyNumber(Double(element), isInteger: true, message, "", span, elementPath, &sink)
                 }
             }
         } else if r.isUnique {
@@ -437,13 +473,20 @@ public func _assayValidate(
     _ v: [Double], _ rules: [Rule], override: String?, field: StaticString,
     at span: SourceSpan?, path: [PathComponent], _ sink: inout IssueSink
 ) {
-    for r in rules {
+    _assayEachRule(rules) { r in
         if let inner = r.eachRules {
+            // One path per field and one message per rule, as the `[String]` overload
+            // above has done since 2026-09-13; these two still built a path per element
+            // and re-read `r.message` per element per rule until 2026-09-20.
+            var elementPath = path
+            elementPath.append(.key(String(describing: field)))
+            elementPath.append(.index(0))
+            let last = elementPath.count &- 1
+            let message = r.message ?? override
             for (i, element) in v.enumerated() {
-                let elementPath = path + [.key(String(describing: field)), .index(i)]
-                for rule in inner {
-                    rule.applyNumber(element, isInteger: false,
-                                     r.message ?? override, "", span, elementPath, &sink)
+                elementPath[last] = .index(i)
+                _assayEachRule(inner) {
+                    $0.applyNumber(element, isInteger: false, message, "", span, elementPath, &sink)
                 }
             }
         } else if r.isUnique {
@@ -463,7 +506,7 @@ public func _assayValidate<T>(
     countOf v: [T], _ rules: [Rule], override: String?, field: StaticString,
     at span: SourceSpan?, path: [PathComponent], _ sink: inout IssueSink
 ) {
-    for r in rules {
-        r.applyCollectionCount(v.count, override, field, span, path, &sink)
+    _assayEachRule(rules) {
+        $0.applyCollectionCount(v.count, override, field, span, path, &sink)
     }
 }

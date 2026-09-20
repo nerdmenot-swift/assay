@@ -171,10 +171,8 @@ function signature specialization <Arg[3] = Dead> of static AssayMatrix.MNested.
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.MNested._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MNested?	release	47
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.MOptional._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MOptional?	release	26
 function signature specialization <Arg[3] = Dead> of static AssayMatrix.MPrefix._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MPrefix?	release	14
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MValidated._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MValidated?	release	53
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MValidated._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MValidated?	retain	6
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MValidated._assayCheck(_: AssayMatrix.MValidated, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> ()	release	5
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MValidated._assayCheck(_: AssayMatrix.MValidated, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> ()	retain	5
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MValidated._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MValidated?	release	47
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MValidated._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MValidated?	retain	1
 one-time initialization function for (fiveStringShapes in _F59BA0A9BCC4D9DF66BC0146E96B3BD7)	release	2
 one-time initialization function for (fiveStringShapes in _F59BA0A9BCC4D9DF66BC0146E96B3BD7)	retain	1
 one-time initialization function for (structFormatShapes in _F59BA0A9BCC4D9DF66BC0146E96B3BD7)	release	2

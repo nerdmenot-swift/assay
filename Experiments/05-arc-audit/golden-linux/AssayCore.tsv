@@ -138,23 +138,23 @@ AssayCore.RawValue.string.getter : Swift.String?	retain	1
 AssayCore.RawValue.subscript.getter : (Swift.Int) -> AssayCore.RawValue?	retain	1
 AssayCore.RawValue.subscript.getter : (Swift.String) -> AssayCore.RawValue?	retain	1
 AssayCore.Rule.Storage.__allocating_init(kind: AssayCore.Rule.Kind, message: Swift.String?) -> AssayCore.Rule.Storage	ref	1
-AssayCore.Rule.applyCollectionCount(Swift.Int, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	release	24
-AssayCore.Rule.applyCollectionCount(Swift.Int, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	retain	36
-AssayCore.Rule.applyCollectionCount(Swift.Int, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	stack-allocated-ref	7
-AssayCore.Rule.applyNumber(_: Swift.Double, isInteger: Swift.Bool, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	release	72
-AssayCore.Rule.applyNumber(_: Swift.Double, isInteger: Swift.Bool, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	retain	113
-AssayCore.Rule.applyNumber(_: Swift.Double, isInteger: Swift.Bool, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	stack-allocated-ref	20
-AssayCore.Rule.applyRegex(_: AssayCore.CompiledPattern, to: Swift.String, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	conditional-runtime-cast	1
-AssayCore.Rule.applyRegex(_: AssayCore.CompiledPattern, to: Swift.String, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	release	16
-AssayCore.Rule.applyRegex(_: AssayCore.CompiledPattern, to: Swift.String, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	retain	30
-AssayCore.Rule.applyRegex(_: AssayCore.CompiledPattern, to: Swift.String, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	stack-allocated-ref	6
-AssayCore.Rule.applyString(Swift.String, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	release	84
-AssayCore.Rule.applyString(Swift.String, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	retain	141
-AssayCore.Rule.applyString(Swift.String, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	stack-allocated-ref	22
-AssayCore.Rule.eachRules.getter : [AssayCore.Rule]?	retain	1
-AssayCore.Rule.emit(inout AssayCore.IssueSink, AssayCore.IssueCode, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], Swift.String?, [Swift.String : AssayCore.IssueValue], Swift.String?) -> ()	release	4
-AssayCore.Rule.emit(inout AssayCore.IssueSink, AssayCore.IssueCode, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], Swift.String?, [Swift.String : AssayCore.IssueValue], Swift.String?) -> ()	retain	10
-AssayCore.Rule.emit(inout AssayCore.IssueSink, AssayCore.IssueCode, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], Swift.String?, [Swift.String : AssayCore.IssueValue], Swift.String?) -> ()	stack-allocated-ref	1
+AssayCore.Rule.Storage.applyCollectionCount(Swift.Int, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	release	23
+AssayCore.Rule.Storage.applyCollectionCount(Swift.Int, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	retain	35
+AssayCore.Rule.Storage.applyCollectionCount(Swift.Int, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	stack-allocated-ref	7
+AssayCore.Rule.Storage.applyNumber(_: Swift.Double, isInteger: Swift.Bool, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	release	71
+AssayCore.Rule.Storage.applyNumber(_: Swift.Double, isInteger: Swift.Bool, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	retain	112
+AssayCore.Rule.Storage.applyNumber(_: Swift.Double, isInteger: Swift.Bool, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	stack-allocated-ref	20
+AssayCore.Rule.Storage.applyRegex(_: AssayCore.CompiledPattern, to: Swift.String, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	conditional-runtime-cast	1
+AssayCore.Rule.Storage.applyRegex(_: AssayCore.CompiledPattern, to: Swift.String, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	release	16
+AssayCore.Rule.Storage.applyRegex(_: AssayCore.CompiledPattern, to: Swift.String, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	retain	30
+AssayCore.Rule.Storage.applyRegex(_: AssayCore.CompiledPattern, to: Swift.String, _: Swift.String?, _: Swift.StaticString, _: AssayCore.SourceSpan?, _: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	stack-allocated-ref	6
+AssayCore.Rule.Storage.applyString(Swift.String, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	release	83
+AssayCore.Rule.Storage.applyString(Swift.String, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	retain	140
+AssayCore.Rule.Storage.applyString(Swift.String, Swift.String?, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], inout AssayCore.IssueSink) -> ()	stack-allocated-ref	22
+AssayCore.Rule.Storage.eachRules.getter : [AssayCore.Rule]?	retain	1
+AssayCore.Rule.Storage.emit(inout AssayCore.IssueSink, AssayCore.IssueCode, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], Swift.String?, [Swift.String : AssayCore.IssueValue], Swift.String?) -> ()	release	4
+AssayCore.Rule.Storage.emit(inout AssayCore.IssueSink, AssayCore.IssueCode, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], Swift.String?, [Swift.String : AssayCore.IssueValue], Swift.String?) -> ()	retain	10
+AssayCore.Rule.Storage.emit(inout AssayCore.IssueSink, AssayCore.IssueCode, Swift.StaticString, AssayCore.SourceSpan?, [AssayCore.PathComponent], Swift.String?, [Swift.String : AssayCore.IssueValue], Swift.String?) -> ()	stack-allocated-ref	1
 AssayCore.Rule.init(_: AssayCore.Rule.Kind, message: Swift.String?) -> AssayCore.Rule	ref	1
 AssayCore.Rule.init(stringLiteral: Swift.String) -> AssayCore.Rule	ref	1
 AssayCore.Rule.kind.getter : AssayCore.Rule.Kind	retain	1
@@ -230,25 +230,15 @@ AssayCore._assaySequence<A>(inout [AssayCore.PathComponent], Swift.String, Assay
 AssayCore._assayUnknownNotEncodable(Swift.String, Swift.String, inout AssayCore.IssueSink, [AssayCore.PathComponent]) -> ()	release	2
 AssayCore._assayUnknownNotEncodable(Swift.String, Swift.String, inout AssayCore.IssueSink, [AssayCore.PathComponent]) -> ()	retain	4
 AssayCore._assayUnknownNotEncodable(Swift.String, Swift.String, inout AssayCore.IssueSink, [AssayCore.PathComponent]) -> ()	stack-allocated-ref	1
-AssayCore._assayValidate(_: Swift.Double, _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	release	1
-AssayCore._assayValidate(_: Swift.Double, _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	retain	1
-AssayCore._assayValidate(_: Swift.Int64, _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	release	1
-AssayCore._assayValidate(_: Swift.Int64, _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	retain	1
-AssayCore._assayValidate(_: Swift.String, _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	release	1
-AssayCore._assayValidate(_: Swift.String, _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	retain	1
-AssayCore._assayValidate(_: Swift.UInt64, _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	release	1
-AssayCore._assayValidate(_: Swift.UInt64, _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	retain	1
-AssayCore._assayValidate(_: [Swift.Double], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	release	16
-AssayCore._assayValidate(_: [Swift.Double], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	retain	14
-AssayCore._assayValidate(_: [Swift.Double], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	stack-allocated-ref	2
-AssayCore._assayValidate(_: [Swift.Int], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	release	16
-AssayCore._assayValidate(_: [Swift.Int], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	retain	14
-AssayCore._assayValidate(_: [Swift.Int], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	stack-allocated-ref	2
-AssayCore._assayValidate(_: [Swift.String], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	release	17
-AssayCore._assayValidate(_: [Swift.String], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	retain	18
+AssayCore._assayValidate(_: [Swift.Double], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	release	13
+AssayCore._assayValidate(_: [Swift.Double], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	retain	11
+AssayCore._assayValidate(_: [Swift.Double], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	stack-allocated-ref	1
+AssayCore._assayValidate(_: [Swift.Int], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	release	13
+AssayCore._assayValidate(_: [Swift.Int], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	retain	11
+AssayCore._assayValidate(_: [Swift.Int], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	stack-allocated-ref	1
+AssayCore._assayValidate(_: [Swift.String], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	release	13
+AssayCore._assayValidate(_: [Swift.String], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	retain	14
 AssayCore._assayValidate(_: [Swift.String], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	stack-allocated-ref	1
-AssayCore._assayValidate<A>(countOf: [A], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	release	1
-AssayCore._assayValidate<A>(countOf: [A], _: [AssayCore.Rule], override: Swift.String?, field: Swift.StaticString, at: AssayCore.SourceSpan?, path: [AssayCore.PathComponent], _: inout AssayCore.IssueSink) -> ()	retain	1
 AssayCore.formatEpochISO(Swift.Double) -> Swift.String	release	6
 AssayCore.pad2(Swift.Int) -> Swift.String	release	1
 AssayCore.pad4(Swift.Int) -> Swift.String	release	3

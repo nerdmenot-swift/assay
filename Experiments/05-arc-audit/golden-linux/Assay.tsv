@@ -19,7 +19,7 @@ Assay.Assayer.parse(json: Swift.String, limits: AssayCore.Limits, sourceName: Sw
 Assay.Assayer.validate(AssayCore.Rule...) -> Assay.Assayer<A>	ref	1
 Assay.Assayer.validate(AssayCore.Rule...) -> Assay.Assayer<A>	retain	10
 Assay.AssayerPlan.__allocating_init(Assay.AssayerPlan.Node) -> Assay.AssayerPlan	ref	1
-Assay.AssayerPlan.run(AssayCore.RawValue, inout AssayCore.IssueSink, [AssayCore.PathComponent], AssayCore.Limits, Swift.Int) -> AssayCore.RawValue?	release	52
+Assay.AssayerPlan.run(AssayCore.RawValue, inout AssayCore.IssueSink, [AssayCore.PathComponent], AssayCore.Limits, Swift.Int) -> AssayCore.RawValue?	release	49
 Assay.AssayerPlan.run(AssayCore.RawValue, inout AssayCore.IssueSink, [AssayCore.PathComponent], AssayCore.Limits, Swift.Int) -> AssayCore.RawValue?	retain	39
 Assay.AssayerPlan.run(AssayCore.RawValue, inout AssayCore.IssueSink, [AssayCore.PathComponent], AssayCore.Limits, Swift.Int) -> AssayCore.RawValue?	stack-allocated-ref	1
 Assay.Diagnosis.description.getter : Swift.String	release	5

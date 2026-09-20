@@ -13,6 +13,18 @@ stable for two minor versions with no entry under **Breaking**.
 
 ### Breaking
 
+- **`encodedJSON()`, `encodedYAML()`, `encodedXML()` and `encodedTOML()` return
+  `EncodedBytes`, not `[UInt8]`.** The writers own the buffer they write into, so a write is
+  a store rather than an `Array` append with a uniqueness check behind it — 36,004 of those
+  per `base/encode` call, about a sixth of the call — and `finish()` hands the allocation
+  over instead of copying the document into a fresh `Array`. `EncodedBytes` is `~Copyable`
+  because it owns a heap allocation and must free it exactly once: use `withUnsafeBytes` to
+  write it somewhere with no copy, `text()` for a `String`, or `toArray()` where a value type
+  is genuinely needed, which copies visibly at the call site. `jsonText()` and friends are
+  unchanged, and `EncodeDiagnosis.bytes` stays a plain `[UInt8]` and stays `Sendable` — it is
+  the diagnostic path, and one copy there is worth more than the counter. Encoding measures
+  8.75× `JSONEncoder` at 50 items against 2.98× before this and the two emitter changes
+  beside it. `docs/EFFICIENCY.md` rows 5 and 22.
 - **A number that cannot be represented as a `Double` is now an error, on every format.**
   `1e309` decoded to `+infinity` and `1e-400` to zero; both are refused with
   `number_overflow` on the JSON and TOML paths, and on the YAML path resolve to a string so
@@ -37,6 +49,17 @@ stable for two minor versions with no entry under **Breaking**.
 
 ### Changed
 
+- **The efficiency campaign: every verb does less work, measured by exact counters rather
+  than by a clock.** `docs/EFFICIENCY.md` holds the ledger and the numbers; the visible
+  results are that YAML and XML struct decoding no longer builds a tree it throws away (one
+  parser per format, generic over what it builds: −17% to −29% instructions, −49% to −66%
+  heap bytes, and 18.20× Yams' `YAMLDecoder` against 11.09×), applying a validation rule
+  borrows it out of its array instead of copying it (10,001 retain/release pairs per
+  `validate` call → 1, −15% to −29%), arrays of objects and dictionaries reserve from a
+  per-site size hint instead of growing by doubling (−66% blocks on a document of sibling
+  collections, and dictionaries reserved nothing at all before), and the encoders write into
+  buffers they own. The XML *tree* door pays 2–3% for the shared parser, which is recorded as
+  a trade rather than hidden.
 - **Malformed JSON says what was expected and where the input ended.** `is not well-formed:
   expected ':' after the key` rather than `is not a well-formed document`; truncated input
   now carries a caret (it pointed one byte past the end, which renders as nothing).
@@ -88,7 +111,7 @@ that distinguish it:
   `@Fallback`) type-checked at macro expansion with purpose-written diagnostics.
 - **`Date` + `@DateFormat`**: hand-written ISO-8601 / unix / RFC 9110 / fixed-pattern
   parsers (pure arithmetic, no ICU, Foundation-free core), ordered candidate chains
-  with warnings on fallback matches, 6.06× Foundation's `.iso8601` strategy, verified
+  with warnings on fallback matches, 5.40× Foundation's `.iso8601` strategy, verified
   exact against Foundation on 2,279 instants.
 - **`[String: T]` dictionary fields**, fully recursive, with the "worst case"
   measured at 6.95× rather than assumed.
@@ -112,7 +135,7 @@ that distinguish it:
   it returns it will be a separate package.
 - **The value model is 2.1× faster** (2026-09-11): `JSON.Value.parse` allocated a path
   array per value in the document, for a diagnostic path nothing reads unless the document
-  is malformed. The corpus-wide sweep goes 1.51× → **3.11×** over `JSONSerialization`, and
+  is malformed. The corpus-wide sweep goes 1.51× → **3.35×** over `JSONSerialization`, and
   the DOM-vs-DOM gap against yyjson closes from 16× to 7×.
 - **A type mismatch on the YAML/XML/TOML/plist path now carries a caret** even when the
   field has no rules; previously only JSON did.
@@ -124,7 +147,7 @@ that distinguish it:
   `encodedTOML()` with nil members omitted and every other null reported
   (`docs/TOML.md`).
 - **Encoding** for JSON, YAML, XML and TOML (`@Schema(encodes: true)`), with round-trip as a
-  stated law and a closed exception list (`docs/ENCODING.md`); 2.85× `JSONEncoder`.
+  stated law and a closed exception list (`docs/ENCODING.md`); 8.75× `JSONEncoder`.
 - **Unions** — `@Schema(discriminator: "type")` and `.untagged` — decode and encode,
   JSON only (`docs/UNIONS.md`).
 - **`Assayer<T>`** runtime schemas, `@Wraps`, `@Inline`, `@Key(path:)`, `@OneOrMany`,

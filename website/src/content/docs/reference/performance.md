@@ -49,52 +49,59 @@ onto `Decodable` and got 1.38× over Foundation. Apple's own prototype, which ch
 about parsing and only deletes the container protocol, reports about 6×. Roughly 83% of a
 Swift decode is the Codable boundary, and a macro deletes it at compile time.
 
-Which is why Assay measures around 3× faster than ZippyJSON here: scalar Swift with no SIMD
+Which is why Assay measures about 3.6× faster than ZippyJSON here: scalar Swift with no SIMD
 anywhere, against simdjson underneath, with the container as the only structural difference.
-ZippyJSON measures 1.77–2.03× over Foundation on this machine — *better* than the 1.38× it
+ZippyJSON measures 1.60–1.84× over Foundation on this machine — *better* than the 1.38× it
 was cited at — so the result is not a matter of hobbling it.
 
 ## What it does not mean
 
-**It is not faster than C.** Against yyjson, Assay loses: 0.66× on the use-case shape, 0.14×
+**It is not faster than C.** Against yyjson, Assay loses: 0.69× on the use-case shape, 0.16×
 building a tree. Those rows are in the table above, published rather than omitted, because a
 benchmark page that lists only its wins is an advertisement.
 
 The two rows measure different things and the gap between them is the interesting part. The
 use-case arm makes yyjson do the *whole* job — parse, then walk the tree and pull the fields
 out — because a document you must still walk is not a decoded value. There Assay is about
-two thirds of hand-tuned C. The tree-against-tree arm is the one where Assay loses 7×, and
+two thirds of hand-tuned C. The tree-against-tree arm is the one where Assay loses about 6×, and
 it is a comparison of two different products: yyjson writes one arena with its strings
 pointing into the input buffer, and `JSON.Value` is a Swift enum tree of real `String`s and
 `Array`s that you can store, compare and hash. Closing that gap means a type that cannot do
 any of those things.
 
-**The value-model path has no thesis behind it.** `JSON.Value` measures about 3× over
+**The value-model path has no thesis behind it.** `JSON.Value` measures about 3.3× over
 `JSONSerialization` — comfortably ahead of the thing you would otherwise reach for, and
 nowhere near the struct path, because building a tree has no Codable boundary to delete. Use
 `@Schema` when you know the shape; that is where the argument applies.
 
-**XML is a Darwin-only claim.** Assay's XML parser measures 2.34× over Foundation on macOS
+**XML is a Darwin-only claim.** Assay's XML parser measures 2.47× over Foundation on macOS
 and 0.96× on Linux, where `FoundationXML` is libxml2. Parity with libxml2 while building a
 tree its SAX path never builds is a fine result — but "faster than Foundation's XML" is not
 a portable sentence, so it is not said here.
 
-**Encoding is a measurement, not a thesis.** About 2.9× over `JSONEncoder`. The decode
-multiple has an argument behind it; this one does not. It exists so the cost is known and a
-regression is visible.
+**Encoding is a measurement, not a thesis.** About 8.75× over `JSONEncoder` at fifty items
+and 9.04× at two hundred — it was 2.9× until the writers stopped appending to an `Array` and
+started owning their buffers. The decode multiple has an argument behind it; this one does
+not. It exists so the cost is known and a regression is visible.
 
 ## The other formats are tree decoders, and the thesis does not transfer
 
-JSON decodes straight from bytes into your fields. YAML, XML, TOML and property lists all
-parse to a value model first and decode through a shared projection, so there is no Codable
-boundary being deleted and no 9× to be had. What those numbers measure is a hand-written
-Swift parser against whatever the ecosystem already offers.
+JSON decodes straight from bytes into your fields. YAML, XML, TOML and property lists reach
+your struct through `RawValue`, the format-neutral projection — so there is no Codable
+boundary being deleted, and no 9× to be had from deleting it. What those numbers measure is a
+hand-written Swift parser against whatever the ecosystem already offers.
+
+They do **not** build a node tree on the way any more. Until September 2026 each parser built
+its own `YAML.Node` or `XML.Element` tree, projected that into `RawValue`, and dropped it;
+each parser is now generic over what it builds, so the struct door builds `RawValue` directly
+and the tree door still builds the tree for callers who ask for one. That is where the
+end-to-end column below moved from 11.04× to 18.20×.
 
 | Format | Tree | End to end into a struct |
 |---|---|---|
-| YAML | 6.63× Yams `compose` | 11.04× Yams `YAMLDecoder` |
-| XML | 2.34× Foundation on macOS, 0.96× on Linux | — |
-| TOML | 1.17× toml++ | 1.95× TOMLKit's decoder |
+| YAML | 8.35× Yams `compose` | 18.20× Yams `YAMLDecoder` |
+| XML | 2.47× Foundation on macOS, 0.96× on Linux | — |
+| TOML | 4.06× toml++ | 6.55× TOMLKit's decoder |
 
 The pattern in the right-hand column is the familiar one. Where a baseline goes through
 `Codable`, the gap widens; where it does not, the gap is parity with C. That is the same
@@ -102,7 +109,7 @@ finding as the JSON thesis, arrived at from the other direction.
 
 ## Compile time is the second axis
 
-`@Schema` costs about **80 ms per type at ten fields** — roughly 3.6× `Codable`. The cost
+`@Schema` costs about **81 ms per type at ten fields** — roughly 4.2× `Codable`. The cost
 model is `9 ms fixed per type + 7.3 ms per field`, so it scales with generated body size
 rather than with the number of expansions.
 

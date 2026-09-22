@@ -79,23 +79,34 @@ not purism:
   that could fetch an external entity, so there is no flag to forget.
 - **It is fast.** A survey of the Swift YAML options found one allocating a class per node,
   a `String` per scalar eagerly, and doing O(N·K) mapping lookup with an allocation per
-  probe. Assay's YAML parser measures 6.6× it.
+  probe. Assay's YAML parser measures 8.35× it.
 
 ## Two decode paths
 
 JSON decodes **directly from bytes into your struct**. That is the fast path, and where the
-9.8× mean over Foundation comes from.
+9.1× mean over Foundation comes from.
 
-Every other format parses to its own value model, then decodes through a shared projection:
+Every other format goes through `RawValue`, the format-neutral projection:
 
 ```
-bytes → YAML.Node / XML.Node / TOML.Node → RawValue → your struct
+bytes → RawValue → your struct
 ```
 
-Two consequences. The tree path is slower — it builds a tree first. And your rules, keys,
-presence states and checks are identical across formats, because they all run on the far
-side of the projection. That is the trade, and it is the right way round: JSON is the
-format people decode in a hot loop.
+Two consequences, and one of them is not what it used to be. Your rules, keys, presence
+states and checks are identical across formats, because they all run on the far side of the
+projection — that part is the whole point. And the tree path is slower, but **it no longer
+builds a node tree to get there**: until September 2026 each parser built its own
+`YAML.Node` or `XML.Element` tree, projected it into `RawValue`, and dropped the tree.
+Each parser is now generic over what it builds, so the struct door builds `RawValue`
+directly and the tree door still builds a tree when you ask for one:
+
+```
+bytes → RawValue          → your struct      // parse(yaml:) into a @Schema type
+bytes → YAML.Node         → you walk it      // YAML.decodeAll, when you want the tree
+```
+
+JSON is still the format people decode in a hot loop, and it is still the one with no
+projection in the middle at all.
 
 ## Where the formats genuinely differ
 

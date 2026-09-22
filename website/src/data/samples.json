@@ -155,7 +155,7 @@
     },
     "json.nested": {
       "source": "{\n  \"name\": \"eu-prod\",\n  \"servers\": [\n    {\"host\": \"a.internal\", \"port\": 8080},\n    {\"host\": \"b.internal\", \"port\": 8081, \"tls\": false}\n  ],\n  \"labels\": {\"tier\": \"prod\", \"team\": \"platform\"}\n}",
-      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"tier\": \"prod\", \"team\": \"platform\"])"
+      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"team\": \"platform\", \"tier\": \"prod\"])"
     },
     "collect": {
       "source": "{\n  \"username\": \"jo\",\n  \"email\": \"jo@localhost\",\n  \"age\": \"fourteen\",\n  \"newsleter\": true\n}",
@@ -163,6 +163,18 @@
     },
     "collectJSON": "{\"source\":\"signup.json\",\"valid\":false,\"issues\":[{\"path\":\"age\",\"code\":\"type_mismatch\",\"message\":\"must be an integer, found \\\"fourteen\\\"\",\"params\":{\"expected\":\"integer\"},\"received\":\"\\\"fourteen\\\"\",\"offset\":58,\"length\":1,\"line\":4,\"column\":10},{\"path\":\"username\",\"code\":\"too_small\",\"message\":\"must be at least 3 characters\",\"params\":{\"minimum\":3,\"unit\":\"characters\"},\"received\":\"jo\",\"offset\":16,\"length\":4,\"line\":2,\"column\":15},{\"path\":\"email\",\"code\":\"invalid_email\",\"message\":\"must be a valid email address\",\"received\":\"jo@localhost\",\"offset\":33,\"length\":14,\"line\":3,\"column\":12}],\"warnings\":[{\"path\":\"\",\"code\":\"unknown_key\",\"message\":\"unknown key \\\"newsleter\\\"; did you mean \\\"newsletter\\\"?\",\"params\":{\"didYouMean\":\"newsletter\",\"received\":\"newsleter\"},\"offset\":73,\"length\":9,\"line\":5,\"column\":4}]}",
     "collectProblem": "{\"type\":\"about:blank\",\"title\":\"Validation failed\",\"status\":422,\"errors\":[{\"path\":\"age\",\"code\":\"type_mismatch\",\"message\":\"must be an integer, found \\\"fourteen\\\"\",\"params\":{\"expected\":\"integer\"}},{\"path\":\"username\",\"code\":\"too_small\",\"message\":\"must be at least 3 characters\",\"params\":{\"minimum\":3,\"unit\":\"characters\"}},{\"path\":\"email\",\"code\":\"invalid_email\",\"message\":\"must be a valid email address\"}]}",
+    "start.typeMismatch": {
+      "source": "{\n  \"title\": \"On carets\",\n  \"link\": \"https://example.com/carets\",\n  \"readingMinutes\": \"four\"\n}",
+      "render": "article.json:4:21: error: readingMinutes must be an integer, found \"four\"\n\n  2 │   \"title\": \"On carets\",\n  3 │   \"link\": \"https://example.com/carets\",\n  4 │   \"readingMinutes\": \"four\"\n    │                     ^\n  5 │ }\n\n1 error\n"
+    },
+    "errors.json": {
+      "source": "{\n  \"username\": \"jo\",\n  \"email\": \"jo@localhost\",\n  \"age\": \"fourteen\",\n  \"newsleter\": true\n}",
+      "render": "{\"source\":\"signup.json\",\"valid\":false,\"issues\":[{\"path\":\"age\",\"code\":\"type_mismatch\",\"message\":\"must be an integer, found \\\"fourteen\\\"\",\"params\":{\"expected\":\"integer\"},\"received\":\"\\\"fourteen\\\"\",\"offset\":58,\"length\":1,\"line\":4,\"column\":10},{\"path\":\"username\",\"code\":\"too_small\",\"message\":\"must be at least 3 characters\",\"params\":{\"minimum\":3,\"unit\":\"characters\"},\"received\":\"jo\",\"offset\":16,\"length\":4,\"line\":2,\"column\":15},{\"path\":\"email\",\"code\":\"invalid_email\",\"message\":\"must be a valid email address\",\"received\":\"jo@localhost\",\"offset\":33,\"length\":14,\"line\":3,\"column\":12}],\"warnings\":[{\"path\":\"\",\"code\":\"unknown_key\",\"message\":\"unknown key \\\"newsleter\\\"; did you mean \\\"newsletter\\\"?\",\"params\":{\"didYouMean\":\"newsletter\",\"received\":\"newsleter\"},\"offset\":73,\"length\":9,\"line\":5,\"column\":4}]}"
+    },
+    "errors.problem": {
+      "source": "{\n  \"username\": \"jo\",\n  \"email\": \"jo@localhost\",\n  \"age\": \"fourteen\",\n  \"newsleter\": true\n}",
+      "render": "{\"type\":\"about:blank\",\"title\":\"Validation failed\",\"status\":422,\"errors\":[{\"path\":\"age\",\"code\":\"type_mismatch\",\"message\":\"must be an integer, found \\\"fourteen\\\"\",\"params\":{\"expected\":\"integer\"}},{\"path\":\"username\",\"code\":\"too_small\",\"message\":\"must be at least 3 characters\",\"params\":{\"minimum\":3,\"unit\":\"characters\"}},{\"path\":\"email\",\"code\":\"invalid_email\",\"message\":\"must be a valid email address\"}]}"
+    },
     "didYouMean": {
       "source": "{\"api_key\": \"sk-live-4f2a\", \"timeout_secs\": 30}",
       "render": "config.json:1:30: error: unknown key \"timeout_secs\"\n  1 │ {\"api_key\": \"sk-live-4f2a\", \"timeout_secs\": 30}\n    │                              ^^^^^^^^^^^^\n\nconfig.json: error: timeout_seconds is required\n\n2 errors\n"
@@ -229,7 +241,7 @@
     },
     "yaml.nested": {
       "source": "name: eu-prod\nservers:\n  - host: a.internal\n    port: 8080\n  - host: b.internal\n    port: 8081\n    tls: false\nlabels:\n  tier: prod\n  team: platform",
-      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"team\": \"platform\", \"tier\": \"prod\"])"
+      "render": "Cluster(name: \"eu-prod\", servers: [Server(host: \"a.internal\", port: 8080, tls: true), Server(host: \"b.internal\", port: 8081, tls: false)], labels: [\"tier\": \"prod\", \"team\": \"platform\"])"
     },
     "yaml.flow": {
       "source": "name: eu-prod\nservers: [{host: a.internal, port: 8080}, {host: b.internal, port: 8081}]\nlabels: {tier: prod}",
@@ -348,7 +360,7 @@
       "render": "Deployment(name: \"api\", image: \"img:1\", replicas: 3, region: \"eu-west-1\", healthCheck: nil)"
     },
     "plist.binary": {
-      "source": "// 'bplist00' + 86 bytes, written by PropertyListSerialization\n62 70 6c 69 73 74 30 30 d3 01 02 03 04 05 06 58 …",
+      "source": "// 'bplist00' + 86 bytes, written by PropertyListSerialization\n62 70 6c 69 73 74 30 30 d3 01 02 03 04 05 06 55 …",
       "render": "Deployment(name: \"api\", image: \"img:1\", replicas: 3, region: \"eu-west-1\", healthCheck: nil)"
     },
     "plist.badType": {
@@ -517,7 +529,7 @@
     },
     "cb.transform": {
       "source": "{\"tags\": [\"b\", \"a\", \"b\"], \"timeout_seconds\": 1500}",
-      "render": "Timeouts(tags: Set([\"b\", \"a\"]), timeoutSeconds: 1.5)"
+      "render": "Timeouts(tags: Set([\"a\", \"b\"]), timeoutSeconds: 1.5)"
     },
     "cb.transformBack": {
       "source": "{\"tags\": [\"b\", \"a\", \"b\"], \"timeout_seconds\": 1500}",

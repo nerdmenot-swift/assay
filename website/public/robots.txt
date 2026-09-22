@@ -1,0 +1,5 @@
+# Everything here is public documentation.
+User-agent: *
+Allow: /
+
+Sitemap: https://assay.nerdmenot.in/sitemap-index.xml

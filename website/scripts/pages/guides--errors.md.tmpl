@@ -14,36 +14,7 @@ file, a form, or a CSV import it turns fixing data into a loop: run, fix, run, f
 let d = Signup.diagnose(json: data, sourceName: "signup.json")
 ```
 
-```text
-signup.json:2:15: error: username must be at least 3 characters
-  1 │ {
-  2 │   "username": "jo",
-    │               ^^^^
-  3 │   "email": "jo@localhost",
-
-signup.json:3:12: error: email must be a valid email address
-  1 │ {
-  2 │   "username": "jo",
-  3 │   "email": "jo@localhost",
-    │            ^^^^^^^^^^^^^^
-  4 │   "age": "fourteen",
-
-signup.json:4:10: error: age must be an integer, found "fourteen"
-  2 │   "username": "jo",
-  3 │   "email": "jo@localhost",
-  4 │   "age": "fourteen",
-    │          ^
-  5 │   "newsleter": true
-
-signup.json:5:4: warning: unknown key "newsleter"; did you mean "newsletter"?
-  3 │   "email": "jo@localhost",
-  4 │   "age": "fourteen",
-  5 │   "newsleter": true
-    │    ^^^^^^^^^
-  6 │ }
-
-3 errors, 1 warning
-```
+{{out:collect}}
 
 Decode errors and rule errors are mixed together, in source order, because to whoever is
 fixing the file they are the same kind of problem.
@@ -82,15 +53,11 @@ d.render(.problemDetails)   // RFC 9457, ready for an HTTP 4xx body
 
 `.json` keeps everything, including the byte offsets and the resolved line and column:
 
-```text
-{"source":"signup.json","valid":false,"issues":[{"path":"age","code":"type_mismatch","message":"must be an integer, found \"fourteen\"","params":{"expected":"integer"},"received":"\"fourteen\"","offset":58,"length":1,"line":4,"column":10},{"path":"username","code":"too_small","message":"must be at least 3 characters","params":{"minimum":3,"unit":"characters"},"received":"jo","offset":16,"length":4,"line":2,"column":15},{"path":"email","code":"invalid_email","message":"must be a valid email address","received":"jo@localhost","offset":33,"length":14,"line":3,"column":12}],"warnings":[{"path":"","code":"unknown_key","message":"unknown key \"newsleter\"; did you mean \"newsletter\"?","params":{"didYouMean":"newsletter","received":"newsleter"},"offset":73,"length":9,"line":5,"column":4}]}
-```
+{{out:errors.json}}
 
 `.problemDetails` is the shape an HTTP client expects:
 
-```text
-{"type":"about:blank","title":"Validation failed","status":422,"errors":[{"path":"age","code":"type_mismatch","message":"must be an integer, found \"fourteen\"","params":{"expected":"integer"}},{"path":"username","code":"too_small","message":"must be at least 3 characters","params":{"minimum":3,"unit":"characters"}},{"path":"email","code":"invalid_email","message":"must be a valid email address"}]}
-```
+{{out:errors.problem}}
 
 ## Wiring it to your own UI
 
@@ -155,16 +122,7 @@ rather than print a struct dump.
 
 The spans come from the parsers, so this works the same in YAML, XML and TOML:
 
-```text
-deploy.toml:3:12: error: replicas must be at least 1
-  1 │ name = "api"
-  2 │ image = "registry.internal/api:2.4.1"
-  3 │ replicas = 0
-    │            ^
-  4 │ health_check = "https://api.internal/healthz"
-
-1 error
-```
+{{out:formats.toml}}
 
 One kind of issue has no byte offset and therefore no caret, by nature rather than by
 omission: a value you validated with `T.validate(_:)`, where there was no document to point

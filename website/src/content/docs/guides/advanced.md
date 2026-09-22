@@ -155,7 +155,9 @@ User.diagnose(user)              // never throws
 
 The schema's rules against a value something else produced. This is the seam for a fast
 custom reader: decode at your own speed in your own module, then let Assay run the rules.
-About 79 ns per value.
+About 37 ns per value, or 46 ns per row over a batch — a tenth of what a full decode costs.
+The batch form takes a sequence and puts the element index in the path, so an issue reads
+`[250003].email`.
 
 ## Describing the shape
 

@@ -48,8 +48,19 @@ These pages are generated in full and **should not be edited** — edit the temp
 |---|---|
 | `reference/issue-codes.md` | `Sources/AssayCore/IssueCode+Names.swift` |
 | `reference/performance.md` | `scripts/performance.md.tmpl`, table from `RESULTS.md` |
+| `reference/changelog.md` | `CHANGELOG.md`, with repo-relative links rewritten to GitHub |
 | `formats/*.md` | `scripts/pages/formats--*.md.tmpl` |
 | `recipes/*.md` | `scripts/pages/recipes--*.md.tmpl`, examples from `scripts/cookbook.swift.txt` and `scripts/recipes.swift.txt` |
+| `start/first-schema.md`, `guides/errors.md`, `guides/rules.md` | `scripts/pages/*.md.tmpl` — moved there 2026-09-23, see below |
+
+**Why those last three moved.** They were hand-written, and they showed terminal renders
+typed by hand beside the code that was supposed to produce them. One had drifted into
+something the code could not produce at all: `start/first-schema` declared `@Schema` (so
+camelCase keys) and then showed a document with `reading_minutes` and an error naming
+`reading_minutes`, where that pairing really produces `readingMinutes is required`. Two
+others were close but not exact — a trimmed context line, a different surrounding document.
+A page that teaches "the error points at the byte" cannot itself be approximate, so the
+renders now come from the extract like everything else.
 
 `scripts/pages/<name>.md.tmpl` becomes `src/content/docs/<name>.md`, with `--` in the
 filename meaning a directory separator. Four placeholders pull real output in by render key:

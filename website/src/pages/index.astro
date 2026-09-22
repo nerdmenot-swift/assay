@@ -133,6 +133,28 @@ function caret(text: string): string {
       name="description"
       content="One struct decodes from JSON, YAML, XML, TOML, property lists and HTTP bodies — with the same rules and the same errors. Every failure points at the byte that caused it, and you get all of them at once, about 9× faster than Codable."
     />
+    <link rel="canonical" href="https://assay.nerdmenot.in/" />
+    <!-- Starlight emits these for every docs page; the landing page is a plain Astro
+         route and had none, which is the one page people actually paste into Slack. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Assay" />
+    <meta property="og:url" content="https://assay.nerdmenot.in/" />
+    <meta property="og:title" content="Assay — a decoder for Swift that tells you what went wrong" />
+    <meta
+      property="og:description"
+      content="One struct decodes from JSON, YAML, XML, TOML, property lists and HTTP bodies — same rules, same errors. Every failure points at the byte that caused it, and you get all of them at once."
+    />
+    <meta property="og:image" content="https://assay.nerdmenot.in/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Assay: two decode errors, each with the file, line, column and a caret under the offending byte." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Assay — a decoder for Swift that tells you what went wrong" />
+    <meta
+      name="twitter:description"
+      content="One struct decodes from JSON, YAML, XML, TOML, property lists and HTTP bodies — same rules, same errors, every failure at the byte."
+    />
+    <meta name="twitter:image" content="https://assay.nerdmenot.in/og.png" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

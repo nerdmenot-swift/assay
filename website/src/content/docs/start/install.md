@@ -33,7 +33,7 @@ calls. Add the ones you need, skip the rest.
 | `AssayXML` | `parse(xml:)`, `XML.Document` | you read XML |
 | `AssayTOML` | `parse(toml:)`, `TOML.Node` | you read TOML |
 | `AssayPlist` | `parse(plist:)`, binary and XML | you read property lists |
-| `AssayFoundation` | `Data`/`URL` conveniences, `parse(mmapped:)`, `Date`/`UUID` in column stores | you want any of those |
+| `AssayFoundation` | `parse(json: Data)` and the rest of the `Data` doors, `parse(mmapped:)` for a file | you decode from `Data`, or from a file too big to hold |
 | `AssayCore` | `Issue`, `Rule`, `RawValue`, the renderers — no macro | you are writing a library that *consumes* Assay's values |
 
 `Assay` re-exports `AssayCore`, so you never need both.
@@ -69,6 +69,13 @@ Swift 6.2 and later ship a prebuilt `swift-syntax` that skips this entirely — 
 the version Assay resolves matches the one your toolchain ships. Assay pins the 603 line
 for exactly that reason. If you see a long `swift-syntax` build on every clean checkout,
 check that nothing else in your dependency graph has pulled a different major line.
+
+## Where the API reference lives
+
+This site is the narrative half — what each feature is for, and what it costs. The
+symbol-by-symbol reference is DocC, built from the source and hosted by the
+[Swift Package Index](https://swiftpackageindex.com/nerdmenot-swift/assay/documentation) for
+every product in the package. Two documents with two jobs; neither paraphrases the other.
 
 ## Next
 

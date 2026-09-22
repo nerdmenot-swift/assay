@@ -41,6 +41,23 @@ export default defineConfig({
       lastUpdated: true,
       pagination: true,
       head: [
+        // Starlight writes og:title/description/url per page; it has no opinion about an
+        // image, so a shared docs link rendered as a bare URL card. One image for the whole
+        // site is the right granularity here — it says what the library does.
+        { tag: 'meta', attrs: { property: 'og:image', content: 'https://assay.nerdmenot.in/og.png' } },
+        { tag: 'meta', attrs: { property: 'og:image:width', content: '1200' } },
+        { tag: 'meta', attrs: { property: 'og:image:height', content: '630' } },
+        {
+          tag: 'meta',
+          attrs: {
+            property: 'og:image:alt',
+            content:
+              'Assay: two decode errors, each with the file, line, column and a caret ' +
+              'under the offending byte.',
+          },
+        },
+        { tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
+        { tag: 'meta', attrs: { name: 'twitter:image', content: 'https://assay.nerdmenot.in/og.png' } },
         { tag: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.googleapis.com' } },
         { tag: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: true } },
         {
@@ -71,6 +88,7 @@ export default defineConfig({
             { slug: 'start/first-schema' },
             { slug: 'start/from-codable' },
             { slug: 'start/cheatsheet' },
+            { slug: 'start/troubleshooting' },
           ],
         },
         // Recipes come in two halves. The catalogue is one small runnable example per
@@ -140,6 +158,16 @@ export default defineConfig({
             { slug: 'reference/limits-and-security' },
             { slug: 'reference/performance' },
             { slug: 'reference/design-notes' },
+            { slug: 'reference/changelog' },
+            // The API reference proper is DocC, built and hosted by the Swift Package
+            // Index from `.spi.yml`. Narrative docs and a symbol reference are different
+            // documents with different jobs; this site is the first and links the second
+            // rather than paraphrasing it.
+            {
+              label: 'API reference ↗',
+              link: 'https://swiftpackageindex.com/nerdmenot-swift/assay/documentation',
+              attrs: { target: '_blank', rel: 'noopener' },
+            },
           ],
         },
       ],

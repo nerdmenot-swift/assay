@@ -47,28 +47,12 @@ source bytes so a renderer can draw carets.
 
 Say the JSON is this:
 
-```json
-{
-  "title": "On carets",
-  "link": "https://example.com/carets",
-  "readingMinutes": "four"
-}
-```
+{{in:start.typeMismatch:json}}
 
 Foundation would tell you it expected an `Int` and found a `String`, and leave you to work
 out where. Assay tells you where:
 
-```text
-article.json:4:21: error: readingMinutes must be an integer, found "four"
-
-  2 │   "title": "On carets",
-  3 │   "link": "https://example.com/carets",
-  4 │   "readingMinutes": "four"
-    │                     ^
-  5 │ }
-
-1 error
-```
+{{out:start.typeMismatch}}
 
 You get that from `d.render(.terminal)` — or `.plain` without the colour, or `.json` for a
 log, or `.problemDetails` for an HTTP 4xx body. Same issue, four presentations.

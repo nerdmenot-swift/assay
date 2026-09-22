@@ -58,7 +58,7 @@ struct Cluster {
 ```
 
 ```text
-Cluster(name: "eu-prod", servers: [Server(host: "a.internal", port: 8080, tls: true), Server(host: "b.internal", port: 8081, tls: false)], labels: ["tier": "prod", "team": "platform"])
+Cluster(name: "eu-prod", servers: [Server(host: "a.internal", port: 8080, tls: true), Server(host: "b.internal", port: 8081, tls: false)], labels: ["team": "platform", "tier": "prod"])
 ```
 
 Note `tls` on the first server. It is absent in the document and `true` in the result,
@@ -200,6 +200,29 @@ telling you. Three other policies exist:
 knows, so a typo gets named rather than merely counted. [Keys](/guides/keys/) has the
 whole story, including aliases and paths.
 
+## What you can hand it
+
+`[UInt8]` is the real overload and `String` is a convenience that copies into one. `Data`
+lives in `AssayFoundation` and is decoded where it already is:
+
+```swift
+import AssayFoundation
+
+try Report.parse(json: bytes)      // [UInt8]
+try Report.parse(json: text)       // String — copied to UTF-8 for you
+try Report.parse(json: data)       // Data — no copy of the input
+```
+
+`Array(data)` is the thing you would otherwise write, and it allocates and copies the whole
+document before the parse starts, so a second copy of it stays alive throughout. The `Data`
+door saves that: one allocation per decode whatever the size, and 1–3.5% of the time on
+documents from 0.2 to 8.3 MB. The memory matters more than the time.
+
+After a **clean** decode from `Data`, `d.source` is empty — a `Data`'s bytes are only valid
+for the duration of the call, so Assay keeps a copy only when an issue or warning needs a
+caret rendered later. You passed the `Data` in, so you still have it. Failures render
+identically either way.
+
 ## Large documents
 
 ```swift
@@ -207,9 +230,10 @@ import AssayFoundation
 let report = try Report.parse(mmapped: url)
 ```
 
-Maps the file and decodes in place rather than reading it into `Data` first. On a large
-document that is a fraction of the memory footprint and meaningfully faster. Throughput
-stays flat into the multi-megabyte range.
+Maps the file and decodes in place rather than reading it into `Data` first — the kernel
+pages it in as the parse walks it. On a large document that is a fraction of the memory
+footprint and meaningfully faster, and errors still render carets straight out of the
+mapping. Throughput stays flat into the multi-megabyte range.
 
 ## When you do not know the shape
 
@@ -233,7 +257,7 @@ Subscripts are optional-chaining all the way down, so a wrong guess at any level
 
 One honest note, because it is the opposite of the rest of this page: **the value model is
 not the fast path.** Building a tree has no Codable boundary to delete, so the argument
-that makes `@Schema` fast does not apply. It measures about 3× `JSONSerialization` and
+that makes `@Schema` fast does not apply. It measures about 3.3× `JSONSerialization` and
 loses badly to a C DOM parser. [Performance](/reference/performance/) has the numbers and
 the reasoning. When you know the shape, declare it.
 

@@ -80,7 +80,7 @@ The parsers are pure arithmetic and return epoch seconds. The macro emits
 there.
 
 Three things follow. The core has no Foundation dependency. The behaviour is bit-identical
-on macOS, Linux and Windows — no ICU version to differ. And it is fast: about 6× Foundation's
+on macOS, Linux and Windows — no ICU version to differ. And it is fast: about 5.4× Foundation's
 `.iso8601` strategy, verified exact against Foundation on 2,279 instants.
 
 ## Your own date type

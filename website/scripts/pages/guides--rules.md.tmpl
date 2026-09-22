@@ -25,16 +25,7 @@ production.
 **A rule failure renders exactly like a decode failure**, because to whoever reads it they
 are the same thing: the data is wrong, here is where.
 
-```text
-deploy.json:4:15: error: replicas must be at least 1
-  2 │   "name": "api",
-  3 │   "image": "registry.internal/api:2.4.1",
-  4 │   "replicas": 0,
-    │               ^
-  5 │   "health_check": "https://api.internal/healthz"
-
-1 error
-```
+{{out:hero}}
 
 ## The rules
 

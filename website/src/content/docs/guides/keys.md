@@ -72,7 +72,9 @@ flat struct.
 
 It is not a second pass. Two fields under one prefix share one arm of the same dispatch,
 so a path costs the same as the nested `@Schema` type you would otherwise have written —
-measured at 0.97–1.01× of it.
+measured at 0.96× of it for four leaves under one prefix, and 1.14× for the shape that mixes
+a path with three plain keys, against a ship-or-refuse gate of 1.15× written before the
+measurement.
 
 The errors follow one rule worth knowing: **the path names the segment that failed; the
 caret points at the innermost thing that actually existed.**

@@ -47,6 +47,18 @@ struct Article {
     var tags: [String] = []
 }
 
+/// The same fields with NO key style, for `start/first-schema`. That page introduces
+/// `@Schema` before it introduces `keys:`, so its example is camelCase on the wire — and
+/// its render has to come from a type declared exactly as the page shows it, or the page
+/// is telling the reader something it cannot reproduce. It was, until 2026-09-23.
+@Schema
+struct PlainArticle {
+    var title: String
+    var link: String
+    var readingMinutes: Int
+    var tags: [String] = []
+}
+
 @Schema(keys: .snakeCase, unknownKeys: .reject)
 struct Strict { var apiKey: String; var timeoutSeconds: Int }
 
@@ -177,6 +189,23 @@ let signupD = Signup.diagnose(json: signupJSON, sourceName: "signup.json")
 emit("collect", signupJSON, signupD.render(.plain))
 parts.append("\"collectJSON\":\"" + esc(signupD.render(.json)) + "\"")
 parts.append("\"collectProblem\":\"" + esc(signupD.render(.problemDetails)) + "\"")
+
+// start/first-schema: the type mismatch, against the plain camelCase declaration.
+let plainArticleJSON = """
+{
+  "title": "On carets",
+  "link": "https://example.com/carets",
+  "readingMinutes": "four"
+}
+"""
+emit("start.typeMismatch", plainArticleJSON,
+     PlainArticle.diagnose(json: plainArticleJSON, sourceName: "article.json").render(.plain))
+
+// guides/errors: the same signup diagnosis through the machine renderers. The two
+// `parts.append` lines above put these in the data file as bare strings, which the page
+// templates cannot address — these are the addressable form.
+emit("errors.json", signupJSON, signupD.render(.json))
+emit("errors.problem", signupJSON, signupD.render(.problemDetails))
 
 let strictJSON = """
 {"api_key": "sk-live-4f2a", "timeout_secs": 30}

@@ -2667,3 +2667,51 @@ documents is for, in a programme whose gates are all counters.**
 The encode and tree-decode rows are the campaign's own work: one diagnostic path per array
 rather than per element, key literals carrying their own punctuation, writers that own their
 buffers, and one parser per format building `RawValue` with no tree in between.
+
+---
+
+# `Data` input, and what one `Array(data)` was costing (2026-09-22)
+
+The `Data` overloads `docs/EXPERIENCE.md` §16 has described since before there was an
+implementation did not exist — `grep ': Data'` across `Sources/` returned nothing, while two
+documents told readers where to find them. They exist now, in `AssayFoundation`, and they
+decode inside `withUnsafeBytes` rather than converting first. Two instruments, because the
+saving lands mostly in memory rather than in time:
+
+**Allocations** (`AssayBench totalalloc`, the `malloc_logger` hook — the only instrument here
+that can see a block allocated and freed inside one decode):
+
+| document | bytes | `Array(data)` + parse | `parse(json: Data)` | saved |
+|---|---:|---:|---:|---:|
+| 1 item | 304 | 7 | 6 | 1 |
+| 50 items | 10,840 | 160 | 159 | 1 |
+| 200 items | 43,091 | 612 | 611 | 1 |
+
+**Exactly one allocation, whatever the size** — and the count is the part that understates it,
+because that one block holds a copy of the whole document and stays alive for the length of
+the parse. At 200 items it is a 43 kB block and a 43 kB `memcpy` that no longer happen.
+
+**Time** (`AssayBench largedoc`, same decode both ways):
+
+| items | MB | `Array(data)` + parse | `parse(json: Data)` | saved |
+|---|---:|---:|---:|---:|
+| 2,000 | 0.2 | 0.2 ms | 0.2 ms | 1.0% |
+| 20,000 | 2.0 | 2.0 ms | 2.0 ms | 2.6% |
+| 80,000 | 8.3 | 8.1 ms | 7.8 ms | 3.5% |
+
+1–3.5% of decode time, rising with size as the copy stops being a rounding error. Reported at
+that size rather than claimed in general: on a 300-byte body the copy is invisible, and the
+reason to prefer the `Data` door there is that it is the same call with nothing extra to
+write, not a measurable win.
+
+## What the work found on the way
+
+Extracting the shared seam turned up drift of exactly the kind the seam exists to prevent.
+`JSONAssayable._decode` has always been the one place the array and mmap doors meet, but
+`JSON.Value` had no such seam — so `parse(mmapped:)` carried its own copy of the scan loop,
+and that copy still called the pre-2026-09-19 `scanJSONValue`, **with no shape memory**. A
+mapped `JSON.Value` grew its containers by doubling while every other door reserved what the
+previous container at that depth held (`docs/EFFICIENCY.md` row 2). `JSON.Value._decode` now
+exists and all three doors call it; the duplicate is deleted rather than updated. No matrix
+counter moved (`base/value`, `base/raw`, `base/struct`, `nested-3/value` all unchanged), which
+is the expected result for a refactor and worth having checked.

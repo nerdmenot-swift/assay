@@ -25,6 +25,7 @@ authoritative list of what is deferred and why; `README.md` is the front door.
 | YAML and XML parsers | **built** — hand-written, XXE refused by construction. **Each is ONE parser generic over what it builds since 2026-09-20** (`YAMLBuilder.swift`, `XMLBuilder.swift`): the tree door builds `YAML.Node`/`XML.Element`, the `@Schema` door builds `RawValue` directly, and there is no tree in between (`docs/EFFICIENCY.md` rows 12 and 17 — yaml-struct −17.7% to −29.3% instructions and −49% to −66% heap bytes, xml-struct −17.3%/−21.1%; the XML *tree* door pays +2.2% to +3.4%, a recorded trade). **The accumulator IS the result**: a builder names what children are gathered into, because gathering into a neutral array and converting at the end left the block count exactly where it started |
 | `@Extras` + `unknownKeys: .ignore/.warn/.reject/.collect` | **built**, with Damerau did-you-mean |
 | `parse(mmapped:)` (`AssayFoundation`) | **built** — 216x less memory footprint, 3.6x faster |
+| `Data` input (`AssayFoundation`) | **built 2026-09-22** — `parse(json:)`/`diagnose(json:)`, their async and contextual pairs, `Assayer<T>`, `JSON.Value.parse` and the `parse(body:)` negotiation door all take `Data`, decoding **inside `withUnsafeBytes` with no copy**. `docs/EXPERIENCE.md` §16 had promised these since before there was an implementation and `grep ': Data'` returned nothing — found 2026-09-22 by a question, not by a test. One allocation saved per parse whatever the size (`totalalloc`), 1.0-3.5% of decode time at 0.2-8.3 MB (`largedoc`); the peak memory is the point, since `Array(data)` keeps a second copy of the document alive for the whole parse. **`Diagnosis.source` is empty on a CLEAN decode from `Data`** — a `Data`'s bytes are valid only inside `withUnsafeBytes` and there is no owner object to borrow from, so they are copied only when an issue or warning needs rendering; every render is then byte-identical to the array door's, which `DataInputTests` pins. The `body:` door copies once (negotiation may pick a parser from a module `AssayFoundation` cannot see) and refuses an unacceptable media type before it does |
 | Renderers (`.terminal`/`.plain`/`.json`/`.problemDetails`) | **built** — golden caret tests |
 | Source spans for YAML and XML | **built 2026-08-13** — schema issues carry carets on all three formats now. `RawValue.Member.span`, excluded from `==`/`hash`. ~2% on YAML, nothing elsewhere; sequence/dictionary *elements* still have no span |
 | `@Validate` + rule engine | **built** — hand-rolled `.email`/`.url`/`.uuid`/`.hostname`, type-checked at expansion |
@@ -189,7 +190,10 @@ first, async runs only if sync was clean, then concurrently.
 
 ### Packaging
 Products `Assay` (core + JSON), `AssayFoundation`, `AssayYAML`, `AssayXML`, `AssayTOML`, `AssayPlist`. Core takes bytes, not
-`Data`. `platforms:` names **every** Apple platform (macOS 11 / iOS 14 / tvOS 14 / watchOS 7 /
+`Data` — and since 2026-09-22 `AssayFoundation` carries the `Data` overloads, which decode
+the borrowed buffer rather than converting it. The format modules import NO Foundation at
+all, which is why a `Data` door for YAML/XML/TOML/plist does not exist: it would either
+put Foundation in those modules or put them in every `Data` user's binary. `platforms:` names **every** Apple platform (macOS 11 / iOS 14 / tvOS 14 / watchOS 7 /
 visionOS 1) — listing macOS alone leaves the others on SwiftPM's ancient default rather than
 unconstrained, which broke the iOS build until 2026-08-22. `Limits` (maxIssues 100, maxDepth 64, maxBytes) with
 `d.truncatedIssues`. Embedded Swift is explicitly not a target.

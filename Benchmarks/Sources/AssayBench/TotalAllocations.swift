@@ -50,6 +50,7 @@
 
 import Foundation
 import Assay
+import AssayFoundation
 import CHeapBytes
 
 /// Keep a value from being optimised away without allocating anything itself — the counter
@@ -156,6 +157,52 @@ func runTotalAllocationBenchmarks() {
                                             / Double(max(1, mine.allocations))), 9)
               + pad("\(transient)", 11))
     }
+
+    // The `Data` door (`AssayFoundation/DataParsing.swift`), measured with the one
+    // instrument that can see it. `Array(data)` is a single allocation, so the live-block
+    // gate cannot tell the two apart — it is freed inside the decode — and wall clock only
+    // shows it on a big document. Here it is exactly one allocation, whatever the size.
+    print("")
+    print("Data input — Array(data) + parse(json:) against parse(json: Data)")
+    print("The same document and the same decode; the difference is the input copy.")
+    print("")
+    print(pad("document", 16, right: true) + pad("bytes", 10) + pad("Array(data)", 13)
+          + pad("Data", 8) + pad("saved", 8))
+    print(String(repeating: "-", count: 55))
+
+    for count in [1, 50, 200] {
+        var text = #"{"request_id":"r","generated_at":"t","page":1,"total_count":\#(count),"#
+        text += #""has_more":false,"items":["#
+        for i in 0..<count {
+            if i > 0 { text += "," }
+            text += corpusItem
+        }
+        text += "]}"
+        let data = Data(text.utf8)
+
+        guard (try? AllocPayload.parse(json: data)) != nil else {
+            print(pad("\(count) items", 16, right: true) + "  SKIPPED — the Data door failed")
+            continue
+        }
+        guard let viaArray = countingAllocations({
+                  allocSink((try? AllocPayload.parse(json: Array(data)))?.items.count ?? 0)
+              }),
+              let viaData = countingAllocations({
+                  allocSink((try? AllocPayload.parse(json: data))?.items.count ?? 0)
+              }) else { continue }
+
+        print(pad("\(count) items", 16, right: true)
+              + pad("\(data.count)", 10)
+              + pad("\(viaArray.allocations)", 13)
+              + pad("\(viaData.allocations)", 8)
+              + pad("\(viaArray.allocations - viaData.allocations)", 8))
+    }
+
+    print("")
+    print("One allocation saved per parse, and it is the one that holds a COPY OF THE WHOLE")
+    print("DOCUMENT — so the count understates it: at 200 items that is one 44 kB block and")
+    print("a 44 kB memcpy that no longer happen. A clean decode from Data also keeps no")
+    print("source bytes for rendering, which is the documented difference in DataParsing.swift.")
 
     print("")
     print("The last column is Foundation's allocation count minus Assay's. Both decoders")

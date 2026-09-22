@@ -113,6 +113,8 @@ let package = Package(
             name: "AssayBench",
             dependencies: [
                 .product(name: "Assay", package: "assay"),
+                // For the `Data` input rows in `totalalloc`: the zero-copy door lives here.
+                .product(name: "AssayFoundation", package: "assay"),
                 .product(name: "AssayYAML", package: "assay"),
                 .product(name: "AssayXML", package: "assay"),
                 // The BASELINE for the YAML rows, exactly as it is the oracle for the

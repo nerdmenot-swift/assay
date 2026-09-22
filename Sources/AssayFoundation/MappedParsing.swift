@@ -147,25 +147,16 @@ extension JSON.Value {
         limits: Limits
     ) throws -> JSON.Value {
         var sink = IssueSink(limits: limits)
+        // Through `JSON.Value._decode`, not a copy of its loop. This function HAD its own
+        // copy, and it had drifted: it called `scanJSONValue` with no shape memory, so a
+        // mapped document's containers grew by doubling while every other door reserved
+        // what the previous container at that depth held (`docs/EFFICIENCY.md` row 2).
         let v = unsafe file.withUnsafeBytes { buf -> JSON.Value? in
             guard let base = unsafe buf.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
                 return nil
             }
-            if let bad = unsafe UTF8Validation.firstInvalid(base, buf.count) {
-                sink.add(Issue(code: .invalidUTF8, params: ["offset": .int(bad)],
-                               location: SourceSpan(lo: bad, len: 1)))
-                return nil
-            }
-            var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
-            reader.advanceBy(unsafe UTF8Validation.bomLength(base, buf.count))
-            guard let v = reader.scanJSONValue(&sink, []) else { return nil }
-            reader.skipWhitespace()
-            if !reader.atEnd {
-                sink.add(Issue(code: .trailingContent,
-                               location: SourceSpan(lo: reader.byteOffset, len: 1)))
-                return nil
-            }
-            return v
+            return unsafe JSON.Value._decode(base: base, count: buf.count,
+                                             into: &sink, limits: limits)
         }
         guard let value = v, sink.isValid else {
             throw AssayError(issues: sink.issues, source: .empty, sourceName: "<mapped>")

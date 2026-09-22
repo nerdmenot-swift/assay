@@ -44,6 +44,7 @@
 
 import Foundation
 import Assay
+import AssayFoundation
 
 @Schema(keys: .snakeCase)
 struct BigItem: Decodable {
@@ -138,6 +139,53 @@ func runLargeDocumentBenchmarks() {
               + pad(String(format: "%.1f ms", assay / 1_000_000), 10)
               + pad(String(format: "%.2fx", foundation / assay), 9)
               + pad(String(format: "%.0f", mb / (assay / 1_000_000_000)), 12))
+    }
+
+    // The input copy, at the size where it stops being a rounding error. `parse(json: Data)`
+    // decodes inside `withUnsafeBytes`; `Array(data)` allocates and memcpys the whole
+    // document first. `totalalloc` shows that as exactly one allocation either way — this
+    // shows what the bytes cost.
+    print("")
+    print("The input copy — Array(data) + parse against parse(json: Data), same decode")
+    print("")
+    print(pad("items", 10, right: true) + pad("MB", 8) + pad("Array(data)", 13)
+          + pad("Data", 10) + pad("saved", 10))
+    print(String(repeating: "-", count: 51))
+
+    for count in [2_000, 20_000, 80_000] {
+        var text = #"{"request_id":"req-1","total_count":\#(count),"items":["#
+        for i in 0..<count {
+            if i > 0 { text += "," }
+            text += #"{"id":"item-\#(i)","name":"a name of ordinary length \#(i)",""#
+                + #"amount":\#(Double(i) * 1.5),"active":\#(i % 2 == 0),"retry_count":\#(i % 4)}"#
+        }
+        text += "]}"
+
+        let data = Data(text.utf8)
+        let mb = Double(data.count) / 1_048_576
+        var limits = Limits.default
+        limits.maxBytes = data.count + 1
+
+        guard let viaData = try? BigPayload.parse(json: data, limits: limits),
+              let viaArray = try? BigPayload.parse(json: Array(data), limits: limits),
+              viaData.items.count == viaArray.items.count else {
+            print(pad("\(count)", 10, right: true) + "  SKIPPED — the two doors disagree")
+            continue
+        }
+
+        let reps = max(3, 40_000_000 / data.count)
+        let copying = measure(iterations: reps) {
+            _ = try? BigPayload.parse(json: Array(data), limits: limits)
+        }
+        let direct = measure(iterations: reps) {
+            _ = try? BigPayload.parse(json: data, limits: limits)
+        }
+
+        print(pad("\(count)", 10, right: true)
+              + pad(String(format: "%.1f", mb), 8)
+              + pad(String(format: "%.1f ms", copying / 1_000_000), 13)
+              + pad(String(format: "%.1f ms", direct / 1_000_000), 10)
+              + pad(String(format: "%.1f%%", (copying - direct) / copying * 100), 10))
     }
 
     print("")

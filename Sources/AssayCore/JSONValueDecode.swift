@@ -248,25 +248,47 @@ extension JSON.Value {
                 sink.add(Issue(code: .malformedDocument))
                 return nil
             }
-            if let bad = unsafe UTF8Validation.firstInvalid(base, buf.count) {
-                sink.add(Issue(code: .invalidUTF8,
-                               params: ["offset": .int(bad)],
-                               location: SourceSpan(lo: bad, len: 1)))
-                return nil
-            }
-            var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
-            reader.advanceBy(unsafe UTF8Validation.bomLength(base, buf.count))
-            var path: [PathComponent] = []
-            var hints = _ShapeHints()
-            guard let v = reader._scanJSONValue(&sink, &path, &hints) else { return nil }
-            reader.skipWhitespace()
-            if !reader.atEnd {
-                sink.add(Issue(code: .trailingContent,
-                               location: SourceSpan(lo: reader.byteOffset, len: 1)))
-                return nil
-            }
-            return v
+            return unsafe _decode(base: base, count: buf.count, into: &sink, limits: limits)
         }
+    }
+
+    /// The shared decode core, against a contiguous buffer.
+    ///
+    /// `decode(_:into:limits:)`, `parse(mmapped:)` in `AssayFoundation` and the `Data` door
+    /// beside it all funnel through here, for the reason `JSONAssayable._decode` exists:
+    /// **one scanner, one set of checks, no drift between the doors.** That was not
+    /// hypothetical — the mapped path had its own hand-written copy of this loop, and it
+    /// called the pre-2026-09-19 `scanJSONValue` with no shape memory, so a mapped
+    /// `JSON.Value` allocated by doubling while every other door reserved from the previous
+    /// container at its depth. Extracting the seam fixed that by deleting the duplicate.
+    ///
+    /// `maxBytes` is NOT checked here: a caller holding a pointer has already decided what
+    /// buffer to hand over, and the two array-and-`Data` doors check it before they get
+    /// here, where they can still name the limit in the issue.
+    public static func _decode(
+        base: UnsafePointer<UInt8>,
+        count: Int,
+        into sink: inout IssueSink,
+        limits: Limits = .default
+    ) -> JSON.Value? {
+        if let bad = unsafe UTF8Validation.firstInvalid(base, count) {
+            sink.add(Issue(code: .invalidUTF8,
+                           params: ["offset": .int(bad)],
+                           location: SourceSpan(lo: bad, len: 1)))
+            return nil
+        }
+        var reader = unsafe AssayReader(base: base, count: count, limits: limits)
+        reader.advanceBy(unsafe UTF8Validation.bomLength(base, count))
+        var path: [PathComponent] = []
+        var hints = _ShapeHints()
+        guard let v = reader._scanJSONValue(&sink, &path, &hints) else { return nil }
+        reader.skipWhitespace()
+        if !reader.atEnd {
+            sink.add(Issue(code: .trailingContent,
+                           location: SourceSpan(lo: reader.byteOffset, len: 1)))
+            return nil
+        }
+        return v
     }
 
     public static func parse(

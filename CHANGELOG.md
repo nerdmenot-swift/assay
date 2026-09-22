@@ -68,6 +68,24 @@ stable for two minor versions with no entry under **Breaking**.
 
 ### Added
 
+- **`Data` input, with no copy.** `parse(json:)` and `diagnose(json:)` — plus their async and
+  contextual pairs, `Assayer<T>`'s pair, `JSON.Value.parse` and the
+  `parse(body:contentType:accepting:)` negotiation door — now take `Data` from
+  `AssayFoundation`, and the JSON ones decode inside `withUnsafeBytes` rather than converting.
+  `Array(data)`, which is what a caller wrote before, allocates and copies the whole document
+  first, so a second copy of it stayed alive for the length of the parse. Measured: one
+  allocation saved per parse whatever the size, and 1.0% / 2.6% / 3.5% of decode time at
+  0.2 / 2.0 / 8.3 MB — the time is the small half. `docs/EXPERIENCE.md` §16 had described these
+  overloads since before there was an implementation; there was none, and no test would have
+  found that, because a document promising an API is not a call site.
+
+  One behaviour to know, tested rather than left as prose: on a **clean** decode from `Data`,
+  `Diagnosis.source` is empty. A `Data`'s bytes are valid only inside `withUnsafeBytes`, so
+  they are retained only when an issue or warning needs rendering — every render is then
+  byte-identical to the array door's. The `body:` door copies once, because negotiation may
+  choose a parser from a module `AssayFoundation` cannot see; it refuses an unacceptable media
+  type before paying for the copy.
+
 - **Missing-capability errors name the fix instead of an internal protocol.** Calling
   `parse(yaml:)`, `parse(xml:)`, `parse(toml:)`, `parse(plist:)`, `parse(body:)`,
   `encodedJSON()`/`encodedYAML()`/`encodedXML()`/`encodedTOML()` or `jsonSchema(for:)` on a

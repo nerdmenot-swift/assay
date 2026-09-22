@@ -4,8 +4,15 @@ name: Docs
 #
 # `astro build` rather than `bun run build`, deliberately: the latter runs the extract
 # script, which needs a Swift toolchain to rebuild the example renders. Those renders are
-# committed, so the deploy leg does not need Swift — and the staleness check below is what
+# committed, so the deploy leg does not need Swift — and the `freshness` job below is what
 # keeps "committed" honest.
+#
+# That job did not exist until 2026-09-23, though this comment said it did. It could not:
+# six renders print a `Dictionary` or a `Set`, `String(describing:)` walks them in hash
+# order, and Swift seeds its hasher per process — so re-running the extract produced a diff
+# whether or not anything had changed, and a gate on "the diff is empty" would have failed
+# at random. `SWIFT_DETERMINISTIC_HASHING=1` in `extract.ts` fixes the cause; this job is
+# the gate that the fix makes possible.
 
 on:
   push:
@@ -23,6 +30,35 @@ permissions:
   contents: read
 
 jobs:
+  # The committed renders ARE the library's output, or they are a lie the site tells on
+  # every page. Re-run the extract against this commit and require that nothing changed.
+  freshness:
+    name: Committed renders are current
+    runs-on: ubuntu-latest
+    container: swift:6.3.3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install bun
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends curl unzip
+          curl -fsSL https://bun.sh/install | bash -s "bun-v1.4.0"
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+      - name: Re-extract every render from the real library
+        working-directory: website
+        run: |
+          bun install --frozen-lockfile
+          bun run extract
+      # `git diff --exit-code` is the whole gate. A render that drifted, a page template
+      # whose placeholder now resolves differently, a changelog entry not copied across —
+      # all of them show up here as a non-empty diff.
+      - name: Nothing regenerated differently
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          if ! git diff --exit-code -- website/src; then
+            echo "::error::website/src is out of date — run 'bun run extract' in website/ and commit the result"
+            exit 1
+          fi
+
   build:
     name: Build
     runs-on: ubuntu-latest

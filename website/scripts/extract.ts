@@ -130,7 +130,16 @@ let package = Package(
 `
   )
   console.log('  extract: building the examples against the real library…')
-  const json = await $`swift run -c release --package-path ${tmp} extract`.quiet().text()
+  // SWIFT_DETERMINISTIC_HASHING makes `Dictionary` and `Set` iterate in the same order on
+  // every run. Without it, six of the committed renders print their members in a different
+  // order each time — `String(describing:)` walks the storage — so `bun run extract`
+  // produced a diff whether or not anything had changed, and "the committed renders are
+  // the library's real output" could not be checked by the diff being empty. It can now,
+  // and CI checks it (`.github/workflows/docs.yml`).
+  const json = await $`swift run -c release --package-path ${tmp} extract`
+    .env({ ...process.env, SWIFT_DETERMINISTIC_HASHING: '1' })
+    .quiet()
+    .text()
   renders = JSON.parse(json)
   // `String(describing:)` qualifies a type with the module it came from, so a nested
   // value prints as `extract.Server` — the name of this harness's throwaway package,

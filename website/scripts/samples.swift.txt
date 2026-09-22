@@ -596,9 +596,17 @@ let binary = try! PropertyListSerialization.data(
     fromPropertyList: ["name": "api", "image": "img:1", "replicas": 3],
     format: .binary, options: 0)
 let binaryBytes = [UInt8](binary)
+// Only the MAGIC is dumped, and the reason is a platform difference the docs CI caught:
+// past the header the layout depends on the order Foundation walked the dictionary, and
+// swift-corelibs on Linux walks it differently from Darwin — so a 16-byte dump generated
+// on a Mac did not reproduce in the Linux container, and the freshness gate failed on a
+// render nobody had touched. The first eight bytes are the point anyway: a binary plist
+// announces itself, and everything after that is an index-resolved object graph rather
+// than anything a reader can follow by eye.
 emit("plist.binary",
      "// 'bplist00' + " + String(binaryBytes.count) + " bytes, written by PropertyListSerialization\n"
-     + binaryBytes.prefix(16).map { String(format: "%02x", $0) }.joined(separator: " ") + " …",
+     + binaryBytes.prefix(8).map { String(format: "%02x", $0) }.joined(separator: " ")
+     + " … (an offset table and a trailer)",
      String(describing: try! Deployment.parse(plist: binaryBytes)))
 
 let plistBadType = """

@@ -168,6 +168,31 @@ A JSON Schema 2020-12 descriptor. `.input` describes what `parse` accepts, `.out
 the value looks like after transforms — genuinely different once transforms exist, which is
 a correction Zod shipped in v4.
 
+## Bytes, strings and `Data`
+
+Assay reads UTF-8 bytes. `[UInt8]` is the real overload on every format and `String` is a
+convenience that copies into one, so nothing here is string-first:
+
+```swift
+try Article.parse(json: bytes)        // [UInt8]
+try Article.parse(json: text)         // String — copied to UTF-8 for you
+try Article.parse(json: data)         // Data, from AssayFoundation
+```
+
+The `Data` overloads decode the buffer where it already is. `Array(data)` — the thing you
+would otherwise write — allocates and copies the whole document first, so a second copy of it
+stays alive for the length of the parse; that is one allocation saved per decode whatever the
+size, and 1–3.5% of the time on documents from 0.2 to 8.3 MB. The memory is the point more
+than the time.
+
+One difference worth knowing: after a **clean** decode from `Data`, `d.source` is empty. A
+`Data`'s bytes are only valid for the duration of the call, so Assay keeps a copy of them
+only when an issue or warning needs a caret rendered later — you passed the `Data` in, so you
+still have it. Failures render identically either way.
+
+For a file, prefer `parse(mmapped:)`: the kernel pages it in as the parse walks it, and errors
+still render carets straight out of the mapping.
+
 ## Two things that are not here
 
 **Streaming.** Decoding a document larger than memory, incrementally. It is out of scope,

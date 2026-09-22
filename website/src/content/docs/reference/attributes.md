@@ -60,7 +60,8 @@ with a message naming the fix.
 
 | Call | Needs | Returns |
 |---|---|---|
-| `T.parse(json:)` | `Assay` | `T`, throws `AssayError` |
+| `T.parse(json:)` | `Assay` | `T`, throws `AssayError`. Takes `[UInt8]` or `String` |
+| `T.parse(json: Data)` | `AssayFoundation` | `T`. Decoded in place — no copy of the input |
 | `T.parse(yaml:)` / `parseAll(yaml:)` | `AssayYAML` + `formats: [.yaml]` | `T` / `[T]` |
 | `T.parse(xml:)` | `AssayXML` + `formats: [.xml]` | `T` |
 | `T.parse(toml:)` | `AssayTOML` + `formats: [.toml]` | `T` |

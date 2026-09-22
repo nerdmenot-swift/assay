@@ -95,7 +95,9 @@ Order: preprocess → coerce → decode → field rules → cross-field checks �
 ## Parsing
 
 ```swift
-try T.parse(json: bytes)              // or a String
+try T.parse(json: bytes)              // [UInt8] — the primary form
+try T.parse(json: text)               // String, copied to UTF-8 for you
+try T.parse(json: data)               // Data, AssayFoundation — decoded in place, no copy
 try T.parse(yaml: text)               // AssayYAML
 try T.parse(xml: bytes)               // AssayXML
 try T.parse(toml: text)               // AssayTOML

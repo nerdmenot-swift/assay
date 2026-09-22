@@ -125,11 +125,13 @@ onto your form fields — none of which is practical with `DecodingError`'s asso
 
 ### Some types are not field types
 
-`Set`, `Data`, `URL`, `Decimal`, tuples, `Any` and a few others are refused at expansion
-with a message naming the alternative — usually "decode as `String` and convert with
+`Set`, `Data`, `URL`, `Decimal`, tuples, `Any` and a few others are refused as **field
+types**, at expansion, with a message naming the alternative — usually "decode as `String` and convert with
 `@Transform`". Codable would accept several of these and then behave in a way you did not
 intend. [Advanced](/guides/advanced/#types-the-macro-refuses) lists them all with the reason
-and the fix.
+and the fix. Note the difference between a `Data` field, which is refused, and
+`parse(json: data)`, which takes a `Data` as the document and is the fastest way to hand one
+over.
 
 ## Migrating a type, in order
 

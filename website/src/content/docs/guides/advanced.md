@@ -120,7 +120,7 @@ and behaves oddly.
 | `Any` / `AnyObject` | nothing to decode into | `RawValue` |
 | `T!` | an absent key must be nil or an error | `T?` |
 | `Character` | not a field type | `String` |
-| `Data` | documents carry bytes as text | `String` + `@Transform`, or `[UInt8]` |
+| `Data` | documents carry bytes as text | `String` + `@Transform`, or `[UInt8]`. This is about a `Data` *field*; `parse(json: Data)` is an input and works — see below |
 | `URL` | — | `@Validate(.url) var …: String`, construct where you use it |
 | `Decimal` | JSON numbers are doubles; a decimal should travel as a string | `String` + `@Transform` |
 | a generic struct | a macro cannot specialise | a concrete type per instantiation |

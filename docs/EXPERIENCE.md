@@ -145,7 +145,7 @@ try User.parse(bytes, as: .json)    User.diagnose(bytes, as: .json)
 let d = User.diagnose(json: data, limits: .default)
 ```
 
-`Limits` carries `maxIssues` (default 100), `maxDepth` (default 64), `maxBytes`, and for the formats that need it, entity expansion caps. When the issue cap is hit, the diagnosis says so explicitly — `d.truncatedIssues == true` — rather than quietly returning a hundred of ten thousand.
+`Limits` carries `maxIssues` (default 100), `maxDepth` (default 64), `maxBytes`, and for the formats that need it, entity expansion caps. When the issue cap is hit, the diagnosis says so explicitly — `d.issuesWereTruncated == true` — rather than quietly returning a hundred of ten thousand.
 
 This was missing entirely from the first edition and it was a denial-of-service hole: a ten-megabyte array of malformed email addresses would have produced a hundred thousand issues, each retaining a source span.
 

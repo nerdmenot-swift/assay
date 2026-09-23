@@ -236,7 +236,7 @@ extension Assayer {
         }
         return Diagnosis(
             value: value, issues: sink.issues, warnings: sink.warnings,
-            truncatedIssues: sink.truncatedIssues,
+            issuesWereTruncated: sink.issuesWereTruncated,
             source: SourceBytes([]), sourceName: sourceName)
     }
 
@@ -253,7 +253,7 @@ extension Assayer {
         return Diagnosis(
             value: d.value, issues: sink.issues + d.issues,
             warnings: sink.warnings + d.warnings,
-            truncatedIssues: d.truncatedIssues,
+            issuesWereTruncated: d.issuesWereTruncated,
             source: SourceBytes(bytes), sourceName: sourceName)
     }
 

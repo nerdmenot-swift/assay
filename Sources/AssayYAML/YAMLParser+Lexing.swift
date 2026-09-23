@@ -22,18 +22,18 @@ extension YAML.Parser {
     }
 
     mutating func skipInlineSpace(_ r: inout AssayReader) {
-        while let c = r.currentByte, c == 0x20 || c == 0x09 { r.advanceBy(1) }
+        while let c = r.currentByte, c == 0x20 || c == 0x09 { r.advance(by: 1) }
     }
 
     mutating func skipLine(_ r: inout AssayReader) {
-        while let c = r.currentByte, c != 0x0A { r.advanceBy(1) }
-        if r.currentByte == 0x0A { r.advanceBy(1) }
+        while let c = r.currentByte, c != 0x0A { r.advance(by: 1) }
+        if r.currentByte == 0x0A { r.advance(by: 1) }
     }
 
     mutating func skipBlanksAndComments(_ r: inout AssayReader) {
         while let c = r.currentByte {
             if c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0D {
-                r.advanceBy(1)
+                r.advance(by: 1)
                 continue
             }
             // A comment starts at line start or after whitespace — `a#b` is a scalar.
@@ -55,7 +55,7 @@ extension YAML.Parser {
             c != UInt8(ascii: ","), c != UInt8(ascii: "["), c != UInt8(ascii: "]"),
             c != UInt8(ascii: "{"), c != UInt8(ascii: "}")
         {
-            r.advanceBy(1)
+            r.advance(by: 1)
         }
         return r.byteOffset > start ? r.string(from: start, to: r.byteOffset) : nil
     }

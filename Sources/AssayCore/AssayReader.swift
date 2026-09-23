@@ -85,7 +85,7 @@ public struct AssayReader: ~Copyable {
     /// arrive at the caller identically unless one of them is recorded on the side.
     @usableFromInline var numberRangeErrorAt: Int = -1
     @usableFromInline var numberRangeErrorLength: Int = 0
-    /// Where an ESCAPED key's unescaped bytes live (`KeyRange.simple == false`), so it can be
+    /// Where an ESCAPED key's unescaped bytes live (`KeyRange.isSimple == false`), so it can be
     /// matched against a declared key like any other. Allocated on the first escaped key and
     /// reused; a document with none never allocates it. See `scanEscapedKey`.
     @usableFromInline var keyScratch: UnsafeMutablePointer<UInt8>? = nil
@@ -113,14 +113,14 @@ public struct AssayReader: ~Copyable {
     // MARK: - Primitive access
 
     /// Unchecked by design; see the file header. The parser's own invariants and the
-    /// `atEnd` guards carry the safety argument, not the compiler.
+    /// `isAtEnd` guards carry the safety argument, not the compiler.
     @inlinable @inline(__always)
     var current: UInt8 {
         unsafe base[cursor]
     }
 
     @inlinable @inline(__always)
-    public var atEnd: Bool { cursor >= count }
+    public var isAtEnd: Bool { cursor >= count }
 
     /// Current byte offset, for constructing a `SourceSpan` on the error path.
     @inlinable @inline(__always)
@@ -217,7 +217,7 @@ public struct AssayReader: ~Copyable {
         /// How many bytes to match: the key's length, unescaped when it had escapes.
         public var len: Int
         /// True when the key contained no backslash, so its bytes ARE the source bytes.
-        public var simple: Bool
+        public var isSimple: Bool
         /// The bytes to match: the source (`base + lo`) for a simple key, the reader's
         /// scratch for an escaped one. Chosen once, in `scanKey`, so the readers of a key's
         /// bytes do not branch on `simple`; a version that did cost 1.5–4.8% instructions
@@ -225,10 +225,10 @@ public struct AssayReader: ~Copyable {
         @usableFromInline var bytes: UnsafePointer<UInt8>
 
         @inlinable
-        public init(lo: Int, len: Int, simple: Bool, bytes: UnsafePointer<UInt8>) {
+        public init(lo: Int, len: Int, isSimple: Bool, bytes: UnsafePointer<UInt8>) {
             self.lo = lo
             self.len = len
-            self.simple = simple
+            self.isSimple = isSimple
             unsafe self.bytes = bytes
         }
     }
@@ -244,7 +244,7 @@ public struct AssayReader: ~Copyable {
             let c = unsafe base[cursor]
             if c == 0x22 {
                 let r = unsafe KeyRange(
-                    lo: start, len: cursor &- start, simple: true,
+                    lo: start, len: cursor &- start, isSimple: true,
                     bytes: base + start)
                 cursor &+= 1
                 return r
@@ -258,7 +258,7 @@ public struct AssayReader: ~Copyable {
     }
 
     /// A key containing a backslash: unescape it into `keyScratch` and return a range whose
-    /// bytes are read from there (`KeyRange.simple == false`), with its UNESCAPED length.
+    /// bytes are read from there (`KeyRange.isSimple == false`), with its UNESCAPED length.
     ///
     /// Until 2026-09-19 an escaped key was matched on its raw bytes. `simple` was computed
     /// and read by nothing, so `{"a\/b": 1}` did not match `@Key("a/b")`. RFC 8259 says those
@@ -286,7 +286,7 @@ public struct AssayReader: ~Copyable {
             return nil
         }
         return unsafe KeyRange(
-            lo: start, len: n, simple: false,
+            lo: start, len: n, isSimple: false,
             bytes: UnsafePointer(keyScratch!))
     }
 
@@ -443,7 +443,7 @@ public struct AssayReader: ~Copyable {
         // one past the end is outside the source and the renderer draws nothing there,
         // which is how truncated input came to have no position at all.
         let ended = cursor >= count
-        if ended { params["atEnd"] = .bool(true) }
+        if ended { params["isAtEnd"] = .bool(true) }
         sink.add(
             Issue(
                 code: .malformedDocument,
@@ -557,7 +557,7 @@ extension AssayReader {
     public var byteCount: Int { count }
 
     @inlinable
-    public mutating func advanceBy(_ n: Int) { cursor &+= n }
+    public mutating func advance(by n: Int) { cursor &+= n }
 
     @inlinable
     public mutating func seek(to offset: Int) { cursor = offset }

@@ -530,7 +530,7 @@ Three rules the generated code must obey or all of this evaporates:
 2. **The issue-construction path is a separate, cold-marked function.** Not inlined into the
    field loop, where it would bloat the hot function past the escape-analysis budget (§8.3).
 3. **The `Limits` cap is checked in the failure branch only.** `maxIssues` (100 by default) is a
-   comparison that the happy path never reaches, and `d.truncatedIssues` is set there.
+   comparison that the happy path never reaches, and `d.issuesWereTruncated` is set there.
 
 ---
 

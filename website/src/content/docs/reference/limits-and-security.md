@@ -16,13 +16,13 @@ try Config.parse(json: bytes, limits: Limits(maxDepth: 16, maxBytes: 1 << 20))
 
 | Limit | Default | What it bounds |
 |---|---|---|
-| `maxIssues` | 100 | Issues collected. When it fires, `truncatedIssues` is `true` |
+| `maxIssues` | 100 | Issues collected. When it fires, `issuesWereTruncated` is `true` |
 | `maxDepth` | 64 | Container nesting. Checked on entry to every container |
 | `maxBytes` | 64 MB | Input size. Checked before the first byte is read |
 | `maxUnionAttempts` | 10,000 | Untagged-union branch attempts, across the document |
 | `verboseUnions` | `false` | Keep every branch's issues rather than the closest one's |
 
-`maxIssues` is a memory bound, not a security one — but `truncatedIssues` matters for a
+`maxIssues` is a memory bound, not a security one — but `issuesWereTruncated` matters for a
 different reason: it lets you tell a hundred-of-a-hundred from a hundred-of-ten-thousand
 instead of guessing.
 

@@ -151,7 +151,7 @@ extension JSONAssayable where Self: AsyncCheckAssayable {
         // failure rather than by every request.
         return Diagnosis(
             value: nil, issues: d.issues + asyncIssues, warnings: d.warnings,
-            truncatedIssues: d.truncatedIssues,
+            issuesWereTruncated: d.issuesWereTruncated,
             source: SourceBytes(Array(data)), sourceName: sourceName)
     }
 
@@ -211,14 +211,14 @@ extension Assayer {
         guard let tree = d.value, d.isValid else {
             return Diagnosis(
                 value: nil, issues: d.issues, warnings: d.warnings,
-                truncatedIssues: d.truncatedIssues,
+                issuesWereTruncated: d.issuesWereTruncated,
                 source: d.source, sourceName: sourceName)
         }
         let inner = diagnose(RawValue(tree), limits: limits, sourceName: sourceName)
         return Diagnosis(
             value: inner.value, issues: d.issues + inner.issues,
             warnings: d.warnings + inner.warnings,
-            truncatedIssues: inner.truncatedIssues,
+            issuesWereTruncated: inner.issuesWereTruncated,
             // The plan's own issues carry spans into this document, so they
             // need the bytes even though the scan itself was clean.
             source: inner.isValid && inner.warnings.isEmpty

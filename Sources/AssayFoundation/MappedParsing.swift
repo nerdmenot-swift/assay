@@ -83,7 +83,7 @@ extension JSONAssayable {
                     ]))
             return Diagnosis(
                 value: nil, issues: sink.issues, warnings: sink.warnings,
-                truncatedIssues: false,
+                issuesWereTruncated: false,
                 source: .empty,
                 sourceName: url.lastPathComponent)
         }
@@ -129,7 +129,7 @@ extension JSONAssayable {
                     ]))
             return Diagnosis(
                 value: nil, issues: sink.issues, warnings: sink.warnings,
-                truncatedIssues: false, source: .empty, sourceName: path)
+                issuesWereTruncated: false, source: .empty, sourceName: path)
         }
 
         var sink = IssueSink(limits: limits)

@@ -19,7 +19,7 @@ extension YAML.Parser {
         guard depth < limits.maxDepth else {
             r.report(&sink, .depthExceeded); return nil
         }
-        r.advanceBy(1)  // [
+        r.advance(by: 1)  // [
         var items = B.makeItems(reserving: hints.items(at: depth))
         while true {
             skipBlanksAndComments(&r)
@@ -27,7 +27,7 @@ extension YAML.Parser {
                 r.report(&sink, .yamlUnterminatedFlowSequence)
                 return nil
             }
-            if c == UInt8(ascii: "]") { r.advanceBy(1); break }
+            if c == UInt8(ascii: "]") { r.advance(by: 1); break }
 
             // Zero-progress guard. A plain flow scalar terminates on , ] } and
             // newline WITHOUT consuming the terminator, so a stray "}" here yields an
@@ -46,9 +46,9 @@ extension YAML.Parser {
             // The separator is not optional: after an item only "," or "]" is legal.
             // Falling through on anything else was the other half of the hang.
             switch r.currentByte {
-            case UInt8(ascii: ","): r.advanceBy(1)
+            case UInt8(ascii: ","): r.advance(by: 1)
             case UInt8(ascii: "]"):
-                r.advanceBy(1); hints.setItems(B.itemCount(items), at: depth);
+                r.advance(by: 1); hints.setItems(B.itemCount(items), at: depth);
                 return B.sequence(items)
             case nil:
                 r.report(&sink, .yamlUnterminatedFlowSequence)
@@ -67,7 +67,7 @@ extension YAML.Parser {
         guard depth < limits.maxDepth else {
             r.report(&sink, .depthExceeded); return nil
         }
-        r.advanceBy(1)  // {
+        r.advance(by: 1)  // {
         var pairs = B.makePairs(reserving: hints.members(at: depth))
         var mergeSources: [B.Value] = []
         while true {
@@ -76,7 +76,7 @@ extension YAML.Parser {
                 r.report(&sink, .yamlUnterminatedFlowMapping)
                 return nil
             }
-            if c == UInt8(ascii: "}") { r.advanceBy(1); break }
+            if c == UInt8(ascii: "}") { r.advance(by: 1); break }
 
             let keyStart = r.byteOffset
             guard var key = parseFlowNode(&r, &sink, depth: depth + 1) else { return nil }
@@ -89,7 +89,7 @@ extension YAML.Parser {
                 r.report(&sink, .yamlExpectedColon)
                 return nil
             }
-            r.advanceBy(1)
+            r.advance(by: 1)
             skipBlanksAndComments(&r)
             let valueStart = r.byteOffset
             guard let value = parseFlowNode(&r, &sink, depth: depth + 1) else { return nil }
@@ -109,9 +109,9 @@ extension YAML.Parser {
 
             skipBlanksAndComments(&r)
             switch r.currentByte {
-            case UInt8(ascii: ","): r.advanceBy(1)
+            case UInt8(ascii: ","): r.advance(by: 1)
             case UInt8(ascii: "}"):
-                r.advanceBy(1)
+                r.advance(by: 1)
                 for source in mergeSources { B.merge(&pairs, from: source) }
                 hints.setMembers(B.pairCount(pairs), at: depth)
                 return B.mapping(pairs)
@@ -156,7 +156,7 @@ extension YAML.Parser {
         // would only ever accept `&a &b x`, which is not a document anyone can write.
         var anchor: String?
         if r.currentByte == UInt8(ascii: "&") {
-            r.advanceBy(1)
+            r.advance(by: 1)
             anchor = scanToken(&r)
             // Not `skipInlineSpace`: a flow context may put the value on the next line.
             skipBlanksAndComments(&r)
@@ -171,7 +171,7 @@ extension YAML.Parser {
         // in the document, and it should not pay for a feature it never uses.
         if anchor == nil {
             if r.currentByte == UInt8(ascii: "*") {
-                r.advanceBy(1)
+                r.advance(by: 1)
                 guard let name = scanToken(&r), let target = anchors[name] else {
                     r.report(&sink, .yamlUndefinedAlias)
                     return nil
@@ -236,7 +236,7 @@ extension YAML.Parser {
             {
                 break
             }
-            r.advanceBy(1)
+            r.advance(by: 1)
             if c != 0x20 && c != 0x09 { end = r.byteOffset }
         }
         return r.string(from: start, to: end)

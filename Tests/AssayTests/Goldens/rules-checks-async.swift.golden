@@ -1,7 +1,7 @@
 extension GoldenRules: Assay.JSONAssayable, Assay.Validatable, Assay.AsyncCheckAssayable {nonisolated static let __assayRules_0_0: [Assay.Rule] = [.min(1), .email]
 nonisolated static let __assayRules_1_0: [Assay.Rule] = [.count(1...3)]
-nonisolated static let __assayPre_2: [Assay.PreprocessOp] = [.trim]
-nonisolated static let __assayPre_3: [Assay.PreprocessOp] = [.trim]
+nonisolated static let __assayPre_2: [Assay.PreprocessStep] = [.trim]
+nonisolated static let __assayPre_3: [Assay.PreprocessStep] = [.trim]
 nonisolated static let __assayTransform_3: @Sendable (String) -> Int = { (s: String) in s.count }
 nonisolated static let __assayTransform_5: @Sendable ([String]) -> Set<String> = { (a: [String]) in Set(a) }
 nonisolated(unsafe) static let __assayFieldNames: [PartialKeyPath<GoldenRules>: String] = [\.a: "a", \.t: "t", \.p: "p", \.n: "n", \.f: "f", \.s: "s"]

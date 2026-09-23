@@ -136,9 +136,9 @@ wording.
 | `toml_redefined_table` | Table '…' is already defined. Params: `key`. |
 | `toml_root_not_a_table` | A TOML document is a table; the root value is not. Encoding only. |
 | `toml_unterminated_array` | Unterminated array; expected ',' or ']'. |
-| `toml_unterminated_inline_table` | Unterminated inline table; expected ',' or '}'. |
+| `custom` | `toml_unterminated_inline_table` — "unterminated inline table; expected ',' or '}'". |
 | `toml_unterminated_string` | Unterminated string. |
-| `toml_unterminated_table_header` | Expected ']' closing the table header. |
+| `custom` | `toml_unterminated_table_header` — "expected ']' closing the table header". |
 
 ### YAML (AssayYAML)
 
@@ -154,9 +154,9 @@ wording.
 | `yaml_undefined_alias` | Alias refers to an undefined anchor. |
 | `yaml_unexpected_in_flow` | Unexpected character in a flow collection; expected ',' or a closing bracket. |
 | `yaml_unrepresentable_key` | A mapping key is not a plain scalar; parse to YAML.Node instead. |
-| `yaml_unterminated_flow_mapping` | Unterminated flow mapping. |
-| `yaml_unterminated_flow_sequence` | Unterminated flow sequence. |
-| `yaml_unterminated_quoted_scalar` | Unterminated quoted scalar. |
+| `custom` | `yaml_unterminated_flow_mapping` — "unterminated flow mapping". |
+| `custom` | `yaml_unterminated_flow_sequence` — "unterminated flow sequence". |
+| `custom` | `yaml_unterminated_quoted_scalar` — "unterminated quoted scalar". |
 
 ### XML (AssayXML)
 

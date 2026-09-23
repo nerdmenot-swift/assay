@@ -23,7 +23,7 @@ extension YAML.Parser {
         var items = B.makeItems(reserving: hints.items(at: depth))
         while true {
             skipBlanksAndComments(&r)
-            if r.atEnd { break }
+            if r.isAtEnd { break }
             let column = currentColumn(&r)
             if column < indent { break }
             if column > indent { break }
@@ -32,16 +32,16 @@ extension YAML.Parser {
                 next == 0x20 || next == 0x0A || next == 0x0D
             else { break }
 
-            r.advanceBy(1)
+            r.advance(by: 1)
             skipInlineSpace(&r)
 
             // "-" alone on a line. The entry's value may still be a nested block
             // node on the following lines, indented past the dash (YAML 1.2 §8.2.1:
             // `-` is a block-sequence indicator, not a scalar terminator). Only when
             // the next content line is not more indented is the entry empty.
-            if r.currentByte == 0x0A || r.currentByte == 0x0D || r.atEnd {
+            if r.currentByte == 0x0A || r.currentByte == 0x0D || r.isAtEnd {
                 skipBlanksAndComments(&r)
-                if !r.atEnd, currentColumn(&r) > column {
+                if !r.isAtEnd, currentColumn(&r) > column {
                     let itemColumn = currentColumn(&r)
                     guard
                         let item = parseNode(
@@ -86,7 +86,7 @@ extension YAML.Parser {
         var mergeSources: [B.Value] = []
         while true {
             skipBlanksAndComments(&r)
-            if r.atEnd { break }
+            if r.isAtEnd { break }
             if atLineStart(&r), r.matches("---") || r.matches("...") { break }
             let column = currentColumn(&r)
             if column != indent { break }
@@ -96,7 +96,7 @@ extension YAML.Parser {
             if r.currentByte == UInt8(ascii: "?"),
                 let n = r.byte(at: 1), n == 0x20 || n == 0x0A
             {
-                r.advanceBy(1)
+                r.advance(by: 1)
                 skipInlineSpace(&r)
                 guard
                     let k = parseNode(
@@ -109,7 +109,7 @@ extension YAML.Parser {
                     r.report(&sink, .yamlExpectedValueIndicator)
                     return nil
                 }
-                r.advanceBy(1)
+                r.advance(by: 1)
             } else {
                 guard let k = parseKeyScalar(&r, &sink, depth: depth) else { return nil }
                 key = k
@@ -117,7 +117,7 @@ extension YAML.Parser {
                     r.report(&sink, .yamlExpectedColon)
                     return nil
                 }
-                r.advanceBy(1)
+                r.advance(by: 1)
             }
 
             skipInlineSpace(&r)
@@ -145,7 +145,7 @@ extension YAML.Parser {
                 // then went back to this loop as a KEY: `items:\n- a` was refused, and
                 // `items:\n- name: x` parsed as `{items: "", "- name": "x"}`, which is not
                 // YAML at all — a plain scalar cannot begin with "- ".
-                if r.atEnd || nextColumn < indent
+                if r.isAtEnd || nextColumn < indent
                     || (nextColumn == indent && !isSequenceEntry(&r))
                 {
                     value = B.scalar("", style: .plain, tag: nil)
@@ -217,7 +217,7 @@ extension YAML.Parser {
                 let n = r.byte(at: 1)
                 if n == nil || n == 0x20 || n == 0x0A || n == 0x0D { break }
             }
-            r.advanceBy(1)
+            r.advance(by: 1)
             if c != 0x20 && c != 0x09 { end = r.byteOffset }
         }
         return B.scalar(r.string(from: start, to: end), style: .plain, tag: nil)

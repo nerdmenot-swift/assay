@@ -18,6 +18,26 @@ stable for two minor versions with no entry under **Breaking**.
 
 ### Breaking
 
+- **Five names now follow the API Design Guidelines.** A naming pass against the guidelines
+  and against how swift-collections, swift-nio, swift-argument-parser and Foundation spell
+  the same things:
+
+  | was | is | why |
+  |---|---|---|
+  | `AssayReader.advanceBy(_:)` | `advance(by:)` | the preposition belongs in the label; the stdlib spells it `advanced(by:)` |
+  | `Diagnosis.truncatedIssues` | `issuesWereTruncated` | a `Bool` must read as an assertion — `if d.truncatedIssues` reads like a collection |
+  | `AssayReader.atEnd` | `isAtEnd` | Foundation's own `Scanner.isAtEnd` |
+  | `KeyRange.simple` | `isSimple` | same rule as above, and the initialiser label with it |
+  | `PreprocessOp` | `PreprocessStep` | no abbreviations, and it rhymes with `PathStep` now |
+
+- **`PathComponent` is now `PathStep`.** `issue.path` is `[PathStep]`, and the cases are
+  unchanged — `.key("email")`, `.index(3)`. Vapor exports a `PathComponent` of its own for
+  routing, so an app with both imported could not write the bare name as a type: Swift
+  reports "'PathComponent' is ambiguous for type lookup". Pattern matches and inferred uses
+  were never affected, which is why it took a collision audit to notice. Renamed rather than
+  documented because almost nobody spells this type — the macro emits it fully qualified, and
+  users read `issue.path` — so the rename costs one line in a migration and removes a
+  collision permanently.
 - **`EncodedBytes.toArray()` is now `Array(_:)`.** `Array(try value.encodedJSON())` rather
   than `try value.encodedJSON().toArray()`. The API Design Guidelines put a non-mutating
   conversion on the destination type as an initialiser — `Array(someSequence)`,

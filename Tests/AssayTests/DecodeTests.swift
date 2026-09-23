@@ -212,7 +212,7 @@ struct DecodeTests {
         big += "\"d\":\"bad\",\"b\":\"bad\",\"big\":\"bad\"}"
         let d = Numbers.diagnose(json: big, limits: Limits(maxIssues: 3))
         #expect(d.issues.count <= 3)
-        #expect(d.truncatedIssues == true)
+        #expect(d.issuesWereTruncated == true)
     }
 
     @Test("parse throws AssayError carrying every issue")

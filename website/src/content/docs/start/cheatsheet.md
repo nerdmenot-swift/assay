@@ -120,7 +120,7 @@ d.isValid                 // no errors
 d.value                   // T?, nil when there were errors
 d.issues                  // [Issue] — code, path, params, span, message
 d.warnings                // [Warning]
-d.truncatedIssues         // hit Limits.maxIssues
+d.issuesWereTruncated         // hit Limits.maxIssues
 try d.get()               // the value, or throw
 
 d.render(.terminal)       // carets, colour when attached to a TTY

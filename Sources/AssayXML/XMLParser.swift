@@ -106,7 +106,7 @@ extension XML {
                 return nil
             }
             var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
-            reader.advanceBy(unsafe UTF8Validation.bomLength(base, buf.count))
+            reader.advance(by: unsafe UTF8Validation.bomLength(base, buf.count))
             var parser = Parser<B>(limits: limits, inputBytes: buf.count)
             return parser.parseDocument(&reader, &sink)
         }
@@ -205,7 +205,7 @@ extension XML {
             // Trailing content after the root: only whitespace, comments and PIs are legal.
             while true {
                 skipSpace(&r)
-                if r.atEnd { break }
+                if r.isAtEnd { break }
                 if r.matches("<!--") { _ = parseComment(&r, &sink); continue }
                 if r.matches("<?") { _ = parseProcessingInstruction(&r, &sink); continue }
                 r.report(&sink, .trailingContent)
@@ -326,7 +326,7 @@ extension XML {
             // check that cannot fail reads exactly like a check that passed. It was
             // removed on 2026-09-13 along with its `xml_expected_element` code, which
             // `IssueCodeCoverageTests` had listed as unprovokable for that reason.
-            r.advanceBy(1)
+            r.advance(by: 1)
 
             let nameStart = r.byteOffset
             guard let nameRange = scanNameRange(&r) else {
@@ -389,7 +389,7 @@ extension XML {
             var contentEnd = contentStart
 
             while true {
-                guard !r.atEnd else {
+                guard !r.isAtEnd else {
                     let rawName = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
                     sink.add(
                         Issue(
@@ -550,7 +550,7 @@ extension XML {
         mutating func scanNameRange(_ r: inout AssayReader) -> Range<Int>? {
             guard let first = r.currentByte, isNameStart(first) else { return nil }
             let start = r.byteOffset
-            while let c = r.currentByte, isNameChar(c) { r.advanceBy(1) }
+            while let c = r.currentByte, isNameChar(c) { r.advance(by: 1) }
             return start..<r.byteOffset
         }
 
@@ -717,13 +717,13 @@ extension XML {
         ) -> String? {
             _ = r.consume("<!--")
             let start = r.byteOffset
-            while !r.atEnd {
+            while !r.isAtEnd {
                 if r.matches("-->") {
                     let text = r.string(from: start, to: r.byteOffset)
                     _ = r.consume("-->")
                     return normalizeLineEndings(text)
                 }
-                r.advanceBy(1)
+                r.advance(by: 1)
             }
             r.report(&sink, .xmlUnterminatedComment)
             return nil
@@ -734,13 +734,13 @@ extension XML {
         ) -> String? {
             _ = r.consume("<![CDATA[")
             let start = r.byteOffset
-            while !r.atEnd {
+            while !r.isAtEnd {
                 if r.matches("]]>") {
                     let text = r.string(from: start, to: r.byteOffset)
                     _ = r.consume("]]>")
                     return normalizeLineEndings(text)
                 }
-                r.advanceBy(1)
+                r.advance(by: 1)
             }
             r.report(&sink, .xmlUnterminatedCdata)
             return nil
@@ -764,13 +764,13 @@ extension XML {
             }
             skipSpace(&r)
             let start = r.byteOffset
-            while !r.atEnd {
+            while !r.isAtEnd {
                 if r.matches("?>") {
                     let data = r.string(from: start, to: r.byteOffset)
                     _ = r.consume("?>")
                     return (target, normalizeLineEndings(data))
                 }
-                r.advanceBy(1)
+                r.advance(by: 1)
             }
             r.report(&sink, .xmlUnterminatedPi)
             return nil
@@ -790,7 +790,7 @@ extension XML {
             // habit libxml2 is built on.
             while let c = r.currentByte, c != UInt8(ascii: "<") {
                 if c == UInt8(ascii: "&") { sawEntity = true } else if c == 0x0D { sawCR = true }
-                r.advanceBy(1)
+                r.advance(by: 1)
             }
             let slice = r.string(from: start, to: r.byteOffset)
             let raw = sawCR ? normalizeLineEndings(slice) : slice
@@ -807,7 +807,7 @@ extension XML {
                 r.report(&sink, .xmlUnquotedAttribute)
                 return nil
             }
-            r.advanceBy(1)
+            r.advance(by: 1)
             let start = r.byteOffset
             var sawEntity = false
             var sawWhitespace = false
@@ -820,7 +820,7 @@ extension XML {
                     r.report(&sink, .xmlRawLtInAttribute)
                     return nil
                 }
-                r.advanceBy(1)
+                r.advance(by: 1)
             }
             guard r.currentByte == quote else {
                 r.report(&sink, .xmlUnterminatedAttribute)
@@ -829,7 +829,7 @@ extension XML {
             // Same one-pass rule as parseText: the loop above already saw every byte.
             let slice = r.string(from: start, to: r.byteOffset)
             let raw = sawWhitespace ? normalizeAttributeWhitespace(slice) : slice
-            r.advanceBy(1)
+            r.advance(by: 1)
             return sawEntity ? expandEntities(raw, &r, &sink) : raw
         }
 
@@ -967,10 +967,10 @@ extension XML {
                     parseEntityDeclaration(&r, &sink)
                     continue
                 }
-                if c == UInt8(ascii: "[") { depth += 1; r.advanceBy(1); continue }
-                if c == UInt8(ascii: "]") { depth -= 1; r.advanceBy(1); continue }
+                if c == UInt8(ascii: "[") { depth += 1; r.advance(by: 1); continue }
+                if c == UInt8(ascii: "]") { depth -= 1; r.advance(by: 1); continue }
                 if c == UInt8(ascii: ">") && depth <= 0 {
-                    r.advanceBy(1)
+                    r.advance(by: 1)
                     if sawExternalID {
                         // A warning, not an error: the document is still parseable, and
                         // the external declarations are simply not honoured.
@@ -984,7 +984,7 @@ extension XML {
                     }
                     return true
                 }
-                r.advanceBy(1)
+                r.advance(by: 1)
             }
             r.report(&sink, .xmlUnterminatedDoctype)
             return false
@@ -1016,11 +1016,11 @@ extension XML {
                 _ = skipUntil(&r, ">", &sink)
                 return
             }
-            r.advanceBy(1)
+            r.advance(by: 1)
             let start = r.byteOffset
-            while let c = r.currentByte, c != quote { r.advanceBy(1) }
+            while let c = r.currentByte, c != quote { r.advance(by: 1) }
             let value = r.string(from: start, to: r.byteOffset)
-            r.advanceBy(1)
+            r.advance(by: 1)
             entities[name] = value
             _ = skipUntil(&r, ">", &sink)
         }
@@ -1056,7 +1056,7 @@ extension XML {
         mutating func scanName(_ r: inout AssayReader) -> String? {
             guard let first = r.currentByte, isNameStart(first) else { return nil }
             let start = r.byteOffset
-            while let c = r.currentByte, isNameChar(c) { r.advanceBy(1) }
+            while let c = r.currentByte, isNameChar(c) { r.advance(by: 1) }
             return r.string(from: start, to: r.byteOffset)
         }
 
@@ -1064,16 +1064,16 @@ extension XML {
             while let c = r.currentByte,
                 c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0D
             {
-                r.advanceBy(1)
+                r.advance(by: 1)
             }
         }
 
         mutating func skipUntil(
             _ r: inout AssayReader, _ terminator: StaticString, _ sink: inout IssueSink
         ) -> Bool {
-            while !r.atEnd {
+            while !r.isAtEnd {
                 if r.consume(terminator) { return true }
-                r.advanceBy(1)
+                r.advance(by: 1)
             }
             r.report(&sink, .malformedDocument)
             return false

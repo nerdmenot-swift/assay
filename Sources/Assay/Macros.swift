@@ -394,7 +394,7 @@ public macro AsyncCheck<Root, Value>(_ keyPath: KeyPath<Root, Value>) =
 /// Normalise a string before its rules run: `@Preprocess(.trim, .lowercase)`.
 /// Runs on the wire value, before validation — the other side of `@Transform`.
 @attached(peer)
-public macro Preprocess(_ ops: PreprocessOp...) =
+public macro Preprocess(_ ops: PreprocessStep...) =
     #externalMacro(module: "AssayMacros", type: "PreprocessMacro")
 
 /// Change the type after validation. The closure's parameter annotation names the wire

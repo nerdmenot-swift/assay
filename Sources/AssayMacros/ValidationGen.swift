@@ -313,7 +313,7 @@ extension SchemaMacro {
         var out = ""
         for (i, f) in fields.enumerated() where !f.preprocess.isEmpty {
             out += """
-                nonisolated static let __assayPre_\(i): [Assay.PreprocessOp] = [\(f.preprocess.joined(separator: ", "))]
+                nonisolated static let __assayPre_\(i): [Assay.PreprocessStep] = [\(f.preprocess.joined(separator: ", "))]
 
                 """
         }

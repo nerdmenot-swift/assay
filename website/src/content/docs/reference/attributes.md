@@ -80,7 +80,7 @@ Every `parse`/`diagnose` takes `limits:` and `sourceName:`.
 ## Reading a result
 
 ```swift
-Diagnosis<T>      .value  .issues  .warnings  .isValid  .truncatedIssues
+Diagnosis<T>      .value  .issues  .warnings  .isValid  .issuesWereTruncated
                   .get()  .render(_:)  .source  .sourceName
 EncodeDiagnosis   .bytes  .issues  .warnings  .isValid
 AssayError        .issues .render(_:)   — description renders with carets

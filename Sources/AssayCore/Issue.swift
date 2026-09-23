@@ -190,7 +190,7 @@ public struct IssueSink: Sendable {
     public var warnings: [Warning] = []
     /// Set when `Limits.maxIssues` was reached, so a caller can tell a hundred-of-a-hundred
     /// from a hundred-of-ten-thousand.
-    public var truncatedIssues: Bool = false
+    public var issuesWereTruncated: Bool = false
 
     @usableFromInline
     var limits: Limits
@@ -218,7 +218,7 @@ public struct IssueSink: Sendable {
     @inline(never)
     public mutating func add(_ issue: Issue) {
         if issues.count >= limits.maxIssues {
-            truncatedIssues = true
+            issuesWereTruncated = true
             return
         }
         issues.append(issue)
@@ -227,7 +227,7 @@ public struct IssueSink: Sendable {
     @inline(never)
     public mutating func add(warning: Warning) {
         if warnings.count >= limits.maxIssues {
-            truncatedIssues = true
+            issuesWereTruncated = true
             return
         }
         warnings.append(warning)

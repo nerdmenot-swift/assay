@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 public struct Limits: Sendable, Equatable {
-    /// Stop collecting after this many issues. `Diagnosis.truncatedIssues` reports it.
+    /// Stop collecting after this many issues. `Diagnosis.issuesWereTruncated` reports it.
     public var maxIssues: Int
     /// Maximum container nesting. Guards stack exhaustion — which bites first and
     /// hardest on WebAssembly, where the default stack is small enough that a

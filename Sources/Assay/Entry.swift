@@ -34,7 +34,7 @@ public struct Diagnosis<T: Sendable>: Sendable {
     public var warnings: [Warning]
     /// True when `Limits.maxIssues` was hit — so a caller can tell a hundred-of-a-hundred
     /// from a hundred-of-ten-thousand.
-    public var truncatedIssues: Bool
+    public var issuesWereTruncated: Bool
     /// Retained so `render` can produce carets without the caller holding the bytes.
     ///
     /// A `SourceBytes` rather than `[UInt8]` so the mmap path can *borrow* the mapping
@@ -45,12 +45,12 @@ public struct Diagnosis<T: Sendable>: Sendable {
 
     public init(
         value: T?, issues: [Issue], warnings: [Warning],
-        truncatedIssues: Bool, source: SourceBytes, sourceName: String
+        issuesWereTruncated: Bool, source: SourceBytes, sourceName: String
     ) {
         self.value = value
         self.issues = issues
         self.warnings = warnings
-        self.truncatedIssues = truncatedIssues
+        self.issuesWereTruncated = issuesWereTruncated
         self.source = source
         self.sourceName = sourceName
     }
@@ -60,7 +60,7 @@ public struct Diagnosis<T: Sendable>: Sendable {
     public init(sink: IssueSink, value: T?, source: SourceBytes, sourceName: String) {
         self.init(
             value: sink.isValid ? value : nil, issues: sink.issues,
-            warnings: sink.warnings, truncatedIssues: sink.truncatedIssues,
+            warnings: sink.warnings, issuesWereTruncated: sink.issuesWereTruncated,
             source: source, sourceName: sourceName)
     }
 
@@ -100,7 +100,7 @@ extension JSONAssayable {
 
         var reader = unsafe AssayReader(base: base, count: count, limits: limits)
 
-        reader.advanceBy(unsafe UTF8Validation.bomLength(base, count))
+        reader.advance(by: unsafe UTF8Validation.bomLength(base, count))
         // One path buffer for the whole decode: nested schemas push and pop on it (see
         // `JSONAssayable`), so it never allocates on a clean document.
         var path: [PathStep] = []
@@ -113,7 +113,7 @@ extension JSONAssayable {
         // failure, reporting two problems for one mistake.
         guard v != nil else { return nil }
         reader.skipWhitespace()
-        if !reader.atEnd {
+        if !reader.isAtEnd {
             sink.add(
                 Issue(
                     code: .trailingContent,

@@ -139,7 +139,7 @@ extension YAML {
                 return []
             }
             var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
-            reader.advanceBy(unsafe UTF8Validation.bomLength(base, buf.count))
+            reader.advance(by: unsafe UTF8Validation.bomLength(base, buf.count))
             var parser = Parser<B>(limits: limits)
             return parser.parseStream(&reader, &sink)
         }
@@ -196,17 +196,17 @@ extension YAML {
             var docs: [B.Value] = []
             while true {
                 skipBlanksAndComments(&r)
-                if r.atEnd { break }
+                if r.isAtEnd { break }
 
                 // Document start / end markers.
                 if atLineStart(&r), r.matches("---") {
-                    r.advanceBy(3)
+                    r.advance(by: 3)
                     anchors.removeAll(keepingCapacity: true)
                     skipBlanksAndComments(&r)
-                    if r.atEnd { docs.append(B.scalar("", style: .plain, tag: nil)); break }
+                    if r.isAtEnd { docs.append(B.scalar("", style: .plain, tag: nil)); break }
                 }
                 if atLineStart(&r), r.matches("...") {
-                    r.advanceBy(3)
+                    r.advance(by: 3)
                     continue
                 }
                 // A directive line: %YAML, %TAG. Skipped, not honoured.
@@ -219,10 +219,10 @@ extension YAML {
                 docs.append(node)
 
                 skipBlanksAndComments(&r)
-                if r.atEnd { break }
+                if r.isAtEnd { break }
                 if atLineStart(&r), r.matches("---") || r.matches("...") { continue }
                 // Anything else at column 0 after a complete document is malformed.
-                if !r.atEnd {
+                if !r.isAtEnd {
                     r.report(&sink, .trailingContent)
                     break
                 }
@@ -323,15 +323,15 @@ extension YAML {
             var tag: String?
             while true {
                 if r.currentByte == UInt8(ascii: "&") {
-                    r.advanceBy(1)
+                    r.advance(by: 1)
                     anchor = scanToken(&r)
                     skipInlineSpace(&r)
                     continue
                 }
                 if r.currentByte == UInt8(ascii: "!") {
                     let start = r.byteOffset
-                    r.advanceBy(1)
-                    if r.currentByte == UInt8(ascii: "!") { r.advanceBy(1) }
+                    r.advance(by: 1)
+                    if r.currentByte == UInt8(ascii: "!") { r.advance(by: 1) }
                     _ = scanToken(&r)
                     tag = r.string(from: start, to: r.byteOffset)
                     skipInlineSpace(&r)
@@ -352,7 +352,7 @@ extension YAML {
                     r.report(&sink, .yamlAnchorOnAlias)
                     return nil
                 }
-                r.advanceBy(1)
+                r.advance(by: 1)
                 guard let name = scanToken(&r), let target = anchors[name] else {
                     r.report(&sink, .yamlUndefinedAlias)
                     return nil
@@ -448,12 +448,12 @@ extension YAML {
                 if c == 0x0A { return false }
                 if let q = quote {
                     if c == q { quote = nil }
-                    r.advanceBy(1)
+                    r.advance(by: 1)
                     continue
                 }
                 if c == UInt8(ascii: "\"") || c == UInt8(ascii: "'") {
                     quote = c
-                    r.advanceBy(1)
+                    r.advance(by: 1)
                     continue
                 }
                 if c == UInt8(ascii: "#") { return false }
@@ -461,7 +461,7 @@ extension YAML {
                     let n = r.byte(at: 1)
                     if n == nil || n == 0x20 || n == 0x0A || n == 0x0D { return true }
                 }
-                r.advanceBy(1)
+                r.advance(by: 1)
             }
             return false
         }

@@ -39,7 +39,7 @@ static func validate(_ values: some Sequence<Self>, ...) throws(AssayError)
 static func diagnose(_ values: some Sequence<Self>, ...) -> Validation
 ```
 
-`Validation` carries `issues`, `warnings`, `truncatedIssues`, `isValid`, `check()` and
+`Validation` carries `issues`, `warnings`, `issuesWereTruncated`, `isValid`, `check()` and
 `render(_:)`. It is deliberately **not** `Diagnosis`: there is no `value` — you already have
 it — and no source bytes, and a result type carrying two empty fields would be advertising
 a caret it cannot draw.

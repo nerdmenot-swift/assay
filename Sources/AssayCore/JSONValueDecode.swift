@@ -42,7 +42,7 @@ extension AssayReader {
         _ hints: inout _ShapeHints
     ) -> JSON.Value? {
         skipWhitespace()
-        guard !atEnd else {
+        guard !isAtEnd else {
             reportMalformed(&sink, path, expected: "a value")
             return nil
         }
@@ -291,12 +291,12 @@ extension JSON.Value {
             return nil
         }
         var reader = unsafe AssayReader(base: base, count: count, limits: limits)
-        reader.advanceBy(unsafe UTF8Validation.bomLength(base, count))
+        reader.advance(by: unsafe UTF8Validation.bomLength(base, count))
         var path: [PathStep] = []
         var hints = _ShapeHints()
         guard let v = reader._scanJSONValue(&sink, &path, &hints) else { return nil }
         reader.skipWhitespace()
-        if !reader.atEnd {
+        if !reader.isAtEnd {
             sink.add(
                 Issue(
                     code: .trailingContent,

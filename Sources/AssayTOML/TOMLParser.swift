@@ -122,7 +122,7 @@ extension TOML {
                 return nil
             }
             var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
-            reader.advanceBy(unsafe UTF8Validation.bomLength(base, buf.count))
+            reader.advance(by: unsafe UTF8Validation.bomLength(base, buf.count))
             var parser = Parser(limits: limits)
             return body(&parser, &reader, &sink)
         }
@@ -276,22 +276,22 @@ extension TOML.Parser {
     /// `[a.b]` or `[[a.b]]`.
     mutating func parseHeader(_ r: inout AssayReader, _ sink: inout IssueSink) -> Bool {
         let headerStart = r.byteOffset
-        r.advanceBy(1)
+        r.advance(by: 1)
         let isArray = r.currentByte == UInt8(ascii: "[")
-        if isArray { r.advanceBy(1) }
+        if isArray { r.advance(by: 1) }
         guard var path = parseKeyPath(&r, &sink) else { return false }
         skipSpace(&r)
         guard r.currentByte == UInt8(ascii: "]") else {
             r.report(&sink, .tomlUnterminatedTableHeader)
             return false
         }
-        r.advanceBy(1)
+        r.advance(by: 1)
         if isArray {
             guard r.currentByte == UInt8(ascii: "]") else {
                 r.report(&sink, .tomlUnterminatedTableHeader)
                 return false
             }
-            r.advanceBy(1)
+            r.advance(by: 1)
         }
         if path.count > limits.maxDepth {
             r.report(
@@ -319,7 +319,7 @@ extension TOML.Parser {
             r.report(&sink, .tomlExpectedEquals)
             return false
         }
-        r.advanceBy(1)
+        r.advance(by: 1)
         skipSpace(&r)
         let valueStart = r.byteOffset
         guard let value = parseValue(&r, &sink) else { return false }
@@ -552,7 +552,7 @@ extension TOML.Parser {
             out.append(seg)
             skipSpace(&r)
             guard r.currentByte == UInt8(ascii: ".") else { return out }
-            r.advanceBy(1)
+            r.advance(by: 1)
         }
     }
 
@@ -579,7 +579,7 @@ extension TOML.Parser {
             guard let s = scanLiteralString(&r, &sink, multiline: false) else { return nil }
             return KeySegment(text: s, span: SourceSpan(lo: start, len: r.byteOffset - start))
         }
-        while let b = r.currentByte, isBareKeyByte(b) { r.advanceBy(1) }
+        while let b = r.currentByte, isBareKeyByte(b) { r.advance(by: 1) }
         guard r.byteOffset > start else {
             r.report(&sink, .tomlExpectedKey)
             return nil
@@ -601,7 +601,7 @@ extension TOML.Parser {
 
     /// Spaces and tabs. TOML's whitespace is exactly those two bytes.
     func skipSpace(_ r: inout AssayReader) {
-        while let c = r.currentByte, c == 0x20 || c == 0x09 { r.advanceBy(1) }
+        while let c = r.currentByte, c == 0x20 || c == 0x09 { r.advance(by: 1) }
     }
 
     /// A `#` comment up to (not including) the line end. Control characters other than
@@ -614,15 +614,15 @@ extension TOML.Parser {
                 r.report(&sink, .tomlControlCharacter)
                 return false
             }
-            r.advanceBy(1)
+            r.advance(by: 1)
         }
         return true
     }
 
     /// LF or CRLF. Anything else is not a line end.
     func consumeNewline(_ r: inout AssayReader) -> Bool {
-        if r.currentByte == 0x0A { r.advanceBy(1); return true }
-        if r.currentByte == 0x0D, r.byte(at: 1) == 0x0A { r.advanceBy(2); return true }
+        if r.currentByte == 0x0A { r.advance(by: 1); return true }
+        if r.currentByte == 0x0D, r.byte(at: 1) == 0x0A { r.advance(by: 2); return true }
         return false
     }
 
@@ -631,7 +631,7 @@ extension TOML.Parser {
     func endOfLine(_ r: inout AssayReader, _ sink: inout IssueSink) -> Bool {
         skipSpace(&r)
         guard skipComment(&r, &sink) else { return false }
-        if r.atEnd || consumeNewline(&r) { return true }
+        if r.isAtEnd || consumeNewline(&r) { return true }
         r.report(&sink, .tomlExpectedNewline)
         return false
     }

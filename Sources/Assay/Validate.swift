@@ -81,12 +81,12 @@ public struct Validation: Sendable {
     public var warnings: [Warning]
     /// True when `Limits.maxIssues` was hit — a hundred-of-a-hundred reads differently
     /// from a hundred-of-ten-thousand, and over a batch that distinction is the usual one.
-    public var truncatedIssues: Bool
+    public var issuesWereTruncated: Bool
 
-    public init(issues: [Issue], warnings: [Warning], truncatedIssues: Bool) {
+    public init(issues: [Issue], warnings: [Warning], issuesWereTruncated: Bool) {
         self.issues = issues
         self.warnings = warnings
-        self.truncatedIssues = truncatedIssues
+        self.issuesWereTruncated = issuesWereTruncated
     }
 
     public var isValid: Bool { issues.isEmpty }
@@ -149,7 +149,7 @@ extension Validatable {
         Self._assayCheck(value, into: &sink, at: path)
         return Validation(
             issues: sink.issues, warnings: sink.warnings,
-            truncatedIssues: sink.truncatedIssues)
+            issuesWereTruncated: sink.issuesWereTruncated)
     }
 
     /// Run the schema's rules against one value, throwing every issue at once.
@@ -189,7 +189,7 @@ extension Validatable {
         }
         return Validation(
             issues: sink.issues, warnings: sink.warnings,
-            truncatedIssues: sink.truncatedIssues)
+            issuesWereTruncated: sink.issuesWereTruncated)
     }
 
     /// Run the schema's rules over a batch, throwing if any element failed.

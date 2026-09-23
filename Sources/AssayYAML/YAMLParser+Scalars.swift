@@ -69,7 +69,7 @@ extension YAML.Parser {
             if c == UInt8(ascii: "#"), let p = r.byte(at: -1), p == 0x20 || p == 0x09 {
                 break
             }
-            r.advanceBy(1)
+            r.advance(by: 1)
             if c != 0x20 && c != 0x09 { end = r.byteOffset }
         }
     }
@@ -88,13 +88,13 @@ extension YAML.Parser {
             guard let c = r.currentByte, c == 0x0A || c == 0x0D else {
                 r.seek(to: mark); return nil
             }
-            r.advanceBy(1)
-            if c == 0x0D, r.currentByte == 0x0A { r.advanceBy(1) }
+            r.advance(by: 1)
+            if c == 0x0D, r.currentByte == 0x0A { r.advance(by: 1) }
 
             let lineStart = r.byteOffset
             var column = 0
             while let b = r.currentByte, b == 0x20 || b == 0x09 {
-                r.advanceBy(1); column += 1
+                r.advance(by: 1); column += 1
             }
             guard let first = r.currentByte else { r.seek(to: mark); return nil }
 
@@ -148,7 +148,7 @@ extension YAML.Parser {
     ) -> B.Value? {
         let quote = r.currentByte!
         let double = quote == UInt8(ascii: "\"")
-        r.advanceBy(1)
+        r.advance(by: 1)
 
         let start = r.byteOffset
         var needsUnescape = false
@@ -156,24 +156,24 @@ extension YAML.Parser {
             if c == quote {
                 if !double, r.byte(at: 1) == quote {  // '' is a literal '
                     needsUnescape = true
-                    r.advanceBy(2)
+                    r.advance(by: 2)
                     continue
                 }
                 break
             }
             if double, c == UInt8(ascii: "\\") {
                 needsUnescape = true
-                r.advanceBy(2)
+                r.advance(by: 2)
                 continue
             }
-            r.advanceBy(1)
+            r.advance(by: 1)
         }
         guard r.currentByte == quote else {
             r.report(&sink, .yamlUnterminatedQuotedScalar)
             return nil
         }
         let raw = r.string(from: start, to: r.byteOffset)
-        r.advanceBy(1)
+        r.advance(by: 1)
 
         let content: String
         if !needsUnescape {
@@ -240,7 +240,7 @@ extension YAML.Parser {
         _ r: inout AssayReader, _ sink: inout IssueSink, indent: Int
     ) -> B.Value? {
         let folded = r.currentByte == UInt8(ascii: ">")
-        r.advanceBy(1)
+        r.advance(by: 1)
 
         var chomp: Character = "c"  // c=clip, s=strip, k=keep
         var explicitIndent = 0
@@ -252,17 +252,17 @@ extension YAML.Parser {
             } else if c >= 0x31 && c <= 0x39 {
                 explicitIndent = Int(c - 0x30)
             }
-            r.advanceBy(1)
+            r.advance(by: 1)
         }
         skipLine(&r)
 
         var lines: [String] = []
         var blockIndent = explicitIndent > 0 ? indent + explicitIndent : -1
 
-        while !r.atEnd {
+        while !r.isAtEnd {
             let lineStart = r.byteOffset
             var column = 0
-            while let c = r.currentByte, c == 0x20 { r.advanceBy(1); column += 1 }
+            while let c = r.currentByte, c == 0x20 { r.advance(by: 1); column += 1 }
 
             // A blank line belongs to the block regardless of its indentation.
             if r.currentByte == 0x0A || r.currentByte == nil {
@@ -277,7 +277,7 @@ extension YAML.Parser {
             }
             r.seek(to: lineStart + blockIndent)
             let textStart = r.byteOffset
-            while let c = r.currentByte, c != 0x0A, c != 0x0D { r.advanceBy(1) }
+            while let c = r.currentByte, c != 0x0A, c != 0x0D { r.advance(by: 1) }
             lines.append(r.string(from: textStart, to: r.byteOffset))
             skipLine(&r)
         }

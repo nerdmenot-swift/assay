@@ -108,7 +108,7 @@ extension ContextualJSONAssayable {
 
         var reader = unsafe AssayReader(base: base, count: count, limits: limits)
 
-        reader.advanceBy(unsafe UTF8Validation.bomLength(base, count))
+        reader.advance(by: unsafe UTF8Validation.bomLength(base, count))
         var path: [PathStep] = []
         let v = Self._assay(from: &reader, into: &sink, at: &path, context: context)
 
@@ -118,7 +118,7 @@ extension ContextualJSONAssayable {
         // failure, reporting two problems for one mistake.
         guard v != nil else { return nil }
         reader.skipWhitespace()
-        if !reader.atEnd {
+        if !reader.isAtEnd {
             sink.add(
                 Issue(
                     code: .trailingContent,
@@ -238,7 +238,7 @@ extension ContextualJSONAssayable where Self: ContextualAsyncCheckAssayable {
         guard !extra.isEmpty else { return d }
         return Diagnosis(
             value: nil, issues: d.issues + extra, warnings: d.warnings,
-            truncatedIssues: d.truncatedIssues,
+            issuesWereTruncated: d.issuesWereTruncated,
             source: d.source, sourceName: d.sourceName)
     }
 
@@ -282,6 +282,6 @@ extension ContextualValidatable {
         Self._assayCheck(value, into: &sink, at: [], context: context)
         return Validation(
             issues: sink.issues, warnings: sink.warnings,
-            truncatedIssues: sink.truncatedIssues)
+            issuesWereTruncated: sink.issuesWereTruncated)
     }
 }

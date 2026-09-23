@@ -312,7 +312,7 @@ struct ValidateValueCheckTests {
         let bad = Array(repeating: Booking(start: 5, end: 1, guests: 0), count: 500)
         let v = Booking.diagnose(bad, limits: Limits(maxIssues: 10))
         #expect(v.issues.count == 10)
-        #expect(v.truncatedIssues)
+        #expect(v.issuesWereTruncated)
     }
 
     @Test("a type with no rules gets no validator, and so costs nothing")

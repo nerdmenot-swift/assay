@@ -52,7 +52,7 @@ extension JSONAssayable where Self: AsyncCheckAssayable {
             value: nil,
             issues: d.issues + asyncIssues,
             warnings: d.warnings,
-            truncatedIssues: d.truncatedIssues,
+            issuesWereTruncated: d.issuesWereTruncated,
             source: d.source, sourceName: d.sourceName)
     }
 

@@ -196,7 +196,7 @@ all, which is why a `Data` door for YAML/XML/TOML/plist does not exist: it would
 put Foundation in those modules or put them in every `Data` user's binary. `platforms:` names **every** Apple platform (macOS 11 / iOS 14 / tvOS 14 / watchOS 7 /
 visionOS 1) — listing macOS alone leaves the others on SwiftPM's ancient default rather than
 unconstrained, which broke the iOS build until 2026-08-22. `Limits` (maxIssues 100, maxDepth 64, maxBytes) with
-`d.truncatedIssues`. Embedded Swift is explicitly not a target.
+`d.issuesWereTruncated`. Embedded Swift is explicitly not a target.
 
 `parse(body, contentType:, accepting:)` **shipped 2026-09-08**, with `accepting:` required and
 no default (XXE / billion-laughs). `ROADMAP.md` §9.

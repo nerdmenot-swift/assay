@@ -177,7 +177,7 @@ at. Those issues carry the path, and the batch form puts the element's index in 
 try T.parse(json: bytes, limits: Limits(maxIssues: 100, maxDepth: 64, maxBytes: 64 << 20))
 ```
 
-When issue collection hits its cap, `d.truncatedIssues` is `true` — so you can tell a
+When issue collection hits its cap, `d.issuesWereTruncated` is `true` — so you can tell a
 hundred-of-a-hundred from a hundred-of-ten-thousand rather than guessing.
 
 The other two are security limits; see

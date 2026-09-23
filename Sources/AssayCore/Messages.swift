@@ -143,7 +143,7 @@ extension Issue {
 
         case .malformedDocument:
             let expected = params["expected"]?.displayString
-            if params["atEnd"] != nil {
+            if params["isAtEnd"] != nil {
                 return expected.map {
                     "is not well-formed: the input ended where \($0) was expected"
                 }

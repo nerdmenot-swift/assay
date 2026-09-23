@@ -79,10 +79,10 @@ of service.
 
 ```swift
 let d = Upload.diagnose(json: bytes, limits: strict)
-if d.truncatedIssues { /* there were more than we kept */ }
+if d.issuesWereTruncated { /* there were more than we kept */ }
 ```
 
-`truncatedIssues` distinguishes "twenty problems" from "at least twenty", which matters when
+`issuesWereTruncated` distinguishes "twenty problems" from "at least twenty", which matters when
 you are deciding whether to show a user a list or tell them the file is broken.
 
 ## A reasonable starting point

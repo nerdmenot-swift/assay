@@ -66,7 +66,7 @@ extension TOML.Parser {
     mutating func parseArray(_ r: inout AssayReader, _ sink: inout IssueSink) -> TOML.Node? {
         guard r.enterContainer(&sink) else { return nil }
         defer { r.leaveContainer() }
-        r.advanceBy(1)
+        r.advance(by: 1)
         var items: [TOML.Node] = []
         while true {
             guard skipBlankLines(&r, &sink) else { return nil }
@@ -74,12 +74,12 @@ extension TOML.Parser {
                 r.report(&sink, .tomlUnterminatedArray)
                 return nil
             }
-            if c == UInt8(ascii: "]") { r.advanceBy(1); return .array(items) }
+            if c == UInt8(ascii: "]") { r.advance(by: 1); return .array(items) }
             guard let value = parseValue(&r, &sink) else { return nil }
             items.append(value)
             guard skipBlankLines(&r, &sink) else { return nil }
-            if r.currentByte == UInt8(ascii: ",") { r.advanceBy(1); continue }
-            if r.currentByte == UInt8(ascii: "]") { r.advanceBy(1); return .array(items) }
+            if r.currentByte == UInt8(ascii: ",") { r.advance(by: 1); continue }
+            if r.currentByte == UInt8(ascii: "]") { r.advance(by: 1); return .array(items) }
             r.report(&sink, .tomlUnterminatedArray)
             return nil
         }
@@ -90,16 +90,16 @@ extension TOML.Parser {
     mutating func parseInlineTable(_ r: inout AssayReader, _ sink: inout IssueSink) -> TOML.Node? {
         guard r.enterContainer(&sink) else { return nil }
         defer { r.leaveContainer() }
-        r.advanceBy(1)
+        r.advance(by: 1)
         let table = newTable(.header)
         skipSpace(&r)
-        if r.currentByte == UInt8(ascii: "}") { r.advanceBy(1); return .table([]) }
+        if r.currentByte == UInt8(ascii: "}") { r.advance(by: 1); return .table([]) }
         while true {
             skipSpace(&r)
             guard parseKeyValue(&r, &sink, into: table) else { return nil }
             skipSpace(&r)
-            if r.currentByte == UInt8(ascii: ",") { r.advanceBy(1); continue }
-            if r.currentByte == UInt8(ascii: "}") { r.advanceBy(1); return finish(table) }
+            if r.currentByte == UInt8(ascii: ",") { r.advance(by: 1); continue }
+            if r.currentByte == UInt8(ascii: "}") { r.advance(by: 1); return finish(table) }
             r.report(&sink, .tomlUnterminatedInlineTable)
             return nil
         }
@@ -111,7 +111,7 @@ extension TOML.Parser {
     mutating func scanBasicString(
         _ r: inout AssayReader, _ sink: inout IssueSink, multiline: Bool
     ) -> String? {
-        r.advanceBy(multiline ? 3 : 1)
+        r.advance(by: multiline ? 3 : 1)
         if multiline { _ = consumeNewline(&r) }
 
         // THE WHOLE-LITERAL FAST PATH, for a single-line basic string with no escape in it
@@ -126,7 +126,7 @@ extension TOML.Parser {
             while let b = r.byte(at: k) {
                 if b == 0x22 {
                     let text = r.string(from: start, to: start + k)
-                    r.advanceBy(k + 1)
+                    r.advance(by: k + 1)
                     return text
                 }
                 // Anything that needs transforming or rejecting ends the fast path and
@@ -149,22 +149,22 @@ extension TOML.Parser {
                 return nil
             }
             if c == UInt8(ascii: "\"") {
-                if !multiline { r.advanceBy(1); return String(decoding: out, as: UTF8.self) }
+                if !multiline { r.advance(by: 1); return String(decoding: out, as: UTF8.self) }
                 var n = 0
                 while r.byte(at: n) == UInt8(ascii: "\"") { n += 1 }
                 if n >= 3 {
                     // One or two quotes may sit just inside the closing delimiter.
                     guard n <= 5 else {
-                        r.advanceBy(n)
+                        r.advance(by: n)
                         r.report(&sink, .tomlExpectedNewline)
                         return nil
                     }
                     for _ in 0..<(n - 3) { out.append(UInt8(ascii: "\"")) }
-                    r.advanceBy(n)
+                    r.advance(by: n)
                     return String(decoding: out, as: UTF8.self)
                 }
                 for _ in 0..<n { out.append(UInt8(ascii: "\"")) }
-                r.advanceBy(n)
+                r.advance(by: n)
                 continue
             }
             if c == UInt8(ascii: "\\") {
@@ -184,10 +184,10 @@ extension TOML.Parser {
                         r.report(&sink, .tomlControlCharacter)
                         return nil
                     }
-                    r.advanceBy(1)
+                    r.advance(by: 1)
                 }
                 out.append(0x0A)
-                r.advanceBy(1)
+                r.advance(by: 1)
                 continue
             }
             if c < 0x20 && c != 0x09 || c == 0x7F {
@@ -202,7 +202,7 @@ extension TOML.Parser {
             while let b = r.byte(at: k), b != 0x22, b != 0x5C, b != 0x0A, b != 0x0D,
                 b != 0x7F, !(b < 0x20 && b != 0x09)
             { k += 1 }
-            r.advanceBy(k)
+            r.advance(by: k)
             r.appendBytes(from: runStart, to: r.byteOffset, into: &out)
         }
     }
@@ -212,7 +212,7 @@ extension TOML.Parser {
         _ r: inout AssayReader, _ sink: inout IssueSink, into out: inout [UInt8], multiline: Bool
     ) -> Bool {
         let at = r.byteOffset
-        r.advanceBy(1)
+        r.advance(by: 1)
         guard let e = r.currentByte else {
             r.report(&sink, .tomlUnterminatedString)
             return false
@@ -227,7 +227,7 @@ extension TOML.Parser {
         case UInt8(ascii: "\\"): out.append(0x5C)
         case UInt8(ascii: "u"), UInt8(ascii: "U"):
             let digits = e == UInt8(ascii: "u") ? 4 : 8
-            r.advanceBy(1)
+            r.advance(by: 1)
             var value: UInt32 = 0
             for _ in 0..<digits {
                 guard let h = r.currentByte, let d = hexValue(h) else {
@@ -236,7 +236,7 @@ extension TOML.Parser {
                     return false
                 }
                 value = value &* 16 &+ UInt32(d)
-                r.advanceBy(1)
+                r.advance(by: 1)
             }
             // Surrogates and values past U+10FFFF are not scalars; `Unicode.Scalar` is
             // the arbiter.
@@ -261,17 +261,17 @@ extension TOML.Parser {
                 r.report(&sink, .tomlBadEscape, span: SourceSpan(lo: at, len: 2))
                 return false
             }
-            r.advanceBy(i)
+            r.advance(by: i)
             while let c = r.currentByte, c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0D {
                 if c == 0x0D, r.byte(at: 1) != 0x0A { break }
-                r.advanceBy(1)
+                r.advance(by: 1)
             }
             return true
         default:
             r.report(&sink, .tomlBadEscape, span: SourceSpan(lo: at, len: 2))
             return false
         }
-        r.advanceBy(1)
+        r.advance(by: 1)
         return true
     }
 
@@ -288,7 +288,7 @@ extension TOML.Parser {
     mutating func scanLiteralString(
         _ r: inout AssayReader, _ sink: inout IssueSink, multiline: Bool
     ) -> String? {
-        r.advanceBy(multiline ? 3 : 1)
+        r.advance(by: multiline ? 3 : 1)
         if multiline { _ = consumeNewline(&r) }
         let start = r.byteOffset
         var out: [UInt8] = []
@@ -301,23 +301,23 @@ extension TOML.Parser {
                 if !multiline {
                     // One copy: the single-line form has nothing to normalise.
                     let s = r.string(from: start, to: r.byteOffset)
-                    r.advanceBy(1)
+                    r.advance(by: 1)
                     return s
                 }
                 var n = 0
                 while r.byte(at: n) == UInt8(ascii: "'") { n += 1 }
                 if n >= 3 {
                     guard n <= 5 else {
-                        r.advanceBy(n)
+                        r.advance(by: n)
                         r.report(&sink, .tomlExpectedNewline)
                         return nil
                     }
                     for _ in 0..<(n - 3) { out.append(UInt8(ascii: "'")) }
-                    r.advanceBy(n)
+                    r.advance(by: n)
                     return String(decoding: out, as: UTF8.self)
                 }
                 for _ in 0..<n { out.append(UInt8(ascii: "'")) }
-                r.advanceBy(n)
+                r.advance(by: n)
                 continue
             }
             if c == 0x0A || c == 0x0D {
@@ -331,10 +331,10 @@ extension TOML.Parser {
                         r.report(&sink, .tomlControlCharacter)
                         return nil
                     }
-                    r.advanceBy(1)
+                    r.advance(by: 1)
                 }
                 out.append(0x0A)
-                r.advanceBy(1)
+                r.advance(by: 1)
                 continue
             }
             if c < 0x20 && c != 0x09 || c == 0x7F {
@@ -342,7 +342,7 @@ extension TOML.Parser {
                 return nil
             }
             out.append(c)
-            r.advanceBy(1)
+            r.advance(by: 1)
         }
     }
 
@@ -370,7 +370,7 @@ extension TOML.Parser {
         if let c = r.currentByte, c == UInt8(ascii: "+") || c == UInt8(ascii: "-") {
             signed = true
             negative = c == UInt8(ascii: "-")
-            r.advanceBy(1)
+            r.advance(by: 1)
         }
         if r.consume("inf") { return .double(negative ? -.infinity : .infinity) }
         if r.consume("nan") { return .double(.nan) }
@@ -378,7 +378,7 @@ extension TOML.Parser {
         if !signed, r.currentByte == UInt8(ascii: "0"), let p = r.byte(at: 1),
             p == UInt8(ascii: "x") || p == UInt8(ascii: "o") || p == UInt8(ascii: "b")
         {
-            r.advanceBy(2)
+            r.advance(by: 2)
             let radix: Int64 = p == UInt8(ascii: "x") ? 16 : (p == UInt8(ascii: "o") ? 8 : 2)
             return scanPrefixedInteger(&r, &sink, radix: radix, start: start)
         }
@@ -412,16 +412,16 @@ extension TOML.Parser {
         if r.currentByte == UInt8(ascii: ".") {
             isFloat = true
             text.append(UInt8(ascii: "."))
-            r.advanceBy(1)
+            r.advance(by: 1)
             guard scanDigits(&r, &sink, into: &text, radix: 10, start: start) else { return nil }
         }
         if let e = r.currentByte, e == UInt8(ascii: "e") || e == UInt8(ascii: "E") {
             isFloat = true
             text.append(UInt8(ascii: "e"))
-            r.advanceBy(1)
+            r.advance(by: 1)
             if let s = r.currentByte, s == UInt8(ascii: "+") || s == UInt8(ascii: "-") {
                 text.append(s)
-                r.advanceBy(1)
+                r.advance(by: 1)
             }
             guard scanDigits(&r, &sink, into: &text, radix: 10, start: start) else { return nil }
         }
@@ -500,7 +500,7 @@ extension TOML.Parser {
             guard !o1, !o2 else { return nil }  // overflow: the general path reports
             value = a
             digits += 1
-            r.advanceBy(1)
+            r.advance(by: 1)
         }
         guard digits > 0 else { return nil }  // no digits, or a `_` led
         // `01` is not a TOML integer; `0` alone is. Same test the general path makes.
@@ -511,20 +511,20 @@ extension TOML.Parser {
         var isFloat = false
         if r.currentByte == UInt8(ascii: ".") {
             isFloat = true
-            r.advanceBy(1)
+            r.advance(by: 1)
             var frac = 0
-            while let c = r.currentByte, c >= 0x30, c <= 0x39 { frac += 1; r.advanceBy(1) }
+            while let c = r.currentByte, c >= 0x30, c <= 0x39 { frac += 1; r.advance(by: 1) }
             guard frac > 0 else { return nil }
             if r.currentByte == UInt8(ascii: "_") { return nil }
         }
         if let e = r.currentByte, e == UInt8(ascii: "e") || e == UInt8(ascii: "E") {
             isFloat = true
-            r.advanceBy(1)
+            r.advance(by: 1)
             if let sgn = r.currentByte, sgn == UInt8(ascii: "+") || sgn == UInt8(ascii: "-") {
-                r.advanceBy(1)
+                r.advance(by: 1)
             }
             var exp = 0
-            while let c = r.currentByte, c >= 0x30, c <= 0x39 { exp += 1; r.advanceBy(1) }
+            while let c = r.currentByte, c >= 0x30, c <= 0x39 { exp += 1; r.advance(by: 1) }
             guard exp > 0 else { return nil }
             if r.currentByte == UInt8(ascii: "_") { return nil }
         }
@@ -580,7 +580,7 @@ extension TOML.Parser {
             if let d = hexValue(c), Int(d) < radix {
                 out.append(c)
                 count += 1
-                r.advanceBy(1)
+                r.advance(by: 1)
             } else if c == UInt8(ascii: "_") {
                 // Only between two digits: `1_000` yes, `1_`, `_1` and `1__0` no.
                 guard count > 0, let n = r.byte(at: 1), let d = hexValue(n), Int(d) < radix else {
@@ -589,7 +589,7 @@ extension TOML.Parser {
                         span: SourceSpan(lo: start, len: max(1, r.byteOffset - start + 1)))
                     return false
                 }
-                r.advanceBy(1)
+                r.advance(by: 1)
             } else {
                 break
             }
@@ -618,11 +618,11 @@ extension TOML.Parser {
         guard let year = fixedDigits(&r, 4), r.currentByte == UInt8(ascii: "-") else {
             return fail()
         }
-        r.advanceBy(1)
+        r.advance(by: 1)
         guard let month = fixedDigits(&r, 2), r.currentByte == UInt8(ascii: "-") else {
             return fail()
         }
-        r.advanceBy(1)
+        r.advance(by: 1)
         guard let day = fixedDigits(&r, 2) else { return fail() }
         guard month >= 1, month <= 12, day >= 1, day <= daysIn(month: month, year: year) else {
             return fail()
@@ -635,21 +635,21 @@ extension TOML.Parser {
             sep == UInt8(ascii: "T") || sep == UInt8(ascii: "t")
             || (sep == 0x20 && isDigit(r.byte(at: 1)))
         guard hasTime else { return .dateTime(.localDate(text)) }
-        r.advanceBy(1)
+        r.advance(by: 1)
         guard let time = scanTime(&r) else { return fail() }
         text += "T" + time
 
         if let z = r.currentByte, z == UInt8(ascii: "Z") || z == UInt8(ascii: "z") {
-            r.advanceBy(1)
+            r.advance(by: 1)
             return .dateTime(.offsetDateTime(text + "Z"))
         }
         if let s = r.currentByte, s == UInt8(ascii: "+") || s == UInt8(ascii: "-") {
             let offsetStart = r.byteOffset
-            r.advanceBy(1)
+            r.advance(by: 1)
             guard let oh = fixedDigits(&r, 2), r.currentByte == UInt8(ascii: ":") else {
                 return fail()
             }
-            r.advanceBy(1)
+            r.advance(by: 1)
             guard let om = fixedDigits(&r, 2), oh <= 23, om <= 59 else { return fail() }
             text += r.string(from: offsetStart, to: r.byteOffset)
             return .dateTime(.offsetDateTime(text))
@@ -674,15 +674,15 @@ extension TOML.Parser {
     func scanTime(_ r: inout AssayReader) -> String? {
         let start = r.byteOffset
         guard let h = fixedDigits(&r, 2), r.currentByte == UInt8(ascii: ":") else { return nil }
-        r.advanceBy(1)
+        r.advance(by: 1)
         guard let m = fixedDigits(&r, 2), r.currentByte == UInt8(ascii: ":") else { return nil }
-        r.advanceBy(1)
+        r.advance(by: 1)
         guard let s = fixedDigits(&r, 2) else { return nil }
         guard h <= 23, m <= 59, s <= 60 else { return nil }
         if r.currentByte == UInt8(ascii: ".") {
-            r.advanceBy(1)
+            r.advance(by: 1)
             var n = 0
-            while isDigit(r.currentByte) { r.advanceBy(1); n += 1 }
+            while isDigit(r.currentByte) { r.advance(by: 1); n += 1 }
             guard n > 0 else { return nil }
         }
         return r.string(from: start, to: r.byteOffset)
@@ -694,7 +694,7 @@ extension TOML.Parser {
         for _ in 0..<n {
             guard let c = r.currentByte, c >= 0x30, c <= 0x39 else { return nil }
             v = v * 10 + Int(c - 0x30)
-            r.advanceBy(1)
+            r.advance(by: 1)
         }
         return v
     }

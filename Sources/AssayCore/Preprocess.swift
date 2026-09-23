@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 /// A normalisation applied to a string field before its rules run.
-public enum PreprocessOp: Sendable {
+public enum PreprocessStep: Sendable {
     /// Strip leading and trailing ASCII whitespace.
     case trim
     /// ASCII lowercase. Deliberately not Unicode case folding — that is locale-adjacent
@@ -26,7 +26,7 @@ public enum PreprocessOp: Sendable {
 }
 
 @inlinable
-public func _assayPreprocess(_ value: String, _ ops: [PreprocessOp]) -> String {
+public func _assayPreprocess(_ value: String, _ ops: [PreprocessStep]) -> String {
     var v = value
     for op in ops {
         switch op {

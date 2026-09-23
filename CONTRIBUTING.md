@@ -57,6 +57,12 @@ swift-format format --in-place --recursive --configuration .swift-format \
     Sources Tests Benchmarks/Sources Scripts Package.swift
 ```
 
+One-time local setup, so `git blame` skips the reformat commit the way GitHub already does:
+
+```sh
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
 `Sources/AssayMacros/CodeGen.swift` is exempt via `// swift-format-ignore-file`, and its
 header says why: it nests multi-line string literals inside interpolations of other
 multi-line string literals, and a closing delimiter is what decides the indentation Swift

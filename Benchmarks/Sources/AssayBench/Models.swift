@@ -70,4 +70,3 @@ struct CodablePayload: Codable {
     var has_more: Bool
     var items: [CodableItem]
 }
-

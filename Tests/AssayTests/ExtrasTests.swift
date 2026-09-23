@@ -45,10 +45,11 @@ struct ExtrasTests {
 
     @Test("collect routes unknown keys into the @Extras property")
     func collect() throws {
-        let c = try Collected.parse(json: #"""
-        {"id":"x","count":3,"ratio":1.5,"on":true,"none":null,"tags":["a","b"],
-         "nested":{"k":"v"}}
-        """#)
+        let c = try Collected.parse(
+            json: #"""
+                {"id":"x","count":3,"ratio":1.5,"on":true,"none":null,"tags":["a","b"],
+                 "nested":{"k":"v"}}
+                """#)
         #expect(c.id == "x")
         #expect(c.rest.count == 6)
         #expect(c.rest["count"] == .int(3))
@@ -79,7 +80,7 @@ struct ExtrasTests {
     @Test("warn produces warnings, not issues, and decoding proceeds")
     func warn() {
         let d = Warned.diagnose(json: #"{"timeout":5,"retries":2,"tiemout":9,"zzz":1}"#)
-        #expect(d.isValid)                       // warnings do not invalidate
+        #expect(d.isValid)  // warnings do not invalidate
         #expect(d.value?.timeout == 5)
         #expect(d.warnings.count == 2)
         #expect(d.warnings.allSatisfy { $0.code == .unknownKey })
@@ -120,14 +121,15 @@ struct ExtrasTests {
         let issue = d.issues.first { $0.code == .unknownKey }
         #expect(issue?.location != nil)
         // The span points at the key itself, not the whole object.
-        #expect(issue?.location?.len == 4)       // "nope"
+        #expect(issue?.location?.len == 4)  // "nope"
     }
 
     @Test("deeply nested unknown values are collected whole, not flattened")
     func nestedCollection() throws {
-        let c = try Collected.parse(json: #"""
-        {"id":"x","deep":{"a":{"b":{"c":[1,{"d":true}]}}}}
-        """#)
+        let c = try Collected.parse(
+            json: #"""
+                {"id":"x","deep":{"a":{"b":{"c":[1,{"d":true}]}}}}
+                """#)
         #expect(c.rest["deep"]?["a"]?["b"]?["c"]?[1]?["d"] == .bool(true))
     }
 
@@ -170,18 +172,19 @@ struct UnknownKeyParityTests {
     func pathPrefixIsNotAnExtra() throws {
         let json = #"{"id": 1, "profile": {"display_name": "Jo"}, "other": 2}"#
         let toml = """
-        id = 1
-        other = 2
+            id = 1
+            other = 2
 
-        [profile]
-        display_name = "Jo"
-        """
+            [profile]
+            display_name = "Jo"
+            """
         let fromJSON = try PathAndExtras.parse(json: json)
         let fromTOML = try PathAndExtras.parse(toml: toml)
         #expect(fromJSON.displayName == "Jo")
         #expect(fromJSON.rest.keys.sorted() == ["other"])
-        #expect(fromTOML.rest.keys.sorted() == fromJSON.rest.keys.sorted(),
-                "TOML collected \(fromTOML.rest.keys.sorted())")
+        #expect(
+            fromTOML.rest.keys.sorted() == fromJSON.rest.keys.sorted(),
+            "TOML collected \(fromTOML.rest.keys.sorted())")
     }
 
     /// An unknown key carried a source span on JSON and none at all on the RawValue

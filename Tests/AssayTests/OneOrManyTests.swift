@@ -87,7 +87,8 @@ struct OneOrManyTests {
         #expect(y.tags == ["swift"])
 
         // The same unannotated field from JSON: refused. This is the asymmetry.
-        #expect(StrictPost.diagnose(json: Array(#"{"tags":"swift","title":"t"}"#.utf8)).isValid
+        #expect(
+            StrictPost.diagnose(json: Array(#"{"tags":"swift","title":"t"}"#.utf8)).isValid
                 == false)
 
         // And the reason it cannot be closed by making the tree path strict: repeated

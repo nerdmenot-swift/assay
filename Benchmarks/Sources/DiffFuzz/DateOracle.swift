@@ -54,11 +54,14 @@ func runDateDifferential() -> Int {
     for _ in 0..<1_000 {
         let year = 1583 + next(2500 - 1583)
         let month = 1 + next(12)
-        let dim = [31, (year % 4 == 0 && year % 100 != 0) || year % 400 == 0 ? 29 : 28,
-                   31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]
+        let dim = [
+            31, (year % 4 == 0 && year % 100 != 0) || year % 400 == 0 ? 29 : 28,
+            31, 30, 31, 30, 31, 31, 30, 31, 30, 31
+        ][month - 1]
         let day = 1 + next(dim)
         let h = next(24), m = next(60), s = next(60)
-        let text = "\(pad(year, 4))-\(pad(month, 2))-\(pad(day, 2))"
+        let text =
+            "\(pad(year, 4))-\(pad(month, 2))-\(pad(day, 2))"
             + "T\(pad(h, 2)):\(pad(m, 2)):\(pad(s, 2))Z"
         guard let theirs = iso.date(from: text) else {
             fail("date: Foundation rejected valid \(text)")
@@ -97,7 +100,7 @@ func runDateDifferential() -> Int {
     //    should refuse.
     let invalid = [
         "2026-13-01T00:00:00Z", "2026-08-06T12:60:00Z", "not a date",
-        "2026-08-06", "2026-08-06T12:00Z",
+        "2026-08-06", "2026-08-06T12:00Z"
     ]
     for text in invalid {
         let theirs = iso.date(from: text)

@@ -48,24 +48,26 @@ extension AssayReader {
         }
 
         switch current {
-        case 0x6E:                                   // n(ull)
+        case 0x6E:  // n(ull)
             guard scanNull() else { reportMalformed(&sink, path, expected: "null"); return nil }
             return .null
 
-        case 0x74, 0x66:                             // t(rue) / f(alse)
+        case 0x74, 0x66:  // t(rue) / f(alse)
             guard let b = scanBool() else {
-                reportMalformed(&sink, path, expected: "true or false"); return nil }
+                reportMalformed(&sink, path, expected: "true or false"); return nil
+            }
             return .bool(b)
 
-        case 0x22:                                   // "
+        case 0x22:  // "
             guard let s = scanString() else {
-                reportMalformed(&sink, path, expected: "a string"); return nil }
+                reportMalformed(&sink, path, expected: "a string"); return nil
+            }
             return .string(s)
 
-        case 0x5B:                                   // [
+        case 0x5B:  // [
             return scanJSONArray(&sink, &path, &hints)
 
-        case 0x7B:                                   // {
+        case 0x7B:  // {
             return scanJSONObject(&sink, &path, &hints)
 
         default:
@@ -87,9 +89,12 @@ extension AssayReader {
         // The value model gets the same verdict as the struct path: a literal that is a
         // number and cannot be represented is an error, not `inf` and not `malformed`.
         if numberRangeErrorAt >= 0 {
-            sink.add(Issue(code: .numberOverflow, path: path,
-                           location: SourceSpan(lo: numberRangeErrorAt,
-                                                len: numberRangeErrorLength)))
+            sink.add(
+                Issue(
+                    code: .numberOverflow, path: path,
+                    location: SourceSpan(
+                        lo: numberRangeErrorAt,
+                        len: numberRangeErrorLength)))
             numberRangeErrorAt = -1
             return nil
         }
@@ -126,7 +131,8 @@ extension AssayReader {
             break
         }
         guard tryConsume(0x5D) else {
-            reportMalformed(&sink, path, expected: "',' or ']'"); return nil }
+            reportMalformed(&sink, path, expected: "',' or ']'"); return nil
+        }
         hints.setItems(items.count, at: level)
         return .array(items)
     }
@@ -152,9 +158,11 @@ extension AssayReader {
             // materialises one. That difference is most of why the document path is
             // slower, and it is unavoidable when the key set is unknown.
             guard let key = scanString() else {
-                reportMalformed(&sink, path, expected: "a key in double quotes"); return nil }
+                reportMalformed(&sink, path, expected: "a key in double quotes"); return nil
+            }
             guard expect(0x3A) else {
-                reportMalformed(&sink, path, expected: "':' after the key"); return nil }
+                reportMalformed(&sink, path, expected: "':' after the key"); return nil
+            }
             path.append(.key(key))
             guard let v = _scanJSONValue(&sink, &path, &hints) else { return nil }
             path.removeLast()
@@ -167,7 +175,8 @@ extension AssayReader {
             break
         }
         guard tryConsume(0x7D) else {
-            reportMalformed(&sink, path, expected: "',' or '}'"); return nil }
+            reportMalformed(&sink, path, expected: "',' or '}'"); return nil
+        }
         hints.setMembers(members.count, at: level)
         return .object(members)
     }
@@ -239,8 +248,10 @@ extension JSON.Value {
         limits: Limits = .default
     ) -> JSON.Value? {
         if bytes.count > limits.maxBytes {
-            sink.add(Issue(code: .tooManyBytes,
-                           params: ["maxBytes": .int(limits.maxBytes)]))
+            sink.add(
+                Issue(
+                    code: .tooManyBytes,
+                    params: ["maxBytes": .int(limits.maxBytes)]))
             return nil
         }
         return unsafe bytes.withUnsafeBufferPointer { buf -> JSON.Value? in
@@ -272,9 +283,11 @@ extension JSON.Value {
         limits: Limits = .default
     ) -> JSON.Value? {
         if let bad = unsafe UTF8Validation.firstInvalid(base, count) {
-            sink.add(Issue(code: .invalidUTF8,
-                           params: ["offset": .int(bad)],
-                           location: SourceSpan(lo: bad, len: 1)))
+            sink.add(
+                Issue(
+                    code: .invalidUTF8,
+                    params: ["offset": .int(bad)],
+                    location: SourceSpan(lo: bad, len: 1)))
             return nil
         }
         var reader = unsafe AssayReader(base: base, count: count, limits: limits)
@@ -284,8 +297,10 @@ extension JSON.Value {
         guard let v = reader._scanJSONValue(&sink, &path, &hints) else { return nil }
         reader.skipWhitespace()
         if !reader.atEnd {
-            sink.add(Issue(code: .trailingContent,
-                           location: SourceSpan(lo: reader.byteOffset, len: 1)))
+            sink.add(
+                Issue(
+                    code: .trailingContent,
+                    location: SourceSpan(lo: reader.byteOffset, len: 1)))
             return nil
         }
         return v

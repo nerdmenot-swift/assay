@@ -109,8 +109,10 @@ extension XML {
         /// documents differing only in layout must stay equal.
         public var contentSpan: SourceSpan?
 
-        public init(name: Name, attributes: [Attribute] = [], children: [Node] = [],
-                    contentSpan: SourceSpan? = nil) {
+        public init(
+            name: Name, attributes: [Attribute] = [], children: [Node] = [],
+            contentSpan: SourceSpan? = nil
+        ) {
             self.name = name
             self.attributes = attributes
             self.children = children
@@ -284,15 +286,19 @@ extension RawValue {
         // Attributes first, then children, both in document order. Duplicates are kept —
         // `<tag/><tag/>` is ordinary XML and a Dictionary would silently drop one.
         for a in element.attributes {
-            members.append(.init(key: a.name.local, value: .string(a.value),
-                                 span: a.valueSpan))
+            members.append(
+                .init(
+                    key: a.name.local, value: .string(a.value),
+                    span: a.valueSpan))
         }
 
         for child in element.children {
             switch child {
             case .element(let e):
-                members.append(.init(key: e.name.local, value: RawValue(e),
-                                     span: e.contentSpan))
+                members.append(
+                    .init(
+                        key: e.name.local, value: RawValue(e),
+                        span: e.contentSpan))
             case .text(let s), .cdata(let s):
                 // Character data has no key. Whitespace-only runs between elements are
                 // formatting, not data, and are dropped; anything else is preserved under
@@ -333,7 +339,9 @@ extension RawValue {
 
         // The leaf test first, as in the borrowing form. One text child, the ordinary
         // leaf, moves out whole; anything else concatenates as `text` does.
-        if attributes.isEmpty, !children.contains(where: { if case .element = $0 { true } else { false } }) {
+        if attributes.isEmpty,
+            !children.contains(where: { if case .element = $0 { true } else { false } })
+        {
             if children.count == 1 {
                 switch children.removeLast() {
                 case .text(let s), .cdata(let s): self = .string(s)
@@ -357,54 +365,58 @@ extension RawValue {
         // runs that are dropped; `count` says how many were written.
         let capacity = attributes.count + children.count
         let members = unsafe children.withUnsafeMutableBufferPointer { kids in
-                unsafe [Member](unsafeUninitializedCapacity: capacity) { dst, count in
-                    // Skipped when empty, which is most elements: mutable access to the
-                    // empty-array singleton goes through the make-unique path every time.
-                    if !attributes.isEmpty {
-                        unsafe attributes.withUnsafeMutableBufferPointer { attrs in
-                            for i in attrs.indices {
-                                var key = ""
-                                unsafe swap(&key, &attrs[i].name.local)
-                                var value = ""
-                                unsafe swap(&value, &attrs[i].value)
-                                unsafe (dst.baseAddress! + count).initialize(
-                                    to: .init(key: consume key, value: .string(consume value),
-                                              span: attrs[i].valueSpan))
-                                count += 1
-                            }
-                        }
-                    }
-                    for i in kids.indices {
-                        var child = XML.Node.text("")
-                        unsafe swap(&child, &kids[i])
-                        // Bound OUTSIDE the switch: a switch subject lives to the end of
-                        // the case body, and an element still shared with it would copy
-                        // its arrays on the first mutation, and so would every element
-                        // under it.
-                        var element: XML.Element? = nil
-                        var text: String? = nil
-                        switch consume child {
-                        case .element(let e): element = e
-                        case .text(let s), .cdata(let s): text = s
-                        case .comment, .processingInstruction: break
-                        }
-                        if var e = element.take() {
+            unsafe [Member](unsafeUninitializedCapacity: capacity) { dst, count in
+                // Skipped when empty, which is most elements: mutable access to the
+                // empty-array singleton goes through the make-unique path every time.
+                if !attributes.isEmpty {
+                    unsafe attributes.withUnsafeMutableBufferPointer { attrs in
+                        for i in attrs.indices {
                             var key = ""
-                            swap(&key, &e.name.local)
-                            let span = e.contentSpan
+                            unsafe swap(&key, &attrs[i].name.local)
+                            var value = ""
+                            unsafe swap(&value, &attrs[i].value)
                             unsafe (dst.baseAddress! + count).initialize(
-                                to: .init(key: consume key,
-                                          value: RawValue(consuming: consume e), span: span))
-                            count += 1
-                        } else if let s = text.take(), !s.utf8.allSatisfy({
-                            $0 == 0x20 || $0 == 0x09 || $0 == 0x0A || $0 == 0x0D
-                        }) {
-                            unsafe (dst.baseAddress! + count).initialize(
-                                to: .init(key: "", value: .string(s)))
+                                to: .init(
+                                    key: consume key, value: .string(consume value),
+                                    span: attrs[i].valueSpan))
                             count += 1
                         }
                     }
                 }
+                for i in kids.indices {
+                    var child = XML.Node.text("")
+                    unsafe swap(&child, &kids[i])
+                    // Bound OUTSIDE the switch: a switch subject lives to the end of
+                    // the case body, and an element still shared with it would copy
+                    // its arrays on the first mutation, and so would every element
+                    // under it.
+                    var element: XML.Element? = nil
+                    var text: String? = nil
+                    switch consume child {
+                    case .element(let e): element = e
+                    case .text(let s), .cdata(let s): text = s
+                    case .comment, .processingInstruction: break
+                    }
+                    if var e = element.take() {
+                        var key = ""
+                        swap(&key, &e.name.local)
+                        let span = e.contentSpan
+                        unsafe (dst.baseAddress! + count).initialize(
+                            to: .init(
+                                key: consume key,
+                                value: RawValue(consuming: consume e), span: span))
+                        count += 1
+                    } else if let s = text.take(),
+                        !s.utf8.allSatisfy({
+                            $0 == 0x20 || $0 == 0x09 || $0 == 0x0A || $0 == 0x0D
+                        })
+                    {
+                        unsafe (dst.baseAddress! + count).initialize(
+                            to: .init(key: "", value: .string(s)))
+                        count += 1
+                    }
+                }
+            }
         }
 
         self = .mapping(members)

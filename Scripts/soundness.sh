@@ -3,29 +3,21 @@
 # Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
 # See LICENSE and NOTICE at the repository root for terms.
 
-# The mechanical checks: licence headers, tabs, trailing whitespace, final newlines.
+# The mechanical checks that `swift-format` does not make: licence headers, tabs, trailing
+# whitespace, final newlines, and no `.unsafeFlags` in the manifest.
 #
-# WHY THIS EXISTS AND `swift-format` DOES NOT. Apple's packages ship a `.swift-format` and
-# lint against it, and that is the convention this repository deliberately does not follow.
-# Measured before deciding: `swift-format lint` reports **3,081 warnings** on this tree, and
-# 2,648 of them are one disagreement repeated — the formatter wants every wrapped argument
-# list one-per-line, and this codebase wraps them compactly:
+# Formatting itself is `swift-format`'s job — `.swift-format` at the repository root, lint
+# gated in CI, and the whole tree was reformatted to it on 2026-09-23. This script is the
+# other half, in the shape of swift-nio's `scripts/soundness.sh`: a licence header is not a
+# formatting question, and neither is a tab inside a string literal.
 #
-#     public init(maxIssues: Int = 100, maxDepth: Int = 64, maxBytes: Int = 64 << 20,
-#                 maxUnionAttempts: Int = 10_000, verboseUnions: Bool = false) {
+# ONE FILE IS EXEMPT FROM THE FORMATTER and the reason is recorded where it applies —
+# `Sources/AssayMacros/CodeGen.swift` carries `// swift-format-ignore-file` because it nests
+# multi-line string literals inside interpolations of other multi-line string literals, and
+# reformatting it produced 44 "insufficient indentation" compile errors. A closing delimiter
+# decides what Swift strips from a literal, and in that file one line belongs to two literals
+# at once. The golden expansions are what keep it honest instead.
 #
-# Adopting the formatter therefore means reformatting essentially every file. That is a real
-# option and it would make contributors' format-on-save do the right thing — but this
-# codebase's density is deliberate in two places where a reflow makes it worse: the macro
-# emitters, whose string templates are laid out to mirror the code they generate line for
-# line, and the comment blocks, which are load-bearing prose rather than decoration.
-#
-# So: no formatter, and this script instead. It checks the things that actually rot when
-# several people edit a repository, and it takes about a second. swift-nio's
-# `scripts/soundness.sh` is the same idea and the same reasoning.
-#
-# If you ever DO want to adopt swift-format, the honest path is one commit that reformats
-# everything, `.git-blame-ignore-revs` so `git blame` survives it, and this script deleted.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 

@@ -58,17 +58,17 @@ func floor(of value: Any) -> Floor { var f = Floor(); walk(value, &f); return f 
 /// a floor for a different decode.
 private func decodedValue(_ shape: String, _ b: [UInt8]) -> Any? {
     switch shape {
-    case "fields-2":          return try? Doc2.parse(json: b)
-    case "fields-20":         return try? Doc20.parse(json: b)
-    case "keys-long":         return try? DocLongKeys.parse(json: b)
-    case "values-int":        return try? DocInt.parse(json: b)
-    case "values-double":     return try? DocDouble.parse(json: b)
-    case "values-bool":       return try? DocBool.parse(json: b)
-    case "nested-3":          return try? DocNested.parse(json: b)
+    case "fields-2": return try? Doc2.parse(json: b)
+    case "fields-20": return try? Doc20.parse(json: b)
+    case "keys-long": return try? DocLongKeys.parse(json: b)
+    case "values-int": return try? DocInt.parse(json: b)
+    case "values-double": return try? DocDouble.parse(json: b)
+    case "values-bool": return try? DocBool.parse(json: b)
+    case "nested-3": return try? DocNested.parse(json: b)
     case "array-10", "array-640": return try? DocArray.parse(json: b)
-    case "groups-10":         return try? DocGroup.parse(json: b)
+    case "groups-10": return try? DocGroup.parse(json: b)
     case "optional-absent", "optional-null": return try? DocOptional.parse(json: b)
-    default:                  return try? Doc5.parse(json: b)
+    default: return try? Doc5.parse(json: b)
     }
 }
 
@@ -76,18 +76,21 @@ private func decodedValue(_ shape: String, _ b: [UInt8]) -> Any? {
 func floor(shape: String, task: String, bytes b: [UInt8]) -> Floor? {
     switch task {
     case "struct", "diagnose": return decodedValue(shape, b).map { floor(of: $0) }
-    case "skip":               return (try? DocPrefix.parse(json: b)).map { floor(of: $0) }
-    case "validate":           return Floor()
+    case "skip": return (try? DocPrefix.parse(json: b)).map { floor(of: $0) }
+    case "validate": return Floor()
     case "encode":
         // One contiguous output buffer, exactly as long as the document it writes.
         let n: Int?
         switch shape {
-        case "fields-2": n = (try? Doc2.parse(json: b)).flatMap { try? Array($0.encodedJSON()) }?.count
-        case "fields-20": n = (try? Doc20.parse(json: b)).flatMap { try? Array($0.encodedJSON()) }?.count
-        case "nested-3": n = (try? DocNested.parse(json: b)).flatMap { try? Array($0.encodedJSON()) }?.count
+        case "fields-2":
+            n = (try? Doc2.parse(json: b)).flatMap { try? Array($0.encodedJSON()) }?.count
+        case "fields-20":
+            n = (try? Doc20.parse(json: b)).flatMap { try? Array($0.encodedJSON()) }?.count
+        case "nested-3":
+            n = (try? DocNested.parse(json: b)).flatMap { try? Array($0.encodedJSON()) }?.count
         default: n = (try? Doc5.parse(json: b)).flatMap { try? Array($0.encodedJSON()) }?.count
         }
         return n.map { Floor(blocks: 1, bytes: objectHeader + $0) }
-    default:                   return nil
+    default: return nil
     }
 }

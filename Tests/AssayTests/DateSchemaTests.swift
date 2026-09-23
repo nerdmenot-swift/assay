@@ -27,9 +27,9 @@ struct Date: Sendable, Equatable {
 @Schema(keys: .snakeCase)
 struct Event {
     var name: String
-    var createdAt: Date                                   // ISO-8601, the default
+    var createdAt: Date  // ISO-8601, the default
     @DateFormat(.unixSeconds) var recordedAt: Date
-    @DateFormat(.iso8601, .unixMillis) var updatedAt: Date // candidate chain
+    @DateFormat(.iso8601, .unixMillis) var updatedAt: Date  // candidate chain
     var deletedAt: Date?
 }
 
@@ -59,13 +59,15 @@ struct DateSchemaTests {
 
     @Test("the four declaration shapes decode")
     func shapes() throws {
-        let e = try Event.parse(json: Array("""
-        {"name": "deploy",
-         "created_at": "2026-08-06T12:00:00Z",
-         "recorded_at": 1754481600,
-         "updated_at": "2026-08-06T12:00:00Z",
-         "deleted_at": null}
-        """.utf8))
+        let e = try Event.parse(
+            json: Array(
+                """
+                {"name": "deploy",
+                 "created_at": "2026-08-06T12:00:00Z",
+                 "recorded_at": 1754481600,
+                 "updated_at": "2026-08-06T12:00:00Z",
+                 "deleted_at": null}
+                """.utf8))
         #expect(e.createdAt == Date(timeIntervalSince1970: 1_786_017_600))
         #expect(e.recordedAt == Date(timeIntervalSince1970: 1_754_481_600))
         #expect(e.updatedAt == e.createdAt)
@@ -81,12 +83,14 @@ struct DateSchemaTests {
 
     @Test("a candidate chain: the fallback format matches, with a warning")
     func fallbackFormatWarns() throws {
-        let d = Event.diagnose(json: Array("""
-        {"name": "deploy",
-         "created_at": "2026-08-06T12:00:00Z",
-         "recorded_at": 1754481600,
-         "updated_at": 1754481600000}
-        """.utf8))
+        let d = Event.diagnose(
+            json: Array(
+                """
+                {"name": "deploy",
+                 "created_at": "2026-08-06T12:00:00Z",
+                 "recorded_at": 1754481600,
+                 "updated_at": 1754481600000}
+                """.utf8))
         let e = try d.get()
         #expect(e.updatedAt == Date(timeIntervalSince1970: 1_754_481_600))
         #expect(d.warnings.contains { $0.code == .dateFormatFallback })
@@ -97,12 +101,14 @@ struct DateSchemaTests {
 
     @Test("a total miss names every format tried, the reason, and the position")
     func richError() {
-        let d = Event.diagnose(json: Array("""
-        {"name": "deploy",
-         "created_at": "2026-02-30T00:00:00Z",
-         "recorded_at": 1754481600,
-         "updated_at": "2026-08-06T12:00:00Z"}
-        """.utf8))
+        let d = Event.diagnose(
+            json: Array(
+                """
+                {"name": "deploy",
+                 "created_at": "2026-02-30T00:00:00Z",
+                 "recorded_at": 1754481600,
+                 "updated_at": "2026-08-06T12:00:00Z"}
+                """.utf8))
         #expect(!d.isValid)
         let issue = d.issues.first { $0.code == .invalidDate }
         #expect(issue != nil)
@@ -116,22 +122,27 @@ struct DateSchemaTests {
 
     @Test("the chain's error names both formats")
     func chainError() {
-        let d = Event.diagnose(json: Array("""
-        {"name": "deploy",
-         "created_at": "2026-08-06T12:00:00Z",
-         "recorded_at": 1754481600,
-         "updated_at": "yesterday"}
-        """.utf8))
+        let d = Event.diagnose(
+            json: Array(
+                """
+                {"name": "deploy",
+                 "created_at": "2026-08-06T12:00:00Z",
+                 "recorded_at": 1754481600,
+                 "updated_at": "yesterday"}
+                """.utf8))
         let issue = d.issues.first { $0.code == .invalidDate }
-        #expect(issue?.params["expected"]?.displayString
+        #expect(
+            issue?.params["expected"]?.displayString
                 == "ISO-8601 date, or unix timestamp (milliseconds)")
     }
 
     @Test("null on a required Date is a type mismatch, not a crash or a zero")
     func nullRequired() {
-        let d = Event.diagnose(json: Array("""
-        {"name": "x", "created_at": null, "recorded_at": 1, "updated_at": 1754481600000}
-        """.utf8))
+        let d = Event.diagnose(
+            json: Array(
+                """
+                {"name": "x", "created_at": null, "recorded_at": 1, "updated_at": 1754481600000}
+                """.utf8))
         #expect(!d.isValid)
     }
 
@@ -145,28 +156,34 @@ struct DateSchemaTests {
 
     @Test("date rules: before, after, between — violations render as dates")
     func rules() throws {
-        let ok = try Window.parse(json: Array("""
-        {"opens": "2026-08-06T12:00:00Z", "closes": "2026-08-06T13:00:00Z"}
-        """.utf8))
+        let ok = try Window.parse(
+            json: Array(
+                """
+                {"opens": "2026-08-06T12:00:00Z", "closes": "2026-08-06T13:00:00Z"}
+                """.utf8))
         #expect(ok.opens.timeIntervalSince1970 < ok.closes.timeIntervalSince1970)
 
-        let d = Window.diagnose(json: Array("""
-        {"opens": "2031-01-01T00:00:00Z", "closes": "2019-06-01T00:00:00Z"}
-        """.utf8))
+        let d = Window.diagnose(
+            json: Array(
+                """
+                {"opens": "2031-01-01T00:00:00Z", "closes": "2019-06-01T00:00:00Z"}
+                """.utf8))
         #expect(!d.isValid)
         let late = d.issues.first { $0.code == .dateNotBefore }
         #expect(late?.message == "must be before 2030-01-01T00:00:00Z")
-        #expect(late?.received == "2031-01-01T00:00:00Z")     // rendered as a date
+        #expect(late?.received == "2031-01-01T00:00:00Z")  // rendered as a date
         let outside = d.issues.first { $0.code == .dateNotBetween }
         #expect(outside?.message == "must be between 2020-01-01 and 2030-01-01")
     }
 
     @Test("@Fallback, pattern formats, and [Date] arrays")
     func sturdy() throws {
-        let s = try Sturdy.parse(json: Array("""
-        {"seen": "not a date", "day": "2026-08-06",
-         "stamps": ["2026-08-06T12:00:00Z", "2026-08-06T13:00:00Z"]}
-        """.utf8))
+        let s = try Sturdy.parse(
+            json: Array(
+                """
+                {"seen": "not a date", "day": "2026-08-06",
+                 "stamps": ["2026-08-06T12:00:00Z", "2026-08-06T13:00:00Z"]}
+                """.utf8))
         // Invalid + @Fallback: the epoch stub, and parse() discards the warning.
         #expect(s.seen == Date(timeIntervalSince1970: 0))
         #expect(s.day == Date(timeIntervalSince1970: 1_785_974_400))
@@ -179,8 +196,9 @@ struct DateSchemaTests {
         // Built directly — the macro cannot check a non-literal, so the runtime must
         // refuse to validate anything against a bound that did not parse.
         var sink = IssueSink()
-        _assayValidate(0.0, [.before("not-a-date")], override: nil, field: "f",
-                       at: nil, path: [], &sink)
+        _assayValidate(
+            0.0, [.before("not-a-date")], override: nil, field: "f",
+            at: nil, path: [], &sink)
         #expect(sink.issues.first?.code == .invalidRuleDate)
         #expect(sink.issues.first?.message.contains("not-a-date") == true)
     }

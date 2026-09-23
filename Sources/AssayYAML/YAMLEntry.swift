@@ -41,8 +41,10 @@ func __assayYAMLDocument(
     if docs.count > 1 {
         // Silently taking the first document would be the wrong kind of convenient;
         // `parseAll(yaml:)` exists for the multi-document case.
-        sink.add(Issue(code: .yamlMultipleDocuments,
-                       params: ["count": .int(docs.count)]))
+        sink.add(
+            Issue(
+                code: .yamlMultipleDocuments,
+                params: ["count": .int(docs.count)]))
         docs.removeSubrange(1...)
     }
     return docs.removeLast()
@@ -75,11 +77,13 @@ extension RawDecodable {
     ) -> Diagnosis<Self> {
         var sink = IssueSink(limits: limits)
         guard let raw = __assayYAMLDocument(bytes, into: &sink, limits: limits) else {
-            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(
+                sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         var __rootPath: [PathStep] = []
         let value = Self._assay(from: raw, into: &sink, at: &__rootPath)
-        return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
+        return Diagnosis(
+            sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
     public static func diagnose(
@@ -105,8 +109,9 @@ extension RawDecodable {
             }
         }
         guard sink.isValid else {
-            throw AssayError(issues: sink.issues, source: SourceBytes(Array(text.utf8)),
-                             sourceName: "<input>")
+            throw AssayError(
+                issues: sink.issues, source: SourceBytes(Array(text.utf8)),
+                sourceName: "<input>")
         }
         return out
     }
@@ -126,8 +131,9 @@ extension RawEncodableSchema {
         let raw = _assayEncodeRaw(into: &sink, at: [])
         let bytes = YAML.encode(raw)
         guard sink.isValid else {
-            throw AssayError(issues: sink.issues, source: SourceBytes(Array(bytes)),
-                             sourceName: "<encoded.yaml>")
+            throw AssayError(
+                issues: sink.issues, source: SourceBytes(Array(bytes)),
+                sourceName: "<encoded.yaml>")
         }
         return bytes
     }
@@ -136,8 +142,9 @@ extension RawEncodableSchema {
     public func diagnoseEncodeYAML() -> EncodeDiagnosis {
         var sink = IssueSink()
         let raw = _assayEncodeRaw(into: &sink, at: [])
-        return EncodeDiagnosis(bytes: Array(YAML.encode(raw)),
-                               issues: sink.issues, warnings: sink.warnings)
+        return EncodeDiagnosis(
+            bytes: Array(YAML.encode(raw)),
+            issues: sink.issues, warnings: sink.warnings)
     }
 
     /// The encoded document as text. YAML is a human-facing format, so this is usually
@@ -171,8 +178,10 @@ extension WireFormat {
                 return nil
             }
             if docs.count > 1 {
-                sink.add(Issue(code: .yamlMultipleDocuments,
-                               params: ["count": .int(docs.count)]))
+                sink.add(
+                    Issue(
+                        code: .yamlMultipleDocuments,
+                        params: ["count": .int(docs.count)]))
                 docs.removeSubrange(1...)
             }
             return docs.removeLast()
@@ -197,8 +206,10 @@ extension ContextualRawDecodable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) throws -> Self {
-        try diagnose(yaml: bytes, context: context,
-                     limits: limits, sourceName: sourceName).get()
+        try diagnose(
+            yaml: bytes, context: context,
+            limits: limits, sourceName: sourceName
+        ).get()
     }
 
     public static func parse(
@@ -207,8 +218,9 @@ extension ContextualRawDecodable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) throws -> Self {
-        try parse(yaml: Array(text.utf8), context: context,
-                  limits: limits, sourceName: sourceName)
+        try parse(
+            yaml: Array(text.utf8), context: context,
+            limits: limits, sourceName: sourceName)
     }
 
     public static func diagnose(
@@ -219,11 +231,13 @@ extension ContextualRawDecodable {
     ) -> Diagnosis<Self> {
         var sink = IssueSink(limits: limits)
         guard let raw = __assayYAMLDocument(bytes, into: &sink, limits: limits) else {
-            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(
+                sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         var __rootPath: [PathStep] = []
         let value = Self._assay(from: raw, into: &sink, at: &__rootPath, context: context)
-        return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
+        return Diagnosis(
+            sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
     public static func diagnose(
@@ -232,7 +246,8 @@ extension ContextualRawDecodable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) -> Diagnosis<Self> {
-        diagnose(yaml: Array(text.utf8), context: context,
-                 limits: limits, sourceName: sourceName)
+        diagnose(
+            yaml: Array(text.utf8), context: context,
+            limits: limits, sourceName: sourceName)
     }
 }

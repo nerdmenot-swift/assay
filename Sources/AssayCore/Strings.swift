@@ -100,12 +100,15 @@ extension AssayReader {
         }
         let bound = min(end, count) &- start
         if bound <= Self.stackUnescapeLimit {
-            return unsafe withUnsafeTemporaryAllocation(of: UInt8.self,
-                                                        capacity: max(bound, 1)) { buffer in
+            return unsafe withUnsafeTemporaryAllocation(
+                of: UInt8.self,
+                capacity: max(bound, 1)
+            ) { buffer in
                 let out = buffer.baseAddress!
                 guard let n = unsafe unescape(from: start, into: out) else { return nil }
-                return unsafe String(decoding: UnsafeBufferPointer(start: out, count: n),
-                                     as: UTF8.self)
+                return unsafe String(
+                    decoding: UnsafeBufferPointer(start: out, count: n),
+                    as: UTF8.self)
             }
         }
         var decoded = true
@@ -138,7 +141,7 @@ extension AssayReader {
                 return n
             }
             if c != 0x5C {
-                if c < 0x20 { return nil }        // RFC 8259 §7, as on the fast path
+                if c < 0x20 { return nil }  // RFC 8259 §7, as on the fast path
                 unsafe out[n] = c
                 n &+= 1
                 cursor &+= 1
@@ -159,15 +162,15 @@ extension AssayReader {
             cursor &+= 1
             let byte: UInt8
             switch e {
-            case 0x22: byte = 0x22                // \"
-            case 0x5C: byte = 0x5C                // backslash
-            case 0x2F: byte = 0x2F                // /
-            case 0x62: byte = 0x08                // \b
-            case 0x66: byte = 0x0C                // \f
-            case 0x6E: byte = 0x0A                // \n
-            case 0x72: byte = 0x0D                // \r
-            case 0x74: byte = 0x09                // \t
-            case 0x75:                            // \uXXXX
+            case 0x22: byte = 0x22  // \"
+            case 0x5C: byte = 0x5C  // backslash
+            case 0x2F: byte = 0x2F  // /
+            case 0x62: byte = 0x08  // \b
+            case 0x66: byte = 0x0C  // \f
+            case 0x6E: byte = 0x0A  // \n
+            case 0x72: byte = 0x0D  // \r
+            case 0x74: byte = 0x09  // \t
+            case 0x75:  // \uXXXX
                 guard let scalar = scanUnicodeEscape() else {
                     // A lone surrogate or a non-hex digit. Remember where, then scan on
                     // to the closing quote so the value is consumed: until 2026-09-10
@@ -198,7 +201,6 @@ extension AssayReader {
         }
         return nil
     }
-
 
     /// Branch-free hex nibble decode, after swift-extras-json's `hexAsciiTo4Bits`.
     /// IkigaJSON's `firstIndex(of:)` linear search over a 16-element array is the
@@ -232,8 +234,9 @@ extension AssayReader {
         guard hi <= 0xDBFF else { return nil }
         // Expect a paired \uDC00-\uDFFF.
         guard cursor &+ 1 < count,
-              unsafe base[cursor] == 0x5C,
-              unsafe base[cursor &+ 1] == 0x75 else { return nil }
+            unsafe base[cursor] == 0x5C,
+            unsafe base[cursor &+ 1] == 0x75
+        else { return nil }
         cursor &+= 2
         guard let lo = scanHex4(), lo >= 0xDC00, lo <= 0xDFFF else { return nil }
         return 0x10000 &+ ((hi &- 0xD800) << 10) &+ (lo &- 0xDC00)

@@ -35,8 +35,9 @@ extension JSONAssayable where Self: RawRepresentable, RawValue == String {
             return nil
         }
         guard let v = Self(rawValue: s) else {
-            _unknownVariant(&sink, path, received: s, options: nil,
-                           span: reader.lastValueSpan)
+            _unknownVariant(
+                &sink, path, received: s, options: nil,
+                span: reader.lastValueSpan)
             return nil
         }
         return v
@@ -56,9 +57,10 @@ extension JSONAssayable where Self: RawRepresentable & CaseIterable, RawValue ==
             return nil
         }
         guard let v = Self(rawValue: s) else {
-            _unknownVariant(&sink, path, received: s,
-                           options: allCases.map(\.rawValue),
-                           span: reader.lastValueSpan)
+            _unknownVariant(
+                &sink, path, received: s,
+                options: allCases.map(\.rawValue),
+                span: reader.lastValueSpan)
             return nil
         }
         return v
@@ -94,8 +96,9 @@ extension RawDecodable where Self: RawRepresentable & CaseIterable, RawValue == 
             return nil
         }
         guard let v = Self(rawValue: s) else {
-            _unknownVariant(&sink, path, received: s,
-                           options: allCases.map(\.rawValue), span: nil)
+            _unknownVariant(
+                &sink, path, received: s,
+                options: allCases.map(\.rawValue), span: nil)
             return nil
         }
         return v
@@ -117,8 +120,9 @@ extension JSONAssayable where Self: RawRepresentable, RawValue == Int {
             return nil
         }
         guard let v = Self(rawValue: n) else {
-            _unknownVariant(&sink, path, received: String(n), options: nil,
-                           span: reader.lastValueSpan)
+            _unknownVariant(
+                &sink, path, received: String(n), options: nil,
+                span: reader.lastValueSpan)
             return nil
         }
         return v
@@ -160,10 +164,11 @@ private func _unknownVariant(
             params["didYouMean"] = .string(hint)
         }
     }
-    sink.add(Issue(
-        code: .unknownVariant,
-        path: path,
-        params: params,
-        received: received,
-        location: span))
+    sink.add(
+        Issue(
+            code: .unknownVariant,
+            path: path,
+            params: params,
+            received: received,
+            location: span))
 }

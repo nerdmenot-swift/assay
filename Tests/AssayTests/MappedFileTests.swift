@@ -96,8 +96,9 @@ struct MappedFileTests {
 
     @Test("parse(mmapped:) produces the same value as parse(json:)")
     func equivalence() throws {
-        let json = #"{"version":"1","items":[{"id":1,"name":"a","active":true},"#
-                 + #"{"id":2,"name":"b","active":false}]}"#
+        let json =
+            #"{"version":"1","items":[{"id":1,"name":"a","active":true},"#
+            + #"{"id":2,"name":"b","active":false}]}"#
         let bytes = Array(json.utf8)
         let inMemory = try MappedDoc.parse(json: bytes)
 
@@ -178,12 +179,16 @@ struct MappedFileTests {
 
     @Test("depth limit still applies, and is now the binding safety constraint")
     func depth() throws {
-        let deep = String(repeating: #"{"items":"#, count: 200)
+        let deep =
+            String(repeating: #"{"items":"#, count: 200)
             + "1" + String(repeating: "}", count: 200)
         try withTempFile(Array(deep.utf8)) { path in
-            let d = MappedDoc.diagnose(mmappedPath: path, limits: Limits(maxIssues: 100,
-                                                                    maxDepth: 64,
-                                                                    maxBytes: .max))
+            let d = MappedDoc.diagnose(
+                mmappedPath: path,
+                limits: Limits(
+                    maxIssues: 100,
+                    maxDepth: 64,
+                    maxBytes: .max))
             #expect(d.isValid == false)
         }
     }
@@ -255,7 +260,9 @@ extension MappedFileTests {
             #expect(d.issues.first?.path.pathDescription == "items[0].id")
             #expect(d.issues.first?.location != nil)
             // The render reaches into the mapping for the snippet.
-            #expect(d.render(.plain).contains("\"id\": \"x\"") || d.render(.plain).contains("\"id\":\"x\""))
+            #expect(
+                d.render(.plain).contains("\"id\": \"x\"")
+                    || d.render(.plain).contains("\"id\":\"x\""))
             #expect(d.sourceName.hasSuffix(".json"))
         }
     }

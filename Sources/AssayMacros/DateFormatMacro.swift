@@ -27,7 +27,7 @@ import SwiftDiagnostics
 public struct DateFormatMacro: PeerMacro {
 
     static let knownFormats: Set<String> = [
-        "iso8601", "unixSeconds", "unixMillis", "rfc9110",
+        "iso8601", "unixSeconds", "unixMillis", "rfc9110"
     ]
 
     public static func expansion(
@@ -38,25 +38,29 @@ public struct DateFormatMacro: PeerMacro {
 
         // Placement: the property must actually be a Date.
         if let varDecl = declaration.as(VariableDeclSyntax.self),
-           let annotation = varDecl.bindings.first?.typeAnnotation {
+            let annotation = varDecl.bindings.first?.typeAnnotation
+        {
             let t = annotation.type.trimmedDescription
             // No Foundation in the macro target; strip array/optional sigils by hand.
-            let base = String(t.unicodeScalars.filter { $0 != "[" && $0 != "]" && $0 != "?" && $0 != " " })
+            let base = String(
+                t.unicodeScalars.filter { $0 != "[" && $0 != "]" && $0 != "?" && $0 != " " })
             if base != "Date" && base != "Foundation.Date" {
-                context.diagnose(Diagnostic(
-                    node: Syntax(node),
-                    message: SimpleDiagnostic(
-                        "@DateFormat applies to Date properties; '\(t)' is not one")))
+                context.diagnose(
+                    Diagnostic(
+                        node: Syntax(node),
+                        message: SimpleDiagnostic(
+                            "@DateFormat applies to Date properties; '\(t)' is not one")))
                 return []
             }
         }
 
         guard let args = node.arguments?.as(LabeledExprListSyntax.self), !args.isEmpty else {
-            context.diagnose(Diagnostic(
-                node: Syntax(node),
-                message: SimpleDiagnostic(
-                    "@DateFormat needs at least one format — .iso8601, .unixSeconds, "
-                    + ".unixMillis, .rfc9110, or .pattern(\"...\")")))
+            context.diagnose(
+                Diagnostic(
+                    node: Syntax(node),
+                    message: SimpleDiagnostic(
+                        "@DateFormat needs at least one format — .iso8601, .unixSeconds, "
+                            + ".unixMillis, .rfc9110, or .pattern(\"...\")")))
             return []
         }
 
@@ -77,18 +81,21 @@ public struct DateFormatMacro: PeerMacro {
                 return
             }
             guard let first = call.arguments.first,
-                  let literal = first.expression.as(StringLiteralExprSyntax.self),
-                  literal.segments.allSatisfy({ $0.is(StringSegmentSyntax.self) }) else {
-                context.diagnose(Diagnostic(
-                    node: Syntax(expr),
-                    message: SimpleDiagnostic(
-                        ".pattern needs a string literal, so the pattern can be checked "
-                        + "at compile time")))
+                let literal = first.expression.as(StringLiteralExprSyntax.self),
+                literal.segments.allSatisfy({ $0.is(StringSegmentSyntax.self) })
+            else {
+                context.diagnose(
+                    Diagnostic(
+                        node: Syntax(expr),
+                        message: SimpleDiagnostic(
+                            ".pattern needs a string literal, so the pattern can be checked "
+                                + "at compile time")))
                 return
             }
             if let why = checkDatePattern(literal.segments.description) {
-                context.diagnose(Diagnostic(
-                    node: Syntax(expr), message: SimpleDiagnostic(why)))
+                context.diagnose(
+                    Diagnostic(
+                        node: Syntax(expr), message: SimpleDiagnostic(why)))
             }
             return
         }
@@ -106,11 +113,12 @@ public struct DateFormatMacro: PeerMacro {
     static func unknown(
         _ name: String, node: AttributeSyntax, context: some MacroExpansionContext
     ) {
-        context.diagnose(Diagnostic(
-            node: Syntax(node),
-            message: SimpleDiagnostic(
-                "'\(name)' is not a date format; supported: .iso8601, .unixSeconds, "
-                + ".unixMillis, .rfc9110, .pattern(\"...\")")))
+        context.diagnose(
+            Diagnostic(
+                node: Syntax(node),
+                message: SimpleDiagnostic(
+                    "'\(name)' is not a date format; supported: .iso8601, .unixSeconds, "
+                        + ".unixMillis, .rfc9110, .pattern(\"...\")")))
     }
 }
 
@@ -125,7 +133,7 @@ func checkDatePattern(_ pattern: String) -> String? {
     var i = 0
     while i < bytes.count {
         let c = bytes[i]
-        if c == 0x27 {                             // ' — quoted literal
+        if c == 0x27 {  // ' — quoted literal
             i += 1
             if i < bytes.count, bytes[i] == 0x27 { i += 1; continue }
             var closed = false

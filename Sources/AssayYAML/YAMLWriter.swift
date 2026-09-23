@@ -80,8 +80,8 @@ extension YAML {
     static func isNonEmptyCollection(_ v: RawValue) -> Bool {
         switch v {
         case .sequence(let xs): return !xs.isEmpty
-        case .mapping(let ms):  return !ms.isEmpty
-        default:                return false
+        case .mapping(let ms): return !ms.isEmpty
+        default: return false
         }
     }
 
@@ -90,7 +90,7 @@ extension YAML {
     static func writeNested(_ v: RawValue, into out: inout String, indent: Int) {
         switch v {
         case .sequence(let xs) where xs.isEmpty: out += "[]"
-        case .mapping(let ms) where ms.isEmpty:  out += "{}"
+        case .mapping(let ms) where ms.isEmpty: out += "{}"
         case .sequence, .mapping:
             write(v, into: &out, indent: indent, atLineStart: false)
         default:
@@ -102,9 +102,9 @@ extension YAML {
 
     static func scalar(_ v: RawValue) -> String {
         switch v {
-        case .null:          return "null"
-        case .bool(let b):   return b ? "true" : "false"
-        case .int(let i):    return String(i)
+        case .null: return "null"
+        case .bool(let b): return b ? "true" : "false"
+        case .int(let i): return String(i)
         case .double(let d):
             // YAML can express what JSON cannot, so these are values rather than issues —
             // the one place the YAML encoder is strictly more capable than the JSON one.
@@ -113,7 +113,7 @@ extension YAML {
             return String(d)
         case .string(let s): return quotedIfNeeded(s)
         case .sequence(let xs): return xs.isEmpty ? "[]" : ""
-        case .mapping(let ms):  return ms.isEmpty ? "{}" : ""
+        case .mapping(let ms): return ms.isEmpty ? "{}" : ""
         }
     }
 
@@ -146,10 +146,10 @@ extension YAML {
         // A leading indicator character changes how the line parses.
         switch bytes[0] {
         case UInt8(ascii: "-"), UInt8(ascii: "?"), UInt8(ascii: ":"), UInt8(ascii: ","),
-             UInt8(ascii: "["), UInt8(ascii: "]"), UInt8(ascii: "{"), UInt8(ascii: "}"),
-             UInt8(ascii: "#"), UInt8(ascii: "&"), UInt8(ascii: "*"), UInt8(ascii: "!"),
-             UInt8(ascii: "|"), UInt8(ascii: ">"), UInt8(ascii: "'"), UInt8(ascii: "\""),
-             UInt8(ascii: "%"), UInt8(ascii: "@"), UInt8(ascii: "`"):
+            UInt8(ascii: "["), UInt8(ascii: "]"), UInt8(ascii: "{"), UInt8(ascii: "}"),
+            UInt8(ascii: "#"), UInt8(ascii: "&"), UInt8(ascii: "*"), UInt8(ascii: "!"),
+            UInt8(ascii: "|"), UInt8(ascii: ">"), UInt8(ascii: "'"), UInt8(ascii: "\""),
+            UInt8(ascii: "%"), UInt8(ascii: "@"), UInt8(ascii: "`"):
             return true
         default: break
         }
@@ -174,9 +174,9 @@ extension YAML {
     static func resolvesAsNonString(_ s: String) -> Bool {
         switch s {
         case "", "~", "null", "Null", "NULL",
-             "true", "True", "TRUE", "false", "False", "FALSE",
-             ".inf", ".Inf", ".INF", "-.inf", "-.Inf", "-.INF",
-             ".nan", ".NaN", ".NAN", "+.inf":
+            "true", "True", "TRUE", "false", "False", "FALSE",
+            ".inf", ".Inf", ".INF", "-.inf", "-.Inf", "-.INF",
+            ".nan", ".NaN", ".NAN", "+.inf":
             return true
         default: break
         }
@@ -195,11 +195,11 @@ extension YAML {
         var out = "\""
         for scalar in s.unicodeScalars {
             switch scalar {
-            case "\"":  out += "\\\""
-            case "\\":  out += "\\\\"
-            case "\n":  out += "\\n"
-            case "\r":  out += "\\r"
-            case "\t":  out += "\\t"
+            case "\"": out += "\\\""
+            case "\\": out += "\\\\"
+            case "\n": out += "\\n"
+            case "\r": out += "\\r"
+            case "\t": out += "\\t"
             default:
                 if scalar.value < 0x20 || scalar.value == 0x7F {
                     out += "\\x" + hex2(UInt8(scalar.value))

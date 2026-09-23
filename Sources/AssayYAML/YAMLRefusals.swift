@@ -25,33 +25,61 @@ import Assay
 
 extension Assayable {
 
-    @available(*, unavailable, message: "this schema does not decode YAML. Add `formats: .yaml` (or `.all`) to its @Schema, e.g. @Schema(formats: .yaml).")
-    public static func parse(yaml bytes: [UInt8], limits: Limits = .default,
-                             sourceName: String = "<input>") throws -> Self {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode YAML. Add `formats: .yaml` (or `.all`) to its @Schema, e.g. @Schema(formats: .yaml)."
+    )
+    public static func parse(
+        yaml bytes: [UInt8], limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) throws -> Self {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "this schema does not decode YAML. Add `formats: .yaml` (or `.all`) to its @Schema, e.g. @Schema(formats: .yaml).")
-    public static func parse(yaml text: String, limits: Limits = .default,
-                             sourceName: String = "<input>") throws -> Self {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode YAML. Add `formats: .yaml` (or `.all`) to its @Schema, e.g. @Schema(formats: .yaml)."
+    )
+    public static func parse(
+        yaml text: String, limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) throws -> Self {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "this schema does not decode YAML. Add `formats: .yaml` (or `.all`) to its @Schema, e.g. @Schema(formats: .yaml).")
-    public static func diagnose(yaml bytes: [UInt8], limits: Limits = .default,
-                                sourceName: String = "<input>") -> Diagnosis<Self> {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode YAML. Add `formats: .yaml` (or `.all`) to its @Schema, e.g. @Schema(formats: .yaml)."
+    )
+    public static func diagnose(
+        yaml bytes: [UInt8], limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) -> Diagnosis<Self> {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "this schema does not decode YAML. Add `formats: .yaml` (or `.all`) to its @Schema, e.g. @Schema(formats: .yaml).")
-    public static func diagnose(yaml text: String, limits: Limits = .default,
-                                sourceName: String = "<input>") -> Diagnosis<Self> {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode YAML. Add `formats: .yaml` (or `.all`) to its @Schema, e.g. @Schema(formats: .yaml)."
+    )
+    public static func diagnose(
+        yaml text: String, limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) -> Diagnosis<Self> {
         fatalError("unavailable")
     }
 
     // The encode side needs BOTH `encodes: true` and the format, so the message names both
     // rather than sending the reader back for a second compile to discover the other half.
-    @available(*, unavailable, message: "this schema does not encode YAML. It needs both `encodes: true` and the format — e.g. @Schema(formats: .yaml, encodes: true).")
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not encode YAML. It needs both `encodes: true` and the format — e.g. @Schema(formats: .yaml, encodes: true)."
+    )
     public func encodedYAML() throws -> EncodedBytes {
         fatalError("unavailable")
     }

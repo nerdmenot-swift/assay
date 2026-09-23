@@ -25,18 +25,29 @@ import AssayCore
 
 extension Assayable {
 
-
-    @available(*, unavailable, message: "this schema does not encode. Add `encodes: true` to its @Schema, e.g. @Schema(encodes: true).")
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not encode. Add `encodes: true` to its @Schema, e.g. @Schema(encodes: true)."
+    )
     public func encodedJSON(pretty: Bool = false) throws -> EncodedBytes {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "this schema does not describe itself. Add `describes: true` to its @Schema, e.g. @Schema(describes: true).")
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not describe itself. Add `describes: true` to its @Schema, e.g. @Schema(describes: true)."
+    )
     public static func jsonSchema(for face: SchemaFace = .input) -> JSONSchemaValue {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "this schema does not describe itself. Add `describes: true` to its @Schema, e.g. @Schema(describes: true).")
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not describe itself. Add `describes: true` to its @Schema, e.g. @Schema(describes: true)."
+    )
     public static func jsonSchemaText(for face: SchemaFace = .input) -> String {
         fatalError("unavailable")
     }
@@ -47,17 +58,29 @@ extension Assayable {
     // schema cannot use it even with `accepting: [.json]`. That is a real constraint rather
     // than an oversight (the compiler cannot see that a runtime array holds only `.json`),
     // and it was undocumented until 2026-09-13.
-    @available(*, unavailable, message: "content negotiation chooses a parser at run time, so this door needs the RawValue projection even for `accepting: [.json]`. Add a non-JSON format to its @Schema — `formats: .all` is the usual answer.")
-    public static func parse(body bytes: [UInt8], contentType: String?,
-                             accepting: [WireFormat], limits: Limits = .default,
-                             sourceName: String = "<body>") throws -> Self {
+    @available(
+        *, unavailable,
+        message:
+            "content negotiation chooses a parser at run time, so this door needs the RawValue projection even for `accepting: [.json]`. Add a non-JSON format to its @Schema — `formats: .all` is the usual answer."
+    )
+    public static func parse(
+        body bytes: [UInt8], contentType: String?,
+        accepting: [WireFormat], limits: Limits = .default,
+        sourceName: String = "<body>"
+    ) throws -> Self {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "content negotiation chooses a parser at run time, so this door needs the RawValue projection even for `accepting: [.json]`. Add a non-JSON format to its @Schema — `formats: .all` is the usual answer.")
-    public static func diagnose(body bytes: [UInt8], contentType: String?,
-                                accepting: [WireFormat], limits: Limits = .default,
-                                sourceName: String = "<body>") -> Diagnosis<Self> {
+    @available(
+        *, unavailable,
+        message:
+            "content negotiation chooses a parser at run time, so this door needs the RawValue projection even for `accepting: [.json]`. Add a non-JSON format to its @Schema — `formats: .all` is the usual answer."
+    )
+    public static func diagnose(
+        body bytes: [UInt8], contentType: String?,
+        accepting: [WireFormat], limits: Limits = .default,
+        sourceName: String = "<body>"
+    ) -> Diagnosis<Self> {
         fatalError("unavailable")
     }
 }

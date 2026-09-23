@@ -21,28 +21,30 @@ extension SchemaMacro {
     ///   argument on the call, consumed inside the cold failure path -- no concat is emitted
     ///   at the call site and nothing is allocated on the hot path. Before this, an
     ///   out-of-range `[Int32]` element reported `[.key("xs")]` and named no element.
-    static func scalarCall(_ type: String, key: String, orNull: Bool = false,
-                           coerce: Bool = false, elementIndex: String? = nil) -> String? {
+    static func scalarCall(
+        _ type: String, key: String, orNull: Bool = false,
+        coerce: Bool = false, elementIndex: String? = nil
+    ) -> String? {
         // Coercion and the null-aware variant are separate axes; an optional coercing
         // field takes the coercing call and handles null at the call site.
         let suffix = coerce ? "Coercing" : (orNull ? "OrNull" : "")
         let base: String
         switch type {
-        case "String":  base = "_decodeString"
-        case "Int":     base = "_decodeInt"
-        case "Int64":   base = "_decodeInt64"
-        case "Int32":   base = "_decodeInt32"
-        case "Int8":    base = "_decodeInt8"
-        case "Int16":   base = "_decodeInt16"
-        case "UInt8":   base = "_decodeUInt8"
-        case "UInt16":  base = "_decodeUInt16"
-        case "UInt32":  base = "_decodeUInt32"
-        case "UInt64":  base = "_decodeUInt64"
-        case "UInt":    base = "_decodeUInt"
-        case "Double":  base = "_decodeDouble"
-        case "Float":   base = "_decodeFloat"
-        case "Bool":    base = "_decodeBool"
-        default:        return nil
+        case "String": base = "_decodeString"
+        case "Int": base = "_decodeInt"
+        case "Int64": base = "_decodeInt64"
+        case "Int32": base = "_decodeInt32"
+        case "Int8": base = "_decodeInt8"
+        case "Int16": base = "_decodeInt16"
+        case "UInt8": base = "_decodeUInt8"
+        case "UInt16": base = "_decodeUInt16"
+        case "UInt32": base = "_decodeUInt32"
+        case "UInt64": base = "_decodeUInt64"
+        case "UInt": base = "_decodeUInt"
+        case "Double": base = "_decodeDouble"
+        case "Float": base = "_decodeFloat"
+        case "Bool": base = "_decodeBool"
+        default: return nil
         }
         let idx = elementIndex.map { ", \($0)" } ?? ""
         return "\(base)\(suffix)(&sink, path, \"\(key)\"\(idx))"
@@ -122,7 +124,9 @@ extension SchemaMacro {
             let base = stripOptional(t)
             if let e = arrayElement(base) { visit(e); return }
             if let v = dictionaryValue(base) { visit(v); return }
-            if scalarCall(base, key: "") != nil || isDateType(base) || isCollectible(base) { return }
+            if scalarCall(base, key: "") != nil || isDateType(base) || isCollectible(base) {
+                return
+            }
             // `UUID` decodes through a static `_assay` that AssayFoundation adds WITHOUT a
             // `JSONAssayable` conformance — the type is Foundation's, and a conformance
             // would give it `parse(json:)` as a document. The assertion would refuse it.

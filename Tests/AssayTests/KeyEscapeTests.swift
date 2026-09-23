@@ -45,11 +45,12 @@ struct KeyEscapeTests {
 
     @Test("length-bucket dispatch, past the window's ceiling")
     func wide() throws {
-        let v = try KEWide.parse(json: """
-            {"alpha":1,"br\\u0061vo":2,"charlie":3,"delt\\u0061":4,"echo":5,"foxtrot":6,
-             "golf":7,"hotel":8,"india":9,"juliet":10,"kilo":11,"lima":12,"mike":13,
-             "nov\\u0065mber":14}
-            """)
+        let v = try KEWide.parse(
+            json: """
+                {"alpha":1,"br\\u0061vo":2,"charlie":3,"delt\\u0061":4,"echo":5,"foxtrot":6,
+                 "golf":7,"hotel":8,"india":9,"juliet":10,"kilo":11,"lima":12,"mike":13,
+                 "nov\\u0065mber":14}
+                """)
         #expect(v.bravo == 2 && v.delta == 4 && v.november == 14)
     }
 

@@ -46,8 +46,9 @@ func runFalsification() -> FalsificationResult? {
     print("Toolchain: \(ProcessInfo.processInfo.operatingSystemVersionString)")
     print("Warm (decoder hoisted). Minimum of 5 rounds. -O. Scalar Swift, no SIMD, no C.")
     print("")
-    print(pad("size", 10, right: true) + pad("bytes", 10) + pad("Foundation ns", 15)
-          + pad("Assay ns", 13) + pad("ratio", 10))
+    print(
+        pad("size", 10, right: true) + pad("bytes", 10) + pad("Foundation ns", 15)
+            + pad("Assay ns", 13) + pad("ratio", 10))
     print(String(repeating: "-", count: 62))
 
     var ratios: [Double] = []
@@ -83,11 +84,12 @@ func runFalsification() -> FalsificationResult? {
 
         let ratio = fNs / aNs
         ratios.append(ratio)
-        print(pad(size, 10, right: true)
-              + pad("\(bytes.count)", 10)
-              + pad(String(format: "%.0f", fNs), 15)
-              + pad(String(format: "%.0f", aNs), 13)
-              + pad(String(format: "%.2fx", ratio), 10))
+        print(
+            pad(size, 10, right: true)
+                + pad("\(bytes.count)", 10)
+                + pad(String(format: "%.0f", fNs), 15)
+                + pad(String(format: "%.0f", aNs), 13)
+                + pad(String(format: "%.2fx", ratio), 10))
     }
 
     guard !ratios.isEmpty else {
@@ -97,8 +99,9 @@ func runFalsification() -> FalsificationResult? {
     // ---- float-dense arm ----
     print("")
     print("float-dense (canada.json-shaped coordinate pairs)")
-    print(pad("size", 10, right: true) + pad("bytes", 10) + pad("Foundation ns", 15)
-          + pad("Assay ns", 13) + pad("ratio", 10))
+    print(
+        pad("size", 10, right: true) + pad("bytes", 10) + pad("Foundation ns", 15)
+            + pad("Assay ns", 13) + pad("ratio", 10))
     print(String(repeating: "-", count: 62))
 
     var floatRatios: [Double] = []
@@ -118,21 +121,27 @@ func runFalsification() -> FalsificationResult? {
         // not a result.
         for (a, b) in zip(got.coordinates, ref.coordinates) {
             for (x, y) in zip(a, b) {
-                precondition(x.bitPattern == y.bitPattern,
-                             "float mismatch at floats-dense-\(size): \(x) vs \(y)")
+                precondition(
+                    x.bitPattern == y.bitPattern,
+                    "float mismatch at floats-dense-\(size): \(x) vs \(y)")
             }
         }
-        let fNs = measure(iterations: iters) { _ = try? dec.decode(CodablePolygon.self, from: data) }
+        let fNs = measure(iterations: iters) {
+            _ = try? dec.decode(CodablePolygon.self, from: data)
+        }
         let aNs = measure(iterations: iters) { _ = Polygon.diagnose(json: bytes).value }
         floatRatios.append(fNs / aNs)
-        print(pad(size, 10, right: true) + pad("\(bytes.count)", 10)
-              + pad(String(format: "%.0f", fNs), 15)
-              + pad(String(format: "%.0f", aNs), 13)
-              + pad(String(format: "%.2fx", fNs / aNs), 10))
+        print(
+            pad(size, 10, right: true) + pad("\(bytes.count)", 10)
+                + pad(String(format: "%.0f", fNs), 15)
+                + pad(String(format: "%.0f", aNs), 13)
+                + pad(String(format: "%.2fx", fNs / aNs), 10))
     }
     if !floatRatios.isEmpty {
-        print(String(format: "mean on float-dense: %.2fx",
-                     floatRatios.reduce(0, +) / Double(floatRatios.count)))
+        print(
+            String(
+                format: "mean on float-dense: %.2fx",
+                floatRatios.reduce(0, +) / Double(floatRatios.count)))
     }
     print("")
 
@@ -140,9 +149,10 @@ func runFalsification() -> FalsificationResult? {
     print("")
     print(String(format: "mean speedup vs Foundation: %.2fx", mean))
     print("ZippyJSON's published average (simdjson + Codable): 1.38x")
-    print(mean > 1.38
-          ? "PASS — clears the falsification condition."
-          : "FAIL — thesis not supported; SIMD/C work is moot per PERFORMANCE.md §14.")
+    print(
+        mean > 1.38
+            ? "PASS — clears the falsification condition."
+            : "FAIL — thesis not supported; SIMD/C work is moot per PERFORMANCE.md §14.")
 
     //===----------------------------------------------------------------------===//
     // The full corpus sweep, the allocation gate, and the negative path. Everything above
@@ -154,8 +164,9 @@ func runFalsification() -> FalsificationResult? {
         print("")
         print(title)
         print(note)
-        print(pad("shape", 20, right: true) + pad("size", 7) + pad("bytes", 9)
-              + pad("Foundation ns", 15) + pad("Assay ns", 12) + pad("ratio", 9))
+        print(
+            pad("shape", 20, right: true) + pad("size", 7) + pad("bytes", 9)
+                + pad("Foundation ns", 15) + pad("Assay ns", 12) + pad("ratio", 9))
         print(String(repeating: "-", count: 72))
 
         var collected: [Double] = []
@@ -167,12 +178,16 @@ func runFalsification() -> FalsificationResult? {
 
                 // Correctness gate: both sides must produce a value, or the row is a lie.
                 guard shape.foundation(data) else {
-                    print(pad(shape.name, 20, right: true) + pad(size, 7)
-                          + "   Foundation declined this file"); continue
+                    print(
+                        pad(shape.name, 20, right: true) + pad(size, 7)
+                            + "   Foundation declined this file");
+                    continue
                 }
                 guard shape.assay(bytes) else {
-                    print(pad(shape.name, 20, right: true) + pad(size, 7)
-                          + "   Assay declined this file"); continue
+                    print(
+                        pad(shape.name, 20, right: true) + pad(size, 7)
+                            + "   Assay declined this file");
+                    continue
                 }
 
                 let iters = iterationCount(forBytes: bytes.count)
@@ -180,18 +195,21 @@ func runFalsification() -> FalsificationResult? {
                 let aNs = measure(iterations: iters) { _ = shape.assay(bytes) }
                 let ratio = fNs / aNs
                 collected.append(ratio)
-                print(pad(shape.name, 20, right: true) + pad(size, 7)
-                      + pad("\(bytes.count)", 9)
-                      + pad(String(format: "%.0f", fNs), 15)
-                      + pad(String(format: "%.0f", aNs), 12)
-                      + pad(String(format: "%.2fx", ratio), 9))
+                print(
+                    pad(shape.name, 20, right: true) + pad(size, 7)
+                        + pad("\(bytes.count)", 9)
+                        + pad(String(format: "%.0f", fNs), 15)
+                        + pad(String(format: "%.0f", aNs), 12)
+                        + pad(String(format: "%.2fx", ratio), 9))
             }
         }
         if !collected.isEmpty {
             let m = collected.reduce(0, +) / Double(collected.count)
             let lo = collected.min()!, hi = collected.max()!
-            print(String(format: "mean %.2fx over %d files (min %.2fx, max %.2fx)",
-                         m, collected.count, lo, hi))
+            print(
+                String(
+                    format: "mean %.2fx over %d files (min %.2fx, max %.2fx)",
+                    m, collected.count, lo, hi))
         }
         return collected
     }
@@ -204,8 +222,8 @@ func runFalsification() -> FalsificationResult? {
     let prefixRatios = sweep(
         "Prefix decode + unknown-key skip — flat shapes",
         "These scale by ADDING KEYS (bigints-64k has 2232), so a 6-field struct decodes a"
-        + "\nprefix and skips the rest. Both decoders do the same work; the skip path is the"
-        + "\npoint. This is the most common real shape: a client struct, a verbose response.",
+            + "\nprefix and skips the rest. Both decoders do the same work; the skip path is the"
+            + "\npoint. This is the most common real shape: a client struct, a verbose response.",
         prefixShapes)
 
     // ---- Generic value model, every positive file ----
@@ -216,13 +234,15 @@ func runFalsification() -> FalsificationResult? {
     var valueRatios: [Double] = []
     var valueFiles = 0
     if let all = try? FileManager.default.contentsOfDirectory(
-        at: corpusDir, includingPropertiesForKeys: nil) {
+        at: corpusDir, includingPropertiesForKeys: nil)
+    {
         for url in all.sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
         where url.pathExtension == "json" && !url.lastPathComponent.hasPrefix("neg-") {
             guard let data = try? Data(contentsOf: url) else { continue }
             let bytes = [UInt8](data)
             guard (try? JSON.Value.parse(bytes)) != nil,
-                  (try? JSONSerialization.jsonObject(with: data)) != nil else { continue }
+                (try? JSONSerialization.jsonObject(with: data)) != nil
+            else { continue }
             let iters = max(200, iterationCount(forBytes: bytes.count) / 4)
             let fNs = measure(iterations: iters) {
                 _ = try? JSONSerialization.jsonObject(with: data)
@@ -234,8 +254,10 @@ func runFalsification() -> FalsificationResult? {
     }
     if !valueRatios.isEmpty {
         let m = valueRatios.reduce(0, +) / Double(valueRatios.count)
-        print(String(format: "mean %.2fx over %d files (min %.2fx, max %.2fx)",
-                     m, valueFiles, valueRatios.min()!, valueRatios.max()!))
+        print(
+            String(
+                format: "mean %.2fx over %d files (min %.2fx, max %.2fx)",
+                m, valueFiles, valueRatios.min()!, valueRatios.max()!))
         print("A value model has no Codable boundary to delete, so this is the honest floor:")
         print("what Assay's scanner is worth on its own, separate from the macro's advantage.")
     }
@@ -243,12 +265,15 @@ func runFalsification() -> FalsificationResult? {
     // ---- Negative path ----
     print("")
     print("Negative path — cost of collecting every error vs Foundation's throw-on-first")
-    print(pad("file", 30, right: true) + pad("Foundation ns", 15) + pad("Assay ns", 12)
-          + pad("issues", 8))
+    print(
+        pad("file", 30, right: true) + pad("Foundation ns", 15) + pad("Assay ns", 12)
+            + pad("issues", 8))
     print(String(repeating: "-", count: 65))
 
-    for name in ["neg-invalid-early", "neg-invalid-late", "neg-truncated",
-                 "neg-type-mismatch", "neg-validation-fail-many", "neg-deep-nesting"] {
+    for name in [
+        "neg-invalid-early", "neg-invalid-late", "neg-truncated",
+        "neg-type-mismatch", "neg-validation-fail-many", "neg-deep-nesting"
+    ] {
         let url = corpusDir.appendingPathComponent("\(name).json")
         guard let data = try? Data(contentsOf: url) else { continue }
         let bytes = [UInt8](data)
@@ -259,15 +284,16 @@ func runFalsification() -> FalsificationResult? {
         }
         let d = Payload.diagnose(json: bytes)
         let aNs = measure(iterations: iters) { _ = Payload.diagnose(json: bytes) }
-        print(pad(name, 30, right: true)
-              + pad(String(format: "%.0f", fNs), 15)
-              + pad(String(format: "%.0f", aNs), 12)
-              + pad("\(d.issues.count)", 8))
+        print(
+            pad(name, 30, right: true)
+                + pad(String(format: "%.0f", fNs), 15)
+                + pad(String(format: "%.0f", aNs), 12)
+                + pad("\(d.issues.count)", 8))
     }
     print("Foundation throws on the first problem and stops; Assay walks the whole document")
     print("and reports every one. A slower number here is the feature, not a regression.")
 
-
-    return FalsificationResult(structRatios: structRatios, prefixRatios: prefixRatios,
-                               valueRatios: valueRatios)
+    return FalsificationResult(
+        structRatios: structRatios, prefixRatios: prefixRatios,
+        valueRatios: valueRatios)
 }

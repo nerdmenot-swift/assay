@@ -16,9 +16,10 @@ struct JSONValueTests {
 
     @Test("parses the full grammar")
     func grammar() throws {
-        let v = try JSON.Value.parse("""
-        {"s":"x","i":42,"d":3.5,"b":true,"n":null,"a":[1,2],"o":{"k":"v"}}
-        """)
+        let v = try JSON.Value.parse(
+            """
+            {"s":"x","i":42,"d":3.5,"b":true,"n":null,"a":[1,2],"o":{"k":"v"}}
+            """)
         #expect(v["s"]?.string == "x")
         #expect(v["i"]?.int == 42)
         #expect(v["d"]?.double == 3.5)
@@ -39,7 +40,7 @@ struct JSONValueTests {
         // RFC 8259 leaves this undefined. Silently dropping one is the worst answer.
         let v = try JSON.Value.parse(#"{"k":1,"k":2,"k":3}"#)
         #expect(v.object?.count == 3)
-        #expect(v["k"]?.int == 1)                       // first wins for subscript
+        #expect(v["k"]?.int == 1)  // first wins for subscript
         #expect(v.all("k").compactMap(\.int) == [1, 2, 3])
     }
 
@@ -47,10 +48,10 @@ struct JSONValueTests {
     func numberFidelity() throws {
         let v = try JSON.Value.parse(#"{"a":8080,"b":8080.5,"c":8080.0}"#)
         #expect(v["a"]?.int == 8080)
-        #expect(v["b"]?.int == nil)          // a double is not an int, even asked nicely
+        #expect(v["b"]?.int == nil)  // a double is not an int, even asked nicely
         #expect(v["b"]?.double == 8080.5)
-        #expect(v["c"]?.int == nil)          // 8080.0 was written as a double; it stays one
-        #expect(v["a"]?.double == 8080)      // widening the other way is fine
+        #expect(v["c"]?.int == nil)  // 8080.0 was written as a double; it stays one
+        #expect(v["a"]?.double == 8080)  // widening the other way is fine
     }
 
     @Test("malformed input reports issues rather than trapping")
@@ -105,9 +106,12 @@ struct YAMLNodeTests {
     @Test("non-string keys are representable — the case that killed the unified model")
     func nonStringKeys() {
         let node = YAML.Node.mapping([
-            .init(key: .sequence([.scalar(.init(content: "1")),
-                                  .scalar(.init(content: "2"))]),
-                  value: "x"),
+            .init(
+                key: .sequence([
+                    .scalar(.init(content: "1")),
+                    .scalar(.init(content: "2"))
+                ]),
+                value: "x")
         ])
         #expect(node.mapping?.count == 1)
         // Representable here, and correctly *not* projectable to RawValue.
@@ -153,7 +157,7 @@ struct YAMLNodeTests {
     func lookup() {
         let node = YAML.Node.mapping([
             .init(key: "port", value: .scalar(.init(content: "8080"))),
-            .init(key: "host", value: "localhost"),
+            .init(key: "host", value: "localhost")
         ])
         #expect(node["port"]?.resolvedInt == 8080)
         #expect(node["host"]?.content == "localhost")
@@ -163,7 +167,7 @@ struct YAMLNodeTests {
     @Test("projection drops tags and styles, and says so by losing them")
     func projectionIsLossy() {
         let node = YAML.Node.mapping([
-            .init(key: "a", value: .scalar(.init(content: "1", style: .literal, tag: "!Foo"))),
+            .init(key: "a", value: .scalar(.init(content: "1", style: .literal, tag: "!Foo")))
         ])
         let raw = RawValue(node)
         // The tag said !Foo; RawValue has nowhere to put that, so the value resolves as
@@ -178,23 +182,30 @@ struct XMLNodeTests {
     @Test("mixed content is ordinary, not a special case")
     func mixedContent() {
         // <p>Hello <b>x</b>!</p>
-        let p = XML.Element("p", children: [
-            .text("Hello "),
-            .element(XML.Element("b", children: [.text("x")])),
-            .text("!"),
-        ])
+        let p = XML.Element(
+            "p",
+            children: [
+                .text("Hello "),
+                .element(XML.Element("b", children: [.text("x")])),
+                .text("!")
+            ])
         #expect(p.hasMixedContent)
         #expect(p.children.count == 3)
-        #expect(p.text == "Hello !")          // flattening loses the element, on purpose
+        #expect(p.text == "Hello !")  // flattening loses the element, on purpose
         #expect(p["b"]?.text == "x")
     }
 
     @Test("attributes and elements are different things, not tagged keys")
     func attributesVsElements() {
-        let book = XML.Element("book",
-                               attributes: [XML.Attribute("isbn", "123")],
-                               children: [.element(XML.Element("title",
-                                                               children: [.text("Swift")]))])
+        let book = XML.Element(
+            "book",
+            attributes: [XML.Attribute("isbn", "123")],
+            children: [
+                .element(
+                    XML.Element(
+                        "title",
+                        children: [.text("Swift")]))
+            ])
         #expect(book[attribute: "isbn"] == "123")
         #expect(book["title"]?.text == "Swift")
         // An attribute is not reachable as a child element, and vice versa.
@@ -204,11 +215,13 @@ struct XMLNodeTests {
 
     @Test("repeated sibling names are the ordinary case")
     func repeated() {
-        let list = XML.Element("authors", children: [
-            .element(XML.Element("author", children: [.text("A")])),
-            .element(XML.Element("author", children: [.text("B")])),
-            .element(XML.Element("author", children: [.text("C")])),
-        ])
+        let list = XML.Element(
+            "authors",
+            children: [
+                .element(XML.Element("author", children: [.text("A")])),
+                .element(XML.Element("author", children: [.text("B")])),
+                .element(XML.Element("author", children: [.text("C")]))
+            ])
         #expect(list.elements(named: "author").count == 3)
         #expect(list.elements(named: "author").map(\.text) == ["A", "B", "C"])
         // A Dictionary-backed model would have silently kept one of these.
@@ -220,8 +233,8 @@ struct XMLNodeTests {
         let a = XML.Name("creator", namespaceURI: "http://purl.org/dc/elements/1.1/")
         let b = XML.Name("creator", namespaceURI: "http://purl.org/dc/elements/1.1/")
         let c = XML.Name("creator")
-        #expect(a == b)      // whatever prefix each document used
-        #expect(a != c)      // namespaced is not the same as unnamespaced
+        #expect(a == b)  // whatever prefix each document used
+        #expect(a != c)  // namespaced is not the same as unnamespaced
     }
 
     @Test("everything is text — no numbers, no booleans")
@@ -236,9 +249,10 @@ struct XMLNodeTests {
 
     @Test("projection flattens attributes and elements into one keyspace")
     func projectionIsLossy() {
-        let e = XML.Element("book",
-                            attributes: [XML.Attribute("isbn", "123")],
-                            children: [.element(XML.Element("isbn", children: [.text("456")]))])
+        let e = XML.Element(
+            "book",
+            attributes: [XML.Attribute("isbn", "123")],
+            children: [.element(XML.Element("isbn", children: [.text("456")]))])
         let raw = RawValue(e)
         // Both survive and both are reachable, but which was the attribute is gone —
         // the documented loss that motivates declaring [String: XML.Node] instead.
@@ -248,11 +262,13 @@ struct XMLNodeTests {
 
     @Test("comments and processing instructions are dropped by the projection")
     func droppedNodes() {
-        let e = XML.Element("root", children: [
-            .comment("nothing to see"),
-            .processingInstruction(target: "xml-stylesheet", data: "href=\"a.css\""),
-            .element(XML.Element("kept", children: [.text("yes")])),
-        ])
+        let e = XML.Element(
+            "root",
+            children: [
+                .comment("nothing to see"),
+                .processingInstruction(target: "xml-stylesheet", data: "href=\"a.css\""),
+                .element(XML.Element("kept", children: [.text("yes")]))
+            ])
         let raw = RawValue(e)
         #expect(raw.mapping?.count == 1)
         #expect(raw["kept"] == .string("yes"))
@@ -260,13 +276,15 @@ struct XMLNodeTests {
 
     @Test("whitespace-only text between elements is formatting, not data")
     func insignificantWhitespace() {
-        let e = XML.Element("root", children: [
-            .text("\n  "),
-            .element(XML.Element("a", children: [.text("1")])),
-            .text("\n  "),
-            .element(XML.Element("b", children: [.text("2")])),
-            .text("\n"),
-        ])
+        let e = XML.Element(
+            "root",
+            children: [
+                .text("\n  "),
+                .element(XML.Element("a", children: [.text("1")])),
+                .text("\n  "),
+                .element(XML.Element("b", children: [.text("2")])),
+                .text("\n")
+            ])
         let raw = RawValue(e)
         #expect(raw.mapping?.count == 2)
         #expect(raw["a"] == .string("1"))
@@ -281,7 +299,7 @@ struct FloatEqualityTests {
     static let doubles: [Double] = [
         0.0, -0.0, 1.0, -1.0, .infinity, -.infinity,
         .nan, .signalingNaN, 0.0 / 0.0, Double(bitPattern: 0x7ff8_0000_dead_beef),
-        .leastNonzeroMagnitude, .greatestFiniteMagnitude,
+        .leastNonzeroMagnitude, .greatestFiniteMagnitude
     ]
 
     /// The property, not examples. `Hashable`'s contract needs an equivalence relation, and
@@ -297,28 +315,40 @@ struct FloatEqualityTests {
     func rawValueEquivalence() {
         let vs = Self.doubles.map { RawValue.double($0) }
         for a in vs { #expect(a == a, "reflexive: \(a)") }
-        for a in vs { for b in vs {
-            #expect((a == b) == (b == a), "symmetric: \(a) \(b)")
-        } }
-        for a in vs { for b in vs { for c in vs where a == b && b == c {
-            #expect(a == c, "transitive: \(a) \(b) \(c)")
-        } } }
+        for a in vs {
+            for b in vs {
+                #expect((a == b) == (b == a), "symmetric: \(a) \(b)")
+            }
+        }
+        for a in vs {
+            for b in vs {
+                for c in vs where a == b && b == c {
+                    #expect(a == c, "transitive: \(a) \(b) \(c)")
+                }
+            }
+        }
         // Equal values must hash equally, which is the half a Set actually depends on.
-        for a in vs { for b in vs where a == b {
-            #expect(a.hashValue == b.hashValue, "hash agrees with ==: \(a) \(b)")
-        } }
+        for a in vs {
+            for b in vs where a == b {
+                #expect(a.hashValue == b.hashValue, "hash agrees with ==: \(a) \(b)")
+            }
+        }
     }
 
     @Test("JSON.Value equality is a genuine equivalence relation over Double")
     func jsonValueEquivalence() {
         let vs = Self.doubles.map { JSON.Value.double($0) }
         for a in vs { #expect(a == a, "reflexive: \(a)") }
-        for a in vs { for b in vs {
-            #expect((a == b) == (b == a), "symmetric: \(a) \(b)")
-        } }
-        for a in vs { for b in vs where a == b {
-            #expect(a.hashValue == b.hashValue, "hash agrees with ==: \(a) \(b)")
-        } }
+        for a in vs {
+            for b in vs {
+                #expect((a == b) == (b == a), "symmetric: \(a) \(b)")
+            }
+        }
+        for a in vs {
+            for b in vs where a == b {
+                #expect(a.hashValue == b.hashValue, "hash agrees with ==: \(a) \(b)")
+            }
+        }
     }
 
     /// The two consequences the doc comment promises, pinned so neither drifts.
@@ -341,14 +371,16 @@ struct FloatEqualityTests {
     func uniqueUsesSwiftSemantics() {
         var sink = IssueSink(limits: .default)
         // Swift: NaN != NaN, so these two are "different" and .unique passes.
-        _assayValidate([Double.nan, Double.nan], [.unique], override: nil,
-                       field: "xs", at: nil, path: [], &sink)
+        _assayValidate(
+            [Double.nan, Double.nan], [.unique], override: nil,
+            field: "xs", at: nil, path: [], &sink)
         #expect(sink.issues.isEmpty, "RawValue would call these equal; Swift does not")
 
         // Swift: 0.0 == -0.0, so these two are "the same" and .unique fails.
         var sink2 = IssueSink(limits: .default)
-        _assayValidate([0.0, -0.0], [.unique], override: nil,
-                       field: "xs", at: nil, path: [], &sink2)
+        _assayValidate(
+            [0.0, -0.0], [.unique], override: nil,
+            field: "xs", at: nil, path: [], &sink2)
         #expect(sink2.issues.count == 1, "RawValue would call these different; Swift does not")
     }
 }

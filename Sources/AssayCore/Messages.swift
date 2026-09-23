@@ -144,7 +144,9 @@ extension Issue {
         case .malformedDocument:
             let expected = params["expected"]?.displayString
             if params["atEnd"] != nil {
-                return expected.map { "is not well-formed: the input ended where \($0) was expected" }
+                return expected.map {
+                    "is not well-formed: the input ended where \($0) was expected"
+                }
                     ?? "is not well-formed: the input ended early"
             }
             if let expected {
@@ -340,7 +342,8 @@ extension Issue {
             return m
         case .custom("union_budget_exhausted"):
             if let n = params["maxUnionAttempts"] {
-                return "union backtracking exceeded \(n.displayString) attempts (Limits.maxUnionAttempts)"
+                return
+                    "union backtracking exceeded \(n.displayString) attempts (Limits.maxUnionAttempts)"
             }
             return "union backtracking budget exhausted"
 
@@ -360,11 +363,11 @@ extension Issue {
 
         // Property lists, both flavours. Every one carries the parser's own `reason`.
         case .custom("plist_bad_root"), .custom("plist_bad_value"), .custom("plist_bad_marker"),
-             .custom("plist_unpaired_key"), .custom("plist_bad_date"), .custom("plist_bad_real"),
-             .custom("plist_bad_string"), .custom("plist_bad_magic"), .custom("plist_bad_trailer"),
-             .custom("plist_bad_offset"), .custom("plist_bad_reference"), .custom("plist_truncated"),
-             .custom("plist_int_too_wide"), .custom("plist_int_out_of_range"),
-             .custom("plist_unrepresentable_key"):
+            .custom("plist_unpaired_key"), .custom("plist_bad_date"), .custom("plist_bad_real"),
+            .custom("plist_bad_string"), .custom("plist_bad_magic"), .custom("plist_bad_trailer"),
+            .custom("plist_bad_offset"), .custom("plist_bad_reference"), .custom("plist_truncated"),
+            .custom("plist_int_too_wide"), .custom("plist_int_out_of_range"),
+            .custom("plist_unrepresentable_key"):
             if let r = params["reason"]?.displayString { return "property list: \(r)" }
             return "property list is malformed"
         case .custom("plist_cycle"):
@@ -396,13 +399,18 @@ extension Issue {
             if let k = params["key"]?.displayString { return "table '\(k)' is already defined" }
             return "table is already defined"
         case .custom("toml_inline_table_closed"):
-            if let k = params["key"]?.displayString { return "inline table '\(k)' cannot be extended after it is defined" }
+            if let k = params["key"]?.displayString {
+                return "inline table '\(k)' cannot be extended after it is defined"
+            }
             return "an inline table cannot be extended after it is defined"
         case .custom("toml_not_a_table"):
-            if let k = params["key"]?.displayString { return "'\(k)' is not a table and cannot be extended" }
+            if let k = params["key"]?.displayString {
+                return "'\(k)' is not a table and cannot be extended"
+            }
             return "the key is not a table and cannot be extended"
         case .custom("yaml_anchor_on_alias"):
-            return "an anchor cannot be placed on an alias (`&a *b`); an alias refers to an anchored node and is not a node of its own"
+            return
+                "an anchor cannot be placed on an alias (`&a *b`); an alias refers to an anchored node and is not a node of its own"
 
         case .custom(let s):
             // An internal code renders as a sentence; otherwise — the EXPERIENCE.md §3
@@ -415,8 +423,10 @@ extension Issue {
 extension Warning {
     public var message: String {
         // A warning is an Issue-shaped thing with softer consequences; reuse the table.
-        Issue(code: code, path: path, params: params,
-              received: params["received"]?.displayString, location: location).message
+        Issue(
+            code: code, path: path, params: params,
+            received: params["received"]?.displayString, location: location
+        ).message
     }
 }
 

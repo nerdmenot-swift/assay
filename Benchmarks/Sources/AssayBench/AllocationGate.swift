@@ -21,42 +21,50 @@ func runAllocationGate() -> Bool {
     print("Live allocations per decoded value — read Allocations.swift before quoting these.")
     print("The Foundation columns are context, not a claim: two decoders retaining the same")
     print("Strings and Arrays hold the same blocks, so the comparison there is vacuous.")
-    print(pad("case", 26, right: true) + pad("Assay blk", 10) + pad("Assay B", 12)
-          + pad("Fdn blk", 12) + pad("Fdn B", 12))
+    print(
+        pad("case", 26, right: true) + pad("Assay blk", 10) + pad("Assay B", 12)
+            + pad("Fdn blk", 12) + pad("Fdn B", 12))
     print(String(repeating: "-", count: 72))
 
     // Self-check. The counter is only worth reporting if it can count a known quantity, so
     // before any real row it measures closures whose allocation count is not in doubt.
     // If these do not read 1 and 3, every number below them is noise and says so.
     final class One { let a: [UInt8]; init() { a = [UInt8](repeating: 0, count: 64) } }
-    let selfCheck1 = measureAllocations(iterations: 2_000) { One() }        // box + array = 2
+    let selfCheck1 = measureAllocations(iterations: 2_000) { One() }  // box + array = 2
     let selfCheck2 = measureAllocations(iterations: 2_000) { () -> Box<[String]> in
         Box([String(repeating: "x", count: 40), String(repeating: "y", count: 40)])
-    }                                                                       // box+arr+2 str = 4
-    print(String(format: "self-check: expected 2.0 and 4.0 blocks, measured %@ and %@",
-                 selfCheck1.blocks.map { String(format: "%.2f", $0) } ?? "n/a",
-                 selfCheck2.blocks.map { String(format: "%.2f", $0) } ?? "n/a"))
+    }  // box+arr+2 str = 4
+    print(
+        String(
+            format: "self-check: expected 2.0 and 4.0 blocks, measured %@ and %@",
+            selfCheck1.blocks.map { String(format: "%.2f", $0) } ?? "n/a",
+            selfCheck2.blocks.map { String(format: "%.2f", $0) } ?? "n/a"))
     // Darwin's nano zone batches its statistics, so a ~15% undercount is the calibrated
     // normal rather than a fault. Beyond that the counter has stopped describing reality and
     // the gate turns itself off rather than reporting a number it cannot stand behind.
-    let counterTrusted = (selfCheck1.blocks.map { $0 > 1.6 && $0 <= 2.05 } ?? false)
+    let counterTrusted =
+        (selfCheck1.blocks.map { $0 > 1.6 && $0 <= 2.05 } ?? false)
         && (selfCheck2.blocks.map { $0 > 3.3 && $0 <= 4.05 } ?? false)
-    print(counterTrusted
-          ? "counter validated (undercounts ~10-15%; thresholds carry the headroom)"
-          : "COUNTER UNRELIABLE on this platform; rows below are reported but NOT gated")
+    print(
+        counterTrusted
+            ? "counter validated (undercounts ~10-15%; thresholds carry the headroom)"
+            : "COUNTER UNRELIABLE on this platform; rows below are reported but NOT gated")
     print("")
 
-    func allocRow(_ name: String, limitBlocks: Int,
-                  assay: () -> AnyObject?, foundation: () -> AnyObject?) {
+    func allocRow(
+        _ name: String, limitBlocks: Int,
+        assay: () -> AnyObject?, foundation: () -> AnyObject?
+    ) {
         let a = measureAllocations(iterations: 2_000, assay)
         let f = measureAllocations(iterations: 2_000, foundation)
         // Both sides printed outright. A ratio alone hides which side moved, and a ratio of
         // exactly 1.00 is far more often a broken measurement than a real tie.
-        print(pad(name, 26, right: true)
-              + pad(a.blocks.map { String(format: "%.1f", $0) } ?? "n/a", 10)
-              + pad(String(format: "%.0f", a.bytes), 12)
-              + pad(f.blocks.map { String(format: "%.1f", $0) } ?? "n/a", 12)
-              + pad(String(format: "%.0f", f.bytes), 12))
+        print(
+            pad(name, 26, right: true)
+                + pad(a.blocks.map { String(format: "%.1f", $0) } ?? "n/a", 10)
+                + pad(String(format: "%.0f", a.bytes), 12)
+                + pad(f.blocks.map { String(format: "%.1f", $0) } ?? "n/a", 12)
+                + pad(String(format: "%.0f", f.bytes), 12))
         if let b = a.blocks, counterTrusted, b > Double(limitBlocks) {
             failures.append(
                 String(format: "%@: %.1f blocks > limit %d", name, b, limitBlocks))
@@ -75,30 +83,36 @@ func runAllocationGate() -> Bool {
         // and nobody had revisited the numbers. At 400 the struct row measures 119 and
         // could have TRIPLED before CI said anything. 200 and 300 still leave ~1.6x and
         // ~2.1x of room for a hosted runner, and now catch a doubling.
-        allocRow("apimodel-8k struct", limitBlocks: 200,
-                 assay: { Payload.diagnose(json: bytes).value.map { Box($0) } },
-                 foundation: { (try? dec.decode(CodablePayload.self, from: data)).map { Box($0) } })
-        allocRow("apimodel-8k value model", limitBlocks: 300,
-                 assay: { (try? JSON.Value.parse(bytes)).map { Box($0) } },
-                 foundation: { (try? JSONSerialization.jsonObject(with: data)).map { Box($0) } })
+        allocRow(
+            "apimodel-8k struct", limitBlocks: 200,
+            assay: { Payload.diagnose(json: bytes).value.map { Box($0) } },
+            foundation: { (try? dec.decode(CodablePayload.self, from: data)).map { Box($0) } })
+        allocRow(
+            "apimodel-8k value model", limitBlocks: 300,
+            assay: { (try? JSON.Value.parse(bytes)).map { Box($0) } },
+            foundation: { (try? JSONSerialization.jsonObject(with: data)).map { Box($0) } })
     }
-    if let data = try? Data(contentsOf: corpusDir.appendingPathComponent("arrays-of-scalars-8k.json")) {
+    if let data = try? Data(
+        contentsOf: corpusDir.appendingPathComponent("arrays-of-scalars-8k.json"))
+    {
         let bytes = [UInt8](data)
         let dec = JSONDecoder()
         // An [Int] of ~800 elements should be ONE allocation, exactly-sized. Anything above
         // a handful means the array is growing by doubling, or the elements are boxing.
-        allocRow("arrays-of-scalars-8k", limitBlocks: 8,
-                 assay: { ScalarArray.diagnose(json: bytes).value.map { Box($0) } },
-                 foundation: { (try? dec.decode(CodableScalarArray.self, from: data)).map { Box($0) } })
+        allocRow(
+            "arrays-of-scalars-8k", limitBlocks: 8,
+            assay: { ScalarArray.diagnose(json: bytes).value.map { Box($0) } },
+            foundation: { (try? dec.decode(CodableScalarArray.self, from: data)).map { Box($0) } })
     }
     if let data = try? Data(contentsOf: corpusDir.appendingPathComponent("short-strings-8k.json")) {
         let bytes = [UInt8](data)
         let dec = JSONDecoder()
         // Every value here is <= 15 bytes, so every String is small-form and immortal. Six
         // fields, and the answer should be ~1: the box, and nothing else.
-        allocRow("short-strings-8k (SSO)", limitBlocks: 4,
-                 assay: { StringPrefix.diagnose(json: bytes).value.map { Box($0) } },
-                 foundation: { (try? dec.decode(CodableStringPrefix.self, from: data)).map { Box($0) } })
+        allocRow(
+            "short-strings-8k (SSO)", limitBlocks: 4,
+            assay: { StringPrefix.diagnose(json: bytes).value.map { Box($0) } },
+            foundation: { (try? dec.decode(CodableStringPrefix.self, from: data)).map { Box($0) } })
     }
 
     print("")
@@ -109,6 +123,5 @@ func runAllocationGate() -> Bool {
         for f in failures { print("  \(f)") }
     }
     return failures.isEmpty
-
 
 }

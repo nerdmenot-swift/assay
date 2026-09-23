@@ -36,7 +36,9 @@ struct GoldenB: Equatable { var y: String }
 @Schema struct GoldenPlain { var a: Int; var b: String?; var c: [Int] = []; var d: GoldenNested }
 
 // GOLDEN: all-formats-snake
-@Schema(keys: .snakeCase, formats: .all) struct GoldenAllFormats { var aB: Int; var c: [String]; var m: [String: Int] }
+@Schema(keys: .snakeCase, formats: .all) struct GoldenAllFormats {
+    var aB: Int; var c: [String]; var m: [String: Int]
+}
 
 // GOLDEN: encodes-path-extras
 /// An array of nested schemas — the hottest emitted shape, and the one nothing pinned.
@@ -49,7 +51,10 @@ struct GoldenB: Equatable { var y: String }
 // GOLDEN: array-of-schemas
 @Schema struct GoldenArrayOfSchemas { var name: String; var items: [GoldenArrayElement] }
 
-@Schema(encodes: true) struct GoldenEncodes { var a: Int; @Key(path: "p.q") var q: Int; @Key("k", or: "kk") var k: String; @Extras var rest: [String: RawValue] }
+@Schema(encodes: true) struct GoldenEncodes {
+    var a: Int; @Key(path: "p.q") var q: Int; @Key("k", or: "kk") var k: String;
+    @Extras var rest: [String: RawValue]
+}
 
 // GOLDEN: rules-checks-async
 @Schema struct GoldenRules {
@@ -67,12 +72,16 @@ struct GoldenB: Equatable { var y: String }
 @Schema(context: GoldenCtx.self) struct GoldenContext { var a: Int; var n: GoldenNested }
 
 // GOLDEN: describes
-@Schema(unknownKeys: .reject, describes: true) struct GoldenDescribes { @Validate(.min(1)) var a: String; var b: Int? }
+@Schema(unknownKeys: .reject, describes: true) struct GoldenDescribes {
+    @Validate(.min(1)) var a: String; var b: Int?
+}
 
 // GOLDEN: sources
 
 // GOLDEN: xml-encodes-root
-@Schema(coerceScalars: true, formats: .all, encodes: true) @XML(root: "r") struct GoldenXML { @XML(.attribute) var id: Int; @XML(.text) var body: String; @XML(.wrapped) var tags: [String] }
+@Schema(coerceScalars: true, formats: .all, encodes: true) @XML(root: "r") struct GoldenXML {
+    @XML(.attribute) var id: Int; @XML(.text) var body: String; @XML(.wrapped) var tags: [String]
+}
 
 // GOLDEN: dates-inline
 @Schema struct GoldenDates {
@@ -84,13 +93,21 @@ struct GoldenB: Equatable { var y: String }
 }
 
 // GOLDEN: tagged-union-encodes
-@Schema(keys: .snakeCase, encodes: true, discriminator: "type") enum GoldenTagged { case click(GoldenA); @Key("pv") case pageView(GoldenB) }
+@Schema(keys: .snakeCase, encodes: true, discriminator: "type") enum GoldenTagged {
+    case click(GoldenA); @Key("pv") case pageView(GoldenB)
+}
 
 // GOLDEN: untagged-union
-@Schema(discriminator: .untagged) enum GoldenUntagged { case text(String); case number(Double); case b(GoldenB) }
+@Schema(discriminator: .untagged) enum GoldenUntagged {
+    case text(String); case number(Double); case b(GoldenB)
+}
 
 // GOLDEN: open-enum
-@Schema(encodes: true) enum GoldenOpen { case active, suspended; @Unknown(roundTrips: true) case other(String) }
+@Schema(encodes: true) enum GoldenOpen {
+    case active, suspended; @Unknown(roundTrips: true) case other(String)
+}
 
 // GOLDEN: one-or-many-narrow
-@Schema(formats: .all) struct GoldenNarrow { @OneOrMany var tags: [String]; var w: UInt8; var bytes: [UInt8]; @Coerce var n: Int }
+@Schema(formats: .all) struct GoldenNarrow {
+    @OneOrMany var tags: [String]; var w: UInt8; var bytes: [UInt8]; @Coerce var n: Int
+}

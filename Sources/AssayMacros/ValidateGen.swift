@@ -53,19 +53,19 @@ extension SchemaMacro {
             for (j, attr) in f.validations.enumerated() where !attr.ruleExprs.isEmpty {
                 let override = attr.override.map { "\"\($0)\"" } ?? "nil"
                 calls += """
-                        Assay._assayValidate(\(validationArgument(f.decodedType, value)), Self.__assayRules_\(i)_\(j), override: \(override), field: "\(f.wireKey)", at: nil, path: path, &sink)
+                            Assay._assayValidate(\(validationArgument(f.decodedType, value)), Self.__assayRules_\(i)_\(j), override: \(override), field: "\(f.wireKey)", at: nil, path: path, &sink)
 
-                """
+                    """
             }
             guard !calls.isEmpty else { continue }
 
             // A nil optional is absent, not invalid — the same answer decoding gives.
             if f.isOptional {
                 out += """
-                    if let __vv\(i) = __result.\(f.identifier) {
-                \(calls)    }
+                        if let __vv\(i) = __result.\(f.identifier) {
+                    \(calls)    }
 
-                """
+                    """
             } else {
                 out += calls
             }
@@ -74,16 +74,16 @@ extension SchemaMacro {
         out += Self.checkCalls(typeName, checks, fields, spans: false, ctx: ctx)
 
         return """
-        /// Run this schema's rules against an already-constructed value. docs/VALIDATE.md.
-        ///
-        /// Issues carry a path and no location: there is no source document to point at.
-        \(skipNote(fields))nonisolated public static func _assayCheck(
-            _ __result: \(typeName),
-            into sink: inout Assay.IssueSink,
-            at path: [Assay.PathStep]\(ctxParam)
-        ) {
-        \(out)}
-        """
+            /// Run this schema's rules against an already-constructed value. docs/VALIDATE.md.
+            ///
+            /// Issues carry a path and no location: there is no source document to point at.
+            \(skipNote(fields))nonisolated public static func _assayCheck(
+                _ __result: \(typeName),
+                into sink: inout Assay.IssueSink,
+                at path: [Assay.PathStep]\(ctxParam)
+            ) {
+            \(out)}
+            """
     }
 
     /// A field whose rules this body cannot re-check, NAMED — in the generated doc comment,
@@ -98,19 +98,21 @@ extension SchemaMacro {
         var reasons: [String] = []
         for f in fields where !f.validations.isEmpty {
             if f.transform != nil {
-                reasons.append("`\(f.identifier)` (@Transform: its rules are type-checked "
-                    + "against the wire type, and the property holds the output)")
+                reasons.append(
+                    "`\(f.identifier)` (@Transform: its rules are type-checked "
+                        + "against the wire type, and the property holds the output)")
             } else if f.fallback != nil {
-                reasons.append("`\(f.identifier)` (@Fallback: decoding swallows a violation "
-                    + "here, so reporting it would reject a value decoding accepted)")
+                reasons.append(
+                    "`\(f.identifier)` (@Fallback: decoding swallows a violation "
+                        + "here, so reporting it would reject a value decoding accepted)")
             }
         }
         guard !reasons.isEmpty else { return "" }
         return """
-        ///
-        /// Rules NOT re-checked here, and why — decoding still applies all of them:
-        /// \(reasons.joined(separator: ",\n/// "))
+            ///
+            /// Rules NOT re-checked here, and why — decoding still applies all of them:
+            /// \(reasons.joined(separator: ",\n/// "))
 
-        """
+            """
     }
 }

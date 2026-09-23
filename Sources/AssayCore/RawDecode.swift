@@ -193,7 +193,7 @@ extension RawValue {
     ) -> Double? {
         switch self {
         case .double(let d): return d
-        case .int(let i): return Double(i)                  // widening is not coercion
+        case .int(let i): return Double(i)  // widening is not coercion
         default: break
         }
         if coerce, case .string(let s) = self, let d = _assayCoerceDouble(s) { return d }
@@ -261,12 +261,13 @@ extension RawValue {
         _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         _ expected: String, _ found: RawValue, _ span: SourceSpan? = nil
     ) {
-        sink.add(Issue(
-            code: .typeMismatch,
-            path: keyed(path, key),
-            params: ["expected": .string(expected)],
-            received: found.describe(),
-            location: span))
+        sink.add(
+            Issue(
+                code: .typeMismatch,
+                path: keyed(path, key),
+                params: ["expected": .string(expected)],
+                received: found.describe(),
+                location: span))
     }
 
     /// `path` extended by `key`, or `path` itself when `key` is EMPTY.
@@ -309,9 +310,11 @@ extension RawValue {
     public static func _notAnObject(
         _ sink: inout IssueSink, _ path: [PathStep], _ found: RawValue
     ) {
-        sink.add(Issue(code: .typeMismatch, path: path,
-                       params: ["expected": .string("object")],
-                       received: found.describe()))
+        sink.add(
+            Issue(
+                code: .typeMismatch, path: path,
+                params: ["expected": .string("object")],
+                received: found.describe()))
     }
 
     /// Report an unknown key found while decoding a mapping, with a did-you-mean.
@@ -339,11 +342,15 @@ extension RawValue {
         }
         params["received"] = .string(name)
         if reject {
-            sink.add(Issue(code: .unknownKey, path: path,
-                           params: params, received: name, location: span))
+            sink.add(
+                Issue(
+                    code: .unknownKey, path: path,
+                    params: params, received: name, location: span))
         } else {
-            sink.add(warning: Warning(code: .unknownKey, path: path,
-                                      params: params, location: span))
+            sink.add(
+                warning: Warning(
+                    code: .unknownKey, path: path,
+                    params: params, location: span))
         }
     }
 }
@@ -494,9 +501,11 @@ extension RawValue {
         _ sink: inout IssueSink, _ path: [PathStep],
         _ expected: String, _ found: RawValue
     ) {
-        sink.add(Issue(code: .typeMismatch, path: path,
-                       params: ["expected": .string(expected)],
-                       received: found.describe()))
+        sink.add(
+            Issue(
+                code: .typeMismatch, path: path,
+                params: ["expected": .string(expected)],
+                received: found.describe()))
     }
 
     /// Public spelling of `mismatch`, for generated code.
@@ -539,7 +548,7 @@ public func _assayCoerceBool(_ s: String) -> Bool? {
     guard let a = it.next() else { return nil }
     let b = it.next(), c = it.next(), d = it.next(), e = it.next()
     guard it.next() == nil else { return nil }
-    if b == nil { return a == 0x31 ? true : (a == 0x30 ? false : nil) }              // 1 / 0
+    if b == nil { return a == 0x31 ? true : (a == 0x30 ? false : nil) }  // 1 / 0
     // The casing must be one of three shapes: all lower, all upper, or first upper only.
     // No array here.
     let firstUpper = a & 0x20 == 0
@@ -550,13 +559,15 @@ public func _assayCoerceBool(_ s: String) -> Bool? {
     }
     fold(b); fold(c); fold(d); fold(e)
     guard (firstUpper && restUpper) || restLower else { return nil }
-    switch (a | 0x20, b.map { $0 | 0x20 }, c.map { $0 | 0x20 }, d.map { $0 | 0x20 }, e.map { $0 | 0x20 }) {
-    case (0x74, 0x72, 0x75, 0x65, nil): return true                                     // true
-    case (0x66, 0x61, 0x6C, 0x73, 0x65): return false                                   // false
-    case (0x79, 0x65, 0x73, nil, nil): return true                                      // yes
-    case (0x6E, 0x6F, nil, nil, nil): return false                                      // no
-    case (0x6F, 0x6E, nil, nil, nil): return true                                       // on
-    case (0x6F, 0x66, 0x66, nil, nil): return false                                     // off
+    switch (
+        a | 0x20, b.map { $0 | 0x20 }, c.map { $0 | 0x20 }, d.map { $0 | 0x20 }, e.map { $0 | 0x20 }
+    ) {
+    case (0x74, 0x72, 0x75, 0x65, nil): return true  // true
+    case (0x66, 0x61, 0x6C, 0x73, 0x65): return false  // false
+    case (0x79, 0x65, 0x73, nil, nil): return true  // yes
+    case (0x6E, 0x6F, nil, nil, nil): return false  // no
+    case (0x6F, 0x6E, nil, nil, nil): return true  // on
+    case (0x6F, 0x66, 0x66, nil, nil): return false  // off
     default: return nil
     }
 }

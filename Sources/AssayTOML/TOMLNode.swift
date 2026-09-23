@@ -48,7 +48,8 @@ extension TOML {
         /// The RFC 3339 text.
         public var text: String {
             switch self {
-            case .offsetDateTime(let s), .localDateTime(let s), .localDate(let s), .localTime(let s):
+            case .offsetDateTime(let s), .localDateTime(let s), .localDate(let s),
+                .localTime(let s):
                 return s
             }
         }
@@ -71,7 +72,9 @@ extension TOML {
             self.span = span
         }
 
-        public static func == (a: Member, b: Member) -> Bool { a.key == b.key && a.value == b.value }
+        public static func == (a: Member, b: Member) -> Bool {
+            a.key == b.key && a.value == b.value
+        }
         public func hash(into hasher: inout Hasher) {
             hasher.combine(key)
             hasher.combine(value)
@@ -203,9 +206,10 @@ extension RawValue {
                     var value = TOML.Node.bool(false)
                     unsafe swap(&value, &src[i].value)
                     unsafe (dst.baseAddress! + i).initialize(
-                        to: RawValue.Member(key: consume key,
-                                            value: RawValue(consuming: consume value),
-                                            span: src[i].span))
+                        to: RawValue.Member(
+                            key: consume key,
+                            value: RawValue(consuming: consume value),
+                            span: src[i].span))
                 }
                 count = src.count
             }

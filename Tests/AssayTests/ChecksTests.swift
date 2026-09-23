@@ -11,7 +11,7 @@ import AssayCore
 
 @Schema
 struct DateRange {
-    var start: Int          // epoch seconds; Date is a roadmap item
+    var start: Int  // epoch seconds; Date is a roadmap item
     var end: Int
 
     @Check
@@ -35,8 +35,9 @@ struct Signup2 {
     @Check
     static func passwordIsNotEmail(_ s: Signup2, _ issues: inout Issues<Signup2>) {
         if s.password == s.workEmail {
-            issues.add(code: "password_is_email", "must not be your email address",
-                       at: \.password)
+            issues.add(
+                code: "password_is_email", "must not be your email address",
+                at: \.password)
         }
     }
 }
@@ -97,14 +98,15 @@ struct CheckTests {
     @Test("field form: real parameter, real type, message lands on the field with a caret")
     func fieldForm() {
         let json = """
-        {
-        "work_email": "ada@gmail.com",
-        "password": "long-enough"
-        }
-        """
+            {
+            "work_email": "ada@gmail.com",
+            "password": "long-enough"
+            }
+            """
         // Note: @Schema without keys: uses camelCase; workEmail -> workEmail. Use exact key.
-        let d = Signup2.diagnose(json: #"{"workEmail":"ada@gmail.com","password":"long-enough"}"#,
-                                 sourceName: "s.json")
+        let d = Signup2.diagnose(
+            json: #"{"workEmail":"ada@gmail.com","password":"long-enough"}"#,
+            sourceName: "s.json")
         _ = json
         #expect(d.isValid == false)
         let issue = d.issues[0]
@@ -134,13 +136,14 @@ struct CheckTests {
         // extension. Direct compiler-level verification lives in the CI matrix; here we
         // assert the diagnostic text exists and the schema-side collection ignores
         // extension members by construction.
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema struct S {
-            var a: String
-            @Check static func f(_ s: S, _ i: inout Issues<S>) {}
-        }
-        """)
-        #expect(diags.isEmpty)     // in-body: fine
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S {
+                var a: String
+                @Check static func f(_ s: S, _ i: inout Issues<S>) {}
+            }
+            """)
+        #expect(diags.isEmpty)  // in-body: fine
     }
 }
 
@@ -151,7 +154,7 @@ struct PreprocessTransformTests {
     func preprocess() throws {
         let v = try Normalised.parse(
             json: #"{"email":"  Ada@Example.COM  ","title":"a   b\t\nc"}"#)
-        #expect(v.email == "ada@example.com")     // trimmed, lowercased, then .email passed
+        #expect(v.email == "ada@example.com")  // trimmed, lowercased, then .email passed
         #expect(v.title == "a b c")
     }
 
@@ -166,15 +169,16 @@ struct PreprocessTransformTests {
     func transform() throws {
         let v = try Transformed.parse(
             json: #"{"tags":["swift","ios","swift"],"timeoutSeconds":5000,"name":"n"}"#)
-        #expect(v.tags == Set(["swift", "ios"]))       // arrived as [String], ended a Set
-        #expect(v.timeoutSeconds == 5.0)               // arrived as 5000 ms
+        #expect(v.tags == Set(["swift", "ios"]))  // arrived as [String], ended a Set
+        #expect(v.timeoutSeconds == 5.0)  // arrived as 5000 ms
     }
 
     @Test("transforms work through the YAML path too")
     func transformYAML() throws {
         // Transformed is JSON-only; reuse Ticket for the multi-format enum check below.
         // Here: the wire type drives decoding — a Set field arrives as a JSON array.
-        let d = Transformed.diagnose(json: #"{"tags":"not-an-array","timeoutSeconds":1,"name":"n"}"#)
+        let d = Transformed.diagnose(
+            json: #"{"tags":"not-an-array","timeoutSeconds":1,"name":"n"}"#)
         #expect(d.isValid == false)
         #expect(d.issues.contains { $0.code == .typeMismatch })
     }
@@ -194,17 +198,19 @@ struct FallbackTests {
         let invalid = WithFallback.diagnose(json: #"{"name":"a","timeout":"soon","retries":5}"#)
         #expect(invalid.isValid)
         #expect(invalid.value?.timeout == 30 && invalid.value?.retries == 5)
-        #expect(invalid.warnings.contains {
-            $0.code == .fallbackApplied && $0.path.pathDescription == "timeout"
-        })
+        #expect(
+            invalid.warnings.contains {
+                $0.code == .fallbackApplied && $0.path.pathDescription == "timeout"
+            })
 
         // Rule-violating: range(1...10) fails at 99, falls back, issue rolled back.
         let violating = WithFallback.diagnose(json: #"{"name":"a","retries":99,"timeout":1}"#)
         #expect(violating.isValid)
         #expect(violating.value?.retries == 3)
-        #expect(violating.warnings.contains {
-            $0.code == .fallbackApplied && $0.path.pathDescription == "retries"
-        })
+        #expect(
+            violating.warnings.contains {
+                $0.code == .fallbackApplied && $0.path.pathDescription == "retries"
+            })
     }
 
     @Test("a valid present value passes through with no warning")
@@ -217,7 +223,7 @@ struct FallbackTests {
     @Test("parse discards fallback warnings by design — use diagnose to see them")
     func parseDiscards() throws {
         let v = try WithFallback.parse(json: #"{"name":"a","timeout":"bad"}"#)
-        #expect(v.timeout == 30)      // it worked; whether you know is your verb choice
+        #expect(v.timeout == 30)  // it worked; whether you know is your verb choice
     }
 }
 

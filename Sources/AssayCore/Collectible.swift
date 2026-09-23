@@ -108,11 +108,15 @@ extension AssayReader {
         params["received"] = .string(name)
         let span = SourceSpan(lo: key.lo, len: key.len)
         if reject {
-            sink.add(Issue(code: .unknownKey, path: path,
-                           params: params, received: name, location: span))
+            sink.add(
+                Issue(
+                    code: .unknownKey, path: path,
+                    params: params, received: name, location: span))
         } else {
-            sink.add(warning: Warning(code: .unknownKey, path: path,
-                                      params: params, location: span))
+            sink.add(
+                warning: Warning(
+                    code: .unknownKey, path: path,
+                    params: params, location: span))
         }
     }
 
@@ -157,9 +161,10 @@ extension AssayReader {
             var rowMin = current[0]
             for j in 1...b.count {
                 let cost = a[i - 1] == b[j - 1] ? 0 : 1
-                var d = min(previous[j] + 1,
-                            current[j - 1] + 1,
-                            previous[j - 1] + cost)
+                var d = min(
+                    previous[j] + 1,
+                    current[j - 1] + 1,
+                    previous[j - 1] + cost)
                 if i > 1, j > 1, a[i - 1] == b[j - 2], a[i - 2] == b[j - 1] {
                     d = min(d, prev2[j - 2] + 1)
                 }

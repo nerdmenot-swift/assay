@@ -36,11 +36,11 @@ import SwiftDiagnostics
 
 struct SchemaField {
     var identifier: String
-    var typeName: String          // normalised, e.g. "Int", "String?", "[Int]"
+    var typeName: String  // normalised, e.g. "Int", "String?", "[Int]"
     var wireKey: String
     var aliases: [String]
     var isOptional: Bool
-    var defaultExpr: String?      // `= 3` — consulted on absence only, still validated
+    var defaultExpr: String?  // `= 3` — consulted on absence only, still validated
     var isIgnored: Bool
     /// `@Extras` — the sink for keys the schema did not declare. Never in the dispatch
     /// table, never in the presence mask, but still in the memberwise init.
@@ -120,15 +120,18 @@ enum SchemaError: Error, CustomStringConvertible {
             // A macro only sees source text — it cannot ask the type checker what `3` is,
             // and guessing Int would be wrong the moment someone writes `var timeout = 1.5`
             // in a codebase where the wire type is a Duration.
-            return "property '\(n)' needs an explicit type annotation; @Schema cannot infer a type from an initializer alone"
+            return
+                "property '\(n)' needs an explicit type annotation; @Schema cannot infer a type from an initializer alone"
         case .letWithInitializer(let n):
-            return "'let \(n)' with an initializer cannot be decoded; change it to 'var' to make it a default"
+            return
+                "'let \(n)' with an initializer cannot be decoded; change it to 'var' to make it a default"
         case .duplicateKey(let k):
             return "duplicate wire key \"\(k)\"; two properties would read the same key"
         case .tooManyFields(let n):
             return "@Schema supports at most 64 fields in this release, found \(n)"
         case .collectWithoutExtras:
-            return "@Schema(unknownKeys: .collect) requires an @Extras property to collect into; add `@Extras var extras: [String: RawValue]`"
+            return
+                "@Schema(unknownKeys: .collect) requires an @Extras property to collect into; add `@Extras var extras: [String: RawValue]`"
         case .extrasWrongType(let t):
             return "@Extras must be a dictionary keyed by String, found '\(t)'"
         case .multipleExtras:
@@ -168,16 +171,19 @@ public struct SchemaMacro: ExtensionMacro {
         // them apart — a union's cases carry payloads, which the closed-enum path refuses.
         if let enumDecl = declaration.as(EnumDeclSyntax.self) {
             if let tag = config.discriminator {
-                return Self.unionExpansion(of: node, enumDecl: enumDecl, config: config,
-                                           typeName: typeName, tag: tag, in: context)
+                return Self.unionExpansion(
+                    of: node, enumDecl: enumDecl, config: config,
+                    typeName: typeName, tag: tag, in: context)
             }
-            return Self.enumExpansion(of: node, enumDecl: enumDecl, config: config,
-                                      typeName: typeName, in: context)
+            return Self.enumExpansion(
+                of: node, enumDecl: enumDecl, config: config,
+                typeName: typeName, in: context)
         }
         guard let structDecl = declaration.as(StructDeclSyntax.self) else {
-            context.diagnose(Diagnostic(
-                node: Syntax(node),
-                message: SimpleDiagnostic(SchemaError.notAStruct.description)))
+            context.diagnose(
+                Diagnostic(
+                    node: Syntax(node),
+                    message: SimpleDiagnostic(SchemaError.notAStruct.description)))
             return []
         }
 
@@ -185,18 +191,28 @@ public struct SchemaMacro: ExtensionMacro {
         // SAYS (analysis), whether that can mean what it says (refusals), and the code
         // for it (emission). Until 2026-09-10 all three were one 356-line function, and
         // that is where an option got accepted and ignored — `SchemaRefusals.swift`.
-        guard let analysis = try Self.analyse(structDecl, config: config,
-                                              typeName: typeName, node: node,
-                                              context: context) else { return [] }
-        guard SchemaRefusals.type(config: config, fields: analysis.fields,
-                                  extras: analysis.extras, typeName: typeName,
-                                  isGeneric: structDecl.genericParameterClause != nil,
-                                  node: node, context: context) else { return [] }
-        guard let body = Self.emit(analysis, config: config, typeName: typeName,
-                                   node: node, context: context) else { return [] }
+        guard
+            let analysis = try Self.analyse(
+                structDecl, config: config,
+                typeName: typeName, node: node,
+                context: context)
+        else { return [] }
+        guard
+            SchemaRefusals.type(
+                config: config, fields: analysis.fields,
+                extras: analysis.extras, typeName: typeName,
+                isGeneric: structDecl.genericParameterClause != nil,
+                node: node, context: context)
+        else { return [] }
+        guard
+            let body = Self.emit(
+                analysis, config: config, typeName: typeName,
+                node: node, context: context)
+        else { return [] }
 
         let ext = try ExtensionDeclSyntax(
-            "extension \(raw: typeName): \(raw: Self.conformances(analysis, config: config).joined(separator: ", "))") {
+            "extension \(raw: typeName): \(raw: Self.conformances(analysis, config: config).joined(separator: ", "))"
+        ) {
             DeclSyntax(stringLiteral: body)
         }
         return [ext]
@@ -249,43 +265,48 @@ public struct SchemaMacro: ExtensionMacro {
         // what it says (`SchemaRefusals.property`); the diagnostic is already on the
         // property, so the only thing to do here is stop.
         do {
-        for member in structDecl.memberBlock.members {
-            guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
-            let isInline = varDecl.attributes.compactMap { $0.as(AttributeSyntax.self) }
-                .contains { $0.attributeName.trimmedDescription == "Inline" }
-            for f in try Self.fields(from: varDecl, keyStyle: config.keyStyle, context: context) {
-                guard isInline else { fields.append(f); continue }
+            for member in structDecl.memberBlock.members {
+                guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
+                let isInline = varDecl.attributes.compactMap { $0.as(AttributeSyntax.self) }
+                    .contains { $0.attributeName.trimmedDescription == "Inline" }
+                for f in try Self.fields(from: varDecl, keyStyle: config.keyStyle, context: context)
+                {
+                    guard isInline else { fields.append(f); continue }
 
-                let base = Self.stripOptional(f.typeName)
-                guard let nested = nestedTypes[base] else {
-                    return refuse(
-                        "@Inline requires '\(base)' to be declared inside '\(typeName)'. A "
-                        + "macro receives only the syntax of the declaration it is attached "
-                        + "to, so it cannot see another type's members -- in any module, "
-                        + "including this one -- and a key collision between the two could "
-                        + "not be detected. Nest the type, or declare its fields directly.",
-                        at: Syntax(varDecl))
-                }
-                guard !f.isOptional else {
-                    return refuse(
-                        "@Inline cannot be optional. Its keys are read from this level, so "
-                        + "'all absent' and 'some absent' are indistinguishable and there is "
-                        + "no honest answer for which one means nil.",
-                        at: Syntax(varDecl))
-                }
-                // Flatten. The nested fields keep their own `@Key` renames and rules; only
-                // their namespace changes, which is what makes collision detection fall out
-                // of the duplicate-key check that already runs below.
-                for nestedMember in nested.memberBlock.members {
-                    guard let nv = nestedMember.decl.as(VariableDeclSyntax.self) else { continue }
-                    for var inner in try Self.fields(from: nv, keyStyle: config.keyStyle,
-                                                     context: context) {
-                        inner.inlineOwner = (f.identifier, base)
-                        fields.append(inner)
+                    let base = Self.stripOptional(f.typeName)
+                    guard let nested = nestedTypes[base] else {
+                        return refuse(
+                            "@Inline requires '\(base)' to be declared inside '\(typeName)'. A "
+                                + "macro receives only the syntax of the declaration it is attached "
+                                + "to, so it cannot see another type's members -- in any module, "
+                                + "including this one -- and a key collision between the two could "
+                                + "not be detected. Nest the type, or declare its fields directly.",
+                            at: Syntax(varDecl))
+                    }
+                    guard !f.isOptional else {
+                        return refuse(
+                            "@Inline cannot be optional. Its keys are read from this level, so "
+                                + "'all absent' and 'some absent' are indistinguishable and there is "
+                                + "no honest answer for which one means nil.",
+                            at: Syntax(varDecl))
+                    }
+                    // Flatten. The nested fields keep their own `@Key` renames and rules; only
+                    // their namespace changes, which is what makes collision detection fall out
+                    // of the duplicate-key check that already runs below.
+                    for nestedMember in nested.memberBlock.members {
+                        guard let nv = nestedMember.decl.as(VariableDeclSyntax.self) else {
+                            continue
+                        }
+                        for var inner in try Self.fields(
+                            from: nv, keyStyle: config.keyStyle,
+                            context: context)
+                        {
+                            inner.inlineOwner = (f.identifier, base)
+                            fields.append(inner)
+                        }
                     }
                 }
             }
-        }
         } catch SchemaError.refused {
             return nil
         }
@@ -312,8 +333,9 @@ public struct SchemaMacro: ExtensionMacro {
         // fail inside generated code, pointing at nothing the user wrote.
         for f in active {
             if let bad = Self.firstNonStringDictKey(Self.stripOptional(f.typeName)) {
-                return refuse("dictionary fields must be keyed by String — object keys are "
-                    + "strings in every wire format; '\(f.identifier)' declares '\(bad)'")
+                return refuse(
+                    "dictionary fields must be keyed by String — object keys are "
+                        + "strings in every wire format; '\(f.identifier)' declares '\(bad)'")
             }
         }
         guard active.count <= 64 else {
@@ -350,7 +372,8 @@ public struct SchemaMacro: ExtensionMacro {
             entryIndex += 1
         }
 
-        let plan = config.formats.json
+        let plan =
+            config.formats.json
             ? WindowSearch.search(candidates, fieldCount: entryIndex)
             : nil
         let ordered = fields.filter { !$0.isIgnored }
@@ -360,8 +383,9 @@ public struct SchemaMacro: ExtensionMacro {
         }
 
         // @Check / @AsyncCheck members, and span requirements they add.
-        let checkDecls = Self.checks(in: structDecl, fields: activeC,
-                                     hasContext: config.isContextual, context: context)
+        let checkDecls = Self.checks(
+            in: structDecl, fields: activeC,
+            hasContext: config.isContextual, context: context)
         // ONLY A SYNCHRONOUS field check can use a span. `_assayAsyncChecks` runs after the
         // decode body has returned, and the `__sp` locals are that body's locals — there is
         // nothing for the async runner to read even in principle. Requesting one anyway
@@ -375,7 +399,8 @@ public struct SchemaMacro: ExtensionMacro {
         let checkedFields = Set(checkDecls.filter { !$0.isAsync }.compactMap(\.fieldIdentifier))
         var activeS = activeC
         for i in activeS.indices {
-            activeS[i].needsSpan = !activeS[i].validations.isEmpty
+            activeS[i].needsSpan =
+                !activeS[i].validations.isEmpty
                 || checkedFields.contains(activeS[i].name)
         }
 
@@ -383,17 +408,20 @@ public struct SchemaMacro: ExtensionMacro {
             return nil
         }
 
-        return Analysis(fields: fields, extras: extras, active: activeS, ordered: ordered,
-                        pathGroups: pathGroups, checks: checkDecls, plan: plan,
-                        policy: policy)
+        return Analysis(
+            fields: fields, extras: extras, active: activeS, ordered: ordered,
+            pathGroups: pathGroups, checks: checkDecls, plan: plan,
+            policy: policy)
     }
 
     // MARK: - Emission
 
     /// Report every message and say whether there were none. The four opt-in bodies each
     /// have a pre-flight diagnostic list; this is the one place it is walked.
-    static func refuse(_ messages: [String], node: AttributeSyntax,
-                       context: some MacroExpansionContext) -> Bool {
+    static func refuse(
+        _ messages: [String], node: AttributeSyntax,
+        context: some MacroExpansionContext
+    ) -> Bool {
         for message in messages {
             context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(message)))
         }
@@ -411,25 +439,32 @@ public struct SchemaMacro: ExtensionMacro {
         // Spelled out rather than left to associated-type inference. Inference across a
         // protocol refinement stops working the moment a type conforms to two of the
         // contextual protocols, and its failure mode is a wall of "does not conform".
-        var body = ctxType.isEmpty ? "" : """
-        public typealias AssayContext = \(ctxType)
+        var body =
+            ctxType.isEmpty
+            ? ""
+            : """
+            public typealias AssayContext = \(ctxType)
 
 
-        """
+            """
         body += Self.ruleArrays(activeS)
         body += Self.dateFormatArrays(activeS)
         body += Self.preprocessArrays(activeS)
         body += Self.transformClosures(activeS)
-        if a.checks.contains(where: { $0.fieldIdentifier == nil }) || !a.checks.filter(\.isAsync).isEmpty {
+        if a.checks.contains(where: { $0.fieldIdentifier == nil })
+            || !a.checks.filter(\.isAsync).isEmpty
+        {
             body += Self.fieldNameTable(typeName, activeS)
         }
         if formats.json {
-            body += Self.decodeBody(typeName: typeName, fields: activeS, plan: a.plan,
-                                    extras: a.extras, policy: a.policy, ordered: a.ordered,
-                                    validation: Self.postDecodeSection(activeS, spans: true),
-                                    checks: Self.checkCalls(typeName, a.checks, activeS,
-                                                            spans: true, ctx: ctxType),
-                                    groups: a.pathGroups, ctx: ctxType)
+            body += Self.decodeBody(
+                typeName: typeName, fields: activeS, plan: a.plan,
+                extras: a.extras, policy: a.policy, ordered: a.ordered,
+                validation: Self.postDecodeSection(activeS, spans: true),
+                checks: Self.checkCalls(
+                    typeName, a.checks, activeS,
+                    spans: true, ctx: ctxType),
+                groups: a.pathGroups, ctx: ctxType)
         }
         if formats.raw {
             if !body.isEmpty { body += "\n\n" }
@@ -437,13 +472,15 @@ public struct SchemaMacro: ExtensionMacro {
             // from `RawValue.Member.span`, which the YAML and XML parsers record; a
             // producer that tracks no offsets leaves them nil, and a nil span renders the
             // same span-less issue it always did.
-            body += Self.rawDecodeBody(typeName: typeName, fields: activeS,
-                                       extras: a.extras, policy: a.policy, ordered: a.ordered,
-                                       emitKnownKeys: !formats.json,
-                                       validation: Self.postDecodeSection(activeS, spans: true),
-                                       checks: Self.checkCalls(typeName, a.checks, activeS,
-                                                               spans: true, ctx: ctxType),
-                                       groups: a.pathGroups, ctx: ctxType)
+            body += Self.rawDecodeBody(
+                typeName: typeName, fields: activeS,
+                extras: a.extras, policy: a.policy, ordered: a.ordered,
+                emitKnownKeys: !formats.json,
+                validation: Self.postDecodeSection(activeS, spans: true),
+                checks: Self.checkCalls(
+                    typeName, a.checks, activeS,
+                    spans: true, ctx: ctxType),
+                groups: a.pathGroups, ctx: ctxType)
         }
         if config.encodes {
             guard Self.refuse(Self.encodeDiagnostics(activeS), node: node, context: context) else {
@@ -452,17 +489,22 @@ public struct SchemaMacro: ExtensionMacro {
             body += "\n\n" + Self.inverseClosures(activeS)
             body += Self.declaredKeys(activeS, a.extras, groups: a.pathGroups)
             if formats.json {
-                body += Self.encodeBody(typeName: typeName, fields: activeS, extras: a.extras,
-                                        groups: a.pathGroups)
+                body += Self.encodeBody(
+                    typeName: typeName, fields: activeS, extras: a.extras,
+                    groups: a.pathGroups)
             }
             if formats.raw {
                 if formats.json { body += "\n\n" }
-                body += Self.rawEncodeBody(typeName: typeName, fields: activeS,
-                                           extras: a.extras, groups: a.pathGroups)
+                body += Self.rawEncodeBody(
+                    typeName: typeName, fields: activeS,
+                    extras: a.extras, groups: a.pathGroups)
             }
             if formats.xml {
-                body += "\n\n" + Self.xmlEncodeBody(typeName: typeName, fields: activeS,
-                                                     extras: a.extras, root: config.xmlRoot)
+                body +=
+                    "\n\n"
+                    + Self.xmlEncodeBody(
+                        typeName: typeName, fields: activeS,
+                        extras: a.extras, root: config.xmlRoot)
             }
         }
         // `@XML` PLACEMENT IS CHECKED FOR EVERY XML SCHEMA, not only an encoding one.
@@ -484,22 +526,25 @@ public struct SchemaMacro: ExtensionMacro {
         if let r = config.xmlRoot, formats.xml {
             if !body.isEmpty { body += "\n\n" }
             body += """
-            nonisolated public static var _assayXMLExpectedRoot: String? { "\(r)" }
-            """
+                nonisolated public static var _assayXMLExpectedRoot: String? { "\(r)" }
+                """
         }
 
         if Self.hasValidation(activeS, a.checks) {
             if !body.isEmpty { body += "\n\n" }
-            body += Self.validateBody(typeName: typeName, fields: activeS,
-                                      checks: a.checks, ctx: ctxType)
+            body += Self.validateBody(
+                typeName: typeName, fields: activeS,
+                checks: a.checks, ctx: ctxType)
         }
         if config.describes {
-            guard Self.refuse(Self.describeDiagnostics(activeS), node: node, context: context) else {
+            guard Self.refuse(Self.describeDiagnostics(activeS), node: node, context: context)
+            else {
                 return nil
             }
             if !body.isEmpty { body += "\n\n" }
-            body += Self.describeBody(typeName: typeName, fields: activeS,
-                                      policy: a.policy, groups: a.pathGroups)
+            body += Self.describeBody(
+                typeName: typeName, fields: activeS,
+                policy: a.policy, groups: a.pathGroups)
         }
         body += Self.asyncCheckRunner(typeName, a.checks, fields: activeS, ctx: ctxType)
 
@@ -510,12 +555,15 @@ public struct SchemaMacro: ExtensionMacro {
         // Every way of generating a body has to be listed, or the diagnostic tells the
         // truth about `formats: []` and a falsehood about the declaration in front of it.
         if !formats.json, !formats.raw, !formats.xml, !config.encodes,
-           !Self.hasValidation(activeS, a.checks) {
-            _ = Self.refuse([
-                "@Schema(formats: []) emits no decode body, and this type declares no "
-                + "@Validate, no @Check and no `encodes: true`, so the macro would "
-                + "generate nothing. Add a rule if you want `\(typeName).validate(_:)`, "
-                + "or remove `formats: []` to decode JSON."], node: node, context: context)
+            !Self.hasValidation(activeS, a.checks)
+        {
+            _ = Self.refuse(
+                [
+                    "@Schema(formats: []) emits no decode body, and this type declares no "
+                        + "@Validate, no @Check and no `encodes: true`, so the macro would "
+                        + "generate nothing. Add a rule if you want `\(typeName).validate(_:)`, "
+                        + "or remove `formats: []` to decode JSON."
+                ], node: node, context: context)
             return nil
         }
         return body
@@ -559,8 +607,10 @@ public struct SchemaMacro: ExtensionMacro {
     ) throws -> [SchemaField] {
         var out: [SchemaField] = []
         for binding in varDecl.bindings {
-            if let f = try field(from: varDecl, binding: binding,
-                                 keyStyle: keyStyle, context: context) {
+            if let f = try field(
+                from: varDecl, binding: binding,
+                keyStyle: keyStyle, context: context)
+            {
                 out.append(f)
             }
         }
@@ -579,13 +629,18 @@ public struct SchemaMacro: ExtensionMacro {
         // are silently excluded (§6). `@Ignore` is the explicit opt-out.
         if varDecl.modifiers.contains(where: {
             $0.name.text == "static" || $0.name.text == "class" || $0.name.text == "lazy"
-        }) { return nil }
+        }) {
+            return nil
+        }
 
         let attrs = varDecl.attributes.compactMap { $0.as(AttributeSyntax.self) }
         let attrNames = Set(attrs.map { $0.attributeName.trimmedDescription })
         if let annotated = binding.typeAnnotation?.type.trimmedDescription {
-            guard SchemaRefusals.property(attrs: attrs, typeName: annotated,
-                                          varDecl: varDecl, context: context) else {
+            guard
+                SchemaRefusals.property(
+                    attrs: attrs, typeName: annotated,
+                    varDecl: varDecl, context: context)
+            else {
                 throw SchemaError.refused
             }
         }
@@ -601,7 +656,8 @@ public struct SchemaMacro: ExtensionMacro {
         var xmlPlacement: String? = nil
         for attr in attrs where attr.attributeName.trimmedDescription == "XML" {
             guard let args = attr.arguments?.as(LabeledExprListSyntax.self),
-                  let first = args.first else { continue }
+                let first = args.first
+            else { continue }
             var t = first.expression.trimmedDescription
             while t.hasPrefix(".") { t.removeFirst() }
             if ["attribute", "text", "wrapped", "element"].contains(t) {
@@ -612,7 +668,8 @@ public struct SchemaMacro: ExtensionMacro {
         var inverse: String? = nil
         for attr in attrs where attr.attributeName.trimmedDescription == "Inverse" {
             if let args = attr.arguments?.as(LabeledExprListSyntax.self),
-               let c = args.first?.expression.as(ClosureExprSyntax.self) {
+                let c = args.first?.expression.as(ClosureExprSyntax.self)
+            {
                 inverse = c.trimmedDescription
             }
         }
@@ -644,18 +701,21 @@ public struct SchemaMacro: ExtensionMacro {
         guard let typeAnnotation = binding.typeAnnotation else {
             // `var x = 3` — a hard error rather than an inference.
             if binding.initializer != nil {
-                context.diagnose(Diagnostic(
-                    node: Syntax(varDecl),
-                    message: SimpleDiagnostic(SchemaError.needsTypeAnnotation(name).description)))
+                context.diagnose(
+                    Diagnostic(
+                        node: Syntax(varDecl),
+                        message: SimpleDiagnostic(SchemaError.needsTypeAnnotation(name).description)
+                    ))
             }
             return nil
         }
 
         if isLet && binding.initializer != nil {
             // Already assigned; no generated initializer can write to it.
-            context.diagnose(Diagnostic(
-                node: Syntax(varDecl),
-                message: SimpleDiagnostic(SchemaError.letWithInitializer(name).description)))
+            context.diagnose(
+                Diagnostic(
+                    node: Syntax(varDecl),
+                    message: SimpleDiagnostic(SchemaError.letWithInitializer(name).description)))
             return nil
         }
 
@@ -671,8 +731,11 @@ public struct SchemaMacro: ExtensionMacro {
                 guard let lit = arg.expression.as(StringLiteralExprSyntax.self) else { continue }
                 let value = lit.segments.description
                 if arg.label?.text == "path" {
-                    guard let segs = Self.pathSegments(value, node: Syntax(attr),
-                                                       context: context) else { return nil }
+                    guard
+                        let segs = Self.pathSegments(
+                            value, node: Syntax(attr),
+                            context: context)
+                    else { return nil }
                     pathSegments = segs
                     // The LAST segment is the wire key. Every message that names a key —
                     // did-you-mean, `.missing`, the renderers' carets — then names the key
@@ -737,20 +800,23 @@ public struct SchemaMacro: ExtensionMacro {
         segments.append(current)
 
         guard segments.count >= 2 else {
-            return fail("@Key(path: \"\(raw)\") has no `.` in it, so it names a top-level key "
-                + "— write @Key(\"\(raw)\") instead. A path exists to reach THROUGH an "
-                + "intermediate object.")
+            return fail(
+                "@Key(path: \"\(raw)\") has no `.` in it, so it names a top-level key "
+                    + "— write @Key(\"\(raw)\") instead. A path exists to reach THROUGH an "
+                    + "intermediate object.")
         }
         guard !segments.contains(where: \.isEmpty) else {
-            return fail("@Key(path: \"\(raw)\") has an empty segment. Every segment must name "
-                + "a key.")
+            return fail(
+                "@Key(path: \"\(raw)\") has an empty segment. Every segment must name "
+                    + "a key.")
         }
         if let bad = segments.first(where: { $0.contains("[") || $0.contains("]") }) {
-            return fail("@Key(path: \"\(raw)\") uses an index segment (`\(bad)`), which is not "
-                + "built. Walking a key and indexing an array are different operations: an "
-                + "index needs the element counted during the array's own decode, and needs a "
-                + "fourth answer for \"the array was shorter than that\". Declare the array and "
-                + "take the element in Swift, or use a nested @Schema type.")
+            return fail(
+                "@Key(path: \"\(raw)\") uses an index segment (`\(bad)`), which is not "
+                    + "built. Walking a key and indexing an array are different operations: an "
+                    + "index needs the element counted during the array's own decode, and needs a "
+                    + "fourth answer for \"the array was shorter than that\". Declare the array and "
+                    + "take the element in Swift, or use a nested @Schema type.")
         }
         return segments
     }

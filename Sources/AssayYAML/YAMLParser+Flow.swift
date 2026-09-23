@@ -19,7 +19,7 @@ extension YAML.Parser {
         guard depth < limits.maxDepth else {
             r.report(&sink, .depthExceeded); return nil
         }
-        r.advanceBy(1)                                   // [
+        r.advanceBy(1)  // [
         var items = B.makeItems(reserving: hints.items(at: depth))
         while true {
             skipBlanksAndComments(&r)
@@ -47,7 +47,9 @@ extension YAML.Parser {
             // Falling through on anything else was the other half of the hang.
             switch r.currentByte {
             case UInt8(ascii: ","): r.advanceBy(1)
-            case UInt8(ascii: "]"): r.advanceBy(1); hints.setItems(B.itemCount(items), at: depth); return B.sequence(items)
+            case UInt8(ascii: "]"):
+                r.advanceBy(1); hints.setItems(B.itemCount(items), at: depth);
+                return B.sequence(items)
             case nil:
                 r.report(&sink, .yamlUnterminatedFlowSequence)
                 return nil
@@ -65,7 +67,7 @@ extension YAML.Parser {
         guard depth < limits.maxDepth else {
             r.report(&sink, .depthExceeded); return nil
         }
-        r.advanceBy(1)                                   // {
+        r.advanceBy(1)  // {
         var pairs = B.makePairs(reserving: hints.members(at: depth))
         var mergeSources: [B.Value] = []
         while true {
@@ -95,8 +97,11 @@ extension YAML.Parser {
             if B.isMergeKey(&key) {
                 mergeSources.append(value)
             } else {
-                guard B.appendPair(&pairs, key: key, value: value,
-                                   span: trimmedSpan(&r, from: valueStart)) else {
+                guard
+                    B.appendPair(
+                        &pairs, key: key, value: value,
+                        span: trimmedSpan(&r, from: valueStart))
+                else {
                     r.report(&sink, .yamlUnrepresentableKey)
                     return nil
                 }
@@ -221,10 +226,16 @@ extension YAML.Parser {
         var end = start
         while let c = r.currentByte {
             if c == UInt8(ascii: ",") || c == UInt8(ascii: "]")
-                || c == UInt8(ascii: "}") || c == 0x0A { break }
+                || c == UInt8(ascii: "}") || c == 0x0A
+            {
+                break
+            }
             if c == UInt8(ascii: ":"), let n = r.byte(at: 1),
-               n == 0x20 || n == UInt8(ascii: ",") || n == UInt8(ascii: "]")
-                || n == UInt8(ascii: "}") { break }
+                n == 0x20 || n == UInt8(ascii: ",") || n == UInt8(ascii: "]")
+                    || n == UInt8(ascii: "}")
+            {
+                break
+            }
             r.advanceBy(1)
             if c != 0x20 && c != 0x09 { end = r.byteOffset }
         }

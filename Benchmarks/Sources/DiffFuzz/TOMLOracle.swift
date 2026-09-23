@@ -138,12 +138,16 @@ func tomlKitValue(_ v: TOMLValueConvertible) -> YValue? {
     case .table:
         guard let t = v.table else { return nil }
         var out: [YValue.Member] = []
-        for (k, item) in t { guard let x = tomlKitValue(item) else { return nil }; out.append(.init(k, x)) }
+        for (k, item) in t {
+            guard let x = tomlKitValue(item) else { return nil }; out.append(.init(k, x))
+        }
         return .mapping(out)
     }
 }
 
-func tomlKitDate(_ d: TOMLDate) -> String { String(format: "%04d-%02d-%02d", d.year, d.month, d.day) }
+func tomlKitDate(_ d: TOMLDate) -> String {
+    String(format: "%04d-%02d-%02d", d.year, d.month, d.day)
+}
 func tomlKitTime(_ t: TOMLTime) -> String {
     String(format: "%02d:%02d:%02d.%09d", t.hour, t.minute, t.second, t.nanoSecond)
 }
@@ -169,7 +173,11 @@ func runTOMLDifferential(_ documents: [(name: String, text: String)]) -> YAMLOra
             }
         case (.some, nil): r.oracleOnlyRejected.append(name)
         case (.some(let a), .some(let b)):
-            if a == b { r.agreed += 1 } else { r.disagreed.append((name, describeDifference([a], [b], "toml++"))) }
+            if a == b {
+                r.agreed += 1
+            } else {
+                r.disagreed.append((name, describeDifference([a], [b], "toml++")))
+            }
         }
     }
     return r
@@ -182,15 +190,22 @@ func runTOMLDifferential(_ documents: [(name: String, text: String)]) -> YAMLOra
 func runTOMLTestSuite(dir: URL) -> (validOK: Int, valid: Int, invalidOK: Int, invalid: Int) {
     let tests = dir.appendingPathComponent("tests")
     // The 1.0.0 file list is authoritative; the suite also carries 1.1 cases.
-    guard let list = try? String(contentsOf: tests.appendingPathComponent("files-toml-1.0.0"), encoding: .utf8) else {
-        fail("toml-test: \(tests.path)/files-toml-1.0.0 not found — is TOML_TEST_DIR a toml-test checkout?")
+    guard
+        let list = try? String(
+            contentsOf: tests.appendingPathComponent("files-toml-1.0.0"), encoding: .utf8)
+    else {
+        fail(
+            "toml-test: \(tests.path)/files-toml-1.0.0 not found — is TOML_TEST_DIR a toml-test checkout?"
+        )
         return (0, 0, 0, 0)
     }
     var validOK = 0, valid = 0, invalidOK = 0, invalid = 0
     for line in list.split(separator: "\n") where line.hasSuffix(".toml") {
         let rel = String(line)
         let url = tests.appendingPathComponent(rel)
-        guard let bytes = try? Data(contentsOf: url) else { fail("toml-test: cannot read \(rel)"); continue }
+        guard let bytes = try? Data(contentsOf: url) else {
+            fail("toml-test: cannot read \(rel)"); continue
+        }
         if rel.hasPrefix("invalid/") {
             invalid += 1
             var sink = IssueSink(limits: .default)
@@ -203,13 +218,17 @@ func runTOMLTestSuite(dir: URL) -> (validOK: Int, valid: Int, invalidOK: Int, in
         }
         valid += 1
         guard let node = try? TOML.parse([UInt8](bytes)) else {
-            fail("toml-test: REJECTED valid \(rel) [\(assayTOMLRejectionReason(String(decoding: bytes, as: UTF8.self)))]")
+            fail(
+                "toml-test: REJECTED valid \(rel) [\(assayTOMLRejectionReason(String(decoding: bytes, as: UTF8.self)))]"
+            )
             continue
         }
         let jsonURL = url.deletingPathExtension().appendingPathExtension("json")
         guard let jsonData = try? Data(contentsOf: jsonURL),
-              let any = try? JSONSerialization.jsonObject(with: jsonData, options: [.fragmentsAllowed]),
-              let expected = taggedJSON(any) else {
+            let any = try? JSONSerialization.jsonObject(
+                with: jsonData, options: [.fragmentsAllowed]),
+            let expected = taggedJSON(any)
+        else {
             fail("toml-test: cannot read expected \(jsonURL.lastPathComponent)")
             continue
         }
@@ -217,7 +236,9 @@ func runTOMLTestSuite(dir: URL) -> (validOK: Int, valid: Int, invalidOK: Int, in
         if got == expected {
             validOK += 1
         } else {
-            fail("toml-test: \(rel) — \(firstPathDifference(got, expected) ?? "\(got) vs \(expected)")")
+            fail(
+                "toml-test: \(rel) — \(firstPathDifference(got, expected) ?? "\(got) vs \(expected)")"
+            )
         }
     }
     return (validOK, valid, invalidOK, invalid)
@@ -269,11 +290,15 @@ struct TOMLEnvelope {
 /// Every null-free corpus document, written by Assay and read back by toml++.
 func runTOMLEncodeDifferential(corpus: URL) -> Int {
     var checked = 0
-    guard let all = try? FileManager.default.contentsOfDirectory(at: corpus, includingPropertiesForKeys: nil) else { return 0 }
+    guard
+        let all = try? FileManager.default.contentsOfDirectory(
+            at: corpus, includingPropertiesForKeys: nil)
+    else { return 0 }
     for url in all.sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
     where url.pathExtension == "json" && !url.lastPathComponent.hasPrefix("neg-") {
         guard let data = try? Data(contentsOf: url),
-              let value = try? JSON.Value.parse([UInt8](data)) else { continue }
+            let value = try? JSON.Value.parse([UInt8](data))
+        else { continue }
         let raw = RawValue(value)
         // Nulls have no TOML spelling; the writer reports them, and that is tested in
         // the library. This oracle is about what it CAN write.
@@ -289,13 +314,17 @@ func runTOMLEncodeDifferential(corpus: URL) -> Int {
             fail("toml-encode: toml++ rejected Assay's own TOML for \(name)")
             continue
         }
-        guard case .mapping(let top) = theirs, let payload = top.first(where: { $0.key == "payload" })?.value else {
+        guard case .mapping(let top) = theirs,
+            let payload = top.first(where: { $0.key == "payload" })?.value
+        else {
             fail("toml-encode: \(name) is outside the oracle's vocabulary")
             continue
         }
         let mine = sortedMappings(rawAsY(raw))
         if mine != payload {
-            fail("toml-encode: \(name) round-tripped through toml++ to a different value: \(firstPathDifference(mine, payload) ?? "")")
+            fail(
+                "toml-encode: \(name) round-tripped through toml++ to a different value: \(firstPathDifference(mine, payload) ?? "")"
+            )
         }
         checked += 1
     }

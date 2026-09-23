@@ -40,12 +40,14 @@ struct MediaTypeTests {
     /// RFC 6839 structured suffixes. Getting these wrong is not cosmetic: most versioned
     /// APIs on the internet spell their content type `...+json`, and a negotiator that does
     /// not know that rejects all of them.
-    @Test("structured suffixes are recognised", arguments: [
-        ("application/vnd.github.v3+json", "json"),
-        ("image/svg+xml", "xml"),
-        ("application/vnd.thing+yaml", "yaml"),
-        ("application/ld+json", "json"),
-    ])
+    @Test(
+        "structured suffixes are recognised",
+        arguments: [
+            ("application/vnd.github.v3+json", "json"),
+            ("image/svg+xml", "xml"),
+            ("application/vnd.thing+yaml", "yaml"),
+            ("application/ld+json", "json")
+        ])
     func suffixes(_ header: String, _ expected: String) {
         let m = MediaType.parse(header)
         #expect(m?.suffix == expected, "for \(header)")
@@ -60,24 +62,31 @@ struct MediaTypeTests {
         #expect(m?.names("xml") == false)
     }
 
-    @Test("whitespace, quoting and parameter order do not matter", arguments: [
-        "application/json;charset=utf-8",
-        "  application/json ;  charset = utf-8  ",
-        "application/json; charset=\"utf-8\"",
-        "application/json; boundary=x; charset=UTF-8",
-    ])
+    @Test(
+        "whitespace, quoting and parameter order do not matter",
+        arguments: [
+            "application/json;charset=utf-8",
+            "  application/json ;  charset = utf-8  ",
+            "application/json; charset=\"utf-8\"",
+            "application/json; boundary=x; charset=UTF-8"
+        ])
     func tolerance(_ header: String) {
         let m = MediaType.parse(header)
         #expect(m?.names("json") == true, "for \(header)")
         #expect(m?.charsetIsReadable == true, "for \(header)")
     }
 
-    @Test("junk is not a media type", arguments: [
-        "", "json", "/json", "application/", "application", ";charset=utf-8", "application/+json",
-    ])
+    @Test(
+        "junk is not a media type",
+        arguments: [
+            "", "json", "/json", "application/", "application", ";charset=utf-8",
+            "application/+json"
+        ])
     func junk(_ header: String) {
         let m = MediaType.parse(header)
-        #expect(m == nil || m?.subtype.isEmpty == true, "for \"\(header)\" got \(String(describing: m))")
+        #expect(
+            m == nil || m?.subtype.isEmpty == true, "for \"\(header)\" got \(String(describing: m))"
+        )
     }
 
     /// Checked, never transcoded. The core is Foundation-free and has no converter, so
@@ -101,12 +110,15 @@ struct NegotiationTests {
 
     @Test("each format decodes when it is accepted")
     func decodesEach() throws {
-        let a = try Body.parse(body: Self.json, contentType: "application/json",
-                               accepting: [.json, .yaml, .xml])
-        let b = try Body.parse(body: Self.yaml, contentType: "application/yaml",
-                               accepting: [.json, .yaml, .xml])
-        let c = try Body.parse(body: Self.xml, contentType: "application/xml",
-                               accepting: [.json, .yaml, .xml])
+        let a = try Body.parse(
+            body: Self.json, contentType: "application/json",
+            accepting: [.json, .yaml, .xml])
+        let b = try Body.parse(
+            body: Self.yaml, contentType: "application/yaml",
+            accepting: [.json, .yaml, .xml])
+        let c = try Body.parse(
+            body: Self.xml, contentType: "application/xml",
+            accepting: [.json, .yaml, .xml])
         #expect(a == b)
         #expect(a == c)
     }
@@ -118,11 +130,11 @@ struct NegotiationTests {
     func unsupportedNeverParses() {
         // A billion-laughs payload. If the XML parser ran, this would be visible as either
         // an expansion issue or a long pause; being refused means it was never read.
-        let bomb = Array((
-            "<?xml version=\"1.0\"?><!DOCTYPE e [<!ENTITY a \"xxxxxxxxxx\">"
-            + "<!ENTITY b \"&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;\">"
-            + "<!ENTITY c \"&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;\">"
-            + "]><Body><name>&c;</name></Body>").utf8)
+        let bomb = Array(
+            ("<?xml version=\"1.0\"?><!DOCTYPE e [<!ENTITY a \"xxxxxxxxxx\">"
+                + "<!ENTITY b \"&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;\">"
+                + "<!ENTITY c \"&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;\">"
+                + "]><Body><name>&c;</name></Body>").utf8)
 
         let d = Body.diagnose(body: bomb, contentType: "application/xml", accepting: [.json])
         #expect(!d.isValid)
@@ -141,8 +153,9 @@ struct NegotiationTests {
     }
 
     /// No sniffing, ever — not even when the bytes are obviously JSON and JSON is accepted.
-    @Test("a missing or unparseable Content-Type is refused rather than guessed",
-          arguments: [nil, "", "garbage", "application"])
+    @Test(
+        "a missing or unparseable Content-Type is refused rather than guessed",
+        arguments: [nil, "", "garbage", "application"])
     func neverSniffs(_ header: String?) {
         let d = Body.diagnose(body: Self.json, contentType: header, accepting: [.json])
         #expect(!d.isValid, "for \(String(describing: header))")
@@ -151,18 +164,20 @@ struct NegotiationTests {
 
     @Test("an unreadable charset is refused rather than reinterpreted")
     func charsetRefused() {
-        let d = Body.diagnose(body: Self.json,
-                              contentType: "application/json; charset=iso-8859-1",
-                              accepting: [.json])
+        let d = Body.diagnose(
+            body: Self.json,
+            contentType: "application/json; charset=iso-8859-1",
+            accepting: [.json])
         #expect(d.issues.first?.code == .unreadableCharset)
         #expect(d.issues.first?.received == "iso-8859-1")
     }
 
     @Test("a versioned +json type routes to the JSON parser")
     func structuredSuffixRoutes() throws {
-        let v = try Body.parse(body: Self.json,
-                               contentType: "application/vnd.github.v3+json; charset=utf-8",
-                               accepting: [.json])
+        let v = try Body.parse(
+            body: Self.json,
+            contentType: "application/vnd.github.v3+json; charset=utf-8",
+            accepting: [.json])
         #expect(v.name == "a")
     }
 
@@ -170,8 +185,9 @@ struct NegotiationTests {
     /// the two must stay distinguishable.
     @Test("a bad body of an accepted type reports a parse issue")
     func badBody() {
-        let d = Body.diagnose(body: Array("{not json".utf8),
-                              contentType: "application/json", accepting: [.json])
+        let d = Body.diagnose(
+            body: Array("{not json".utf8),
+            contentType: "application/json", accepting: [.json])
         #expect(!d.isValid)
         #expect(d.issues.first?.code != .unsupportedMediaType)
     }
@@ -180,8 +196,9 @@ struct NegotiationTests {
     /// should be stated rather than emergent.
     @Test("the first matching format in accepting: wins")
     func firstMatchWins() throws {
-        let v = try Body.parse(body: Self.json, contentType: "application/json",
-                               accepting: [.json, .yaml])
+        let v = try Body.parse(
+            body: Self.json, contentType: "application/json",
+            accepting: [.json, .yaml])
         #expect(v.count == 1)
     }
 }

@@ -53,29 +53,37 @@ struct DictionaryTests {
 
     @Test("scalar values, optional dictionaries, defaulted dictionaries")
     func scalars() throws {
-        let c = try Counts.parse(json: Array("""
-        {"byRegion": {"eu": 3, "us": 5}, "weights": null}
-        """.utf8))
+        let c = try Counts.parse(
+            json: Array(
+                """
+                {"byRegion": {"eu": 3, "us": 5}, "weights": null}
+                """.utf8))
         #expect(c.byRegion == ["eu": 3, "us": 5])
         #expect(c.weights == nil)
-        #expect(c.labels == [:])       // absent, default applies
+        #expect(c.labels == [:])  // absent, default applies
 
-        let d = try Counts.parse(json: Array("""
-        {"byRegion": {}, "weights": {"a": 0.5}, "labels": {"x": "y"}}
-        """.utf8))
+        let d = try Counts.parse(
+            json: Array(
+                """
+                {"byRegion": {}, "weights": {"a": 0.5}, "labels": {"x": "y"}}
+                """.utf8))
         #expect(d.byRegion.isEmpty)
         #expect(d.weights == ["a": 0.5])
         #expect(d.labels == ["x": "y"])
     }
 
-    @Test("nested schema values, arrays in dictionaries, dictionaries in arrays, dictionaries in dictionaries")
+    @Test(
+        "nested schema values, arrays in dictionaries, dictionaries in arrays, dictionaries in dictionaries"
+    )
     func nesting() throws {
-        let o = try DictOrg.parse(json: Array("""
-        {"teams": {"core": {"name": "Core"}, "infra": {"name": "Infra"}},
-         "matrix": {"a": [1, 2], "b": []},
-         "deep": {"outer": {"inner": 7}},
-         "rows": [{"x": 1}, {"y": 2}]}
-        """.utf8))
+        let o = try DictOrg.parse(
+            json: Array(
+                """
+                {"teams": {"core": {"name": "Core"}, "infra": {"name": "Infra"}},
+                 "matrix": {"a": [1, 2], "b": []},
+                 "deep": {"outer": {"inner": 7}},
+                 "rows": [{"x": 1}, {"y": 2}]}
+                """.utf8))
         #expect(o.teams["core"]?.name == "Core")
         #expect(o.teams.count == 2)
         #expect(o.matrix["a"] == [1, 2])
@@ -87,9 +95,11 @@ struct DictionaryTests {
 
     @Test("an open map as an ordinary field, not @Extras")
     func openMap() throws {
-        let m = try OpenMap.parse(json: Array("""
-        {"meta": {"n": 1, "s": "x", "b": true, "z": null, "a": [1], "o": {"k": "v"}}}
-        """.utf8))
+        let m = try OpenMap.parse(
+            json: Array(
+                """
+                {"meta": {"n": 1, "s": "x", "b": true, "z": null, "a": [1], "o": {"k": "v"}}}
+                """.utf8))
         #expect(m.meta.count == 6)
         #expect(m.meta["n"] == .int(1))
         #expect(m.meta["b"] == .bool(true))
@@ -99,9 +109,11 @@ struct DictionaryTests {
 
     @Test("duplicate keys keep the last value — JSONDecoder's behaviour")
     func duplicates() throws {
-        let c = try Counts.parse(json: Array("""
-        {"byRegion": {"eu": 1, "eu": 2}}
-        """.utf8))
+        let c = try Counts.parse(
+            json: Array(
+                """
+                {"byRegion": {"eu": 1, "eu": 2}}
+                """.utf8))
         #expect(c.byRegion == ["eu": 2])
     }
 
@@ -119,32 +131,35 @@ struct DictionaryTests {
 
     @Test("YAML and XML decode dictionaries through the RawValue path")
     func rawPath() throws {
-        let y = try RawCounts.parse(yaml: """
-        by_region:
-          eu: 3
-          us: 5
-        teams:
-          core:
-            name: Core
-        """)
+        let y = try RawCounts.parse(
+            yaml: """
+                by_region:
+                  eu: 3
+                  us: 5
+                teams:
+                  core:
+                    name: Core
+                """)
         #expect(y.byRegion == ["eu": 3, "us": 5])
         #expect(y.teams["core"]?.name == "Core")
 
         // XML scalars are text; Int values without coercion are a mismatch, reported —
         // never a guess. The coerced variant below is the working XML arm.
         #expect(throws: (any Error).self) {
-            try RawCounts.parse(xml: """
-            <r><by_region><eu>3</eu><us>5</us></by_region>\
-            <teams><core><name>Core</name></core></teams></r>
-            """)
+            try RawCounts.parse(
+                xml: """
+                    <r><by_region><eu>3</eu><us>5</us></by_region>\
+                    <teams><core><name>Core</name></core></teams></r>
+                    """)
         }
     }
 
     @Test("XML dictionaries with coerced scalars decode")
     func xmlCoerced() throws {
-        let x = try CoercedCounts.parse(xml: """
-        <r><by_region><eu>3</eu><us>5</us></by_region></r>
-        """)
+        let x = try CoercedCounts.parse(
+            xml: """
+                <r><by_region><eu>3</eu><us>5</us></by_region></r>
+                """)
         #expect(x.byRegion == ["eu": 3, "us": 5])
     }
 }
@@ -159,25 +174,28 @@ struct DictionaryDiagnosticTests {
 
     @Test("a non-String key is a purpose-written error, not a type error in generated code")
     func nonStringKey() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema struct S { var m: [Int: String] }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S { var m: [Int: String] }
+            """)
         #expect(diags.contains { $0.contains("keyed by String") && $0.contains("'m'") })
     }
 
     @Test("the walk finds nested offenders too")
     func nested() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema struct S { var m: [String: [Int: Bool]] }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S { var m: [String: [Int: Bool]] }
+            """)
         #expect(diags.contains { $0.contains("keyed by String") })
     }
 
     @Test("[[String: Int]] is an array of dictionaries, not a parse failure")
     func arrayOfDicts() {
-        let (expansion, diags) = expandSchemaForTesting("""
-        @Schema struct S { var rows: [[String: Int]] }
-        """)
+        let (expansion, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S { var rows: [[String: Int]] }
+            """)
         #expect(diags.isEmpty)
         #expect(expansion.contains("decodeInt"))
         #expect(expansion.contains("keyString"))

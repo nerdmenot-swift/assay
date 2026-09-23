@@ -42,9 +42,9 @@ struct Blob: Equatable {
 struct IntegerWidthTests {
 
     static let atLimits = #"""
-    {"i8": -128, "i16": -32768, "u8": 255, "u16": 65535,
-     "u32": 4294967295, "u64": 9007199254740993}
-    """#
+        {"i8": -128, "i16": -32768, "u8": 255, "u16": 65535,
+         "u32": 4294967295, "u64": 9007199254740993}
+        """#
 
     @Test("each width decodes its own extremes")
     func extremes() throws {
@@ -69,17 +69,20 @@ struct IntegerWidthTests {
             ("u8", "256"), ("u8", "-1"),
             ("u16", "65536"), ("u16", "-1"),
             ("u32", "4294967296"), ("u32", "-1"),
-            ("u64", "-1"),
+            ("u64", "-1")
         ]
         for (field, bad) in cases {
-            var fields = ["i8": "0", "i16": "0", "u8": "0",
-                          "u16": "0", "u32": "0", "u64": "0"]
+            var fields = [
+                "i8": "0", "i16": "0", "u8": "0",
+                "u16": "0", "u32": "0", "u64": "0"
+            ]
             fields[field] = bad
             let body = fields.map { "\"\($0.key)\": \($0.value)" }.joined(separator: ", ")
             let d = Widths.diagnose(json: Array("{\(body)}".utf8))
             #expect(!d.isValid, "\(field) = \(bad) should not decode")
-            #expect(d.issues.contains { $0.path == [.key(field)] },
-                    "the issue should name \(field), got \(d.issues.map(\.path))")
+            #expect(
+                d.issues.contains { $0.path == [.key(field)] },
+                "the issue should name \(field), got \(d.issues.map(\.path))")
         }
     }
 
@@ -89,9 +92,11 @@ struct IntegerWidthTests {
     /// `scanUInt64` finds a test that goes green rather than one that has to be discovered.
     @Test("UInt64 above Int64.max is refused — the documented ceiling")
     func uint64Ceiling() {
-        let d = Widths.diagnose(json: Array(#"""
-        {"i8":0,"i16":0,"u8":0,"u16":0,"u32":0,"u64":18446744073709551615}
-        """#.utf8))
+        let d = Widths.diagnose(
+            json: Array(
+                #"""
+                {"i8":0,"i16":0,"u8":0,"u16":0,"u32":0,"u64":18446744073709551615}
+                """#.utf8))
         #expect(!d.isValid)
         #expect(d.issues.first?.path == [.key("u64")])
     }
@@ -122,7 +127,7 @@ struct IntegerWidthTests {
         let raw = RawValue.mapping([
             .init(key: "i8", value: .int(-128)), .init(key: "i16", value: .int(-32768)),
             .init(key: "u8", value: .int(255)), .init(key: "u16", value: .int(65535)),
-            .init(key: "u32", value: .int(4294967295)), .init(key: "u64", value: .int(42)),
+            .init(key: "u32", value: .int(4294967295)), .init(key: "u64", value: .int(42))
         ])
         var sink = IssueSink(limits: .default)
         var rootPath: [PathStep] = []
@@ -137,7 +142,7 @@ struct IntegerWidthTests {
         let raw = RawValue.mapping([
             .init(key: "i8", value: .int(0)), .init(key: "i16", value: .int(0)),
             .init(key: "u8", value: .int(256)), .init(key: "u16", value: .int(0)),
-            .init(key: "u32", value: .int(0)), .init(key: "u64", value: .int(0)),
+            .init(key: "u32", value: .int(0)), .init(key: "u64", value: .int(0))
         ])
         var sink = IssueSink(limits: .default)
         var rootPath: [PathStep] = []
@@ -166,8 +171,9 @@ struct BlobFieldTests {
     func elementOverflow() {
         let d = Blob.diagnose(json: Array(#"{"payload": [0, 256], "label": "x"}"#.utf8))
         #expect(!d.isValid)
-        #expect(d.issues.first?.path == [.key("payload"), .index(1)],
-                "got \(d.issues.map(\.path))")
+        #expect(
+            d.issues.first?.path == [.key("payload"), .index(1)],
+            "got \(d.issues.map(\.path))")
     }
 
     /// Every scalar element type reaches the same primitive, so a few shapes prove the
@@ -228,8 +234,9 @@ struct IntegerSpanTests {
                 continue
             }
             let bytes = Array(json.utf8)
-            let text = String(decoding: bytes[Int(span.lo) ..< Int(span.lo) + Int(span.len)],
-                              as: UTF8.self)
+            let text = String(
+                decoding: bytes[Int(span.lo)..<Int(span.lo) + Int(span.len)],
+                as: UTF8.self)
             #expect(text == "999", "\(issue.path) pointed at \"\(text)\"")
         }
     }

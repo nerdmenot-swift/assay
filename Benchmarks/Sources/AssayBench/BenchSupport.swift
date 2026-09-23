@@ -30,27 +30,29 @@ func measure(iterations: Int, _ body: () -> Void) -> Double {
 
 func iterationCount(forBytes n: Int) -> Int {
     switch n {
-    case ..<1_000:   return 20_000
-    case ..<4_000:   return 10_000
-    case ..<16_000:  return 4_000
-    case ..<40_000:  return 2_000
-    default:         return 1_000
+    case ..<1_000: return 20_000
+    case ..<4_000: return 10_000
+    case ..<16_000: return 4_000
+    case ..<40_000: return 2_000
+    default: return 1_000
     }
 }
 
-
 /// Where `CorpusGen` writes. `swift run -c release CorpusGen` regenerates it.
 let corpusDir = URL(fileURLWithPath: #filePath)
-    .deletingLastPathComponent()   // AssayBench
-    .deletingLastPathComponent()   // Sources
-    .deletingLastPathComponent()   // Benchmarks
+    .deletingLastPathComponent()  // AssayBench
+    .deletingLastPathComponent()  // Sources
+    .deletingLastPathComponent()  // Benchmarks
     .appendingPathComponent("Corpus/files")
 
 let sizes = ["512b", "2k", "8k", "32k", "64k"]
 
 func pad(_ s: String, _ n: Int, right: Bool = false) -> String {
-    s.count >= n ? s : (right ? s + String(repeating: " ", count: n - s.count)
-                              : String(repeating: " ", count: n - s.count) + s)
+    s.count >= n
+        ? s
+        : (right
+            ? s + String(repeating: " ", count: n - s.count)
+            : String(repeating: " ", count: n - s.count) + s)
 }
 
 /// Boxing into a class keeps a result alive across an allocation snapshot without the

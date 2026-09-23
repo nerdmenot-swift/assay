@@ -69,8 +69,10 @@ protocol YAMLBuilding {
     static func makePairs(reserving n: Int) -> Pairs
     /// False when the key cannot be represented — `RawValue`'s keys are Strings and
     /// `? [a, b] : c` is legal YAML (this file's header, note 3). The parser reports it.
-    static func appendPair(_ pairs: inout Pairs, key: consuming Value,
-                           value: consuming Value, span: SourceSpan?) -> Bool
+    static func appendPair(
+        _ pairs: inout Pairs, key: consuming Value,
+        value: consuming Value, span: SourceSpan?
+    ) -> Bool
     static func pairCount(_ pairs: borrowing Pairs) -> Int
     static func mapping(_ pairs: consuming Pairs) -> Value
 

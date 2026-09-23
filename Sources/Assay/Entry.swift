@@ -58,9 +58,10 @@ public struct Diagnosis<T: Sendable>: Sendable {
     /// From a sink: the value only if the sink is clean, everything else carried across.
     /// Thirty-three call sites spelled this out by hand until 2026-09-10.
     public init(sink: IssueSink, value: T?, source: SourceBytes, sourceName: String) {
-        self.init(value: sink.isValid ? value : nil, issues: sink.issues,
-                  warnings: sink.warnings, truncatedIssues: sink.truncatedIssues,
-                  source: source, sourceName: sourceName)
+        self.init(
+            value: sink.isValid ? value : nil, issues: sink.issues,
+            warnings: sink.warnings, truncatedIssues: sink.truncatedIssues,
+            source: source, sourceName: sourceName)
     }
 
     public var isValid: Bool { issues.isEmpty }
@@ -89,10 +90,11 @@ extension JSONAssayable {
         // Sound only because the input is a single contiguous buffer that cannot change
         // underneath the parse — which an mmap'd file satisfies literally.
         if let bad = unsafe UTF8Validation.firstInvalid(base, count) {
-            sink.add(Issue(
-                code: .invalidUTF8,
-                params: ["offset": .int(bad)],
-                location: SourceSpan(lo: bad, len: 1)))
+            sink.add(
+                Issue(
+                    code: .invalidUTF8,
+                    params: ["offset": .int(bad)],
+                    location: SourceSpan(lo: bad, len: 1)))
             return nil
         }
 
@@ -112,8 +114,10 @@ extension JSONAssayable {
         guard v != nil else { return nil }
         reader.skipWhitespace()
         if !reader.atEnd {
-            sink.add(Issue(code: .trailingContent,
-                           location: SourceSpan(lo: reader.byteOffset, len: 1)))
+            sink.add(
+                Issue(
+                    code: .trailingContent,
+                    location: SourceSpan(lo: reader.byteOffset, len: 1)))
             return nil
         }
         return v
@@ -139,16 +143,19 @@ extension JSONAssayable {
 
         if bytes.count > limits.maxBytes {
             sink.add(Issue(code: .tooManyBytes, params: ["maxBytes": .int(limits.maxBytes)]))
-            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(
+                sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
 
         let value: Self? = bytes.withUnsafeBufferPointer { buf -> Self? in
             guard let base = buf.baseAddress else { return nil }
-            return unsafe Self._decode(base: base, count: buf.count,
-                                       into: &sink, limits: limits)
+            return unsafe Self._decode(
+                base: base, count: buf.count,
+                into: &sink, limits: limits)
         }
 
-        return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
+        return Diagnosis(
+            sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
     /// Convenience for text input.
@@ -188,8 +195,9 @@ extension Diagnosis {
     /// same output with no ANSI, `.json` is a stable machine shape with codes and params,
     /// `.problemDetails` is RFC 9457.
     public func render(_ style: RenderStyle) -> String {
-        Renderer.render(issues: issues, warnings: warnings,
-                        source: source, sourceName: sourceName, style: style)
+        Renderer.render(
+            issues: issues, warnings: warnings,
+            source: source, sourceName: sourceName, style: style)
     }
 }
 
@@ -231,9 +239,10 @@ extension JSONEncodableSchema {
         guard sink.isValid else {
             // Cold, and the only copy on this path: the error carries the partial document
             // so a renderer can point at it.
-            throw AssayError(issues: sink.issues,
-                             source: SourceBytes(Array(bytes)),
-                             sourceName: "<encoded>")
+            throw AssayError(
+                issues: sink.issues,
+                source: SourceBytes(Array(bytes)),
+                sourceName: "<encoded>")
         }
         return bytes
     }
@@ -283,16 +292,18 @@ public struct EncodeDiagnosis: Sendable {
 
     public func get() throws -> [UInt8] {
         guard isValid else {
-            throw AssayError(issues: issues, source: SourceBytes(bytes),
-                             sourceName: "<encoded>")
+            throw AssayError(
+                issues: issues, source: SourceBytes(bytes),
+                sourceName: "<encoded>")
         }
         return bytes
     }
 
     /// Same renderers as the decode side — that is the whole point of reusing `Issue`.
     public func render(_ style: RenderStyle) -> String {
-        Renderer.render(issues: issues, warnings: warnings,
-                        source: SourceBytes(bytes), sourceName: "<encoded>", style: style)
+        Renderer.render(
+            issues: issues, warnings: warnings,
+            source: SourceBytes(bytes), sourceName: "<encoded>", style: style)
     }
 }
 
@@ -300,7 +311,8 @@ extension EncodeDiagnosis: CustomStringConvertible {
     public var description: String {
         if issues.isEmpty {
             let w = warnings.count
-            return "valid (\(bytes.count) bytes)" + (w == 0 ? "" : " (\(w) warning\(w == 1 ? "" : "s"))")
+            return "valid (\(bytes.count) bytes)"
+                + (w == 0 ? "" : " (\(w) warning\(w == 1 ? "" : "s"))")
         }
         return render(.plain)
     }

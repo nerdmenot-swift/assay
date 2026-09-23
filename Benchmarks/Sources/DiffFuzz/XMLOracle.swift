@@ -61,10 +61,10 @@ enum XMLEvent: Equatable, CustomStringConvertible {
         case .start(let n, let u, let a):
             let attrs = a.keys.sorted().map { "\($0)=\(a[$0]!)" }.joined(separator: " ")
             return "<\(n)\(u.map { "@\($0)" } ?? "")\(attrs.isEmpty ? "" : " " + attrs)>"
-        case .end(let n, let u):   return "</\(n)\(u.map { "@\($0)" } ?? "")>"
-        case .text(let t):         return "text(\(t))"
-        case .comment(let c):      return "comment(\(c))"
-        case .pi(let t, let d):    return "pi(\(t),\(d))"
+        case .end(let n, let u): return "</\(n)\(u.map { "@\($0)" } ?? "")>"
+        case .text(let t): return "text(\(t))"
+        case .comment(let c): return "comment(\(c))"
+        case .pi(let t, let d): return "pi(\(t),\(d))"
         }
     }
 }
@@ -112,7 +112,7 @@ func assayEvents(_ bytes: [UInt8]) -> [XMLEvent]? {
     // Assay also excludes from `prolog`), so the comparison must include them.
     for node in doc.prolog {
         switch node {
-        case .comment(let c):                      out.append(.comment(c))
+        case .comment(let c): out.append(.comment(c))
         case .processingInstruction(let t, let d): out.append(.pi(target: t, data: d))
         default: break
         }
@@ -136,12 +136,12 @@ private func appendElement(_ e: XML.Element, to out: inout [XMLEvent]) {
     out.append(.start(name: e.name.local, uri: e.name.namespaceURI, attributes: attrs))
     for child in e.children {
         switch child {
-        case .element(let sub):                appendElement(sub, to: &out)
-        case .text(let t):                     out.append(.text(t))
+        case .element(let sub): appendElement(sub, to: &out)
+        case .text(let t): out.append(.text(t))
         // Foundation reports CDATA as character data; the adjacent-text merge in
         // normalise() makes <r>a<![CDATA[b]]></r> compare equal on both sides.
-        case .cdata(let t):                    out.append(.text(t))
-        case .comment(let c):                  out.append(.comment(c))
+        case .cdata(let t): out.append(.text(t))
+        case .comment(let c): out.append(.comment(c))
         case .processingInstruction(let t, let d): out.append(.pi(target: t, data: d))
         }
     }
@@ -178,9 +178,11 @@ final class FoundationXMLCollector: NSObject, XMLParserDelegate {
         return "{\(uri)}\(local)"
     }
 
-    func parser(_ p: XMLParser, didStartElement name: String,
-                namespaceURI: String?, qualifiedName: String?,
-                attributes: [String: String] = [:]) {
+    func parser(
+        _ p: XMLParser, didStartElement name: String,
+        namespaceURI: String?, qualifiedName: String?,
+        attributes: [String: String] = [:]
+    ) {
         // Foundation reports "" for no namespace in some configurations; normalise to nil.
         let uri = (namespaceURI?.isEmpty ?? true) ? nil : namespaceURI
         openURIs.append(uri)
@@ -189,8 +191,10 @@ final class FoundationXMLCollector: NSObject, XMLParserDelegate {
         events.append(.start(name: name, uri: uri, attributes: attrs))
     }
 
-    func parser(_ p: XMLParser, didEndElement name: String,
-                namespaceURI: String?, qualifiedName: String?) {
+    func parser(
+        _ p: XMLParser, didEndElement name: String,
+        namespaceURI: String?, qualifiedName: String?
+    ) {
         let uri = openURIs.popLast() ?? nil
         events.append(.end(name: name, uri: uri))
     }

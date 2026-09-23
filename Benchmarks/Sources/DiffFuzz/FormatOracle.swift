@@ -36,7 +36,7 @@ enum NaiveFormats {
         guard local.count >= 1, local.count <= 64 else { return false }
 
         // RFC 5322 atext plus dot; dots must not lead, trail or double.
-        var previousWasDot = true                     // leading dot rejected
+        var previousWasDot = true  // leading dot rejected
         for b in local {
             if b == UInt8(ascii: ".") {
                 if previousWasDot { return false }
@@ -46,7 +46,7 @@ enum NaiveFormats {
             previousWasDot = false
             guard isAtext(b) else { return false }
         }
-        if previousWasDot { return false }            // trailing dot
+        if previousWasDot { return false }  // trailing dot
 
         return isHostname(bytes: Array(domain), requireMultipleLabels: true)
     }
@@ -54,14 +54,14 @@ enum NaiveFormats {
     static func isAtext(_ b: UInt8) -> Bool {
         switch b {
         case UInt8(ascii: "a")...UInt8(ascii: "z"),
-             UInt8(ascii: "A")...UInt8(ascii: "Z"),
-             UInt8(ascii: "0")...UInt8(ascii: "9"):
+            UInt8(ascii: "A")...UInt8(ascii: "Z"),
+            UInt8(ascii: "0")...UInt8(ascii: "9"):
             return true
         case UInt8(ascii: "!"), UInt8(ascii: "#"), UInt8(ascii: "$"), UInt8(ascii: "%"),
-             UInt8(ascii: "&"), UInt8(ascii: "'"), UInt8(ascii: "*"), UInt8(ascii: "+"),
-             UInt8(ascii: "-"), UInt8(ascii: "/"), UInt8(ascii: "="), UInt8(ascii: "?"),
-             UInt8(ascii: "^"), UInt8(ascii: "_"), UInt8(ascii: "`"), UInt8(ascii: "{"),
-             UInt8(ascii: "|"), UInt8(ascii: "}"), UInt8(ascii: "~"):
+            UInt8(ascii: "&"), UInt8(ascii: "'"), UInt8(ascii: "*"), UInt8(ascii: "+"),
+            UInt8(ascii: "-"), UInt8(ascii: "/"), UInt8(ascii: "="), UInt8(ascii: "?"),
+            UInt8(ascii: "^"), UInt8(ascii: "_"), UInt8(ascii: "`"), UInt8(ascii: "{"),
+            UInt8(ascii: "|"), UInt8(ascii: "}"), UInt8(ascii: "~"):
             return true
         default:
             return false
@@ -76,7 +76,7 @@ enum NaiveFormats {
 
     static func isHostname(bytes input: [UInt8], requireMultipleLabels: Bool) -> Bool {
         var bytes = input
-        if bytes.last == UInt8(ascii: ".") { bytes.removeLast() }   // trailing dot is legal
+        if bytes.last == UInt8(ascii: ".") { bytes.removeLast() }  // trailing dot is legal
         guard bytes.count >= 1, bytes.count <= 253 else { return false }
 
         var labels: [[UInt8]] = []
@@ -99,7 +99,8 @@ enum NaiveFormats {
                 return false
             }
             for b in label {
-                let ok = (b >= UInt8(ascii: "a") && b <= UInt8(ascii: "z"))
+                let ok =
+                    (b >= UInt8(ascii: "a") && b <= UInt8(ascii: "z"))
                     || (b >= UInt8(ascii: "A") && b <= UInt8(ascii: "Z"))
                     || (b >= UInt8(ascii: "0") && b <= UInt8(ascii: "9"))
                     || b == UInt8(ascii: "-")
@@ -109,7 +110,8 @@ enum NaiveFormats {
 
         // An all-numeric TLD means "1.2.3.4" would pass as a hostname.
         if let tld = labels.last,
-           tld.allSatisfy({ $0 >= UInt8(ascii: "0") && $0 <= UInt8(ascii: "9") }) {
+            tld.allSatisfy({ $0 >= UInt8(ascii: "0") && $0 <= UInt8(ascii: "9") })
+        {
             return false
         }
         return true
@@ -124,7 +126,8 @@ enum NaiveFormats {
             if i == 8 || i == 13 || i == 18 || i == 23 {
                 guard b == UInt8(ascii: "-") else { return false }
             } else {
-                let isHex = (b >= UInt8(ascii: "0") && b <= UInt8(ascii: "9"))
+                let isHex =
+                    (b >= UInt8(ascii: "0") && b <= UInt8(ascii: "9"))
                     || (b >= UInt8(ascii: "a") && b <= UInt8(ascii: "f"))
                     || (b >= UInt8(ascii: "A") && b <= UInt8(ascii: "F"))
                 guard isHex else { return false }
@@ -143,12 +146,15 @@ enum NaiveFormats {
             return false
         }
         let first = utf8[0]
-        guard (first >= UInt8(ascii: "a") && first <= UInt8(ascii: "z"))
-            || (first >= UInt8(ascii: "A") && first <= UInt8(ascii: "Z")) else {
+        guard
+            (first >= UInt8(ascii: "a") && first <= UInt8(ascii: "z"))
+                || (first >= UInt8(ascii: "A") && first <= UInt8(ascii: "Z"))
+        else {
             return false
         }
         for b in utf8[1..<colon] {
-            let ok = (b >= UInt8(ascii: "a") && b <= UInt8(ascii: "z"))
+            let ok =
+                (b >= UInt8(ascii: "a") && b <= UInt8(ascii: "z"))
                 || (b >= UInt8(ascii: "A") && b <= UInt8(ascii: "Z"))
                 || (b >= UInt8(ascii: "0") && b <= UInt8(ascii: "9"))
                 || b == UInt8(ascii: "+") || b == UInt8(ascii: "-") || b == UInt8(ascii: ".")
@@ -156,7 +162,7 @@ enum NaiveFormats {
         }
         guard colon + 1 < utf8.count else { return false }
         for b in utf8 {
-            if b <= 0x20 || b == 0x7F { return false }    // space, controls
+            if b <= 0x20 || b == 0x7F { return false }  // space, controls
         }
         return true
     }
@@ -195,7 +201,7 @@ func runFormatDifferential() -> Bool {
         ":", "a:", ":a", "1http://x", "h+t-t.p://x", "ftp://x/y?z#w",
         "f81d4fae-7dec-11d0-a765-00a0c91e6bf6", "f81d4fae7dec11d0a76500a0c91e6bf6",
         "F81D4FAE-7DEC-11D0-A765-00A0C91E6BF6", "f81d4fae-7dec-11d0-a765-00a0c91e6bfg",
-        " a", "a ", " ", "\ta\t", "abc",
+        " a", "a ", " ", "\ta\t", "abc"
     ]
 
     var seed: UInt64 = 0xF011_A75E_ED00_0001
@@ -225,8 +231,10 @@ func runFormatDifferential() -> Bool {
             // Not a rewrite of an old implementation but a shortcut around `String.count`,
             // and the oracle for it is `String.count` itself. The interesting inputs are
             // CR (where two ASCII bytes are ONE grapheme cluster) and anything non-ASCII.
-            ("characterCount",
-             FormatValidators.characterCount(s) == s.count, true),
+            (
+                "characterCount",
+                FormatValidators.characterCount(s) == s.count, true
+            )
         ]
         for (name, fast, naive) in checks where fast != naive {
             mismatches += 1

@@ -59,12 +59,13 @@ private func nodeCount(_ v: JSON.Value) -> Int {
 }
 
 private func nodeCount(_ e: XML.Element) -> Int {
-    1 + e.attributes.count + e.children.reduce(0) { acc, child in
-        switch child {
-        case .element(let sub): return acc + nodeCount(sub)
-        default: return acc + 1
+    1 + e.attributes.count
+        + e.children.reduce(0) { acc, child in
+            switch child {
+            case .element(let sub): return acc + nodeCount(sub)
+            default: return acc + 1
+            }
         }
-    }
 }
 
 /// Every amplification case: a name, the bytes, and what it is allowed to cost.
@@ -91,9 +92,11 @@ struct AmplificationTests {
         return y + "top: *l\(levels)\n"
     }
 
-    @Test("YAML alias bombs stay bounded", arguments: [
-        (6, 9), (8, 9), (12, 4), (20, 3), (40, 2),
-    ])
+    @Test(
+        "YAML alias bombs stay bounded",
+        arguments: [
+            (6, 9), (8, 9), (12, 4), (20, 3), (40, 2)
+        ])
     func yamlAliasBombs(_ levels: Int, _ fanout: Int) {
         let text = Self.aliasBomb(levels: levels, fanout: fanout)
         let bytes = Array(text.utf8)
@@ -103,8 +106,10 @@ struct AmplificationTests {
         // Either refused, or produced something proportionate. Never both quiet and huge.
         let produced = docs.reduce(0) { $0 + (RawValue($1).map(nodeCount) ?? 1) }
         let budget = bytes.count * maxNodesPerInputByte
-        #expect(produced <= budget,
-                "\(levels)x\(fanout): \(bytes.count) bytes produced \(produced) nodes (budget \(budget)); issues=\(sink.issues.count)")
+        #expect(
+            produced <= budget,
+            "\(levels)x\(fanout): \(bytes.count) bytes produced \(produced) nodes (budget \(budget)); issues=\(sink.issues.count)"
+        )
     }
 
     /// The same exponential shape, but with every anchor DEFINED INSIDE FLOW.
@@ -127,9 +132,11 @@ struct AmplificationTests {
         return y + "top: [*f\(levels)]\n"
     }
 
-    @Test("YAML alias bombs stay bounded when the anchors are defined in flow", arguments: [
-        (6, 9), (8, 9), (12, 4), (20, 3), (40, 2),
-    ])
+    @Test(
+        "YAML alias bombs stay bounded when the anchors are defined in flow",
+        arguments: [
+            (6, 9), (8, 9), (12, 4), (20, 3), (40, 2)
+        ])
     func yamlFlowAliasBombs(_ levels: Int, _ fanout: Int) {
         let text = Self.flowAliasBomb(levels: levels, fanout: fanout)
         let bytes = Array(text.utf8)
@@ -138,8 +145,10 @@ struct AmplificationTests {
 
         let produced = docs.reduce(0) { $0 + (RawValue($1).map(nodeCount) ?? 1) }
         let budget = bytes.count * maxNodesPerInputByte
-        #expect(produced <= budget,
-                "flow \(levels)x\(fanout): \(bytes.count) bytes produced \(produced) nodes (budget \(budget)); issues=\(sink.issues.count)")
+        #expect(
+            produced <= budget,
+            "flow \(levels)x\(fanout): \(bytes.count) bytes produced \(produced) nodes (budget \(budget)); issues=\(sink.issues.count)"
+        )
     }
 
     /// Linear alias repetition — the same anchor referenced many times at one level.
@@ -148,21 +157,25 @@ struct AmplificationTests {
     @Test("YAML repeated aliases stay bounded")
     func yamlRepeatedAliases() {
         let wide = (0..<400).map { _ in "*a" }.joined(separator: ",")
-        let text = "a: &a [" + (0..<200).map { _ in "\"xxxxxxxx\"" }.joined(separator: ",")
+        let text =
+            "a: &a [" + (0..<200).map { _ in "\"xxxxxxxx\"" }.joined(separator: ",")
             + "]\nb: [\(wide)]\n"
         let bytes = Array(text.utf8)
         var sink = IssueSink()
         let docs = YAML.decodeAll(bytes, into: &sink, limits: .default)
         let produced = docs.reduce(0) { $0 + (RawValue($1).map(nodeCount) ?? 1) }
-        #expect(produced <= bytes.count * maxNodesPerInputByte,
-                "\(bytes.count) bytes produced \(produced) nodes")
+        #expect(
+            produced <= bytes.count * maxNodesPerInputByte,
+            "\(bytes.count) bytes produced \(produced) nodes")
     }
 
     @Test("YAML deep nesting is refused rather than recursed")
     func yamlDeepNesting() {
-        for text in [String(repeating: "[", count: 5_000),
-                     String(repeating: "- ", count: 5_000),
-                     String(repeating: "{a: ", count: 5_000)] {
+        for text in [
+            String(repeating: "[", count: 5_000),
+            String(repeating: "- ", count: 5_000),
+            String(repeating: "{a: ", count: 5_000)
+        ] {
             var sink = IssueSink()
             _ = YAML.decodeAll(Array(text.utf8), into: &sink, limits: .default)
             #expect(!sink.issues.isEmpty, "deep nesting must report, not recurse to a trap")
@@ -185,8 +198,9 @@ struct AmplificationTests {
         let parsed = XML.decode(bytes, into: &sink, limits: .default)
         let producedBytes = parsed.map { $0.root.text.utf8.count } ?? 0
         // Output text must not dwarf the document that asked for it.
-        #expect(producedBytes <= bytes.count * 256,
-                "\(bytes.count) bytes produced \(producedBytes) bytes of text")
+        #expect(
+            producedBytes <= bytes.count * 256,
+            "\(bytes.count) bytes produced \(producedBytes) bytes of text")
     }
 
     @Test("XML deep nesting and wide attribute lists stay bounded")
@@ -241,7 +255,7 @@ struct AmplificationTests {
             "a = " + String(repeating: "[", count: 10_000),
             "a = " + String(repeating: "{b = ", count: 10_000),
             "[" + (0..<10_000).map { _ in "a" }.joined(separator: ".") + "]",
-            (0..<10_000).map { _ in "a" }.joined(separator: ".") + " = 1",
+            (0..<10_000).map { _ in "a" }.joined(separator: ".") + " = 1"
         ]
         for doc in docs {
             var sink = IssueSink()
@@ -252,7 +266,8 @@ struct AmplificationTests {
 
     @Test("TOML output stays proportionate to input")
     func tomlProportionate() {
-        let doc = "a = [" + (0..<5_000).map { _ in "0" }.joined(separator: ",") + "]\n"
+        let doc =
+            "a = [" + (0..<5_000).map { _ in "0" }.joined(separator: ",") + "]\n"
             + (0..<2_000).map { "[[t]]\nk = \($0)" }.joined(separator: "\n")
         let bytes = Array(doc.utf8)
         var sink = IssueSink()
@@ -274,7 +289,7 @@ struct AmplificationTests {
             "s = \"\"\"" + String(repeating: "\\\n", count: 100_000) + "\"\"\"",
             "s = '''" + String(repeating: "x\n", count: 200_000) + "'''",
             "a = [" + String(repeating: "1,", count: 200_000) + "1]",
-            "a = " + String(repeating: "{b = ", count: 60) + "1" + String(repeating: "}", count: 60),
+            "a = " + String(repeating: "{b = ", count: 60) + "1" + String(repeating: "}", count: 60)
         ]
         for doc in cases {
             let bytes = Array(doc.utf8)
@@ -282,8 +297,9 @@ struct AmplificationTests {
             var sink = IssueSink()
             _ = TOML.decode(bytes, into: &sink, limits: .default)
             let seconds = Double(DispatchTime.now().uptimeNanoseconds - start) / 1e9
-            #expect(seconds < 5.0,
-                    "\(bytes.count) bytes took \(seconds)s — suspect a quadratic path")
+            #expect(
+                seconds < 5.0,
+                "\(bytes.count) bytes took \(seconds)s — suspect a quadratic path")
         }
     }
 
@@ -302,8 +318,9 @@ struct AmplificationTests {
         let v = try AmpTrimmed.parse(json: Array(json.utf8))
         let seconds = Double(DispatchTime.now().uptimeNanoseconds - start) / 1e9
         #expect(v.s == "x")
-        #expect(seconds < 5.0,
-                "600 kB of whitespace took \(seconds)s — that is quadratic, not slow")
+        #expect(
+            seconds < 5.0,
+            "600 kB of whitespace took \(seconds)s — that is quadratic, not slow")
     }
 
     @Test("long strings, keys and escapes stay linear")
@@ -312,7 +329,7 @@ struct AmplificationTests {
             "{\"s\":\"" + String(repeating: "a", count: 400_000) + "\"}",
             "{\"s\":\"" + String(repeating: "\\n", count: 200_000) + "\"}",
             "{\"" + String(repeating: "k", count: 200_000) + "\":1}",
-            "[" + String(repeating: "1,", count: 200_000) + "1]",
+            "[" + String(repeating: "1,", count: 200_000) + "1]"
         ]
         for doc in cases {
             let bytes = Array(doc.utf8)
@@ -320,8 +337,9 @@ struct AmplificationTests {
             var sink = IssueSink()
             _ = JSON.Value.decode(bytes, into: &sink, limits: .default)
             let seconds = Double(DispatchTime.now().uptimeNanoseconds - start) / 1e9
-            #expect(seconds < 5.0,
-                    "\(bytes.count) bytes took \(seconds)s — suspect a quadratic path")
+            #expect(
+                seconds < 5.0,
+                "\(bytes.count) bytes took \(seconds)s — suspect a quadratic path")
         }
     }
 
@@ -382,11 +400,14 @@ struct XMLEntityTests {
 
     @Test("a nested entity resolves rather than yielding its own source")
     func nestedResolves() throws {
-        #expect(try text(#"<!DOCTYPE r [<!ENTITY a "world"><!ENTITY b "hello &a;">]><r>&b;</r>"#)
+        #expect(
+            try text(#"<!DOCTYPE r [<!ENTITY a "world"><!ENTITY b "hello &a;">]><r>&b;</r>"#)
                 == "hello world")
-        #expect(try text("""
-        <!DOCTYPE r [<!ENTITY a "x"><!ENTITY b "&a;&a;"><!ENTITY c "&b;&b;">]><r>&c;</r>
-        """) == "xxxx")
+        #expect(
+            try text(
+                """
+                <!DOCTYPE r [<!ENTITY a "x"><!ENTITY b "&a;&a;"><!ENTITY c "&b;&b;">]><r>&c;</r>
+                """) == "xxxx")
     }
 
     @Test("predefined and numeric references still work inside a declared entity")
@@ -400,9 +421,11 @@ struct XMLEntityTests {
     /// runs out first.
     @Test("a recursive entity is refused, directly and mutually")
     func recursionRefused() {
-        for doc in [#"<!DOCTYPE r [<!ENTITY a "&a;">]><r>&a;</r>"#,
-                    #"<!DOCTYPE r [<!ENTITY a "&b;"><!ENTITY b "&a;">]><r>&a;</r>"#,
-                    #"<!DOCTYPE r [<!ENTITY a "&b;"><!ENTITY b "&c;"><!ENTITY c "&a;">]><r>&a;</r>"#] {
+        for doc in [
+            #"<!DOCTYPE r [<!ENTITY a "&a;">]><r>&a;</r>"#,
+            #"<!DOCTYPE r [<!ENTITY a "&b;"><!ENTITY b "&a;">]><r>&a;</r>"#,
+            #"<!DOCTYPE r [<!ENTITY a "&b;"><!ENTITY b "&c;"><!ENTITY c "&a;">]><r>&a;</r>"#
+        ] {
             var sink = IssueSink()
             let d = XML.decode(Array(doc.utf8), into: &sink)
             #expect(d == nil || !sink.isValid, "recursion must not be accepted")
@@ -415,12 +438,12 @@ struct XMLEntityTests {
     @Test("billion laughs is refused on amplification, not on absolute size")
     func billionLaughs() {
         let doc = """
-        <?xml version="1.0"?><!DOCTYPE l [\
-        <!ENTITY a "aaaaaaaaaa"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">\
-        <!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;"><!ENTITY d "&c;&c;&c;&c;&c;&c;&c;&c;&c;&c;">\
-        <!ENTITY e "&d;&d;&d;&d;&d;&d;&d;&d;&d;&d;"><!ENTITY f "&e;&e;&e;&e;&e;&e;&e;&e;&e;&e;">\
-        ]><l>&f;</l>
-        """
+            <?xml version="1.0"?><!DOCTYPE l [\
+            <!ENTITY a "aaaaaaaaaa"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">\
+            <!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;"><!ENTITY d "&c;&c;&c;&c;&c;&c;&c;&c;&c;&c;">\
+            <!ENTITY e "&d;&d;&d;&d;&d;&d;&d;&d;&d;&d;"><!ENTITY f "&e;&e;&e;&e;&e;&e;&e;&e;&e;&e;">\
+            ]><l>&f;</l>
+            """
         #expect(doc.utf8.count < 400, "the input really is tiny")
         var sink = IssueSink()
         let d = XML.decode(Array(doc.utf8), into: &sink)
@@ -442,13 +465,14 @@ struct XMLEntityTests {
     @Test("an external entity is still refused outright — that is XXE")
     func xxeRefused() {
         var sink = IssueSink()
-        _ = XML.decode(Array(#"""
-        <!DOCTYPE r [<!ENTITY x SYSTEM "file:///etc/passwd">]><r>&x;</r>
-        """#.utf8), into: &sink)
+        _ = XML.decode(
+            Array(
+                #"""
+                <!DOCTYPE r [<!ENTITY x SYSTEM "file:///etc/passwd">]><r>&x;</r>
+                """#.utf8), into: &sink)
         #expect(!sink.isValid)
     }
 }
-
 
 /// The merge key's cost is in the WIDTH of the mapping, which no existing budget watches.
 ///
@@ -480,7 +504,8 @@ struct MergeKeyAmplification {
         let start = ContinuousClock.now
         var sink = IssueSink(limits: .default)
         let docs = YAML.decodeAll(bytes, into: &sink, limits: .default)
-        let seconds = Double((ContinuousClock.now - start).components.seconds)
+        let seconds =
+            Double((ContinuousClock.now - start).components.seconds)
             + Double((ContinuousClock.now - start).components.attoseconds) / 1e18
         #expect(sink.isValid, "\(sink.issues)")
         #expect(docs.count == 1)
@@ -490,14 +515,14 @@ struct MergeKeyAmplification {
     @Test("the merged keys are all present, and the mapping's own keys win")
     func mergeSemanticsUnchanged() {
         let yaml = """
-        base: &b
-          a: 1
-          b: 2
-          c: 3
-        target:
-          <<: *b
-          b: 99
-        """
+            base: &b
+              a: 1
+              b: 2
+              c: 3
+            target:
+              <<: *b
+              b: 99
+            """
         var sink = IssueSink(limits: .default)
         let docs = YAML.decodeAll(Array(yaml.utf8), into: &sink, limits: .default)
         #expect(sink.isValid, "\(sink.issues)")
@@ -510,20 +535,19 @@ struct MergeKeyAmplification {
     @Test("earlier merge sources win over later ones")
     func earlierSourceWins() {
         let yaml = """
-        one: &x
-          k: first
-        two: &y
-          k: second
-        target:
-          <<: [*x, *y]
-        """
+            one: &x
+              k: first
+            two: &y
+              k: second
+            target:
+              <<: [*x, *y]
+            """
         var sink = IssueSink(limits: .default)
         let docs = YAML.decodeAll(Array(yaml.utf8), into: &sink, limits: .default)
         #expect(sink.isValid, "\(sink.issues)")
         #expect(docs.first?["target"]?["k"]?.content == "first")
     }
 }
-
 
 /// Attribute count is the third quantity no YAML/XML guard watches.
 ///
@@ -560,11 +584,12 @@ struct AttributeWidthAmplification {
         for k in [2, 40] {
             var s = "<e"
             for i in 0..<k { s += " a\(i)=\"v\"" }
-            s += " a0=\"again\"/>"                 // a duplicate of the first
+            s += " a0=\"again\"/>"  // a duplicate of the first
             var sink = IssueSink(limits: .default)
             _ = XML.decode(Array(s.utf8), into: &sink, limits: .default)
-            #expect(sink.issues.contains { $0.code == .duplicateKey },
-                    "k=\(k) missed the duplicate: \(sink.issues.map(\.code))")
+            #expect(
+                sink.issues.contains { $0.code == .duplicateKey },
+                "k=\(k) missed the duplicate: \(sink.issues.map(\.code))")
         }
     }
 }

@@ -104,10 +104,10 @@ public enum FormatValidators {
             if bytes[i] == UInt8(ascii: "@") { at = i; break }
             i -= 1
         }
-        guard at >= 1, at <= 64 else { return false }     // local part 1...64 bytes
+        guard at >= 1, at <= 64 else { return false }  // local part 1...64 bytes
 
         // RFC 5322 atext plus dot; dots must not lead, trail or double.
-        var previousWasDot = true                         // leading dot rejected
+        var previousWasDot = true  // leading dot rejected
         for j in 0..<at {
             let b = bytes[j]
             if b == dot {
@@ -118,23 +118,24 @@ public enum FormatValidators {
             previousWasDot = false
             guard isAtext(b) else { return false }
         }
-        if previousWasDot { return false }                // trailing dot
+        if previousWasDot { return false }  // trailing dot
 
-        return hostname(bytes: bytes, from: at + 1, to: n,
-                               requireMultipleLabels: true)
+        return hostname(
+            bytes: bytes, from: at + 1, to: n,
+            requireMultipleLabels: true)
     }
 
     static func isAtext(_ b: UInt8) -> Bool {
         switch b {
         case UInt8(ascii: "a")...UInt8(ascii: "z"),
-             UInt8(ascii: "A")...UInt8(ascii: "Z"),
-             UInt8(ascii: "0")...UInt8(ascii: "9"):
+            UInt8(ascii: "A")...UInt8(ascii: "Z"),
+            UInt8(ascii: "0")...UInt8(ascii: "9"):
             return true
         case UInt8(ascii: "!"), UInt8(ascii: "#"), UInt8(ascii: "$"), UInt8(ascii: "%"),
-             UInt8(ascii: "&"), UInt8(ascii: "'"), UInt8(ascii: "*"), UInt8(ascii: "+"),
-             UInt8(ascii: "-"), UInt8(ascii: "/"), UInt8(ascii: "="), UInt8(ascii: "?"),
-             UInt8(ascii: "^"), UInt8(ascii: "_"), UInt8(ascii: "`"), UInt8(ascii: "{"),
-             UInt8(ascii: "|"), UInt8(ascii: "}"), UInt8(ascii: "~"):
+            UInt8(ascii: "&"), UInt8(ascii: "'"), UInt8(ascii: "*"), UInt8(ascii: "+"),
+            UInt8(ascii: "-"), UInt8(ascii: "/"), UInt8(ascii: "="), UInt8(ascii: "?"),
+            UInt8(ascii: "^"), UInt8(ascii: "_"), UInt8(ascii: "`"), UInt8(ascii: "{"),
+            UInt8(ascii: "|"), UInt8(ascii: "}"), UInt8(ascii: "~"):
             return true
         default:
             return false
@@ -211,7 +212,8 @@ public enum FormatValidators {
             if i == 8 || i == 13 || i == 18 || i == 23 {
                 guard b == hyphen else { return false }
             } else {
-                let isHex = isDigit(b)
+                let isHex =
+                    isDigit(b)
                     || (b >= UInt8(ascii: "a") && b <= UInt8(ascii: "f"))
                     || (b >= UInt8(ascii: "A") && b <= UInt8(ascii: "F"))
                 guard isHex else { return false }
@@ -235,13 +237,14 @@ public enum FormatValidators {
         var colon = -1
         for i in 0..<n {
             let b = bytes[i]
-            if b <= 0x20 || b == 0x7F { return false }    // space, controls, anywhere
+            if b <= 0x20 || b == 0x7F { return false }  // space, controls, anywhere
             if colon >= 0 { continue }
             if b == UInt8(ascii: ":") { colon = i; continue }
             if i == 0 {
-                guard isAlpha(b) else { return false }    // a scheme starts with a letter
+                guard isAlpha(b) else { return false }  // a scheme starts with a letter
             } else {
-                let ok = isAlpha(b) || isDigit(b)
+                let ok =
+                    isAlpha(b) || isDigit(b)
                     || b == UInt8(ascii: "+") || b == hyphen || b == dot
                 guard ok else { return false }
             }

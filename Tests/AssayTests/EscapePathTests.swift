@@ -60,28 +60,32 @@ struct EscapePathTests {
         return s
     }
 
-    @Test("round trip at lengths straddling the 1,024-byte boundary",
-          arguments: [1, 15, 16, 200, 1_000, 1_020, 1_024, 1_025, 1_030, 3_000, 70_000])
+    @Test(
+        "round trip at lengths straddling the 1,024-byte boundary",
+        arguments: [1, 15, 16, 200, 1_000, 1_020, 1_024, 1_025, 1_030, 3_000, 70_000])
     func roundTrip(_ length: Int) throws {
         let original = Self.sample(sourceLength: length)
         let json = "{\"s\":\"" + Self.escaped(original) + "\"}"
         #expect(try EscapedValue.parse(json: json).s == original)
     }
 
-    @Test("an invalid escape is reported on the heap path as on the stack path",
-          arguments: [10, 3_000])
+    @Test(
+        "an invalid escape is reported on the heap path as on the stack path",
+        arguments: [10, 3_000])
     func invalidEscape(_ padding: Int) {
         let pad = String(repeating: "x", count: padding)
         for bad in ["\\q", "\\ud800", "\\u12"] {
             let d = EscapedValue.diagnose(json: "{\"s\":\"\\n" + pad + bad + pad + "\"}")
             #expect(d.value == nil)
-            #expect(d.issues.map(\.code.codeString).contains("invalid_escape"),
-                    "\(bad) at padding \(padding): \(d.issues.map(\.code.codeString))")
+            #expect(
+                d.issues.map(\.code.codeString).contains("invalid_escape"),
+                "\(bad) at padding \(padding): \(d.issues.map(\.code.codeString))")
         }
     }
 
-    @Test("an unterminated escaped string fails, whichever path it would have taken",
-          arguments: [10, 3_000])
+    @Test(
+        "an unterminated escaped string fails, whichever path it would have taken",
+        arguments: [10, 3_000])
     func unterminated(_ padding: Int) {
         let d = EscapedValue.diagnose(json: "{\"s\":\"\\n" + String(repeating: "x", count: padding))
         #expect(d.value == nil)

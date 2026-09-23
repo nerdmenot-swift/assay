@@ -61,8 +61,10 @@ extension AssayerBacked {
             // conversion refused it. That is a real outcome — `map` is failable precisely so
             // a type can say "this is a String I cannot represent" — and it has to be
             // reported rather than swallowed into a nil the caller cannot explain.
-            sink.add(Issue(code: .assayerConversionFailed, path: path,
-                           received: nil))
+            sink.add(
+                Issue(
+                    code: .assayerConversionFailed, path: path,
+                    received: nil))
             return nil
         }
         return value

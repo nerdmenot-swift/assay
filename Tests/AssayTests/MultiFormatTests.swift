@@ -54,24 +54,26 @@ struct MultiFormatTests {
 
     @Test("the same struct decodes from JSON and YAML to the same value")
     func jsonAndYaml() throws {
-        let fromJSON = try AppConfig.parse(json: #"""
-        {"service_name":"api","port":8080,"workers":8,
-         "database":{"url":"postgres://x","pool_size":10,"ssl_required":true},
-         "features":["metrics","tracing"]}
-        """#)
+        let fromJSON = try AppConfig.parse(
+            json: #"""
+                {"service_name":"api","port":8080,"workers":8,
+                 "database":{"url":"postgres://x","pool_size":10,"ssl_required":true},
+                 "features":["metrics","tracing"]}
+                """#)
 
-        let fromYAML = try AppConfig.parse(yaml: """
-        service_name: api
-        port: 8080
-        workers: 8
-        database:
-          url: postgres://x
-          pool_size: 10
-          ssl_required: true
-        features:
-          - metrics
-          - tracing
-        """)
+        let fromYAML = try AppConfig.parse(
+            yaml: """
+                service_name: api
+                port: 8080
+                workers: 8
+                database:
+                  url: postgres://x
+                  pool_size: 10
+                  ssl_required: true
+                features:
+                  - metrics
+                  - tracing
+                """)
 
         #expect(fromJSON.serviceName == fromYAML.serviceName)
         #expect(fromJSON.port == fromYAML.port)
@@ -84,16 +86,17 @@ struct MultiFormatTests {
 
     @Test("defaults still apply through the YAML path")
     func yamlDefaults() throws {
-        let c = try AppConfig.parse(yaml: """
-        service_name: api
-        port: 80
-        database:
-          url: u
-          pool_size: 1
-          ssl_required: false
-        """)
-        #expect(c.workers == 4)          // default
-        #expect(c.features == [])        // default
+        let c = try AppConfig.parse(
+            yaml: """
+                service_name: api
+                port: 80
+                database:
+                  url: u
+                  pool_size: 1
+                  ssl_required: false
+                """)
+        #expect(c.workers == 4)  // default
+        #expect(c.features == [])  // default
     }
 
     @Test("missing required fields report the same code and path from YAML")
@@ -106,31 +109,33 @@ struct MultiFormatTests {
 
     @Test("type mismatches report from YAML with the right path")
     func yamlMismatch() {
-        let d = AppConfig.diagnose(yaml: """
-        service_name: api
-        port: not-a-number
-        database:
-          url: u
-          pool_size: 1
-          ssl_required: true
-        """)
+        let d = AppConfig.diagnose(
+            yaml: """
+                service_name: api
+                port: not-a-number
+                database:
+                  url: u
+                  pool_size: 1
+                  ssl_required: true
+                """)
         #expect(d.isValid == false)
         #expect(d.issues.contains { $0.code == .typeMismatch })
     }
 
     @Test("XML decodes with coerceScalars, because XML has no types")
     func xml() throws {
-        let c = try XMLConfig.parse(xml: """
-        <config>
-          <service_name>api</service_name>
-          <port>8080</port>
-          <database>
-            <url>postgres://x</url>
-            <pool_size>10</pool_size>
-            <ssl_required>true</ssl_required>
-          </database>
-        </config>
-        """)
+        let c = try XMLConfig.parse(
+            xml: """
+                <config>
+                  <service_name>api</service_name>
+                  <port>8080</port>
+                  <database>
+                    <url>postgres://x</url>
+                    <pool_size>10</pool_size>
+                    <ssl_required>true</ssl_required>
+                  </database>
+                </config>
+                """)
         #expect(c.serviceName == "api")
         #expect(c.port == 8080)
         #expect(c.database.url == "postgres://x")
@@ -142,11 +147,12 @@ struct MultiFormatTests {
     func xmlAttributes() throws {
         // The RawValue projection flattens attributes and elements into one keyspace, so
         // either spelling works. The distinction is available via XML.Node when it matters.
-        let c = try XMLConfig.parse(xml: """
-        <config service_name="api" port="8080">
-          <database url="postgres://x" pool_size="10" ssl_required="true"/>
-        </config>
-        """)
+        let c = try XMLConfig.parse(
+            xml: """
+                <config service_name="api" port="8080">
+                  <database url="postgres://x" pool_size="10" ssl_required="true"/>
+                </config>
+                """)
         #expect(c.serviceName == "api")
         #expect(c.port == 8080)
         #expect(c.database.poolSize == 10)
@@ -157,9 +163,10 @@ struct MultiFormatTests {
         // DatabaseConfig does not opt into coercion, so `pool_size` arriving as the string
         // "10" is a type mismatch rather than a silent conversion. Coercion stays written
         // on the struct.
-        let d = DatabaseConfig.diagnose(xml: """
-        <db><url>u</url><pool_size>10</pool_size><ssl_required>true</ssl_required></db>
-        """)
+        let d = DatabaseConfig.diagnose(
+            xml: """
+                <db><url>u</url><pool_size>10</pool_size><ssl_required>true</ssl_required></db>
+                """)
         #expect(d.isValid == false)
         #expect(d.issues.contains { $0.code == .typeMismatch })
     }
@@ -192,16 +199,17 @@ struct MultiFormatTests {
 
     @Test("multi-document YAML into an array of structs")
     func parseAllYAML() throws {
-        let items = try DatabaseConfig.parseAll(yaml: """
-        ---
-        url: a
-        pool_size: 1
-        ssl_required: true
-        ---
-        url: b
-        pool_size: 2
-        ssl_required: false
-        """)
+        let items = try DatabaseConfig.parseAll(
+            yaml: """
+                ---
+                url: a
+                pool_size: 1
+                ssl_required: true
+                ---
+                url: b
+                pool_size: 2
+                ssl_required: false
+                """)
         #expect(items.count == 2)
         #expect(items[0].url == "a")
         #expect(items[1].poolSize == 2)
@@ -209,16 +217,17 @@ struct MultiFormatTests {
 
     @Test("a multi-document stream through parse(yaml:) is an error, not a silent first")
     func yamlMultiDocRejected() {
-        let d = DatabaseConfig.diagnose(yaml: """
-        ---
-        url: a
-        pool_size: 1
-        ssl_required: true
-        ---
-        url: b
-        pool_size: 2
-        ssl_required: false
-        """)
+        let d = DatabaseConfig.diagnose(
+            yaml: """
+                ---
+                url: a
+                pool_size: 1
+                ssl_required: true
+                ---
+                url: b
+                pool_size: 2
+                ssl_required: false
+                """)
         #expect(d.isValid == false)
         #expect(d.issues.contains { $0.code == .yamlMultipleDocuments })
     }

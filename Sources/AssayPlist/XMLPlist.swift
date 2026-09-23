@@ -60,8 +60,13 @@ enum XMLPlist {
                 return nil
             }
             guard children.count == 1 else {
-                sink.add(Issue(code: .plistBadRoot, params: ["reason": .string(
-                    "<plist> must contain exactly one value, found \(children.count)")]))
+                sink.add(
+                    Issue(
+                        code: .plistBadRoot,
+                        params: [
+                            "reason": .string(
+                                "<plist> must contain exactly one value, found \(children.count)")
+                        ]))
                 return nil
             }
             top = children[0]
@@ -75,8 +80,10 @@ enum XMLPlist {
         _ e: XML.Element, depth: Int, into sink: inout IssueSink, limits: Limits
     ) -> RawValue? {
         guard depth <= limits.maxDepth else {
-            sink.add(Issue(code: .plistTooDeep,
-                           params: ["maxDepth": .int(limits.maxDepth)]))
+            sink.add(
+                Issue(
+                    code: .plistTooDeep,
+                    params: ["maxDepth": .int(limits.maxDepth)]))
             return nil
         }
 
@@ -86,18 +93,19 @@ enum XMLPlist {
         }
 
         switch e.name.local {
-        case "true":    return .bool(true)
-        case "false":   return .bool(false)
-        case "string":  return .string(text(e))
-        case "key":     return .string(text(e))
+        case "true": return .bool(true)
+        case "false": return .bool(false)
+        case "string": return .string(text(e))
+        case "key": return .string(text(e))
 
         case "integer":
             let t = text(e).trimmedPlistText
             guard let n = Int64(t) else {
                 // Not saturated, not truncated. A number read as a different number is the
                 // one failure a decoder must never have.
-                return bad("'\(t)' is not an integer this decoder can represent",
-                           .plistIntOutOfRange)
+                return bad(
+                    "'\(t)' is not an integer this decoder can represent",
+                    .plistIntOutOfRange)
             }
             return .int(n)
 
@@ -138,15 +146,17 @@ enum XMLPlist {
                 guard case .element(let c) = child else { continue }
                 if c.name.local == "key" {
                     guard pendingKey == nil else {
-                        return bad("two <key> elements in a row inside <dict>",
-                                   .plistUnpairedKey)
+                        return bad(
+                            "two <key> elements in a row inside <dict>",
+                            .plistUnpairedKey)
                     }
                     pendingKey = text(c)
                     continue
                 }
                 guard let k = pendingKey else {
-                    return bad("<\(c.name.local)> inside <dict> with no <key> before it",
-                               .plistUnpairedKey)
+                    return bad(
+                        "<\(c.name.local)> inside <dict> with no <key> before it",
+                        .plistUnpairedKey)
                 }
                 pendingKey = nil
                 guard let v = value(c, depth: depth + 1, into: &sink, limits: limits) else {

@@ -135,7 +135,6 @@ extension IssueCode {
 
     // MARK: Column sources
 
-
     // MARK: Mapped files (AssayFoundation)
 
     /// `cannot_map_file` — "could not open or map the file".
@@ -211,11 +210,13 @@ extension IssueCode {
     /// `toml_unterminated_array` — "unterminated array; expected ',' or ']'".
     public static let tomlUnterminatedArray = IssueCode.custom("toml_unterminated_array")
     /// `toml_unterminated_inline_table` — "unterminated inline table; expected ',' or '}'".
-    public static let tomlUnterminatedInlineTable = IssueCode.custom("toml_unterminated_inline_table")
+    public static let tomlUnterminatedInlineTable = IssueCode.custom(
+        "toml_unterminated_inline_table")
     /// `toml_unterminated_string` — "unterminated string".
     public static let tomlUnterminatedString = IssueCode.custom("toml_unterminated_string")
     /// `toml_unterminated_table_header` — "expected ']' closing the table header".
-    public static let tomlUnterminatedTableHeader = IssueCode.custom("toml_unterminated_table_header")
+    public static let tomlUnterminatedTableHeader = IssueCode.custom(
+        "toml_unterminated_table_header")
 
     // MARK: YAML (AssayYAML)
 
@@ -240,11 +241,14 @@ extension IssueCode {
     /// `yaml_unrepresentable_key` — "a mapping key is not a plain scalar; parse to YAML.Node instead".
     public static let yamlUnrepresentableKey = IssueCode.custom("yaml_unrepresentable_key")
     /// `yaml_unterminated_flow_mapping` — "unterminated flow mapping".
-    public static let yamlUnterminatedFlowMapping = IssueCode.custom("yaml_unterminated_flow_mapping")
+    public static let yamlUnterminatedFlowMapping = IssueCode.custom(
+        "yaml_unterminated_flow_mapping")
     /// `yaml_unterminated_flow_sequence` — "unterminated flow sequence".
-    public static let yamlUnterminatedFlowSequence = IssueCode.custom("yaml_unterminated_flow_sequence")
+    public static let yamlUnterminatedFlowSequence = IssueCode.custom(
+        "yaml_unterminated_flow_sequence")
     /// `yaml_unterminated_quoted_scalar` — "unterminated quoted scalar".
-    public static let yamlUnterminatedQuotedScalar = IssueCode.custom("yaml_unterminated_quoted_scalar")
+    public static let yamlUnterminatedQuotedScalar = IssueCode.custom(
+        "yaml_unterminated_quoted_scalar")
 
     // MARK: XML (AssayXML)
 

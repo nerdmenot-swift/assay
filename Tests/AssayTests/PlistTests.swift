@@ -81,9 +81,11 @@ struct BPlistBuilder {
         // The 0xF escape: an int object marker carrying the real count.
         var out: [UInt8] = [0xAF, 0x11, UInt8(refs.count)]
         if refs.count > 255 {
-            out = [0xAF, 0x12,
-                   UInt8(truncatingIfNeeded: refs.count >> 8),
-                   UInt8(truncatingIfNeeded: refs.count)]
+            out = [
+                0xAF, 0x12,
+                UInt8(truncatingIfNeeded: refs.count >> 8),
+                UInt8(truncatingIfNeeded: refs.count)
+            ]
         }
         for r in refs { out += beBytes(r, refSize) }
         return out
@@ -103,8 +105,8 @@ struct BPlistBuilder {
         }
         let tableOffset = out.count
         for off in offsets { out += Self.beBytes(off, offsetSize) }
-        out += [0, 0, 0, 0, 0]                         // unused
-        out += [0]                                     // sortVersion
+        out += [0, 0, 0, 0, 0]  // unused
+        out += [0]  // sortVersion
         out += [UInt8(offsetSize), UInt8(refSize)]
         out += Self.beBytes(objects.count, 8)
         out += Self.beBytes(top, 8)
@@ -146,27 +148,31 @@ struct XMLPlistTests {
 
     @Test("a bare <dict> root, with no <plist> wrapper")
     func bareRoot() throws {
-        let s = try PNested.parse(plist: """
-            <dict><key>title</key><string>t</string>
-            <key>tags</key><array><string>a</string><string>b</string></array></dict>
-            """)
+        let s = try PNested.parse(
+            plist: """
+                <dict><key>title</key><string>t</string>
+                <key>tags</key><array><string>a</string><string>b</string></array></dict>
+                """)
         #expect(s == PNested(title: "t", tags: ["a", "b"]))
     }
 
     @Test("<data> becomes base64, the same spelling the binary flavour produces")
     func data() {
         var sink = IssueSink(limits: .default)
-        let v = Plist.decode(Array("""
-            <dict><key>d</key><data>SGVsbG8=</data></dict>
-            """.utf8), into: &sink)
+        let v = Plist.decode(
+            Array(
+                """
+                <dict><key>d</key><data>SGVsbG8=</data></dict>
+                """.utf8), into: &sink)
         #expect(v == .mapping([.init(key: "d", value: .string("SGVsbG8="))]))
     }
 
     @Test("<data> that is not base64 is refused rather than passed through")
     func badData() {
         var sink = IssueSink(limits: .default)
-        let v = Plist.decode(Array("<dict><key>d</key><data>not!base64</data></dict>".utf8),
-                             into: &sink)
+        let v = Plist.decode(
+            Array("<dict><key>d</key><data>not!base64</data></dict>".utf8),
+            into: &sink)
         #expect(v == nil)
         #expect(sink.issues.contains { $0.code == .plistBadValue })
     }
@@ -193,8 +199,9 @@ struct XMLPlistTests {
     @Test("an integer too large for Int64 is refused, not saturated")
     func integerOutOfRange() {
         var sink = IssueSink(limits: .default)
-        let v = Plist.decode(Array(
-            "<dict><key>n</key><integer>99999999999999999999</integer></dict>".utf8),
+        let v = Plist.decode(
+            Array(
+                "<dict><key>n</key><integer>99999999999999999999</integer></dict>".utf8),
             into: &sink)
         #expect(v == nil)
         #expect(sink.issues.contains { $0.code == .plistIntOutOfRange })

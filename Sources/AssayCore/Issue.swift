@@ -195,7 +195,6 @@ public struct IssueSink: Sendable {
     @usableFromInline
     var limits: Limits
 
-
     @inlinable
     public init(limits: Limits = .default) {
         self.limits = limits
@@ -289,7 +288,9 @@ extension IssueSink {
 public func _assayAliasMatched(
     _ sink: inout IssueSink, _ path: [PathStep], _ field: StaticString, _ alias: StaticString
 ) {
-    sink.add(warning: Warning(code: .aliasMatched,
-                              path: path + [.key(String(describing: field))],
-                              params: ["alias": .string(String(describing: alias))]))
+    sink.add(
+        warning: Warning(
+            code: .aliasMatched,
+            path: path + [.key(String(describing: field))],
+            params: ["alias": .string(String(describing: alias))]))
 }

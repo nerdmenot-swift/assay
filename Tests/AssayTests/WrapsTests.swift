@@ -47,8 +47,9 @@ struct WrapsTests {
 
     @Test("a wrapper decodes as an ordinary field")
     func decodes() throws {
-        let s = try WrapSignup.parse(json: Array(
-            #"{"email":"ada@example.com","handle":"ada"}"#.utf8))
+        let s = try WrapSignup.parse(
+            json: Array(
+                #"{"email":"ada@example.com","handle":"ada"}"#.utf8))
         #expect(s.email.raw == "ada@example.com")
         #expect(s.handle.raw == "ada")
     }
@@ -57,13 +58,15 @@ struct WrapsTests {
     /// mechanism; it is the same one, reached differently.
     @Test("a wrapper reports identically to a validated field")
     func identicalToAValidatedField() {
-        let wrapped = WrapSignup.diagnose(json: Array(
-            #"{"email":"nope","handle":"ada"}"#.utf8))
+        let wrapped = WrapSignup.diagnose(
+            json: Array(
+                #"{"email":"nope","handle":"ada"}"#.utf8))
         let plain = PlainSignup.diagnose(json: Array(#"{"email":"nope"}"#.utf8))
 
         let a = wrapped.issues.first
         let b = plain.issues.first
-        #expect(a?.code == b?.code, "\(String(describing: a?.code)) vs \(String(describing: b?.code))")
+        #expect(
+            a?.code == b?.code, "\(String(describing: a?.code)) vs \(String(describing: b?.code))")
         #expect(a?.path == b?.path)
         #expect(a?.params["message"] == b?.params["message"])
     }
@@ -107,8 +110,9 @@ struct WrapsTests {
     @Test("a non-scalar wrapped type is refused at expansion")
     func nonScalarRefused() {
         let (_, diags) = expandWrapsForTesting("@Wraps(Foo.self) struct W {}")
-        #expect(diags.contains { $0.contains("write the `AssayerBacked` conformance by hand") },
-                "got \(diags)")
+        #expect(
+            diags.contains { $0.contains("write the `AssayerBacked` conformance by hand") },
+            "got \(diags)")
     }
 
     /// The same expansion-time rule/type check `@Validate` gets. `.email` on a number is a
@@ -122,7 +126,8 @@ struct WrapsTests {
     @Test("a stored property in the body is refused, since the storage is generated")
     func storedPropertyRefused() {
         let (_, diags) = expandWrapsForTesting("@Wraps(String.self) struct W { var x: Int }")
-        #expect(diags.contains { $0.contains("must not declare a stored property") },
-                "got \(diags)")
+        #expect(
+            diags.contains { $0.contains("must not declare a stored property") },
+            "got \(diags)")
     }
 }

@@ -47,7 +47,7 @@ let package = Package(
     // shipped together and all carry SE-0263. visionOS 1 postdates all of it.
     platforms: [.macOS(.v11), .iOS(.v14), .tvOS(.v14), .watchOS(.v7), .visionOS(.v1)],
     products: [
-        .library(name: "Assay",     targets: ["Assay"]),
+        .library(name: "Assay", targets: ["Assay"]),
         // The Foundation-free core on its own — `Rule`, `Issue`, `RawValue`, `Limits`,
         // `JSON.Value`, the renderers — for a library that consumes Assay's values without
         // the macro. `Assay` re-exports it, so an app never needs this line. Added
@@ -56,7 +56,7 @@ let package = Package(
         .library(name: "AssayCore", targets: ["AssayCore"]),
         // Separate products so a JSON-only user never links YAML, XML or TOML.
         .library(name: "AssayYAML", targets: ["AssayYAML"]),
-        .library(name: "AssayXML",  targets: ["AssayXML"]),
+        .library(name: "AssayXML", targets: ["AssayXML"]),
         .library(name: "AssayTOML", targets: ["AssayTOML"]),
         // Property lists, both flavours. Depends on AssayXML because the XML flavour IS an
         // XML document and shipping a second parser to read it would be shipping a second
@@ -65,10 +65,10 @@ let package = Package(
         .library(name: "AssayPlist", targets: ["AssayPlist"]),
         // Data/URL/FileManager conveniences, and parse(mmapped:) for files larger than
         // memory. Foundation-dependent by definition, so it stays out of the core.
-        .library(name: "AssayFoundation", targets: ["AssayFoundation"]),
+        .library(name: "AssayFoundation", targets: ["AssayFoundation"])
     ],
     dependencies: [
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.0"),
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.0")
     ],
     targets: [
         // The scanner and the reader. No Foundation.
@@ -85,7 +85,7 @@ let package = Package(
             name: "AssayMacros",
             dependencies: [
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
-                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                .product(name: "SwiftCompilerPlugin", package: "swift-syntax")
             ]
         ),
 
@@ -144,7 +144,7 @@ let package = Package(
                 // unit-testable directly — no XCTest-based test-support module needed.
                 "AssayMacros",
                 .product(name: "SwiftSyntaxMacroExpansion", package: "swift-syntax"),
-                .product(name: "SwiftParser", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax")
                 // Deliberately NOT SwiftSyntaxMacrosTestSupport: it is XCTest-based and
                 // therefore needs a full Xcode, not just Command Line Tools. The
                 // swift-testing equivalent is SwiftSyntaxMacrosGenericTestSupport; add it
@@ -154,7 +154,7 @@ let package = Package(
             // bundle would need Foundation's `Bundle.module` on every platform the tests
             // run on, and a plain path is what `ASSAY_UPDATE_GOLDENS=1` writes back to.
             exclude: ["Goldens"]
-        ),
+        )
     ]
 )
 

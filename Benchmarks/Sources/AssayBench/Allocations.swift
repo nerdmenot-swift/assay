@@ -69,7 +69,8 @@ struct AllocationSnapshot {
         var blocks = 0
         var bytes = 0
         if malloc_get_all_zones(mach_task_self_, nil, &zones, &count) == KERN_SUCCESS,
-           let zones {
+            let zones
+        {
             for i in 0..<Int(count) {
                 let zone = UnsafeMutableRawPointer(bitPattern: UInt(zones[i]))?
                     .assumingMemoryBound(to: malloc_zone_t.self)

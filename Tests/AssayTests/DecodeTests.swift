@@ -27,9 +27,9 @@ struct UserProfile {
 
 @Schema
 struct Settings {
-    var name: String        // required — absent is an error
-    var nickname: String?   // optional — absent is nil, and that's fine
-    var retries: Int = 3    // defaulted — absent is 3
+    var name: String  // required — absent is an error
+    var nickname: String?  // optional — absent is nil, and that's fine
+    var retries: Int = 3  // defaulted — absent is 3
 }
 
 @Schema
@@ -73,8 +73,8 @@ struct DecodeTests {
         // avatarURL -> avatar_url, NOT avatarUrl. This is the case
         // JSONDecoder.convertFromSnakeCase gets wrong, silently.
         let json = """
-        {"user_id":"u1","display_name":"Ada","avatar_url":"http://a","login_count":42,"is_active":true}
-        """
+            {"user_id":"u1","display_name":"Ada","avatar_url":"http://a","login_count":42,"is_active":true}
+            """
         let u = try UserProfile.parse(json: json)
         #expect(u.userID == "u1")
         #expect(u.displayName == "Ada")
@@ -88,7 +88,7 @@ struct DecodeTests {
         let s = try Settings.parse(json: #"{"name":"api"}"#)
         #expect(s.name == "api")
         #expect(s.nickname == nil)
-        #expect(s.retries == 3)          // default consulted on absence
+        #expect(s.retries == 3)  // default consulted on absence
 
         let s2 = try Settings.parse(json: #"{"name":"api","nickname":"a","retries":9}"#)
         #expect(s2.nickname == "a")
@@ -138,9 +138,9 @@ struct DecodeTests {
     @Test("unknown keys are skipped structurally without decoding")
     func unknownKeys() throws {
         let json = """
-        {"title":"t","extra":{"deep":{"nested":[1,2,3]}},"link":"l",
-         "readingMinutes":5,"another":"ignored","tags":[]}
-        """
+            {"title":"t","extra":{"deep":{"nested":[1,2,3]}},"link":"l",
+             "readingMinutes":5,"another":"ignored","tags":[]}
+            """
         let a = try Article.parse(json: json)
         #expect(a.title == "t")
         #expect(a.readingMinutes == 5)
@@ -170,7 +170,7 @@ struct DecodeTests {
     @Test("invalid UTF-8 is rejected at the buffer level, before any String is built")
     func invalidUTF8() {
         var bytes = Array(#"{"title":"x","link":"y","readingMinutes":1}"#.utf8)
-        bytes[10] = 0xFF                       // lone continuation-class byte
+        bytes[10] = 0xFF  // lone continuation-class byte
         let d = Article.diagnose(json: bytes)
         #expect(d.isValid == false)
         #expect(d.issues[0].code == .invalidUTF8)
@@ -198,7 +198,8 @@ struct DecodeTests {
 
     @Test("depth limit is enforced")
     func depthLimit() {
-        let deep = String(repeating: #"{"inner":"#, count: 200) + "1"
+        let deep =
+            String(repeating: #"{"inner":"#, count: 200) + "1"
             + String(repeating: "}", count: 200)
         let d = Outer.diagnose(json: deep, limits: Limits(maxDepth: 64))
         #expect(d.isValid == false)
@@ -207,7 +208,7 @@ struct DecodeTests {
     @Test("issue cap is honoured and reported")
     func issueCap() {
         var big = "{"
-        for i in 0..<50 { big += "\"i\":\"bad\"," ; _ = i }
+        for i in 0..<50 { big += "\"i\":\"bad\","; _ = i }
         big += "\"d\":\"bad\",\"b\":\"bad\",\"big\":\"bad\"}"
         let d = Numbers.diagnose(json: big, limits: Limits(maxIssues: 3))
         #expect(d.issues.count <= 3)
@@ -303,9 +304,11 @@ enum KeyStyleShim {
 @Suite("Collections — one bad element is one issue")
 struct CollectionElementTests {
 
-    @Test("a bad scalar element first, middle and last", arguments: [
-        #"{"a":["x",2,3],"b":9}"#, #"{"a":[1,"x",3],"b":9}"#, #"{"a":[1,2,"x"],"b":9}"#,
-    ])
+    @Test(
+        "a bad scalar element first, middle and last",
+        arguments: [
+            #"{"a":["x",2,3],"b":9}"#, #"{"a":[1,"x",3],"b":9}"#, #"{"a":[1,2,"x"],"b":9}"#
+        ])
     func scalarElement(_ json: String) {
         let d = ElemInts.diagnose(json: json)
         #expect(d.issues.count == 1, "\(d.issues)")
@@ -425,7 +428,9 @@ struct SecondAuditInputTests {
         #expect(!d.issues.contains { $0.code == .malformedDocument })
     }
 
-    @Test("a mismatch on a container says what it found in words, and a snippet ends on a scalar boundary")
+    @Test(
+        "a mismatch on a container says what it found in words, and a snippet ends on a scalar boundary"
+    )
     func snippets() {
         let arr = SnippetDoc.diagnose(json: #"{"s":[1,2,3],"n":1}"#)
         #expect(arr.issues.first?.received == "an array")
@@ -433,7 +438,7 @@ struct SecondAuditInputTests {
         #expect(obj.issues.first?.received == "an object")
         // 32 bytes of 3-byte scalars is not a multiple of three; the cut must not split one.
         let long = String(repeating: "€", count: 20)
-        let d = SnippetDoc.diagnose(json: #"{"s":"ok","n":"#  + long + "}")
+        let d = SnippetDoc.diagnose(json: #"{"s":"ok","n":"# + long + "}")
         let r = try? #require(d.issues.first?.received)
         #expect(r?.unicodeScalars.contains("\u{FFFD}") == false, "\(r ?? "")")
     }

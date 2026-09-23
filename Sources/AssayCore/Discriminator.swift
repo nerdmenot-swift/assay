@@ -56,11 +56,12 @@ extension AssayReader {
                 guard let tag = scanString() else {
                     // The tag exists and is not a string. Its own failure, not a branch's:
                     // no branch could have been chosen, so none should be blamed.
-                    sink.add(Issue(
-                        code: .typeMismatch,
-                        path: path + [.key(String(describing: key))],
-                        params: ["expected": .string("string")],
-                        location: SourceSpan(lo: byteOffset, len: 1)))
+                    sink.add(
+                        Issue(
+                            code: .typeMismatch,
+                            path: path + [.key(String(describing: key))],
+                            params: ["expected": .string("string")],
+                            location: SourceSpan(lo: byteOffset, len: 1)))
                     return nil
                 }
                 return tag
@@ -88,18 +89,19 @@ extension AssayReader {
     ) {
         var params: [String: IssueValue] = [
             "discriminator": .string(String(describing: key)),
-            "known": .string(known.joined(separator: ", ")),
+            "known": .string(known.joined(separator: ", "))
         ]
         // The same Damerau helper unknown keys use, and the same `didYouMean` param name, so
         // the renderers and any consumer matching on params need no new case.
         if let suggestion = Self._didYouMean(received, in: known) {
             params["didYouMean"] = .string(suggestion)
         }
-        sink.add(Issue(
-            code: .unionUnknownVariant,
-            path: path + [.key(String(describing: key))],
-            params: params,
-            received: received))
+        sink.add(
+            Issue(
+                code: .unionUnknownVariant,
+                path: path + [.key(String(describing: key))],
+                params: params,
+                received: received))
     }
 }
 
@@ -129,10 +131,11 @@ extension AssayReader {
     @inline(never)
     @usableFromInline
     mutating func reportUnionBudget(_ sink: inout IssueSink, _ path: [PathStep]) {
-        sink.add(Issue(
-            code: .unionBudgetExhausted,
-            path: path,
-            params: ["maxUnionAttempts": .int(limits.maxUnionAttempts)]))
+        sink.add(
+            Issue(
+                code: .unionBudgetExhausted,
+                path: path,
+                params: ["maxUnionAttempts": .int(limits.maxUnionAttempts)]))
     }
 
     /// No branch of an untagged union matched.
@@ -147,13 +150,14 @@ extension AssayReader {
         _ sink: inout IssueSink, _ path: [PathStep],
         _ typeName: StaticString, _ closest: String, _ known: [String]
     ) {
-        sink.add(Issue(
-            code: .unionNoVariantMatched,
-            path: path,
-            params: [
-                "type": .string(String(describing: typeName)),
-                "closest": .string(closest),
-                "variants": .string(known.joined(separator: ", ")),
-            ]))
+        sink.add(
+            Issue(
+                code: .unionNoVariantMatched,
+                path: path,
+                params: [
+                    "type": .string(String(describing: typeName)),
+                    "closest": .string(closest),
+                    "variants": .string(known.joined(separator: ", "))
+                ]))
     }
 }

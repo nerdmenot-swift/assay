@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "indentation": {
+    "spaces": 4
+  },
+  "lineLength": 100,
+  "respectsExistingLineBreaks": true,
+  "lineBreakBeforeControlFlowKeywords": false,
+  "lineBreakBeforeEachArgument": false,
+  "lineBreakBeforeEachGenericRequirement": false,
+  "indentConditionalCompilationBlocks": false,
+  "prioritizeKeepingFunctionOutputTogether": true,
+  "multiElementCollectionTrailingCommas": false,
+  "spacesAroundRangeFormationOperators": false,
+  "rules": {
+    "AlwaysUseLowerCamelCase": false,
+    "NeverForceUnwrap": false,
+    "NeverUseForceTry": false,
+    "NoBlockComments": false,
+    "NoLeadingUnderscores": false,
+    "OrderedImports": false,
+    "UseLetInEveryBoundCaseVariable": false,
+    "UseSynthesizedInitializer": false,
+    "ValidateDocumentationComments": false
+  }
+}

@@ -102,7 +102,6 @@ public struct AssayReader: ~Copyable {
     @inlinable
     deinit { unsafe keyScratch?.deallocate() }
 
-
     public init(base: UnsafePointer<UInt8>, count: Int, limits: Limits = .default) {
         unsafe self.base = base
         self.count = count
@@ -199,10 +198,11 @@ public struct AssayReader: ~Copyable {
     @inline(never)
     @usableFromInline
     mutating func reportDepth(_ sink: inout IssueSink) {
-        sink.add(Issue(
-            code: .depthExceeded,
-            params: ["maxDepth": .int(limits.maxDepth)],
-            location: SourceSpan(lo: cursor, len: 1)))
+        sink.add(
+            Issue(
+                code: .depthExceeded,
+                params: ["maxDepth": .int(limits.maxDepth)],
+                location: SourceSpan(lo: cursor, len: 1)))
     }
 
     // MARK: - Keys
@@ -243,8 +243,9 @@ public struct AssayReader: ~Copyable {
         while cursor < count {
             let c = unsafe base[cursor]
             if c == 0x22 {
-                let r = unsafe KeyRange(lo: start, len: cursor &- start, simple: true,
-                                        bytes: base + start)
+                let r = unsafe KeyRange(
+                    lo: start, len: cursor &- start, simple: true,
+                    bytes: base + start)
                 cursor &+= 1
                 return r
             }
@@ -284,8 +285,9 @@ public struct AssayReader: ~Copyable {
             escapeErrorAt = -1
             return nil
         }
-        return unsafe KeyRange(lo: start, len: n, simple: false,
-                               bytes: UnsafePointer(keyScratch!))
+        return unsafe KeyRange(
+            lo: start, len: n, simple: false,
+            bytes: UnsafePointer(keyScratch!))
     }
 
     /// Where a key's matchable bytes are: the input itself, or the unescaped copy of an
@@ -367,7 +369,8 @@ public struct AssayReader: ~Copyable {
             while cursor < count {
                 let c = unsafe base[cursor]
                 if c == 0x2C || c == 0x7D || c == 0x5D
-                    || c == 0x20 || c == 0x0A || c == 0x09 || c == 0x0D {
+                    || c == 0x20 || c == 0x0A || c == 0x09 || c == 0x0D
+                {
                     break
                 }
                 cursor &+= 1
@@ -441,11 +444,12 @@ public struct AssayReader: ~Copyable {
         // which is how truncated input came to have no position at all.
         let ended = cursor >= count
         if ended { params["atEnd"] = .bool(true) }
-        sink.add(Issue(
-            code: .malformedDocument,
-            path: path,
-            params: params,
-            location: SourceSpan(lo: ended ? Swift.max(0, count - 1) : cursor, len: 1)))
+        sink.add(
+            Issue(
+                code: .malformedDocument,
+                path: path,
+                params: params,
+                location: SourceSpan(lo: ended ? Swift.max(0, count - 1) : cursor, len: 1)))
     }
 
     /// A value of the wrong type: rewind to where it began, report it there, and CONSUME it,
@@ -468,12 +472,13 @@ public struct AssayReader: ~Copyable {
         _ path: [PathStep],
         expected: String
     ) {
-        sink.add(Issue(
-            code: .typeMismatch,
-            path: path,
-            params: ["expected": .string(expected)],
-            received: describeCurrentValue(),
-            location: SourceSpan(lo: cursor, len: 1)))
+        sink.add(
+            Issue(
+                code: .typeMismatch,
+                path: path,
+                params: ["expected": .string(expected)],
+                received: describeCurrentValue(),
+                location: SourceSpan(lo: cursor, len: 1)))
     }
 
     /// Best-effort rendering of whatever is under the cursor, for `issue.received`.
@@ -500,8 +505,9 @@ public struct AssayReader: ~Copyable {
         // snippet ends on a boundary rather than on a replacement character.
         while end > cursor, end < count, unsafe (base[end] & 0xC0) == 0x80 { end &-= 1 }
         guard end > cursor else { return nil }
-        return unsafe String(decoding: UnsafeBufferPointer(start: base + cursor, count: end - cursor),
-                             as: UTF8.self)
+        return unsafe String(
+            decoding: UnsafeBufferPointer(start: base + cursor, count: end - cursor),
+            as: UTF8.self)
     }
 }
 
@@ -694,7 +700,9 @@ extension AssayReader {
         params: [String: IssueValue] = [:],
         span: SourceSpan? = nil
     ) {
-        sink.add(Issue(code: code, path: path, params: params,
-                       location: span ?? SourceSpan(lo: cursor, len: 1)))
+        sink.add(
+            Issue(
+                code: code, path: path, params: params,
+                location: span ?? SourceSpan(lo: cursor, len: 1)))
     }
 }

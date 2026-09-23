@@ -73,8 +73,10 @@ extension TOML {
         limits: Limits = .default
     ) -> Node? {
         if bytes.count > limits.maxBytes {
-            sink.add(Issue(code: .tooManyBytes,
-                           params: ["maxBytes": .int(limits.maxBytes)]))
+            sink.add(
+                Issue(
+                    code: .tooManyBytes,
+                    params: ["maxBytes": .int(limits.maxBytes)]))
             return nil
         }
         return withParser(bytes, &sink, limits, empty: .table([])) { parser, reader, sink in
@@ -91,8 +93,10 @@ extension TOML {
         _ bytes: [UInt8], into sink: inout IssueSink, limits: Limits
     ) -> RawValue? {
         if bytes.count > limits.maxBytes {
-            sink.add(Issue(code: .tooManyBytes,
-                           params: ["maxBytes": .int(limits.maxBytes)]))
+            sink.add(
+                Issue(
+                    code: .tooManyBytes,
+                    params: ["maxBytes": .int(limits.maxBytes)]))
             return nil
         }
         return withParser(bytes, &sink, limits, empty: .mapping([])) { parser, reader, sink in
@@ -111,8 +115,10 @@ extension TOML {
         unsafe bytes.withUnsafeBufferPointer { buf -> T? in
             guard let base = buf.baseAddress else { return empty }
             if let bad = unsafe UTF8Validation.firstInvalid(base, buf.count) {
-                sink.add(Issue(code: .invalidUTF8, params: ["offset": .int(bad)],
-                               location: SourceSpan(lo: bad, len: 1)))
+                sink.add(
+                    Issue(
+                        code: .invalidUTF8, params: ["offset": .int(bad)],
+                        location: SourceSpan(lo: bad, len: 1)))
                 return nil
             }
             var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
@@ -228,8 +234,10 @@ extension TOML {
             let id = tables[t].indexID
             // The index takes its copy of the key BEFORE the slot takes the key itself.
             if id >= 0 { indexes[Int(id)][copy key] = i }
-            tables[t].slots.append(TableBuilder.Slot(key: consume key, entry: consume entry,
-                                                     span: span))
+            tables[t].slots.append(
+                TableBuilder.Slot(
+                    key: consume key, entry: consume entry,
+                    span: span))
             if id < 0, tables[t].slots.count > TableBuilder.linearLimit {
                 var built = [String: Int](minimumCapacity: tables[t].slots.count * 2)
                 for (j, slot) in tables[t].slots.enumerated() { built[slot.key] = j }
@@ -286,13 +294,15 @@ extension TOML.Parser {
             r.advanceBy(1)
         }
         if path.count > limits.maxDepth {
-            r.report(&sink, .depthExceeded, params: ["maxDepth": .int(limits.maxDepth)],
-                     span: SourceSpan(lo: headerStart, len: r.byteOffset - headerStart))
+            r.report(
+                &sink, .depthExceeded, params: ["maxDepth": .int(limits.maxDepth)],
+                span: SourceSpan(lo: headerStart, len: r.byteOffset - headerStart))
             return false
         }
         let span = SourceSpan(lo: headerStart, len: r.byteOffset - headerStart)
-        let defined = define(path: &path, array: isArray, span: span,
-                             reserve: tables[current].slots.count, &r, &sink)
+        let defined = define(
+            path: &path, array: isArray, span: span,
+            reserve: tables[current].slots.count, &r, &sink)
         keyPathBuffer = consume path
         guard let table = defined else { return false }
         current = table
@@ -315,8 +325,9 @@ extension TOML.Parser {
         guard let value = parseValue(&r, &sink) else { return false }
         let span = SourceSpan(lo: valueStart, len: r.byteOffset - valueStart)
         if path.count > limits.maxDepth {
-            r.report(&sink, .depthExceeded, params: ["maxDepth": .int(limits.maxDepth)],
-                     span: path[0].span)
+            r.report(
+                &sink, .depthExceeded, params: ["maxDepth": .int(limits.maxDepth)],
+                span: path[0].span)
             return false
         }
         let ok = assign(path: &path, value: consume value, span: span, into: table, &r, &sink)
@@ -333,7 +344,9 @@ extension TOML.Parser {
     ) -> Int? {
         var table = 0
         for seg in path.dropLast() {
-            guard let next = descend(table, seg, creating: .implicit, throughArrays: true, &r, &sink) else {
+            guard
+                let next = descend(table, seg, creating: .implicit, throughArrays: true, &r, &sink)
+            else {
                 return nil
             }
             table = next
@@ -382,7 +395,8 @@ extension TOML.Parser {
     ) -> Bool {
         var table = start
         for seg in path.dropLast() {
-            guard let next = descend(table, seg, creating: .dotted, throughArrays: false, &r, &sink) else {
+            guard let next = descend(table, seg, creating: .dotted, throughArrays: false, &r, &sink)
+            else {
                 return false
             }
             table = next
@@ -393,8 +407,9 @@ extension TOML.Parser {
         var key = ""
         unsafe path.withUnsafeMutableBufferPointer { unsafe swap(&key, &$0[$0.count - 1].text) }
         if find(key, in: table) != nil {
-            r.report(&sink, .duplicateKey, params: ["received": .string(key)],
-                     span: path[path.count - 1].span)
+            r.report(
+                &sink, .duplicateKey, params: ["received": .string(key)],
+                span: path[path.count - 1].span)
             return false
         }
         add(consume key, .value(consume value), span: span, to: table)
@@ -419,7 +434,8 @@ extension TOML.Parser {
             // A header may pass through any open table. Dotted keys may only extend a
             // table that dotted keys made: `[a] b.c = 1` after `[a.b]` is an error.
             if creating == .dotted, tables[child].origin != .dotted {
-                r.report(&sink, .tomlRedefinedTable, params: ["key": .string(seg.text)], span: seg.span)
+                r.report(
+                    &sink, .tomlRedefinedTable, params: ["key": .string(seg.text)], span: seg.span)
                 return nil
             }
             return child
@@ -493,7 +509,8 @@ extension TOML.Parser {
                     switch consume entry {
                     case .value(let v): closed = v; value = .null
                     case .table(let t): value = finishRaw(t)
-                    case .array(let a): let ts = arrays[a]; value = .sequence(ts.map { finishRaw($0) })
+                    case .array(let a):
+                        let ts = arrays[a]; value = .sequence(ts.map { finishRaw($0) })
                     }
                     var moved = value
                     if let v = closed.take() { moved = RawValue(consuming: consume v) }
@@ -567,8 +584,9 @@ extension TOML.Parser {
             r.report(&sink, .tomlExpectedKey)
             return nil
         }
-        return KeySegment(text: r.string(from: start, to: r.byteOffset),
-                          span: SourceSpan(lo: start, len: r.byteOffset - start))
+        return KeySegment(
+            text: r.string(from: start, to: r.byteOffset),
+            span: SourceSpan(lo: start, len: r.byteOffset - start))
     }
 
     func isBareKeyByte(_ b: UInt8) -> Bool {

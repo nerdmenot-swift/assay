@@ -17,21 +17,37 @@ import Assay
 @Suite("Key styles — KeyStyle.apply")
 struct KeyStyleUnitTests {
 
-    @Test("every style on the same identifiers", arguments: [
-        // identifier, camel, snake, kebab, pascal, screaming
-        ("title",            "title",            "title",              "title",              "Title",            "TITLE"),
-        ("readingMinutes",   "readingMinutes",   "reading_minutes",    "reading-minutes",    "ReadingMinutes",   "READING_MINUTES"),
-        ("avatarURL",        "avatarURL",        "avatar_url",         "avatar-url",         "AvatarURL",        "AVATAR_URL"),
-        ("parseHTTPResponse","parseHTTPResponse","parse_http_response","parse-http-response","ParseHTTPResponse","PARSE_HTTP_RESPONSE"),
-        ("id",               "id",               "id",                 "id",                 "Id",               "ID"),
-        ("x",                "x",                "x",                  "x",                  "X",                "X"),
-        ("URL",              "URL",              "url",                "url",                "URL",              "URL"),
-        ("line2",            "line2",            "line2",              "line2",              "Line2",            "LINE2"),
-        ("address2Line",     "address2Line",     "address2_line",      "address2-line",      "Address2Line",     "ADDRESS2_LINE"),
-        ("iOSVersion",       "iOSVersion",       "i_os_version",       "i-os-version",       "IOSVersion",       "I_OS_VERSION"),
-    ])
-    func styles(_ id: String, _ camel: String, _ snake: String, _ kebab: String,
-                _ pascal: String, _ screaming: String) {
+    @Test(
+        "every style on the same identifiers",
+        arguments: [
+            // identifier, camel, snake, kebab, pascal, screaming
+            ("title", "title", "title", "title", "Title", "TITLE"),
+            (
+                "readingMinutes", "readingMinutes", "reading_minutes", "reading-minutes",
+                "ReadingMinutes", "READING_MINUTES"
+            ),
+            ("avatarURL", "avatarURL", "avatar_url", "avatar-url", "AvatarURL", "AVATAR_URL"),
+            (
+                "parseHTTPResponse", "parseHTTPResponse", "parse_http_response",
+                "parse-http-response", "ParseHTTPResponse", "PARSE_HTTP_RESPONSE"
+            ),
+            ("id", "id", "id", "id", "Id", "ID"),
+            ("x", "x", "x", "x", "X", "X"),
+            ("URL", "URL", "url", "url", "URL", "URL"),
+            ("line2", "line2", "line2", "line2", "Line2", "LINE2"),
+            (
+                "address2Line", "address2Line", "address2_line", "address2-line", "Address2Line",
+                "ADDRESS2_LINE"
+            ),
+            (
+                "iOSVersion", "iOSVersion", "i_os_version", "i-os-version", "IOSVersion",
+                "I_OS_VERSION"
+            )
+        ])
+    func styles(
+        _ id: String, _ camel: String, _ snake: String, _ kebab: String,
+        _ pascal: String, _ screaming: String
+    ) {
         #expect(KeyStyle.camelCase.apply(id) == camel)
         #expect(KeyStyle.snakeCase.apply(id) == snake)
         #expect(KeyStyle.kebabCase.apply(id) == kebab)
@@ -39,7 +55,9 @@ struct KeyStyleUnitTests {
         #expect(KeyStyle.screamingSnakeCase.apply(id) == screaming)
     }
 
-    @Test("the acronym rule: a run of capitals is one word, its last capital starts the next word when followed by lowercase")
+    @Test(
+        "the acronym rule: a run of capitals is one word, its last capital starts the next word when followed by lowercase"
+    )
     func acronyms() {
         #expect(KeyStyle.split("HTTPResponse") == ["http", "response"])
         #expect(KeyStyle.split("avatarURL") == ["avatar", "url"])

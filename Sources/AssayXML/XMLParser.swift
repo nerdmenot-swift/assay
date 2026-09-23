@@ -71,8 +71,11 @@ extension XML {
         into sink: inout IssueSink,
         limits: Limits = .default
     ) -> (rootName: String, value: RawValue)? {
-        guard let doc = withDocument(bytes, into: &sink, limits: limits,
-                                     as: XMLRawBuilder.self) else { return nil }
+        guard
+            let doc = withDocument(
+                bytes, into: &sink, limits: limits,
+                as: XMLRawBuilder.self)
+        else { return nil }
         return (doc.rootName, doc.value)
     }
 
@@ -85,8 +88,10 @@ extension XML {
         as builder: B.Type
     ) -> B.Output? {
         if bytes.count > limits.maxBytes {
-            sink.add(Issue(code: .tooManyBytes,
-                           params: ["maxBytes": .int(limits.maxBytes)]))
+            sink.add(
+                Issue(
+                    code: .tooManyBytes,
+                    params: ["maxBytes": .int(limits.maxBytes)]))
             return nil
         }
         return unsafe bytes.withUnsafeBufferPointer { buf -> B.Output? in
@@ -94,8 +99,10 @@ extension XML {
             // Same whole-buffer UTF-8 pass as the JSON path, for the same reason: it is
             // one linear pass, and it removes validation from every String built after.
             if let bad = unsafe UTF8Validation.firstInvalid(base, buf.count) {
-                sink.add(Issue(code: .invalidUTF8, params: ["offset": .int(bad)],
-                               location: SourceSpan(lo: bad, len: 1)))
+                sink.add(
+                    Issue(
+                        code: .invalidUTF8, params: ["offset": .int(bad)],
+                        location: SourceSpan(lo: bad, len: 1)))
                 return nil
             }
             var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
@@ -208,68 +215,69 @@ extension XML {
             return B.document(root: root, prolog: prolog)
         }
 
-
         @inline(never)
         mutating func resolveAttributes(
             _ r: borrowing AssayReader, _ sink: inout IssueSink,
             _ rawAttributes: [(Range<Int>, String, SourceSpan, SourceSpan)],
             elementName: Range<Int>
         ) -> [XML.Attribute] {
-                var attributes: [XML.Attribute] = []
-                attributes.reserveCapacity(rawAttributes.count)
-                // Duplicates are found by scanning what has been appended already, not with a
-                // Set. Elements have a handful of attributes, where a linear scan over a
-                // contiguous array beats hashing — and the Set was a heap allocation per
-                // element for a check that almost never fires.
-                //
-                // THAT IS RIGHT FOR THE COMMON CASE AND WAS UNBOUNDED FOR THE HOSTILE ONE.
-                // The scan is O(a²) in the attribute count, and `XML.Name ==` is a full
-                // `String ==` on two fields, so one element with many attributes — legal XML,
-                // depth 1, no entities — walks away with the parse. Measured 2026-09-13:
-                //
-                //     16,000 attrs   161 KB   0.165 s
-                //     32,000 attrs   332 KB   0.663 s
-                //     64,000 attrs   676 KB   2.651 s        4.0x per doubling
-                //
-                // Neither guard sees it: `maxDepth` is 1 here and the node budget counts
-                // nodes, of which this is one. Same blind spot as the YAML merge key fixed the
-                // same day — both bombs are WIDE, and both guards measure depth or count.
-                //
-                // So: keep the linear scan exactly where it was justified, and build the set
-                // once the count passes the point where hashing wins. Below the threshold this
-                // is byte-for-byte the old path, allocation included (none).
-                var seen: Set<XML.Name>? = nil
-                for (nameRange, v, span, valueSpan) in rawAttributes {
-                    let resolved = resolve(r, nameRange, isAttribute: true)
-                    if seen == nil, attributes.count == Self.attributeSetThreshold {
-                        var s = Set<XML.Name>(minimumCapacity: rawAttributes.count)
-                        for a in attributes { s.insert(a.name) }
-                        seen = s
-                    }
-                    let duplicate: Bool
-                    if seen != nil {
-                        duplicate = !seen!.insert(resolved).inserted
-                    } else {
-                        duplicate = attributes.contains(where: { $0.name == resolved })
-                    }
-                    // Duplicate attributes are a well-formedness error in XML, unlike
-                    // duplicate child elements which are ordinary.
-                    if duplicate {
-                        // Cold: build the reported name only when there is something to report.
-                        let n = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
-                        let e = r.string(from: elementName.lowerBound, to: elementName.upperBound)
-                        sink.add(Issue(code: .duplicateKey,
-                                       path: [.key(e), .key(n)],
-                                       received: n, location: span))
-                    }
-                    attributes.append(XML.Attribute(name: resolved, value: v,
-                                                    valueSpan: valueSpan))
+            var attributes: [XML.Attribute] = []
+            attributes.reserveCapacity(rawAttributes.count)
+            // Duplicates are found by scanning what has been appended already, not with a
+            // Set. Elements have a handful of attributes, where a linear scan over a
+            // contiguous array beats hashing — and the Set was a heap allocation per
+            // element for a check that almost never fires.
+            //
+            // THAT IS RIGHT FOR THE COMMON CASE AND WAS UNBOUNDED FOR THE HOSTILE ONE.
+            // The scan is O(a²) in the attribute count, and `XML.Name ==` is a full
+            // `String ==` on two fields, so one element with many attributes — legal XML,
+            // depth 1, no entities — walks away with the parse. Measured 2026-09-13:
+            //
+            //     16,000 attrs   161 KB   0.165 s
+            //     32,000 attrs   332 KB   0.663 s
+            //     64,000 attrs   676 KB   2.651 s        4.0x per doubling
+            //
+            // Neither guard sees it: `maxDepth` is 1 here and the node budget counts
+            // nodes, of which this is one. Same blind spot as the YAML merge key fixed the
+            // same day — both bombs are WIDE, and both guards measure depth or count.
+            //
+            // So: keep the linear scan exactly where it was justified, and build the set
+            // once the count passes the point where hashing wins. Below the threshold this
+            // is byte-for-byte the old path, allocation included (none).
+            var seen: Set<XML.Name>? = nil
+            for (nameRange, v, span, valueSpan) in rawAttributes {
+                let resolved = resolve(r, nameRange, isAttribute: true)
+                if seen == nil, attributes.count == Self.attributeSetThreshold {
+                    var s = Set<XML.Name>(minimumCapacity: rawAttributes.count)
+                    for a in attributes { s.insert(a.name) }
+                    seen = s
                 }
-
+                let duplicate: Bool
+                if seen != nil {
+                    duplicate = !seen!.insert(resolved).inserted
+                } else {
+                    duplicate = attributes.contains(where: { $0.name == resolved })
+                }
+                // Duplicate attributes are a well-formedness error in XML, unlike
+                // duplicate child elements which are ordinary.
+                if duplicate {
+                    // Cold: build the reported name only when there is something to report.
+                    let n = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
+                    let e = r.string(from: elementName.lowerBound, to: elementName.upperBound)
+                    sink.add(
+                        Issue(
+                            code: .duplicateKey,
+                            path: [.key(e), .key(n)],
+                            received: n, location: span))
+                }
+                attributes.append(
+                    XML.Attribute(
+                        name: resolved, value: v,
+                        valueSpan: valueSpan))
+            }
 
             return attributes
         }
-
 
         /// SHAPE MEMORY keyed by DEPTH AND SIBLING POSITION (`_ShapeHints`): how many children
         /// to reserve, from what the element in the same position of the previous record held.
@@ -358,9 +366,11 @@ extension XML {
             // Empty element: <tag/>. There is no content to underline, so the caret goes
             // under the tag name — the only thing in the document that exists.
             if r.consume("/>") {
-                return B.emptyElement(name: consume name, attributes: consume attributes,
-                                      contentSpan: SourceSpan(lo: nameStart,
-                                                              len: nameLength))
+                return B.emptyElement(
+                    name: consume name, attributes: consume attributes,
+                    contentSpan: SourceSpan(
+                        lo: nameStart,
+                        len: nameLength))
             }
             guard r.consume(">") else {
                 r.report(&sink, .xmlUnterminatedTag)
@@ -381,10 +391,12 @@ extension XML {
             while true {
                 guard !r.atEnd else {
                     let rawName = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
-                    sink.add(Issue(code: .xmlUnclosedElement,
-                                   path: [.key(rawName)],
-                                   received: rawName,
-                                   location: SourceSpan(lo: nameStart, len: nameLength)))
+                    sink.add(
+                        Issue(
+                            code: .xmlUnclosedElement,
+                            path: [.key(rawName)],
+                            received: rawName,
+                            location: SourceSpan(lo: nameStart, len: nameLength)))
                     return nil
                 }
 
@@ -406,14 +418,17 @@ extension XML {
                             return nil
                         }
                         guard sameBytes(r, closeRange, nameRange) else {
-                            let rawName = r.string(from: nameRange.lowerBound, to: nameRange.upperBound)
-                            let close = r.string(from: closeRange.lowerBound, to: closeRange.upperBound)
-                            sink.add(Issue(
-                                code: .xmlMismatchedTag,
-                                path: [.key(rawName)],
-                                params: ["expected": .string(rawName), "found": .string(close)],
-                                received: close,
-                                location: SourceSpan(lo: nameStart, len: nameLength)))
+                            let rawName = r.string(
+                                from: nameRange.lowerBound, to: nameRange.upperBound)
+                            let close = r.string(
+                                from: closeRange.lowerBound, to: closeRange.upperBound)
+                            sink.add(
+                                Issue(
+                                    code: .xmlMismatchedTag,
+                                    path: [.key(rawName)],
+                                    params: ["expected": .string(rawName), "found": .string(close)],
+                                    received: close,
+                                    location: SourceSpan(lo: nameStart, len: nameLength)))
                             return nil
                         }
                         break
@@ -436,8 +451,11 @@ extension XML {
                         B.appendInstruction(&children, target: pi.target, data: pi.data)
                         continue
                     }
-                    guard let child = parseElement(&r, &sink, depth: depth + 1,
-                                                   position: elementChildren) else {
+                    guard
+                        let child = parseElement(
+                            &r, &sink, depth: depth + 1,
+                            position: elementChildren)
+                    else {
                         return nil
                     }
                     B.appendElement(&children, child)
@@ -453,10 +471,12 @@ extension XML {
             // `consume`: MOVE the accumulator into the finished element. Passing it without
             // this copied the whole thing — three retains per element (count.py explain), the
             // same trap `docs/EFFICIENCY.md` rows 14 and 16 record.
-            return B.finish(consume children, name: consume name,
-                            attributes: consume attributes,
-                            contentSpan: SourceSpan(lo: contentStart,
-                                                    len: max(0, contentEnd - contentStart)))
+            return B.finish(
+                consume children, name: consume name,
+                attributes: consume attributes,
+                contentSpan: SourceSpan(
+                    lo: contentStart,
+                    len: max(0, contentEnd - contentStart)))
         }
 
         /// Parse an element's attributes, up to the `>` or `/>`.
@@ -507,8 +527,9 @@ extension XML {
                 let valueStart = r.byteOffset
                 guard let aValue = parseAttributeValue(&r, &sink) else { return false }
                 // Inside the quotes, which is what a caret should underline.
-                let valueSpan = SourceSpan(lo: valueStart + 1,
-                                           len: max(0, r.byteOffset - valueStart - 2))
+                let valueSpan = SourceSpan(
+                    lo: valueStart + 1,
+                    len: max(0, r.byteOffset - valueStart - 2))
 
                 if bytes(r, aRange, equal: "xmlns") {
                     scope[""] = aValue
@@ -516,9 +537,11 @@ extension XML {
                     scope[r.string(from: aRange.lowerBound + 6, to: aRange.upperBound)] = aValue
                 } else {
                     rawAttributes.append(
-                        (aRange, aValue,
-                         SourceSpan(lo: attrStart, len: r.byteOffset - attrStart),
-                         valueSpan))
+                        (
+                            aRange, aValue,
+                            SourceSpan(lo: attrStart, len: r.byteOffset - attrStart),
+                            valueSpan
+                        ))
                 }
             }
         }
@@ -533,8 +556,10 @@ extension XML {
 
         /// Whether the bytes in `range` are exactly `literal`.
         @inline(never)
-        func bytes(_ r: borrowing AssayReader, _ range: Range<Int>,
-                   equal literal: StaticString) -> Bool {
+        func bytes(
+            _ r: borrowing AssayReader, _ range: Range<Int>,
+            equal literal: StaticString
+        ) -> Bool {
             let n = literal.utf8CodeUnitCount
             guard range.count == n else { return false }
             return bytesMatch(r, range.lowerBound, literal, n)
@@ -542,8 +567,10 @@ extension XML {
 
         /// Whether the bytes in `range` begin with `literal`.
         @inline(never)
-        func bytes(_ r: borrowing AssayReader, _ range: Range<Int>,
-                   hasPrefix literal: StaticString) -> Bool {
+        func bytes(
+            _ r: borrowing AssayReader, _ range: Range<Int>,
+            hasPrefix literal: StaticString
+        ) -> Bool {
             let n = literal.utf8CodeUnitCount
             guard range.count >= n else { return false }
             return bytesMatch(r, range.lowerBound, literal, n)
@@ -668,7 +695,7 @@ extension XML {
                 case 0x0D: out.append(0x20); previousWasCR = true; continue
                 case 0x0A: if !previousWasCR { out.append(0x20) }
                 case 0x09: out.append(0x20)
-                default:   out.append(b)
+                default: out.append(b)
                 }
                 previousWasCR = false
             }
@@ -762,8 +789,7 @@ extension XML {
             // across text and attributes. Scanning once for everything you need is the
             // habit libxml2 is built on.
             while let c = r.currentByte, c != UInt8(ascii: "<") {
-                if c == UInt8(ascii: "&") { sawEntity = true }
-                else if c == 0x0D { sawCR = true }
+                if c == UInt8(ascii: "&") { sawEntity = true } else if c == 0x0D { sawCR = true }
                 r.advanceBy(1)
             }
             let slice = r.string(from: start, to: r.byteOffset)
@@ -776,7 +802,8 @@ extension XML {
             _ r: inout AssayReader, _ sink: inout IssueSink
         ) -> String? {
             guard let quote = r.currentByte,
-                  quote == UInt8(ascii: "\"") || quote == UInt8(ascii: "'") else {
+                quote == UInt8(ascii: "\"") || quote == UInt8(ascii: "'")
+            else {
                 r.report(&sink, .xmlUnquotedAttribute)
                 return nil
             }
@@ -785,9 +812,11 @@ extension XML {
             var sawEntity = false
             var sawWhitespace = false
             while let c = r.currentByte, c != quote {
-                if c == UInt8(ascii: "&") { sawEntity = true }
-                else if c == 0x0D || c == 0x0A || c == 0x09 { sawWhitespace = true }
-                else if c == UInt8(ascii: "<") {
+                if c == UInt8(ascii: "&") {
+                    sawEntity = true
+                } else if c == 0x0D || c == 0x0A || c == 0x09 {
+                    sawWhitespace = true
+                } else if c == UInt8(ascii: "<") {
                     r.report(&sink, .xmlRawLtInAttribute)
                     return nil
                 }
@@ -835,8 +864,10 @@ extension XML {
                 default:
                     if name.hasPrefix("#") {
                         guard let scalar = numericCharacterReference(name) else {
-                            sink.add(Issue(code: .xmlBadCharacterReference,
-                                           received: "&\(name);"))
+                            sink.add(
+                                Issue(
+                                    code: .xmlBadCharacterReference,
+                                    received: "&\(name);"))
                             return nil
                         }
                         replacement = String(scalar)
@@ -853,9 +884,11 @@ extension XML {
                         // and every one of them wrong. Now the expansion is real and the
                         // budget is what stops it.
                         guard !expanding.contains(name) else {
-                            sink.add(Issue(code: .xmlRecursiveEntity,
-                                           params: ["entity": .string(name)],
-                                           received: "&\(name);"))
+                            sink.add(
+                                Issue(
+                                    code: .xmlRecursiveEntity,
+                                    params: ["entity": .string(name)],
+                                    received: "&\(name);"))
                             return nil
                         }
                         expanding.insert(name)
@@ -866,9 +899,11 @@ extension XML {
                     } else {
                         // An undeclared entity is an error, never a silent pass-through.
                         // Silently emitting the raw text is how XXE mitigations get bypassed.
-                        sink.add(Issue(code: .xmlUndeclaredEntity,
-                                       params: ["entity": .string(name)],
-                                       received: "&\(name);"))
+                        sink.add(
+                            Issue(
+                                code: .xmlUndeclaredEntity,
+                                params: ["entity": .string(name)],
+                                received: "&\(name);"))
                         return nil
                     }
                 }
@@ -880,8 +915,10 @@ extension XML {
                 // explodes.
                 expansionBudget -= replacement.utf8.count
                 guard expansionBudget > 0 else {
-                    sink.add(Issue(code: .xmlEntityExpansionLimit,
-                                   params: ["entity": .string(name)]))
+                    sink.add(
+                        Issue(
+                            code: .xmlEntityExpansionLimit,
+                            params: ["entity": .string(name)]))
                     return nil
                 }
                 out += replacement
@@ -891,7 +928,7 @@ extension XML {
         }
 
         func numericCharacterReference(_ name: String) -> Unicode.Scalar? {
-            var digits = Substring(name.dropFirst())      // drop '#'
+            var digits = Substring(name.dropFirst())  // drop '#'
             let radix: Int
             if digits.first == "x" || digits.first == "X" {
                 digits = digits.dropFirst()
@@ -900,7 +937,8 @@ extension XML {
                 radix = 10
             }
             guard let value = UInt32(digits, radix: radix),
-                  let scalar = Unicode.Scalar(value) else { return nil }
+                let scalar = Unicode.Scalar(value)
+            else { return nil }
             // XML 1.0 forbids most control characters even by reference.
             if value < 0x20 && value != 0x09 && value != 0x0A && value != 0x0D {
                 return nil
@@ -936,10 +974,13 @@ extension XML {
                     if sawExternalID {
                         // A warning, not an error: the document is still parseable, and
                         // the external declarations are simply not honoured.
-                        sink.add(warning: Warning(
-                            code: .xmlExternalDtdIgnored,
-                            params: ["reason": .string(
-                                "external DTD subsets and entities are never fetched (XXE)")]))
+                        sink.add(
+                            warning: Warning(
+                                code: .xmlExternalDtdIgnored,
+                                params: [
+                                    "reason": .string(
+                                        "external DTD subsets and entities are never fetched (XXE)")
+                                ]))
                     }
                     return true
                 }
@@ -965,11 +1006,13 @@ extension XML {
             }
             skipSpace(&r)
             guard let quote = r.currentByte,
-                  quote == UInt8(ascii: "\"") || quote == UInt8(ascii: "'") else {
+                quote == UInt8(ascii: "\"") || quote == UInt8(ascii: "'")
+            else {
                 // No literal value means SYSTEM/PUBLIC — an external entity. Refused.
-                sink.add(warning: Warning(
-                    code: .xmlExternalEntityIgnored,
-                    params: ["entity": .string(name)]))
+                sink.add(
+                    warning: Warning(
+                        code: .xmlExternalEntityIgnored,
+                        params: ["entity": .string(name)]))
                 _ = skipUntil(&r, ">", &sink)
                 return
             }
@@ -1019,7 +1062,8 @@ extension XML {
 
         func skipSpace(_ r: inout AssayReader) {
             while let c = r.currentByte,
-                  c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0D {
+                c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0D
+            {
                 r.advanceBy(1)
             }
         }

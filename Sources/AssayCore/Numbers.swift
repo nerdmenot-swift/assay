@@ -114,7 +114,7 @@ extension AssayReader {
     @usableFromInline
     static let exactPowersOf10: [Double] = [
         1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11,
-        1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
+        1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22
     ]
 
     /// Scan a JSON number into a `Double`.
@@ -210,8 +210,7 @@ extension AssayReader {
             var expNegative = false
             if cursor < count {
                 let c = unsafe base[cursor]
-                if c == 0x2D { expNegative = true; cursor &+= 1 }
-                else if c == 0x2B { cursor &+= 1 }
+                if c == 0x2D { expNegative = true; cursor &+= 1 } else if c == 0x2B { cursor &+= 1 }
             }
             var expValue = 0
             var sawExpDigit = false
@@ -239,7 +238,8 @@ extension AssayReader {
         // the power of ten is too.
         if !tooManyDigits, significand <= 9_007_199_254_740_992, exponent >= -22, exponent <= 22 {
             let s = Double(significand)
-            let d: Double = exponent >= 0
+            let d: Double =
+                exponent >= 0
                 ? s * AssayReader.exactPowersOf10[exponent]
                 : s / AssayReader.exactPowersOf10[-exponent]
             return negative ? -d : d
@@ -299,13 +299,12 @@ extension AssayReader {
         var i = lo
         while i < hi {
             let b = unsafe base[i]
-            if b == 0x65 || b == 0x45 { return false }      // e / E — significand ended
+            if b == 0x65 || b == 0x45 { return false }  // e / E — significand ended
             if b >= 0x31, b <= 0x39 { return true }
             i &+= 1
         }
         return false
     }
-
 
     @inlinable
     public mutating func scanBool() -> Bool? {
@@ -313,18 +312,20 @@ extension AssayReader {
         guard cursor < count else { return nil }
         if unsafe base[cursor] == 0x74 {
             guard cursor &+ 4 <= count,
-                  unsafe base[cursor &+ 1] == 0x72,
-                  unsafe base[cursor &+ 2] == 0x75,
-                  unsafe base[cursor &+ 3] == 0x65 else { return nil }
+                unsafe base[cursor &+ 1] == 0x72,
+                unsafe base[cursor &+ 2] == 0x75,
+                unsafe base[cursor &+ 3] == 0x65
+            else { return nil }
             cursor &+= 4
             return true
         }
         if unsafe base[cursor] == 0x66 {
             guard cursor &+ 5 <= count,
-                  unsafe base[cursor &+ 1] == 0x61,
-                  unsafe base[cursor &+ 2] == 0x6C,
-                  unsafe base[cursor &+ 3] == 0x73,
-                  unsafe base[cursor &+ 4] == 0x65 else { return nil }
+                unsafe base[cursor &+ 1] == 0x61,
+                unsafe base[cursor &+ 2] == 0x6C,
+                unsafe base[cursor &+ 3] == 0x73,
+                unsafe base[cursor &+ 4] == 0x65
+            else { return nil }
             cursor &+= 5
             return false
         }
@@ -336,12 +337,12 @@ extension AssayReader {
     public mutating func scanNull() -> Bool {
         skipWhitespace()
         guard cursor &+ 4 <= count,
-              unsafe base[cursor] == 0x6E,
-              unsafe base[cursor &+ 1] == 0x75,
-              unsafe base[cursor &+ 2] == 0x6C,
-              unsafe base[cursor &+ 3] == 0x6C else { return false }
+            unsafe base[cursor] == 0x6E,
+            unsafe base[cursor &+ 1] == 0x75,
+            unsafe base[cursor &+ 2] == 0x6C,
+            unsafe base[cursor &+ 3] == 0x6C
+        else { return false }
         cursor &+= 4
         return true
     }
 }
-

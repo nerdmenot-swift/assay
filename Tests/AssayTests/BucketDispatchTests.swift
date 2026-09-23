@@ -67,9 +67,11 @@ struct BucketPrefixed: Equatable {
 @Suite("Per-bucket window dispatch")
 struct BucketDispatchTests {
 
-    static let keys = ["id", "name", "email", "created_at", "updated_at", "status", "type",
-                       "description", "url", "avatar_url", "user_id", "owner_id", "title",
-                       "body", "tags", "count"]
+    static let keys = [
+        "id", "name", "email", "created_at", "updated_at", "status", "type",
+        "description", "url", "avatar_url", "user_id", "owner_id", "title",
+        "body", "tags", "count"
+    ]
 
     static func document(_ pairs: [(String, String)]) -> String {
         "{" + pairs.map { "\"\($0.0)\":\"\($0.1)\"" }.joined(separator: ",") + "}"
@@ -80,8 +82,10 @@ struct BucketDispatchTests {
     static func windows(_ keys: [String]) -> (Int, String) {
         let fields = keys.map { "var \($0): String" }.joined(separator: "\n")
         let (expansion, _) = expandSchemaForTesting("@Schema struct S {\n\(fields)\n}")
-        return (expansion.components(separatedBy: "reader._keyWindow(__key").count - 1,
-                expansion)
+        return (
+            expansion.components(separatedBy: "reader._keyWindow(__key").count - 1,
+            expansion
+        )
     }
 
     @Test("realistic names past the global ceiling keep their cheap chains")
@@ -127,7 +131,8 @@ struct BucketDispatchTests {
             let bytes = Array(key.utf8)
             for i in bytes.indices {
                 for c in Array(UInt8(ascii: "a")...UInt8(ascii: "z"))
-                    + Array(UInt8(ascii: "0")...UInt8(ascii: "9")) where c != bytes[i] {
+                    + Array(UInt8(ascii: "0")...UInt8(ascii: "9")) where c != bytes[i]
+                {
                     var m = bytes; m[i] = c
                     let mutant = String(decoding: m, as: UTF8.self)
                     if !declared.contains(mutant) { out.append(mutant) }
@@ -154,8 +159,9 @@ struct BucketDispatchTests {
         let base = Self.prefixed.map { ($0, "v-" + $0) }
         let v = try BucketPrefixed.parse(json: Self.document(base.reversed()))
         #expect(v.item_15 == "v-item_15" && v.item_03 == "v-item_03")
-        let viaAlias = BucketPrefixed.diagnose(json: Self.document(
-            base.map { ($0.0 == "item_03" ? "item_99" : $0.0, $0.1) }))
+        let viaAlias = BucketPrefixed.diagnose(
+            json: Self.document(
+                base.map { ($0.0 == "item_03" ? "item_99" : $0.0, $0.1) }))
         #expect(viaAlias.value?.item_03 == "v-item_03")
         #expect(viaAlias.warnings.map(\.code.codeString) == ["alias_matched"])
 

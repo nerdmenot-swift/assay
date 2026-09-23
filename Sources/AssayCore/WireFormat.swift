@@ -38,14 +38,18 @@ public struct WireFormat: Sendable {
 
     /// Read the body into the format-neutral projection every non-JSON path already uses.
     /// Returns nil having reported into the sink.
-    public let decode: @Sendable (_ bytes: [UInt8], _ sink: inout IssueSink, _ limits: Limits)
-        -> RawValue?
+    public let decode:
+        @Sendable (_ bytes: [UInt8], _ sink: inout IssueSink, _ limits: Limits)
+            -> RawValue?
 
     public init(
         name: String,
         matches: @escaping @Sendable (MediaType) -> Bool,
-        decode: @escaping @Sendable (_ bytes: [UInt8], _ sink: inout IssueSink,
-                                     _ limits: Limits) -> RawValue?
+        decode:
+            @escaping @Sendable (
+                _ bytes: [UInt8], _ sink: inout IssueSink,
+                _ limits: Limits
+            ) -> RawValue?
     ) {
         self.name = name
         self.matches = matches
@@ -72,18 +76,26 @@ extension NegotiationFailure {
     public var issue: Issue {
         switch self {
         case .missingContentType:
-            return Issue(code: .missingContentType, path: [],
-                         params: ["reason": .string(
-                             "no Content-Type, and the format is never guessed from the bytes")])
+            return Issue(
+                code: .missingContentType, path: [],
+                params: [
+                    "reason": .string(
+                        "no Content-Type, and the format is never guessed from the bytes")
+                ])
         case .unsupportedMediaType(let m):
-            return Issue(code: .unsupportedMediaType, path: [],
-                         params: ["received": .string(m)], received: m)
+            return Issue(
+                code: .unsupportedMediaType, path: [],
+                params: ["received": .string(m)], received: m)
         case .unreadableCharset(let c):
-            return Issue(code: .unreadableCharset, path: [],
-                         params: ["charset": .string(c),
-                                  "reason": .string("only UTF-8 and US-ASCII are read; "
-                                                    + "this library does not transcode")],
-                         received: c)
+            return Issue(
+                code: .unreadableCharset, path: [],
+                params: [
+                    "charset": .string(c),
+                    "reason": .string(
+                        "only UTF-8 and US-ASCII are read; "
+                            + "this library does not transcode")
+                ],
+                received: c)
         }
     }
 }
@@ -104,7 +116,8 @@ public func _assayNegotiate(
         return .failure(.unreadableCharset(media.charset ?? "?"))
     }
     guard let format = accepting.first(where: { $0.matches(media) }) else {
-        let s = media.suffix.map { "\(media.type)/\(media.subtype)+\($0)" }
+        let s =
+            media.suffix.map { "\(media.type)/\(media.subtype)+\($0)" }
             ?? "\(media.type)/\(media.subtype)"
         return .failure(.unsupportedMediaType(s))
     }

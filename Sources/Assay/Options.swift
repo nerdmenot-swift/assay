@@ -10,7 +10,6 @@
 
 import AssayCore
 
-
 /// Where a field lives in an XML document. `docs/ENCODING.md`.
 ///
 ///     @XML(.attribute) var id: String        // <user id="7">
@@ -38,7 +37,6 @@ public enum XMLPlacement: Sendable {
     /// An array inside a wrapper element, so empty and absent stay distinguishable.
     case wrapped
 }
-
 
 /// Which formats a schema can decode from.
 ///
@@ -71,7 +69,6 @@ public struct SchemaFormats: OptionSet, Sendable {
     public static let all: SchemaFormats = [.json, .yaml, .xml, .toml]
 }
 
-
 /// What to do with a key the schema did not declare.
 ///
 /// `.ignore` is the default and the `Codable` behaviour. It is also the only one that
@@ -87,7 +84,6 @@ public enum UnknownKeys: Sendable {
     /// Route the key and value to the `@Extras` property.
     case collect
 }
-
 
 /// `@Schema(discriminator:)` — how a union chooses its branch. `docs/UNIONS.md`.
 ///
@@ -119,7 +115,6 @@ public struct Discriminator: Sendable, Equatable, ExpressibleByStringLiteral {
 
     public init(stringLiteral value: String) { self.storage = .key(value) }
 }
-
 
 /// How declared identifiers become wire keys.
 public enum KeyNamingStyle: Sendable {

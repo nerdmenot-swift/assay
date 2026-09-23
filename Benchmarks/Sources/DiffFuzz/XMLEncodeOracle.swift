@@ -31,8 +31,10 @@ struct XmlEnvelope {
 private final class CountingDelegate: NSObject, XMLParserDelegate {
     var elements = 0
     var failed: String?
-    func parser(_ p: XMLParser, didStartElement name: String, namespaceURI: String?,
-                qualifiedName: String?, attributes: [String: String] = [:]) {
+    func parser(
+        _ p: XMLParser, didStartElement name: String, namespaceURI: String?,
+        qualifiedName: String?, attributes: [String: String] = [:]
+    ) {
         elements += 1
     }
     func parser(_ p: XMLParser, parseErrorOccurred e: any Error) {
@@ -42,13 +44,16 @@ private final class CountingDelegate: NSObject, XMLParserDelegate {
 
 func runXMLEncodeDifferential(corpus: URL) -> Int {
     var checked = 0
-    guard let all = try? FileManager.default.contentsOfDirectory(
-        at: corpus, includingPropertiesForKeys: nil) else { return 0 }
+    guard
+        let all = try? FileManager.default.contentsOfDirectory(
+            at: corpus, includingPropertiesForKeys: nil)
+    else { return 0 }
 
     for url in all.sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
     where url.pathExtension == "json" && !url.lastPathComponent.hasPrefix("neg-") {
         guard let data = try? Data(contentsOf: url),
-              let value = try? JSON.Value.parse([UInt8](data)) else { continue }
+            let value = try? JSON.Value.parse([UInt8](data))
+        else { continue }
         let name = url.lastPathComponent
 
         let envelope = XmlEnvelope(payload: RawValue(value))
@@ -63,8 +68,9 @@ func runXMLEncodeDifferential(corpus: URL) -> Int {
         let parser = XMLParser(data: Data(d.bytes))
         parser.delegate = delegate
         guard parser.parse(), delegate.failed == nil else {
-            fail("xml-encode: Foundation rejected Assay's own XML for \(name): "
-                 + (delegate.failed ?? "unknown"))
+            fail(
+                "xml-encode: Foundation rejected Assay's own XML for \(name): "
+                    + (delegate.failed ?? "unknown"))
             continue
         }
 
@@ -76,7 +82,9 @@ func runXMLEncodeDifferential(corpus: URL) -> Int {
         }
         let mine = countElements(reparsed.root)
         if mine != delegate.elements {
-            fail("xml-encode: \(name) — Assay sees \(mine) elements, Foundation \(delegate.elements)")
+            fail(
+                "xml-encode: \(name) — Assay sees \(mine) elements, Foundation \(delegate.elements)"
+            )
         }
         checked += 1
     }
@@ -84,8 +92,9 @@ func runXMLEncodeDifferential(corpus: URL) -> Int {
 }
 
 private func countElements(_ e: XML.Element) -> Int {
-    1 + e.children.reduce(0) { acc, c in
-        if case .element(let sub) = c { return acc + countElements(sub) }
-        return acc
-    }
+    1
+        + e.children.reduce(0) { acc, c in
+            if case .element(let sub) = c { return acc + countElements(sub) }
+            return acc
+        }
 }

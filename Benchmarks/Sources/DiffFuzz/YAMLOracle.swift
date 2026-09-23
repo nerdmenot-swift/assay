@@ -162,8 +162,10 @@ func resolvePlain(_ text: String) -> YValue {
     case ".nan", ".NaN", ".NAN": return .double(.nan)
     default: break
     }
-    if let d = Double(text), text.rangeOfCharacter(
-        from: CharacterSet(charactersIn: "0123456789")) != nil {
+    if let d = Double(text),
+        text.rangeOfCharacter(
+            from: CharacterSet(charactersIn: "0123456789")) != nil
+    {
         return .double(d)
     }
     return .string(text)
@@ -229,8 +231,11 @@ func yamsValue(_ node: Yams.Node) -> YValue? {
         }
         for source in mergeSources {
             let mappings: [Yams.Node]
-            if case .sequence(let seq) = source { mappings = Array(seq) }
-            else { mappings = [source] }
+            if case .sequence(let seq) = source {
+                mappings = Array(seq)
+            } else {
+                mappings = [source]
+            }
             for m in mappings {
                 guard case .mapping(let inner) = m else { return nil }
                 for (k, v) in inner {
@@ -316,8 +321,9 @@ func sortedMappings(_ v: YValue) -> YValue {
     switch v {
     case .sequence(let a): return .sequence(a.map(sortedMappings))
     case .mapping(let m):
-        return .mapping(m.map { YValue.Member($0.key, sortedMappings($0.value)) }
-                        .sorted { $0.key < $1.key })
+        return .mapping(
+            m.map { YValue.Member($0.key, sortedMappings($0.value)) }
+                .sorted { $0.key < $1.key })
     default: return v
     }
 }
@@ -387,7 +393,9 @@ func runYAMLDoorEquivalence(_ documents: [(name: String, text: String)]) -> (Int
             continue
         }
         if treeSink.issues.map(\.code) != rawSink.issues.map(\.code) {
-            failures.append("\(name): issues differ — tree \(treeSink.issues.map(\.code.codeString)) vs direct \(rawSink.issues.map(\.code.codeString))")
+            failures.append(
+                "\(name): issues differ — tree \(treeSink.issues.map(\.code.codeString)) vs direct \(rawSink.issues.map(\.code.codeString))"
+            )
         } else if direct != projected.compactMap({ $0 }) {
             failures.append("\(name): values differ")
         }
@@ -400,9 +408,11 @@ func runJSONAsYAML(_ files: [(name: String, data: Data)]) -> YAMLOracleResult {
     var r = YAMLOracleResult()
     for (name, data) in files {
         let text = String(decoding: data, as: UTF8.self)
-        guard let object = try? JSONSerialization.jsonObject(
+        guard
+            let object = try? JSONSerialization.jsonObject(
                 with: data, options: [.fragmentsAllowed]),
-              let expected = jsonAsYValue(object) else { continue }
+            let expected = jsonAsYValue(object)
+        else { continue }
 
         guard let mine = assayYAML(text), mine.count == 1 else {
             r.assayOnlyRejected.append(name); continue

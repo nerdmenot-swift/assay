@@ -40,7 +40,7 @@ func lpad(_ s: String, _ n: Int) -> String {
 func fixed(_ d: Double, _ places: Int) -> String { String(format: "%.\(places)f", d) }
 
 struct Cell: Codable {
-    var ns: Double          // per element
+    var ns: Double  // per element
     var elements: Int
     var bytes: Int
     /// Peak resident bytes, as the child reported them. Optional so a baseline saved before
@@ -137,15 +137,18 @@ func runCount(shape: String, taskName: String, path: String, k: Int) -> Never {
 
 func flag(_ name: String) -> String? {
     guard let i = CommandLine.arguments.firstIndex(of: name),
-          i + 1 < CommandLine.arguments.count else { return nil }
+        i + 1 < CommandLine.arguments.count
+    else { return nil }
     return CommandLine.arguments[i + 1]
 }
 
 /// Spawns the child and parses its one line. A child that does not finish in `timeout`
 /// seconds is killed and reported: a hung benchmark is a benchmark bug, and it must not
 /// stall the run.
-func measure(binary: String, shape: String, task: String, path: String,
-             timeout: Double = 120) -> Cell? {
+func measure(
+    binary: String, shape: String, task: String, path: String,
+    timeout: Double = 120
+) -> Cell? {
     let p = Process()
     p.executableURL = URL(fileURLWithPath: binary)
     p.arguments = ["task", shape, task, path]
@@ -168,8 +171,9 @@ func measure(binary: String, shape: String, task: String, path: String,
         let rest = out[r.upperBound...].prefix { !$0.isWhitespace }
         return Double(rest) ?? 0
     }
-    return Cell(ns: field("ns"), elements: Int(field("elements")),
-                bytes: Int(field("bytes")), rss: Int(field("rss")))
+    return Cell(
+        ns: field("ns"), elements: Int(field("elements")),
+        bytes: Int(field("bytes")), rss: Int(field("rss")))
 }
 
 let args = CommandLine.arguments
@@ -200,7 +204,9 @@ if args.count >= 3, args[1] == "axes" {
         for size in axis.sizes {
             let path = out.appendingPathComponent("\(axis.name)-\(size).json")
             try? Data(axis.build(size)).write(to: path)
-            for task in axis.tasks { say("\(axis.name) \(axis.shape) \(task) \(size) \(path.path)") }
+            for task in axis.tasks {
+                say("\(axis.name) \(axis.shape) \(task) \(size) \(path.path)")
+            }
         }
     }
     exit(0)
@@ -219,7 +225,8 @@ if args.count >= 3, args[1] == "cells" {
 }
 
 guard args.count >= 2, args[1] == "run" else {
-    say("""
+    say(
+        """
         usage: AssayMatrix run [--reps N] [--baseline f.json] [--save f.json]
                                [--only task,task] [--shapes shape,shape]
 
@@ -255,8 +262,9 @@ say("")
 say("Assay profiling matrix — one property per fixture, one verb per task")
 say("ns is PER ELEMENT (\(elementCount) per document), so shapes are comparable.")
 say("")
-say(pad("shape", 17) + pad("moves", 34) + pad("task", 10)
-    + lpad("ns/elem", 10) + lpad("MB/s", 8) + lpad("peak MB", 9) + "  notes")
+say(
+    pad("shape", 17) + pad("moves", 34) + pad("task", 10)
+        + lpad("ns/elem", 10) + lpad("MB/s", 8) + lpad("peak MB", 9) + "  notes")
 say(String(repeating: "-", count: 96))
 
 // TWO THRESHOLDS, BOTH TAKEN FROM MEASURED NOISE RATHER THAN CHOSEN.
@@ -303,8 +311,9 @@ for s in shapes where onlyShapes.map({ $0.contains(s.name) }) ?? true {
         if let was = baseline[key], was.ns > 0 {
             let delta = (cell.ns - was.ns) / was.ns * 100
             if abs(delta) >= reportThreshold {
-                notes.append("\(delta > 0 ? "+" : "")\(fixed(delta, 0))% time"
-                             + (abs(delta) >= gateThreshold ? " !" : ""))
+                notes.append(
+                    "\(delta > 0 ? "+" : "")\(fixed(delta, 0))% time"
+                        + (abs(delta) >= gateThreshold ? " !" : ""))
                 flagged += 1
                 if abs(delta) >= gateThreshold { gateBreaches += 1 }
             }
@@ -319,17 +328,19 @@ for s in shapes where onlyShapes.map({ $0.contains(s.name) }) ?? true {
             // only time reports the cost of that trade and hides the gain. Peak RSS is far
             // steadier than time across runs, so 10% prints and 25% gates.
             if abs(delta) >= 10 {
-                notes.append("\(delta > 0 ? "+" : "")\(fixed(delta, 0))% memory"
-                             + (abs(delta) >= 25 ? " !" : ""))
+                notes.append(
+                    "\(delta > 0 ? "+" : "")\(fixed(delta, 0))% memory"
+                        + (abs(delta) >= 25 ? " !" : ""))
                 flagged += 1
                 if abs(delta) >= 25 { gateBreaches += 1 }
             }
         }
-        say(label + pad(t.name, 10)
-            + lpad(fixed(cell.ns, 1), 10)
-            + lpad(fixed(mbs, 0), 8)
-            + lpad(cell.rss.map { fixed(Double($0) / 1e6, 1) } ?? "-", 9)
-            + (notes.isEmpty ? "" : "  " + notes.joined(separator: ", ")))
+        say(
+            label + pad(t.name, 10)
+                + lpad(fixed(cell.ns, 1), 10)
+                + lpad(fixed(mbs, 0), 8)
+                + lpad(cell.rss.map { fixed(Double($0) / 1e6, 1) } ?? "-", 9)
+                + (notes.isEmpty ? "" : "  " + notes.joined(separator: ", ")))
     }
 }
 
@@ -339,9 +350,12 @@ if let sp = flag("--save"), let data = try? JSONEncoder().encode(results) {
     say("saved \(results.count) cells to \(sp)")
 }
 say("")
-say("\(results.count) cells"
-    + (baseline.isEmpty ? "" :
-        ", \(flagged) moved over \(Int(reportThreshold))%, \(gateBreaches) over \(Int(gateThreshold))% (marked !)"))
+say(
+    "\(results.count) cells"
+        + (baseline.isEmpty
+            ? ""
+            : ", \(flagged) moved over \(Int(reportThreshold))%, \(gateBreaches) over \(Int(gateThreshold))% (marked !)")
+)
 if CommandLine.arguments.contains("--gate"), gateBreaches > 0 {
     say("GATE FAILED: \(gateBreaches) cells moved more than the measured noise floor explains")
     exit(1)

@@ -75,37 +75,44 @@ public enum UTF8Validation {
                 i &+= 2
             } else if c0 == 0xE0 {
                 guard i &+ 2 < count,
-                      unsafe base[i &+ 1] >= 0xA0, unsafe base[i &+ 1] <= 0xBF,   // no overlong
-                      isCont(unsafe base[i &+ 2]) else { return i }
+                    unsafe base[i &+ 1] >= 0xA0, unsafe base[i &+ 1] <= 0xBF,  // no overlong
+                    isCont(unsafe base[i &+ 2])
+                else { return i }
                 i &+= 3
             } else if c0 >= 0xE1 && c0 <= 0xEC {
                 guard i &+ 2 < count,
-                      isCont(unsafe base[i &+ 1]), isCont(unsafe base[i &+ 2]) else { return i }
+                    isCont(unsafe base[i &+ 1]), isCont(unsafe base[i &+ 2])
+                else { return i }
                 i &+= 3
             } else if c0 == 0xED {
                 guard i &+ 2 < count,
-                      unsafe base[i &+ 1] >= 0x80, unsafe base[i &+ 1] <= 0x9F,   // no surrogate
-                      isCont(unsafe base[i &+ 2]) else { return i }
+                    unsafe base[i &+ 1] >= 0x80, unsafe base[i &+ 1] <= 0x9F,  // no surrogate
+                    isCont(unsafe base[i &+ 2])
+                else { return i }
                 i &+= 3
             } else if c0 >= 0xEE && c0 <= 0xEF {
                 guard i &+ 2 < count,
-                      isCont(unsafe base[i &+ 1]), isCont(unsafe base[i &+ 2]) else { return i }
+                    isCont(unsafe base[i &+ 1]), isCont(unsafe base[i &+ 2])
+                else { return i }
                 i &+= 3
             } else if c0 == 0xF0 {
                 guard i &+ 3 < count,
-                      unsafe base[i &+ 1] >= 0x90, unsafe base[i &+ 1] <= 0xBF,   // no overlong
-                      isCont(unsafe base[i &+ 2]), isCont(unsafe base[i &+ 3]) else { return i }
+                    unsafe base[i &+ 1] >= 0x90, unsafe base[i &+ 1] <= 0xBF,  // no overlong
+                    isCont(unsafe base[i &+ 2]), isCont(unsafe base[i &+ 3])
+                else { return i }
                 i &+= 4
             } else if c0 >= 0xF1 && c0 <= 0xF3 {
                 guard i &+ 3 < count,
-                      isCont(unsafe base[i &+ 1]),
-                      isCont(unsafe base[i &+ 2]),
-                      isCont(unsafe base[i &+ 3]) else { return i }
+                    isCont(unsafe base[i &+ 1]),
+                    isCont(unsafe base[i &+ 2]),
+                    isCont(unsafe base[i &+ 3])
+                else { return i }
                 i &+= 4
             } else if c0 == 0xF4 {
                 guard i &+ 3 < count,
-                      unsafe base[i &+ 1] >= 0x80, unsafe base[i &+ 1] <= 0x8F,   // <= U+10FFFF
-                      isCont(unsafe base[i &+ 2]), isCont(unsafe base[i &+ 3]) else { return i }
+                    unsafe base[i &+ 1] >= 0x80, unsafe base[i &+ 1] <= 0x8F,  // <= U+10FFFF
+                    isCont(unsafe base[i &+ 2]), isCont(unsafe base[i &+ 3])
+                else { return i }
                 i &+= 4
             } else {
                 // 0x80-0xC1 as a lead byte, or 0xF5-0xFF: always invalid.

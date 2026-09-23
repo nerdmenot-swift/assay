@@ -71,7 +71,9 @@ import AssayCore
 // `encodes: true` since 2026-09-19, so `nested-3/encode` measures what a NESTED field costs on
 // the write side; every other encode cell is flat.
 @Schema(formats: .all, encodes: true) struct MInner2: Equatable { var h0: String }
-@Schema(formats: .all, encodes: true) struct MInner1: Equatable { var g0: String; var inner: MInner2 }
+@Schema(formats: .all, encodes: true) struct MInner1: Equatable {
+    var g0: String; var inner: MInner2
+}
 @Schema(formats: .all, encodes: true) struct MNested: Equatable {
     var f0: String; var f1: String; var f2: String; var f3: String
     var inner: MInner1

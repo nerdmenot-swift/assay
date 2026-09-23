@@ -26,13 +26,16 @@ struct EncodedEnvelope {
 
 func runEncodeDifferential(corpus: URL) -> Int {
     var checked = 0
-    guard let all = try? FileManager.default.contentsOfDirectory(
-        at: corpus, includingPropertiesForKeys: nil) else { return 0 }
+    guard
+        let all = try? FileManager.default.contentsOfDirectory(
+            at: corpus, includingPropertiesForKeys: nil)
+    else { return 0 }
 
     for url in all.sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
     where url.pathExtension == "json" && !url.lastPathComponent.hasPrefix("neg-") {
         guard let data = try? Data(contentsOf: url),
-              let value = try? JSON.Value.parse([UInt8](data)) else { continue }
+            let value = try? JSON.Value.parse([UInt8](data))
+        else { continue }
         let name = url.lastPathComponent
 
         let envelope = EncodedEnvelope(payload: RawValue(value))
@@ -44,9 +47,11 @@ func runEncodeDifferential(corpus: URL) -> Int {
 
         // 1. Foundation must accept the bytes at all. This is the check Assay's own
         //    parser cannot make — it is lenient in exactly the places Assay is.
-        guard let theirs = try? JSONSerialization.jsonObject(
+        guard
+            let theirs = try? JSONSerialization.jsonObject(
                 with: Data(d.bytes), options: [.fragmentsAllowed]) as? [String: Any],
-              let theirPayload = theirs["payload"] else {
+            let theirPayload = theirs["payload"]
+        else {
             fail("encode: Foundation rejected Assay's own output for \(name)")
             continue
         }

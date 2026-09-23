@@ -94,8 +94,12 @@ func allShapes() -> [Shape] {
     let longValue: (Int) -> String = { _ in String(repeating: "x", count: 40) }
 
     // ---- the base ----
-    add("base", "—", document((0..<n).map { _ in
-        stringElement(fields: 5, key: shortKey, value: shortValue) }))
+    add(
+        "base", "—",
+        document(
+            (0..<n).map { _ in
+                stringElement(fields: 5, key: shortKey, value: shortValue)
+            }))
 
     // ---- field count ----
     //
@@ -107,29 +111,64 @@ func allShapes() -> [Shape] {
     // The axis has a proper home now in `AssayBench fieldsweep`, where key width is held
     // constant and every count is inside the real ceiling.
     for fields in [2, 20] {
-        add("fields-\(fields)", "field count \(fields)", document((0..<n).map { _ in
-            stringElement(fields: fields, key: shortKey, value: shortValue) }))
+        add(
+            "fields-\(fields)", "field count \(fields)",
+            document(
+                (0..<n).map { _ in
+                    stringElement(fields: fields, key: shortKey, value: shortValue)
+                }))
     }
 
     // ---- key length: the small-string boundary ----
-    add("keys-long", "key length > 15 bytes", document((0..<n).map { _ in
-        stringElement(fields: 5, key: longKey, value: shortValue) }))
+    add(
+        "keys-long", "key length > 15 bytes",
+        document(
+            (0..<n).map { _ in
+                stringElement(fields: 5, key: longKey, value: shortValue)
+            }))
 
     // ---- value width: the same boundary on the value side ----
-    add("values-long", "value length 40 bytes", document((0..<n).map { _ in
-        stringElement(fields: 5, key: shortKey, value: longValue) }))
+    add(
+        "values-long", "value length 40 bytes",
+        document(
+            (0..<n).map { _ in
+                stringElement(fields: 5, key: shortKey, value: longValue)
+            }))
 
     // ---- value type ----
-    add("values-int", "Int64 values", document((0..<n).map { i in
-        "{" + (0..<5).map { "\(quote(shortKey($0))):\(i &* 7 &+ $0)" }.joined(separator: ",") + "}" }))
-    add("values-double", "Double values", document((0..<n).map { i in
-        "{" + (0..<5).map { "\(quote(shortKey($0))):\(Double(i) + Double($0) * 0.25)" }.joined(separator: ",") + "}" }))
-    add("values-bool", "Bool values", document((0..<n).map { i in
-        "{" + (0..<5).map { "\(quote(shortKey($0))):\((i + $0) % 2 == 0)" }.joined(separator: ",") + "}" }))
-    add("values-date", "ISO-8601 Date values", document((0..<n).map { i in
-        "{" + (0..<5).map {
-            "\(quote(shortKey($0))):\"2026-09-\(String(format: "%02d", 1 + (i + $0) % 28))T12:34:56Z\""
-        }.joined(separator: ",") + "}" }))
+    add(
+        "values-int", "Int64 values",
+        document(
+            (0..<n).map { i in
+                "{"
+                    + (0..<5).map { "\(quote(shortKey($0))):\(i &* 7 &+ $0)" }.joined(
+                        separator: ",") + "}"
+            }))
+    add(
+        "values-double", "Double values",
+        document(
+            (0..<n).map { i in
+                "{"
+                    + (0..<5).map { "\(quote(shortKey($0))):\(Double(i) + Double($0) * 0.25)" }
+                    .joined(separator: ",") + "}"
+            }))
+    add(
+        "values-bool", "Bool values",
+        document(
+            (0..<n).map { i in
+                "{"
+                    + (0..<5).map { "\(quote(shortKey($0))):\((i + $0) % 2 == 0)" }.joined(
+                        separator: ",") + "}"
+            }))
+    add(
+        "values-date", "ISO-8601 Date values",
+        document(
+            (0..<n).map { i in
+                "{"
+                    + (0..<5).map {
+                        "\(quote(shortKey($0))):\"2026-09-\(String(format: "%02d", 1 + (i + $0) % 28))T12:34:56Z\""
+                    }.joined(separator: ",") + "}"
+            }))
 
     // ---- escape density: the memcpy/transform fork ----
     //
@@ -142,60 +181,98 @@ func allShapes() -> [Shape] {
     // 0% is included so the axis is self-contained: comparing against `base` would drag
     // value width back in, since base values are two bytes and these are nine.
     for pct in [0, 10, 100] {
-        add("escapes-\(pct)", "\(pct)% of values carry an escape", document((0..<n).map { i in
-            let escaped = pct == 100 || (i * 100 / n) < pct
-            return stringElement(fields: 5, key: shortKey,
-                                 value: { escaped ? "abcd\\nefgh\($0)" : "abcd_efgh\($0)" })
-        }))
+        add(
+            "escapes-\(pct)", "\(pct)% of values carry an escape",
+            document(
+                (0..<n).map { i in
+                    let escaped = pct == 100 || (i * 100 / n) < pct
+                    return stringElement(
+                        fields: 5, key: shortKey,
+                        value: { escaped ? "abcd\\nefgh\($0)" : "abcd_efgh\($0)" })
+                }))
     }
 
     // ---- shape: nesting and arrays ----
-    add("nested-3", "one nested object, 3 deep", document((0..<n).map { _ in
-        "{\"f0\":\"v0\",\"f1\":\"v1\",\"f2\":\"v2\",\"f3\":\"v3\","
-        + "\"inner\":{\"g0\":\"w0\",\"inner\":{\"h0\":\"z0\"}}}" }))
-    add("array-10", "one array field of 10 strings", document((0..<n).map { _ in
-        "{\"f0\":\"v0\",\"f1\":\"v1\",\"f2\":\"v2\",\"f3\":\"v3\","
-        + "\"tags\":[" + (0..<10).map { "\"t\($0)\"" }.joined(separator: ",") + "]}" }))
+    add(
+        "nested-3", "one nested object, 3 deep",
+        document(
+            (0..<n).map { _ in
+                "{\"f0\":\"v0\",\"f1\":\"v1\",\"f2\":\"v2\",\"f3\":\"v3\","
+                    + "\"inner\":{\"g0\":\"w0\",\"inner\":{\"h0\":\"z0\"}}}"
+            }))
+    add(
+        "array-10", "one array field of 10 strings",
+        document(
+            (0..<n).map { _ in
+                "{\"f0\":\"v0\",\"f1\":\"v1\",\"f2\":\"v2\",\"f3\":\"v3\","
+                    + "\"tags\":[" + (0..<10).map { "\"t\($0)\"" }.joined(separator: ",") + "]}"
+            }))
 
     // The SAME field with a long array: 31 records of 640 strings against 2,000 of ten, so
     // both cells hold ~20,000 elements and the only difference is how many are in one
     // container. It exists because `array-10` alone made the scalar pre-count look like a win
     // (`docs/EFFICIENCY.md` row 2): a per-array cost is invisible when every array is ten
     // elements long, and the corpus's arrays run to 9,510.
-    add("array-640", "one array field of 640 strings", document((0..<(n / 64)).map { _ in
-        "{\"f0\":\"v0\",\"f1\":\"v1\",\"f2\":\"v2\",\"f3\":\"v3\","
-        + "\"tags\":[" + (0..<640).map { "\"t\($0)\"" }.joined(separator: ",") + "]}" }))
+    add(
+        "array-640", "one array field of 640 strings",
+        document(
+            (0..<(n / 64)).map { _ in
+                "{\"f0\":\"v0\",\"f1\":\"v1\",\"f2\":\"v2\",\"f3\":\"v3\","
+                    + "\"tags\":[" + (0..<640).map { "\"t\($0)\"" }.joined(separator: ",") + "]}"
+            }))
 
     // Sibling collections of objects, plus a dictionary per record: see `MGroup`.
-    add("groups-10", "200 records, each a 10-object array and a 5-key dictionary",
+    add(
+        "groups-10", "200 records, each a 10-object array and a 5-key dictionary",
         document((0..<(n / 10)).map { _ in groupRecord() }))
 
     // ---- absence: the five presence states meet the wire here ----
     add("optional-absent", "5 optional fields, all absent", document((0..<n).map { _ in "{}" }))
-    add("optional-null", "5 optional fields, all null", document((0..<n).map { _ in
-        "{" + (0..<5).map { "\(quote(shortKey($0))):null" }.joined(separator: ",") + "}" }))
+    add(
+        "optional-null", "5 optional fields, all null",
+        document(
+            (0..<n).map { _ in
+                "{" + (0..<5).map { "\(quote(shortKey($0))):null" }.joined(separator: ",") + "}"
+            }))
 
     // ---- unknown keys: the structural skip ----
-    add("unknown-5", "5 unknown keys beside 5 known", document((0..<n).map { _ in
-        "{" + (0..<5).map { "\(quote(shortKey($0))):\(quote("v\($0)"))" }.joined(separator: ",")
-        + "," + (0..<5).map { "\(quote("u\($0)")):\(quote("w\($0)"))" }.joined(separator: ",") + "}" }))
+    add(
+        "unknown-5", "5 unknown keys beside 5 known",
+        document(
+            (0..<n).map { _ in
+                "{"
+                    + (0..<5).map { "\(quote(shortKey($0))):\(quote("v\($0)"))" }.joined(
+                        separator: ",")
+                    + ","
+                    + (0..<5).map { "\(quote("u\($0)")):\(quote("w\($0)"))" }.joined(separator: ",")
+                    + "}"
+            }))
 
     // ---- whitespace ----
-    add("pretty", "pretty-printed, not minified", document((0..<n).map { _ in
-        stringElement(fields: 5, key: shortKey, value: shortValue) }, pretty: true))
+    add(
+        "pretty", "pretty-printed, not minified",
+        document(
+            (0..<n).map { _ in
+                stringElement(fields: 5, key: shortKey, value: shortValue)
+            }, pretty: true))
 
     // ---- error density: the claim is that this path is FAST ----
     for pct in [1, 10, 100] {
-        add("errors-\(pct)", "\(pct)% of elements have a type error", document((0..<n).map { i in
-            let bad = (i * 100 / n) < pct || pct == 100
-            if bad {
-                // f0 arrives as a number where a String is declared: one issue per element,
-                // and the decoder must resynchronise and carry on.
-                return "{\"f0\":123," + (1..<5).map {
-                    "\(quote(shortKey($0))):\(quote("v\($0)"))" }.joined(separator: ",") + "}"
-            }
-            return stringElement(fields: 5, key: shortKey, value: shortValue)
-        }))
+        add(
+            "errors-\(pct)", "\(pct)% of elements have a type error",
+            document(
+                (0..<n).map { i in
+                    let bad = (i * 100 / n) < pct || pct == 100
+                    if bad {
+                        // f0 arrives as a number where a String is declared: one issue per element,
+                        // and the decoder must resynchronise and carry on.
+                        return "{\"f0\":123,"
+                            + (1..<5).map {
+                                "\(quote(shortKey($0))):\(quote("v\($0)"))"
+                            }.joined(separator: ",") + "}"
+                    }
+                    return stringElement(fields: 5, key: shortKey, value: shortValue)
+                }))
     }
 
     return out
@@ -239,28 +316,42 @@ func allAxes() -> [Axis] {
     let lengths = [16, 64, 256, 1_024]
     let fixed = 200
     return [
-        Axis(name: "elements", shape: "base",
-             tasks: ["struct", "diagnose", "skip", "value", "raw", "encode", "validate"],
-             sizes: counts) { n in
+        Axis(
+            name: "elements", shape: "base",
+            tasks: ["struct", "diagnose", "skip", "value", "raw", "encode", "validate"],
+            sizes: counts
+        ) { n in
             document((0..<n).map { _ in stringElement(fields: 5, key: shortKey, value: value) })
         },
-        Axis(name: "value-length", shape: "base",
-             tasks: ["struct", "skip", "value", "encode", "validate"], sizes: lengths) { len in
-            document((0..<fixed).map { _ in
-                stringElement(fields: 5, key: shortKey) { _ in String(repeating: "x", count: len) } })
+        Axis(
+            name: "value-length", shape: "base",
+            tasks: ["struct", "skip", "value", "encode", "validate"], sizes: lengths
+        ) { len in
+            document(
+                (0..<fixed).map { _ in
+                    stringElement(fields: 5, key: shortKey) { _ in
+                        String(repeating: "x", count: len)
+                    }
+                })
         },
         // Sibling containers of objects: the count of RECORDS rises, so the per-record
         // array and dictionary are hinted from the record before them.
-        Axis(name: "groups", shape: "groups-10", tasks: ["struct", "value"],
-             sizes: [125, 250, 500, 1_000]) { n in
+        Axis(
+            name: "groups", shape: "groups-10", tasks: ["struct", "value"],
+            sizes: [125, 250, 500, 1_000]
+        ) { n in
             document((0..<n).map { _ in groupRecord() })
         },
         // Escaped values take the slow path, which has its own buffer and its own loop.
-        Axis(name: "escaped-length", shape: "escapes-100", tasks: ["struct", "value"],
-             sizes: lengths) { len in
+        Axis(
+            name: "escaped-length", shape: "escapes-100", tasks: ["struct", "value"],
+            sizes: lengths
+        ) { len in
             let v = String(repeating: "ab\n", count: max(1, len / 3))
-            return document((0..<fixed).map { _ in
-                stringElement(fields: 5, key: shortKey) { _ in v } })
+            return document(
+                (0..<fixed).map { _ in
+                    stringElement(fields: 5, key: shortKey) { _ in v }
+                })
         },
         // Undeclared keys: the structural skip must be linear in what it skips.
         // Escaped strings × element count. The axis above holds the document small, so it
@@ -268,31 +359,51 @@ func allAxes() -> [Axis] {
         // reserved the REST OF THE DOCUMENT (masked to 16 bits) as its unescape buffer, so
         // heap per call grew with elements × document size. Sizes stay under 64 kB, where
         // the mask cannot wrap and hide it.
-        Axis(name: "escaped-elements", shape: "escapes-100", tasks: ["struct", "skip", "value"],
-             sizes: [50, 100, 200, 400]) { n in
-            document((0..<n).map { i in
-                stringElement(fields: 5, key: shortKey) { _ in "line\nbreak\(i)" } })
+        Axis(
+            name: "escaped-elements", shape: "escapes-100", tasks: ["struct", "skip", "value"],
+            sizes: [50, 100, 200, 400]
+        ) { n in
+            document(
+                (0..<n).map { i in
+                    stringElement(fields: 5, key: shortKey) { _ in "line\nbreak\(i)" }
+                })
         },
-        Axis(name: "unknown-key-length", shape: "unknown-5", tasks: ["struct", "skip", "value"],
-             sizes: lengths) { len in
-            document((0..<fixed).map { _ in
-                "{" + (0..<5).map { "\(quote(shortKey($0))):\(quote("v\($0)"))" }
-                    .joined(separator: ",") + ","
-                + (0..<5).map { "\(quote("u\($0)" + String(repeating: "k", count: len))):\"w\"" }
-                    .joined(separator: ",") + "}" })
+        Axis(
+            name: "unknown-key-length", shape: "unknown-5", tasks: ["struct", "skip", "value"],
+            sizes: lengths
+        ) { len in
+            document(
+                (0..<fixed).map { _ in
+                    "{"
+                        + (0..<5).map { "\(quote(shortKey($0))):\(quote("v\($0)"))" }
+                        .joined(separator: ",") + ","
+                        + (0..<5).map {
+                            "\(quote("u\($0)" + String(repeating: "k", count: len))):\"w\""
+                        }
+                        .joined(separator: ",") + "}"
+                })
         },
-        Axis(name: "unknown-key-count", shape: "unknown-5", tasks: ["struct", "skip"],
-             sizes: [5, 10, 20, 40]) { k in
-            document((0..<fixed).map { _ in
-                "{" + (0..<5).map { "\(quote(shortKey($0))):\(quote("v\($0)"))" }
-                    .joined(separator: ",") + ","
-                + (0..<k).map { "\(quote("u\($0)")):\"w\"" }.joined(separator: ",") + "}" })
+        Axis(
+            name: "unknown-key-count", shape: "unknown-5", tasks: ["struct", "skip"],
+            sizes: [5, 10, 20, 40]
+        ) { k in
+            document(
+                (0..<fixed).map { _ in
+                    "{"
+                        + (0..<5).map { "\(quote(shortKey($0))):\(quote("v\($0)"))" }
+                        .joined(separator: ",") + ","
+                        + (0..<k).map { "\(quote("u\($0)")):\"w\"" }.joined(separator: ",") + "}"
+                })
         },
-        Axis(name: "array-length", shape: "array-10", tasks: ["struct", "value", "raw"],
-             sizes: [10, 40, 160, 640]) { len in
-            document((0..<fixed).map { _ in
-                "{\"f0\":\"v0\",\"f1\":\"v1\",\"f2\":\"v2\",\"f3\":\"v3\",\"tags\":["
-                + (0..<len).map { "\"t\($0)\"" }.joined(separator: ",") + "]}" })
+        Axis(
+            name: "array-length", shape: "array-10", tasks: ["struct", "value", "raw"],
+            sizes: [10, 40, 160, 640]
+        ) { len in
+            document(
+                (0..<fixed).map { _ in
+                    "{\"f0\":\"v0\",\"f1\":\"v1\",\"f2\":\"v2\",\"f3\":\"v3\",\"tags\":["
+                        + (0..<len).map { "\"t\($0)\"" }.joined(separator: ",") + "]}"
+                })
         },
         // Depth stays under `Limits.maxDepth` (64) with the two wrapping levels.
         Axis(name: "depth", shape: "base", tasks: ["value", "raw"], sizes: [7, 14, 28, 56]) { d in
@@ -304,10 +415,14 @@ func allAxes() -> [Axis] {
         },
         // Every element carries a type error. Past `maxIssues` the sink stops keeping them,
         // and the decode must stay linear on both sides of that line.
-        Axis(name: "issues", shape: "errors-100", tasks: ["diagnose", "value"], sizes: counts) { n in
-            document((0..<n).map { _ in
-                "{\"f0\":123," + (1..<5).map { "\(quote(shortKey($0))):\(quote("v\($0)"))" }
-                    .joined(separator: ",") + "}" })
-        },
+        Axis(name: "issues", shape: "errors-100", tasks: ["diagnose", "value"], sizes: counts) {
+            n in
+            document(
+                (0..<n).map { _ in
+                    "{\"f0\":123,"
+                        + (1..<5).map { "\(quote(shortKey($0))):\(quote("v\($0)"))" }
+                        .joined(separator: ",") + "}"
+                })
+        }
     ]
 }

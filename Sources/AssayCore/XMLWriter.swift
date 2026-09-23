@@ -119,7 +119,7 @@ public struct XMLWriter: ~Copyable {
     @inlinable
     mutating func closeStartTag() {
         if inStartTag {
-            byte(0x3E)                     // >
+            byte(0x3E)  // >
             inStartTag = false
         }
     }
@@ -138,7 +138,7 @@ public struct XMLWriter: ~Copyable {
         closeStartTag()
         if !hasChildElements.isEmpty { hasChildElements[hasChildElements.count - 1] = true }
         indent()
-        byte(0x3C)                         // <
+        byte(0x3C)  // <
         raw(name)
         inStartTag = true
         depth &+= 1
@@ -254,11 +254,12 @@ public struct XMLWriter: ~Copyable {
         _ v: Double, _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> String {
         guard v.isFinite else {
-            sink.add(Issue(
-                code: .unrepresentableValue,
-                path: path + [.key(String(describing: key))],
-                params: ["format": .string("XML")],
-                received: v.isNaN ? "NaN" : (v > 0 ? "Infinity" : "-Infinity")))
+            sink.add(
+                Issue(
+                    code: .unrepresentableValue,
+                    path: path + [.key(String(describing: key))],
+                    params: ["format": .string("XML")],
+                    received: v.isNaN ? "NaN" : (v > 0 ? "Infinity" : "-Infinity")))
             return "0"
         }
         if v == v.rounded(), abs(v) < 9_007_199_254_740_992 { return String(Int64(v)) }
@@ -273,8 +274,9 @@ public struct XMLWriter: ~Copyable {
 @inlinable
 public func _assayXMLDate(_ seconds: Double, _ formats: [DateFormat]) -> String {
     switch formats.first ?? .iso8601 {
-    case .unixSeconds: return seconds == seconds.rounded() ? String(Int64(seconds)) : String(seconds)
-    case .unixMillis:  return String(Int64(seconds * 1_000))
+    case .unixSeconds:
+        return seconds == seconds.rounded() ? String(Int64(seconds)) : String(seconds)
+    case .unixMillis: return String(Int64(seconds * 1_000))
     case .iso8601, .rfc9110, .pattern:
         return seconds.isFinite ? DateParser.formatISO8601(seconds) : ""
     }
@@ -289,9 +291,9 @@ public func _assayEncodeRawXML(
     into sink: inout IssueSink, at path: [PathStep]
 ) {
     switch v {
-    case .null:          w.beginElement(name); w.endElement(name)
-    case .bool(let b):   w.element(name, b ? "true" : "false")
-    case .int(let i):    w.element(name, String(i))
+    case .null: w.beginElement(name); w.endElement(name)
+    case .bool(let b): w.element(name, b ? "true" : "false")
+    case .int(let i): w.element(name, String(i))
     case .double(let d): w.element(name, w.doubleText(d, &sink, path, ""))
     case .string(let s): w.element(name, s)
     case .sequence(let xs):

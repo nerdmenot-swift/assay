@@ -139,7 +139,6 @@ extension RawValue {
 
 // MARK: - Hashable and the NaN problem
 
-
 /// The bit pattern to hash and compare a `Double` by, with every NaN folded to one.
 ///
 /// Comparing `.double` by raw bit pattern is what makes these models usable in a `Set` or

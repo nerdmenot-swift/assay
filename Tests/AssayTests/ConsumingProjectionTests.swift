@@ -26,7 +26,7 @@ import AssayCore
         "{}",
         "[]",
         "plain scalar",
-        "base: &b {k: v}\nuse: *b\n",
+        "base: &b {k: v}\nuse: *b\n"
     ]
 
     @Test(arguments: documents)
@@ -51,8 +51,11 @@ import AssayCore
 
     @Test func emptyMappingStaysAMapping() throws {
         var sink = IssueSink()
-        let doc = try #require(YAML.decodeAll(Array("{}".utf8), into: &sink,
-                                              limits: .default).first)
+        let doc = try #require(
+            YAML.decodeAll(
+                Array("{}".utf8), into: &sink,
+                limits: .default
+            ).first)
         guard case .mapping(let m)? = RawValue(consuming: doc) else {
             Issue.record("expected an empty mapping"); return
         }
@@ -66,7 +69,7 @@ import AssayCore
         "title = \"x\"\n[[items]]\nid = 1\ntags = [\"a\", \"b\"]\n[items.sub]\nk = 2\n[[items]]\nid = 2\ntags = []\n",
         "a = {}\nb = []\nc = [[1, 2], [], [{x = 1}]]\nd = 1979-05-27T07:32:00Z\n",
         "",
-        "[t]\n[t.u]\nv = 1.5\nw = true\n",
+        "[t]\n[t.u]\nv = 1.5\nw = true\n"
     ]
 
     @Test(arguments: documents)
@@ -99,7 +102,7 @@ import AssayCore
         "<r><a>one<!-- c -->two<![CDATA[three]]></a><e/><w>   </w></r>",
         "<r xmlns:p=\"urn:p\"><p:x p:attr=\"v\">1</p:x></r>",
         "<only>leaf</only>",
-        "<empty/>",
+        "<empty/>"
     ]
 
     @Test(arguments: documents)
@@ -118,13 +121,15 @@ import AssayCore
 @Suite struct YAMLResolutionFastPathTests {
 
     static var scalars: [String] {
-        var out: [String] = ["", "~", "null", "Null", "NULL", "nul", "true", "True", "TRUE",
+        var out: [String] = [
+            "", "~", "null", "Null", "NULL", "nul", "true", "True", "TRUE",
             "tRue", "false", "False", "FALSE", ".inf", ".Inf", ".INF", "+.inf", "-.inf",
             "-.Inf", ".nan", ".NaN", ".NAN", "inf", "Inf", "INF", "nan", "NaN", "infinity",
             "Infinity", "-infinity", "+infinity", "0", "-0", "+0", "12", "-12", "+12",
             "007", "1_000", "0x1F", "0x1p3", "0o17", "1e3", "1E-3", "1e309", "1e-400",
             "0.0e-400", ".5", "-.5", "+.5", "5.", "1.2.3", "12abc", " 12", "12 ", "-",
-            "+", ".", "e3", "E3", "yes", "no", "on", "off", "Y", "n", "t", "f"]
+            "+", ".", "e3", "E3", "yes", "no", "on", "off", "Y", "n", "t", "f"
+        ]
         for b in UInt8(0x21)...UInt8(0x7E) {
             let c = String(UnicodeScalar(b))
             out.append(c); out.append(c + "1"); out.append(c + "abc"); out.append(c + "inf")
@@ -163,7 +168,7 @@ private extension RawValue {
             "l: |\n  one\n  two\nf: >\n  folded\n  text\n",
             "empty:\nnull_: ~\nzero: 0\nneg: -1\nbig: 1e309\n",
             "# only a comment\n",
-            "- - 1\n  - 2\n- k: v\n",
+            "- - 1\n  - 2\n- k: v\n"
         ]
     }
 
@@ -220,7 +225,7 @@ private extension RawValue {
             "<r><a/><a/><a>3</a></r>",
             "<r>before<!-- c -->after</r>",
             "<r><![CDATA[raw]]>tail</r>",
-            "<r xmlns:p=\"urn:p\" p:a=\"1\"><p:x>2</p:x></r>",
+            "<r xmlns:p=\"urn:p\" p:a=\"1\"><p:x>2</p:x></r>"
         ]
     }
 

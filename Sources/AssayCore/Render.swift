@@ -102,10 +102,13 @@ public enum Renderer {
         // deepest offset any of them reports, so rendering a caret from a mapped file
         // does not index the whole file. See LineIndex.init(_:_:indexingThrough:).
         let horizon = renderHorizon(issues, warnings)
-        let index = source.count > 0 ? unsafe source.withUnsafeBytes { buf in
-            unsafe LineIndex(buf.baseAddress!.assumingMemoryBound(to: UInt8.self),
-                             buf.count, indexingThrough: horizon)
-        } : nil
+        let index =
+            source.count > 0
+            ? unsafe source.withUnsafeBytes { buf in
+                unsafe LineIndex(
+                    buf.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                    buf.count, indexingThrough: horizon)
+            } : nil
 
         // Ordered by position; location-less issues keep collection order at the end.
         let orderedIssues = issues.enumerated().sorted {
@@ -158,12 +161,15 @@ public enum Renderer {
 
         if let span = location, let index, Int(span.lo) < source.count {
             let (line, column) = index.lineAndColumn(of: span.lo)
-            out += "\(bold)\(sourceName):\(line):\(column):\(reset) "
+            out +=
+                "\(bold)\(sourceName):\(line):\(column):\(reset) "
                 + "\(severityColor)\(bold)\(severity):\(reset) \(bold)\(sentence)\(reset)\n"
-            out += snippet(around: line, caretColumn: column,
-                           caretLength: Int(span.len), index: index, source: source)
+            out += snippet(
+                around: line, caretColumn: column,
+                caretLength: Int(span.len), index: index, source: source)
         } else {
-            out += "\(bold)\(sourceName):\(reset) "
+            out +=
+                "\(bold)\(sourceName):\(reset) "
                 + "\(severityColor)\(bold)\(severity):\(reset) \(bold)\(sentence)\(reset)\n"
         }
         out += "\n"
@@ -224,22 +230,31 @@ public enum Renderer {
         _ source: SourceBytes, _ sourceName: String
     ) -> String {
         let horizon = renderHorizon(issues, warnings)
-        let index = source.count > 0 ? unsafe source.withUnsafeBytes { buf in
-            unsafe LineIndex(buf.baseAddress!.assumingMemoryBound(to: UInt8.self),
-                             buf.count, indexingThrough: horizon)
-        } : nil
+        let index =
+            source.count > 0
+            ? unsafe source.withUnsafeBytes { buf in
+                unsafe LineIndex(
+                    buf.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                    buf.count, indexingThrough: horizon)
+            } : nil
 
         var out = "{"
         out += "\"source\":\(jsonString(sourceName)),"
         out += "\"valid\":\(issues.isEmpty ? "true" : "false"),"
         out += "\"issues\":["
-        out += issues.map { entry($0.code, $0.path, $0.message, $0.params,
-                                  $0.received, $0.location, index) }
-            .joined(separator: ",")
+        out += issues.map {
+            entry(
+                $0.code, $0.path, $0.message, $0.params,
+                $0.received, $0.location, index)
+        }
+        .joined(separator: ",")
         out += "],\"warnings\":["
-        out += warnings.map { entry($0.code, $0.path, $0.message, $0.params,
-                                    nil, $0.location, index) }
-            .joined(separator: ",")
+        out += warnings.map {
+            entry(
+                $0.code, $0.path, $0.message, $0.params,
+                nil, $0.location, index)
+        }
+        .joined(separator: ",")
         out += "]}"
         return out
     }

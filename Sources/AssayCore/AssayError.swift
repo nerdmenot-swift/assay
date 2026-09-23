@@ -49,9 +49,10 @@ extension AssayError {
     /// Render every issue. The error retains the source, so carets work here too —
     /// `catch let e as AssayError { print(e.render(.plain)) }` needs nothing else.
     public func render(_ style: RenderStyle) -> String {
-        Renderer.render(issues: storage.issues, warnings: [],
-                        source: storage.source, sourceName: storage.sourceName,
-                        style: style)
+        Renderer.render(
+            issues: storage.issues, warnings: [],
+            source: storage.source, sourceName: storage.sourceName,
+            style: style)
     }
 
     /// The document this error was raised against, for a caller that wants to render it

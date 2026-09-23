@@ -20,25 +20,28 @@ import AssayCore
 public func renderYAML(_ v: RawValue, indent: Int = 0) -> String {
     let pad = String(repeating: "  ", count: indent)
     switch v {
-    case .null:            return "null"
-    case .bool(let b):     return b ? "true" : "false"
-    case .int(let i):      return String(i)
-    case .double(let d):   return d.isFinite ? String(d) : (d.isNaN ? ".nan" : (d > 0 ? ".inf" : "-.inf"))
-    case .string(let s):   return quoteYAML(s)
+    case .null: return "null"
+    case .bool(let b): return b ? "true" : "false"
+    case .int(let i): return String(i)
+    case .double(let d):
+        return d.isFinite ? String(d) : (d.isNaN ? ".nan" : (d > 0 ? ".inf" : "-.inf"))
+    case .string(let s): return quoteYAML(s)
     case .sequence(let items):
         if items.isEmpty { return "[]" }
-        return "\n" + items.map { item in
-            let rendered = renderYAML(item, indent: indent + 1)
-            if rendered.hasPrefix("\n") {
-                return "\(pad)-\(rendered.replacingOccurrences(of: "\n", with: "\n "))"
-            }
-            return "\(pad)- \(rendered)"
-        }.joined(separator: "\n")
+        return "\n"
+            + items.map { item in
+                let rendered = renderYAML(item, indent: indent + 1)
+                if rendered.hasPrefix("\n") {
+                    return "\(pad)-\(rendered.replacingOccurrences(of: "\n", with: "\n "))"
+                }
+                return "\(pad)- \(rendered)"
+            }.joined(separator: "\n")
     case .mapping(let members):
         if members.isEmpty { return "{}" }
-        return "\n" + members.map { m in
-            "\(pad)\(quoteYAML(m.key)): \(renderYAML(m.value, indent: indent + 1))"
-        }.joined(separator: "\n")
+        return "\n"
+            + members.map { m in
+                "\(pad)\(quoteYAML(m.key)): \(renderYAML(m.value, indent: indent + 1))"
+            }.joined(separator: "\n")
     }
 }
 
@@ -49,11 +52,11 @@ public func quoteYAML(_ s: String) -> String {
     var out = "\""
     for ch in s.unicodeScalars {
         switch ch {
-        case "\"":  out += "\\\""
-        case "\\":  out += "\\\\"
-        case "\n":  out += "\\n"
-        case "\t":  out += "\\t"
-        case "\r":  out += "\\r"
+        case "\"": out += "\\\""
+        case "\\": out += "\\\\"
+        case "\n": out += "\\n"
+        case "\t": out += "\\t"
+        case "\r": out += "\\r"
         default:
             if ch.value < 0x20 {
                 out += String(format: "\\u%04X", ch.value)
@@ -69,9 +72,9 @@ public func quoteYAML(_ s: String) -> String {
 /// text. Keys that are not valid XML names are skipped rather than mangled.
 public func renderXML(_ v: RawValue, tag: String = "root") -> String {
     switch v {
-    case .null:          return "<\(tag)/>"
-    case .bool(let b):   return "<\(tag)>\(b)</\(tag)>"
-    case .int(let i):    return "<\(tag)>\(i)</\(tag)>"
+    case .null: return "<\(tag)/>"
+    case .bool(let b): return "<\(tag)>\(b)</\(tag)>"
+    case .int(let i): return "<\(tag)>\(i)</\(tag)>"
     case .double(let d): return "<\(tag)>\(d)</\(tag)>"
     case .string(let s): return "<\(tag)>\(escapeXML(s))</\(tag)>"
     case .sequence(let items):
@@ -142,7 +145,8 @@ private func renderTOMLTable(
     for m in members {
         if case .mapping = m.value { tables.append(m); continue }
         if sections, case .sequence(let items) = m.value, !items.isEmpty,
-           items.allSatisfy({ if case .mapping = $0 { return true } else { return false } }) {
+            items.allSatisfy({ if case .mapping = $0 { return true } else { return false } })
+        {
             arrays.append(m)
             continue
         }
@@ -178,15 +182,19 @@ private func renderTOMLInline(_ v: RawValue) -> String {
     case .sequence(let items):
         return "[" + items.map(renderTOMLInline).joined(separator: ", ") + "]"
     case .mapping(let members):
-        return "{" + members.map { tomlKey($0.key) + " = " + renderTOMLInline($0.value) }.joined(separator: ", ") + "}"
+        return "{"
+            + members.map { tomlKey($0.key) + " = " + renderTOMLInline($0.value) }.joined(
+                separator: ", ") + "}"
     }
 }
 
 private func tomlKey(_ k: String) -> String {
-    let bare = !k.isEmpty && k.utf8.allSatisfy {
-        ($0 >= 0x61 && $0 <= 0x7A) || ($0 >= 0x41 && $0 <= 0x5A) || ($0 >= 0x30 && $0 <= 0x39)
-            || $0 == UInt8(ascii: "_") || $0 == UInt8(ascii: "-")
-    }
+    let bare =
+        !k.isEmpty
+        && k.utf8.allSatisfy {
+            ($0 >= 0x61 && $0 <= 0x7A) || ($0 >= 0x41 && $0 <= 0x5A) || ($0 >= 0x30 && $0 <= 0x39)
+                || $0 == UInt8(ascii: "_") || $0 == UInt8(ascii: "-")
+        }
     return bare ? k : quoteTOML(k)
 }
 
@@ -195,11 +203,11 @@ public func quoteTOML(_ s: String) -> String {
     var out = "\""
     for ch in s.unicodeScalars {
         switch ch {
-        case "\"":  out += "\\\""
-        case "\\":  out += "\\\\"
-        case "\n":  out += "\\n"
-        case "\t":  out += "\\t"
-        case "\r":  out += "\\r"
+        case "\"": out += "\\\""
+        case "\\": out += "\\\\"
+        case "\n": out += "\\n"
+        case "\t": out += "\\t"
+        case "\r": out += "\\r"
         default:
             if ch.value < 0x20 || ch.value == 0x7F {
                 out += String(format: "\\u%04X", ch.value)

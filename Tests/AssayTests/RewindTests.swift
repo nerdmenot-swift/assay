@@ -46,8 +46,9 @@ struct RewindTests {
         let bytes = Array(text.utf8)
         var sink = IssueSink(limits: limits)
         return bytes.withUnsafeBufferPointer { buf in
-            var reader = unsafe AssayReader(base: buf.baseAddress!, count: buf.count,
-                                            limits: limits)
+            var reader = unsafe AssayReader(
+                base: buf.baseAddress!, count: buf.count,
+                limits: limits)
             return body(&reader, &sink)
         }
     }
@@ -75,8 +76,9 @@ struct RewindTests {
             let second = RewindAlt._assay(from: &reader, into: &sink, at: &__p2)
             return second
         }
-        #expect(ok == RewindAlt(a: 1, b: "text"),
-                "the second branch must decode as if the first had never run")
+        #expect(
+            ok == RewindAlt(a: 1, b: "text"),
+            "the second branch must decode as if the first had never run")
     }
 
     /// **The one `seek` does not cover.** Repeated failures must not consume the depth budget.
@@ -111,10 +113,12 @@ struct RewindTests {
             var __p4: [PathStep] = []
             return RewindPair._assay(from: &reader, into: &sink, at: &__p4)
         }
-        #expect(ok == RewindPair(x: RewindInner(a: 1, b: 2)), """
-                twenty failed branches left the reader unusable. If `restore(_:)` is what \
-                fixes this, `seek(to:)` alone is not enough for a union driver.
-                """)
+        #expect(
+            ok == RewindPair(x: RewindInner(a: 1, b: 2)),
+            """
+            twenty failed branches left the reader unusable. If `restore(_:)` is what \
+            fixes this, `seek(to:)` alone is not enough for a union driver.
+            """)
     }
 
     /// **The path that is NOT balanced.** A well-formed failure returns after `leaveContainer`
@@ -128,7 +132,7 @@ struct RewindTests {
         var limits = Limits.default
         limits.maxDepth = 4
 
-        let bad = #"{"xs":[1,2"#                      // never closed
+        let bad = #"{"xs":[1,2"#  // never closed
         let good = #"{"xs":[1,2]}"#
         let ok = Self.withReader(bad + good, limits: limits) { reader, sink in
             let m = reader.mark
@@ -143,10 +147,12 @@ struct RewindTests {
             var __p6: [PathStep] = []
             return RewindArray._assay(from: &reader, into: &sink, at: &__p6)
         }
-        #expect(ok == RewindArray(xs: [1, 2]), """
-                a malformed array left the enclosing object's container entered, and twenty \
-                attempts exhausted the depth budget.
-                """)
+        #expect(
+            ok == RewindArray(xs: [1, 2]),
+            """
+            a malformed array left the enclosing object's container entered, and twenty \
+            attempts exhausted the depth budget.
+            """)
     }
 
     /// **The invariant at source, asserted with `seek` on purpose.** The test above uses
@@ -172,17 +178,19 @@ struct RewindTests {
             for _ in 0..<20 {
                 var __p7: [PathStep] = []
                 _ = RewindArray._assay(from: &reader, into: &sink, at: &__p7)
-                reader.seek(to: start)          // cursor only — no depth restore
+                reader.seek(to: start)  // cursor only — no depth restore
                 sink.rollback(to: issueMark)
             }
             reader.seek(to: bad.utf8.count)
             var __p8: [PathStep] = []
             return RewindArray._assay(from: &reader, into: &sink, at: &__p8)
         }
-        #expect(ok == RewindArray(xs: [1, 2]), """
-                a generated failure path entered a container and did not leave it. `restore` \
-                hides this from unions; nothing hides it from anything else.
-                """)
+        #expect(
+            ok == RewindArray(xs: [1, 2]),
+            """
+            a generated failure path entered a container and did not leave it. `restore` \
+            hides this from unions; nothing hides it from anything else.
+            """)
     }
 
     /// Rewinding must not resurrect issues from a branch that was abandoned. A union that
@@ -224,7 +232,8 @@ struct RewindTests {
             return (afterSkip > start, v)
         }
         #expect(found.0, "the pre-scan must actually advance")
-        #expect(found.1 == RewindAlt(a: 1, b: "text"),
-                "and the decode must then see the whole document from the start")
+        #expect(
+            found.1 == RewindAlt(a: 1, b: "text"),
+            "and the decode must then see the whole document from the start")
     }
 }

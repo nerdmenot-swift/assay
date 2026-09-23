@@ -43,11 +43,11 @@ extension YAML {
 
     /// How a scalar was written. Presentation rather than data, retained for round-tripping.
     public enum ScalarStyle: Sendable, Hashable {
-        case plain           // key: value
-        case singleQuoted    // key: 'value'
-        case doubleQuoted    // key: "value"
-        case literal         // key: |
-        case folded          // key: >
+        case plain  // key: value
+        case singleQuoted  // key: 'value'
+        case doubleQuoted  // key: "value"
+        case literal  // key: |
+        case folded  // key: >
     }
 
     /// A leaf. Content is the **unresolved** text: resolution to int/bool/null is the
@@ -252,8 +252,9 @@ extension RawValue {
             self = .string(consume text)
             return
         }
-        self = RawValue(_resolvingCoreSchema:
-            YAML.Scalar(content: consume text, style: style, tag: tag))
+        self = RawValue(
+            _resolvingCoreSchema:
+                YAML.Scalar(content: consume text, style: style, tag: tag))
     }
 
     /// Whether a plain untagged scalar starting with `b` can resolve to anything but a string.
@@ -261,9 +262,9 @@ extension RawValue {
     static func _mayResolve(_ b: UInt8) -> Bool {
         switch b {
         case UInt8(ascii: "0")...UInt8(ascii: "9"),
-             UInt8(ascii: "n"), UInt8(ascii: "N"), UInt8(ascii: "~"),
-             UInt8(ascii: "t"), UInt8(ascii: "T"), UInt8(ascii: "f"), UInt8(ascii: "F"),
-             UInt8(ascii: "."), UInt8(ascii: "+"), UInt8(ascii: "-"):
+            UInt8(ascii: "n"), UInt8(ascii: "N"), UInt8(ascii: "~"),
+            UInt8(ascii: "t"), UInt8(ascii: "T"), UInt8(ascii: "f"), UInt8(ascii: "F"),
+            UInt8(ascii: "."), UInt8(ascii: "+"), UInt8(ascii: "-"):
             return true
         default:
             return false
@@ -316,8 +317,10 @@ extension RawValue {
                 // whole literal makes `0.0e-400` look significant because of the `4`, and
                 // that one is honestly zero.
                 if let d = Double(c), d.isFinite,
-                   d != 0 || !c.prefix(while: { $0 != "e" && $0 != "E" })
-                               .contains(where: { $0 >= "1" && $0 <= "9" }) {
+                    d != 0
+                        || !c.prefix(while: { $0 != "e" && $0 != "E" })
+                            .contains(where: { $0 >= "1" && $0 <= "9" })
+                {
                     self = .double(d)
                     return
                 }

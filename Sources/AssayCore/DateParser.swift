@@ -17,9 +17,9 @@
 func epochDays(year: Int, month: Int, day: Int) -> Int {
     let y = year - (month <= 2 ? 1 : 0)
     let era = (y >= 0 ? y : y - 399) / 400
-    let yoe = y - era * 400                                        // [0, 399]
+    let yoe = y - era * 400  // [0, 399]
     let doy = (153 * (month + (month > 2 ? -3 : 9)) + 2) / 5 + day - 1
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy                // [0, 146096]
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy  // [0, 146096]
     return era * 146097 + doe - 719468
 }
 
@@ -81,7 +81,7 @@ public enum DateParser {
     ) -> Result<Double, DateParseFailure> {
         switch format {
         case .unixSeconds: return validated(value)
-        case .unixMillis:  return validated(value / 1_000)
+        case .unixMillis: return validated(value / 1_000)
         default:
             return .failure(.init("\(format.displayName) is text, not a number", at: 0))
         }
@@ -105,13 +105,12 @@ public enum DateParser {
     static func parse<Bytes>(
         _ b: Bytes, as format: DateFormat
     ) -> Result<Double, DateParseFailure>
-        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
-    {
+    where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int {
         switch format {
-        case .iso8601:        return parseISO8601(b)
-        case .unixSeconds:    return parseUnixText(b, millis: false)
-        case .unixMillis:     return parseUnixText(b, millis: true)
-        case .rfc9110:        return parseHTTPDate(b)
+        case .iso8601: return parseISO8601(b)
+        case .unixSeconds: return parseUnixText(b, millis: false)
+        case .unixMillis: return parseUnixText(b, millis: true)
+        case .rfc9110: return parseHTTPDate(b)
         case .pattern(let p): return parsePattern(b, pattern: p)
         }
     }
@@ -123,8 +122,7 @@ public enum DateParser {
     static func parseISO8601<Bytes>(
         _ b: Bytes
     ) -> Result<Double, DateParseFailure>
-        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
-    {
+    where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int {
         var i = 0
 
         func digits(_ n: Int, _ what: String) -> Int? {
@@ -143,7 +141,8 @@ public enum DateParser {
                 return .init("ends before the \(what)", at: i)
             }
             guard b[i] == byte else {
-                return .init("expected '\(Character(UnicodeScalar(byte)))' before the \(what)", at: i)
+                return .init(
+                    "expected '\(Character(UnicodeScalar(byte)))' before the \(what)", at: i)
             }
             i += 1
             return nil
@@ -164,14 +163,16 @@ public enum DateParser {
             return .failure(.init("expected a 2-digit day", at: i))
         }
         guard day >= 1 && day <= daysIn(month: month, year: year) else {
-            return .failure(.init(
-                "day \(pad2(day)) is out of range for \(pad4(year))-\(pad2(month))", at: i - 2))
+            return .failure(
+                .init(
+                    "day \(pad2(day)) is out of range for \(pad4(year))-\(pad2(month))", at: i - 2))
         }
 
         guard i < b.count, b[i] == 0x54 || b[i] == 0x74 || b[i] == 0x20 else {
-            return .failure(.init(
-                i < b.count ? "expected 'T' between date and time" : "ends before the time",
-                at: i))
+            return .failure(
+                .init(
+                    i < b.count ? "expected 'T' between date and time" : "ends before the time",
+                    at: i))
         }
         i += 1
 
@@ -224,9 +225,9 @@ public enum DateParser {
         }
         var offset = 0
         switch b[i] {
-        case 0x5A, 0x7A:            // Z z
+        case 0x5A, 0x7A:  // Z z
             i += 1
-        case 0x2B, 0x2D:            // + -
+        case 0x2B, 0x2D:  // + -
             let negative = b[i] == 0x2D
             i += 1
             guard let oh = digits(2, "offset hour"), oh <= 23 else {
@@ -250,10 +251,11 @@ public enum DateParser {
         guard i == b.count else {
             return .failure(.init("unexpected trailing characters", at: i))
         }
-        return .success(epochSeconds(
-            year: year, month: month, day: day,
-            hour: hour, minute: minute, second: second,
-            fraction: fraction, offsetSeconds: offset))
+        return .success(
+            epochSeconds(
+                year: year, month: month, day: day,
+                hour: hour, minute: minute, second: second,
+                fraction: fraction, offsetSeconds: offset))
     }
 
     // MARK: Unix timestamps as text
@@ -264,8 +266,7 @@ public enum DateParser {
     static func parseUnixText<Bytes>(
         _ b: Bytes, millis: Bool
     ) -> Result<Double, DateParseFailure>
-        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
-    {
+    where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int {
         var i = 0
         var negative = false
         if i < b.count, b[i] == 0x2D { negative = true; i += 1 }
@@ -307,14 +308,16 @@ public enum DateParser {
     static let monthNames: [[UInt8]] = [
         Array("Jan".utf8), Array("Feb".utf8), Array("Mar".utf8), Array("Apr".utf8),
         Array("May".utf8), Array("Jun".utf8), Array("Jul".utf8), Array("Aug".utf8),
-        Array("Sep".utf8), Array("Oct".utf8), Array("Nov".utf8), Array("Dec".utf8),
+        Array("Sep".utf8), Array("Oct".utf8), Array("Nov".utf8), Array("Dec".utf8)
     ]
 
     @usableFromInline
     static let dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     @usableFromInline
-    static let longDayNames = ["Monday", "Tuesday", "Wednesday", "Thursday",
-                               "Friday", "Saturday", "Sunday"]
+    static let longDayNames = [
+        "Monday", "Tuesday", "Wednesday", "Thursday",
+        "Friday", "Saturday", "Sunday"
+    ]
 
     /// All three forms RFC 9110 §5.6.7 requires a parser to accept: IMF-fixdate,
     /// obsolete RFC 850, and C's asctime. The day name is validated as a name but not
@@ -323,14 +326,13 @@ public enum DateParser {
     static func parseHTTPDate<Bytes>(
         _ b: Bytes
     ) -> Result<Double, DateParseFailure>
-        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
-    {
+    where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int {
         // Dispatch on the first comma: after 3 bytes → IMF-fixdate; later → RFC 850;
         // absent → asctime.
         var comma: Int? = nil
         for (k, byte) in b.enumerated() where byte == 0x2C { comma = k; break }
         switch comma {
-        case 3:  return parseIMFFixdate(b)
+        case 3: return parseIMFFixdate(b)
         case nil: return parseAsctime(b)
         default: return parseRFC850(b)
         }
@@ -338,8 +340,7 @@ public enum DateParser {
 
     @usableFromInline
     static func matchMonth<Bytes>(_ b: Bytes, _ i: Int) -> Int?
-        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
-    {
+    where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int {
         guard i + 3 <= b.count else { return nil }
         for (m, name) in monthNames.enumerated()
         where b[i] == name[0] && b[i + 1] == name[1] && b[i + 2] == name[2] {
@@ -350,8 +351,7 @@ public enum DateParser {
 
     @usableFromInline
     static func fixedDigits<Bytes>(_ b: Bytes, _ i: inout Int, _ n: Int) -> Int?
-        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
-    {
+    where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int {
         guard i + n <= b.count else { return nil }
         var v = 0
         for k in i..<(i + n) {
@@ -368,8 +368,7 @@ public enum DateParser {
     static func parseIMFFixdate<Bytes>(
         _ b: Bytes
     ) -> Result<Double, DateParseFailure>
-        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
-    {
+    where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int {
         guard b.count == 29 else {
             return .failure(.init("IMF-fixdate is exactly 29 characters", at: b.count))
         }
@@ -398,7 +397,8 @@ public enum DateParser {
         }
         if let e { return .failure(e) }
         guard i + 4 == b.count, b[i] == 0x20,
-              b[i + 1] == 0x47, b[i + 2] == 0x4D, b[i + 3] == 0x54 else {
+            b[i + 1] == 0x47, b[i + 2] == 0x4D, b[i + 3] == 0x54
+        else {
             return .failure(.init("must end with ' GMT'", at: i))
         }
         return finishHTTP(year: year, month: month, day: day, h: h, m: m, s: s, at: 5)
@@ -409,8 +409,7 @@ public enum DateParser {
     static func parseRFC850<Bytes>(
         _ b: Bytes
     ) -> Result<Double, DateParseFailure>
-        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
-    {
+    where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int {
         var i = 0
         while i < b.count, b[i] != 0x2C { i += 1 }
         let dayName = String(decoding: b[0..<i], as: UTF8.self)
@@ -449,7 +448,8 @@ public enum DateParser {
         }
         if let e { return .failure(e) }
         guard i + 4 == b.count, b[i] == 0x20,
-              b[i + 1] == 0x47, b[i + 2] == 0x4D, b[i + 3] == 0x54 else {
+            b[i + 1] == 0x47, b[i + 2] == 0x4D, b[i + 3] == 0x54
+        else {
             return .failure(.init("must end with ' GMT'", at: i))
         }
         return finishHTTP(year: year, month: month, day: day, h: h, m: m, s: s, at: dayAt)
@@ -460,8 +460,7 @@ public enum DateParser {
     static func parseAsctime<Bytes>(
         _ b: Bytes
     ) -> Result<Double, DateParseFailure>
-        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
-    {
+    where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int {
         guard b.count == 24 else {
             return .failure(.init("asctime is exactly 24 characters", at: b.count))
         }
@@ -508,8 +507,7 @@ public enum DateParser {
     static func clock<Bytes>(
         _ b: Bytes, _ i: inout Int
     ) -> (Int, Int, Int, DateParseFailure?)?
-        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
-    {
+    where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int {
         let at = i
         guard let h = fixedDigits(b, &i, 2), i < b.count, b[i] == 0x3A else { return nil }
         i += 1
@@ -527,13 +525,15 @@ public enum DateParser {
         year: Int, month: Int, day: Int, h: Int, m: Int, s: Int, at dayOffset: Int
     ) -> Result<Double, DateParseFailure> {
         guard day >= 1 && day <= daysIn(month: month, year: year) else {
-            return .failure(.init(
-                "day \(pad2(day)) is out of range for \(pad4(year))-\(pad2(month))",
-                at: dayOffset))
+            return .failure(
+                .init(
+                    "day \(pad2(day)) is out of range for \(pad4(year))-\(pad2(month))",
+                    at: dayOffset))
         }
-        return .success(epochSeconds(
-            year: year, month: month, day: day, hour: h, minute: m, second: s,
-            fraction: 0, offsetSeconds: 0))
+        return .success(
+            epochSeconds(
+                year: year, month: month, day: day, hour: h, minute: m, second: s,
+                fraction: 0, offsetSeconds: 0))
     }
 
     // MARK: Fixed patterns
@@ -604,7 +604,7 @@ public enum DateParser {
                 let field = String(repeating: String(UnicodeScalar(c)), count: run)
                 return .failure(
                     "unsupported pattern field '\(field)'; supported fields are "
-                    + "yyyy MM dd HH mm ss SSS Z, plus non-letter literals")
+                        + "yyyy MM dd HH mm ss SSS Z, plus non-letter literals")
             }
             i += run
         }
@@ -618,8 +618,7 @@ public enum DateParser {
     static func parsePattern<Bytes>(
         _ b: Bytes, pattern: String
     ) -> Result<Double, DateParseFailure>
-        where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int
-    {
+    where Bytes: RandomAccessCollection<UInt8>, Bytes.Index == Int {
         let tokens: [PatternToken]
         switch compilePattern(pattern) {
         case .success(let t): tokens = t
@@ -692,8 +691,9 @@ public enum DateParser {
                 }
             case .literal(let c):
                 guard i < b.count, b[i] == c else {
-                    return .failure(.init(
-                        "expected '\(Character(UnicodeScalar(c)))'", at: i))
+                    return .failure(
+                        .init(
+                            "expected '\(Character(UnicodeScalar(c)))'", at: i))
                 }
                 i += 1
             }
@@ -702,14 +702,16 @@ public enum DateParser {
             return .failure(.init("unexpected trailing characters", at: i))
         }
         guard day <= daysIn(month: month, year: year) else {
-            return .failure(.init(
-                "day \(pad2(day)) is out of range for \(pad4(year))-\(pad2(month))", at: 0))
+            return .failure(
+                .init(
+                    "day \(pad2(day)) is out of range for \(pad4(year))-\(pad2(month))", at: 0))
         }
         // A pattern with no Z field is read as UTC — deterministic on every platform,
         // where DateFormatter would have silently used the machine's local zone.
-        return .success(epochSeconds(
-            year: year, month: month, day: day, hour: hour, minute: minute,
-            second: second, fraction: fraction, offsetSeconds: offset))
+        return .success(
+            epochSeconds(
+                year: year, month: month, day: day, hour: hour, minute: minute,
+                second: second, fraction: fraction, offsetSeconds: offset))
     }
 }
 
@@ -753,11 +755,11 @@ func formatEpochISO(_ seconds: Double) -> String {
 
     let z = days + 719_468
     let era = (z >= 0 ? z : z - 146_096) / 146_097
-    let doe = z - era * 146_097                                     // [0, 146096]
+    let doe = z - era * 146_097  // [0, 146096]
     let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365
     let y = yoe + era * 400
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100)               // [0, 365]
-    let mp = (5 * doy + 2) / 153                                    // [0, 11]
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100)  // [0, 365]
+    let mp = (5 * doy + 2) / 153  // [0, 11]
     let d = doy - (153 * mp + 2) / 5 + 1
     let m = mp < 10 ? mp + 3 : mp - 9
     let year = m <= 2 ? y + 1 : y

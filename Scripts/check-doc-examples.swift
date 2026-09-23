@@ -14,8 +14,10 @@
 import Foundation
 
 let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-let documents = ["README.md", "CLAUDE.md", "docs/EXPERIENCE.md",
-                 "docs/VALIDATE.md", "docs/ENCODING.md", "docs/UNIONS.md"]
+let documents = [
+    "README.md", "CLAUDE.md", "docs/EXPERIENCE.md",
+    "docs/VALIDATE.md", "docs/ENCODING.md", "docs/UNIONS.md"
+]
 
 struct Block { let file: String; let line: Int; let body: String; let preamble: String }
 
@@ -37,10 +39,14 @@ for doc in documents {
                 .trimmingCharacters(in: .whitespaces)
             continue
         }
-        if !inBlock, line.hasPrefix("```swift-check") { inBlock = true; start = i + 1; body = []; continue }
+        if !inBlock, line.hasPrefix("```swift-check") {
+            inBlock = true; start = i + 1; body = []; continue
+        }
         if inBlock, line.hasPrefix("```") {
-            blocks.append(Block(file: doc, line: start,
-                                body: body.joined(separator: "\n"), preamble: preamble))
+            blocks.append(
+                Block(
+                    file: doc, line: start,
+                    body: body.joined(separator: "\n"), preamble: preamble))
             inBlock = false; preamble = ""; continue
         }
         if inBlock { body.append(line) }
@@ -54,16 +60,17 @@ if CommandLine.arguments.contains("--list") {
 }
 
 guard !blocks.isEmpty else {
-    FileHandle.standardError.write(Data("no ```swift-check blocks found — is the marker right?\n".utf8))
+    FileHandle.standardError.write(
+        Data("no ```swift-check blocks found — is the marker right?\n".utf8))
     exit(1)
 }
 
 let preamble = """
-import Assay
-let data = Array("{}".utf8)
-_ = data
+    import Assay
+    let data = Array("{}".utf8)
+    _ = data
 
-"""
+    """
 
 let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
     .appendingPathComponent("assay-doc-examples-\(getpid())")
@@ -73,7 +80,7 @@ let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
 var targets: [String] = []
 for (n, b) in blocks.enumerated() {
     let stem = b.file.replacingOccurrences(of: "/", with: "_")
-                     .replacingOccurrences(of: ".md", with: "")
+        .replacingOccurrences(of: ".md", with: "")
     let name = "Block\(n)_\(stem)_\(b.line)"
     let dir = tmp.appendingPathComponent("Sources/\(name)")
     try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -87,17 +94,19 @@ for (n, b) in blocks.enumerated() {
     // that needs Foundation, YAML, XML, TOML or plist must import it where the reader
     // can see it, which is what a documented example is for.
     let source = preamble + (b.preamble.isEmpty ? "" : b.preamble + "\n") + b.body + "\n"
-    try! source.write(to: dir.appendingPathComponent("main.swift"),
-                      atomically: true, encoding: .utf8)
-    targets.append("""
-            .executableTarget(name: "\(name)", dependencies: [
-                .product(name: "Assay", package: "assay"),
-                .product(name: "AssayYAML", package: "assay"),
-                .product(name: "AssayXML", package: "assay"),
-                .product(name: "AssayTOML", package: "assay"),
-                .product(name: "AssayPlist", package: "assay"),
-                .product(name: "AssayFoundation", package: "assay")])
-    """)
+    try! source.write(
+        to: dir.appendingPathComponent("main.swift"),
+        atomically: true, encoding: .utf8)
+    targets.append(
+        """
+                .executableTarget(name: "\(name)", dependencies: [
+                    .product(name: "Assay", package: "assay"),
+                    .product(name: "AssayYAML", package: "assay"),
+                    .product(name: "AssayXML", package: "assay"),
+                    .product(name: "AssayTOML", package: "assay"),
+                    .product(name: "AssayPlist", package: "assay"),
+                    .product(name: "AssayFoundation", package: "assay")])
+        """)
 }
 
 try! """
@@ -122,13 +131,15 @@ let package = Package(
 // on every CI run from the day it was added: "a resolved file is required when automatic
 // dependency resolution is disabled". Offline when a local resolution exists, a normal
 // resolve when it does not — CI has the network, and a laptop has the file.
-let pinned = (try? FileManager.default.copyItem(
-    at: root.appendingPathComponent("Package.resolved"),
-    to: tmp.appendingPathComponent("Package.resolved"))) != nil
+let pinned =
+    (try? FileManager.default.copyItem(
+        at: root.appendingPathComponent("Package.resolved"),
+        to: tmp.appendingPathComponent("Package.resolved"))) != nil
 
 let p = Process()
 p.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-p.arguments = ["swift", "build", "--package-path", tmp.path]
+p.arguments =
+    ["swift", "build", "--package-path", tmp.path]
     + (pinned ? ["--only-use-versions-from-resolved-file"] : [])
 let pipe = Pipe()
 p.standardOutput = pipe
@@ -143,11 +154,13 @@ if p.terminationStatus == 0 {
     exit(0)
 }
 FileHandle.standardError.write(Data(out.utf8))
-FileHandle.standardError.write(Data("""
+FileHandle.standardError.write(
+    Data(
+        """
 
-A documented example does not compile. The block is in one of:
-\(blocks.map { "  \($0.file):\($0.line)" }.joined(separator: "\n"))
-Sources are left under \(tmp.path)/Sources — each directory names its document and line.
+        A documented example does not compile. The block is in one of:
+        \(blocks.map { "  \($0.file):\($0.line)" }.joined(separator: "\n"))
+        Sources are left under \(tmp.path)/Sources — each directory names its document and line.
 
-""".utf8))
+        """.utf8))
 exit(1)

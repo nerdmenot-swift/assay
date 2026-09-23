@@ -44,7 +44,11 @@ struct GoldenExpansionTests {
                 flush(); name = String(line.dropFirst("// GOLDEN: ".count)); continue
             }
             if name != nil {
-                if line.trimmingCharacters(in: .whitespaces).isEmpty { flush() } else { body.append(String(line)) }
+                if line.trimmingCharacters(in: .whitespaces).isEmpty {
+                    flush()
+                } else {
+                    body.append(String(line))
+                }
             }
         }
         flush()
@@ -52,12 +56,15 @@ struct GoldenExpansionTests {
     }()
 
     static var goldensDirectory: String {
-        URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Goldens").path
+        URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent(
+            "Goldens"
+        ).path
     }
 
     @Test("the fixtures file was found and parsed")
     func fixturesRead() {
-        #expect(GoldenExpansionTests.shapes.count == 13, "\(GoldenExpansionTests.shapes.map(\.name))")
+        #expect(
+            GoldenExpansionTests.shapes.count == 13, "\(GoldenExpansionTests.shapes.map(\.name))")
     }
 
     @Test("each shape expands to its golden", arguments: GoldenExpansionTests.shapes.map(\.name))
@@ -76,13 +83,17 @@ struct GoldenExpansionTests {
         // against an LF expansion then fails every shape. That was invisible on Windows CI
         // until 2026-09-19, because the fixtures file was split on "\n" there too, parsed to
         // zero shapes, and this test ran zero cases.
-        guard let expected = (try? String(contentsOfFile: path, encoding: .utf8))
-            .map({ $0.replacingOccurrences(of: "\r\n", with: "\n") }) else {
-            Issue.record("no golden at \(path) — run: ASSAY_UPDATE_GOLDENS=1 swift test --filter Golden")
+        guard
+            let expected = (try? String(contentsOfFile: path, encoding: .utf8))
+                .map({ $0.replacingOccurrences(of: "\r\n", with: "\n") })
+        else {
+            Issue.record(
+                "no golden at \(path) — run: ASSAY_UPDATE_GOLDENS=1 swift test --filter Golden")
             return
         }
         if actual != expected {
-            Issue.record("""
+            Issue.record(
+                """
                 expansion of '\(name)' changed. If that is the change you meant to make, run
                     ASSAY_UPDATE_GOLDENS=1 swift test --filter Golden
                 and read the diff before committing it.

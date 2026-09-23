@@ -80,10 +80,12 @@ public struct CheckMacro: PeerMacro {
     ) throws -> [DeclSyntax] {
         for enclosing in context.lexicalContext {
             if enclosing.is(ExtensionDeclSyntax.self) {
-                context.diagnose(Diagnostic(
-                    node: Syntax(node),
-                    message: SimpleDiagnostic(
-                        "@Check must be declared in the body of the @Schema type, not in an extension — attached macros cannot see extension members, so this check would never run")))
+                context.diagnose(
+                    Diagnostic(
+                        node: Syntax(node),
+                        message: SimpleDiagnostic(
+                            "@Check must be declared in the body of the @Schema type, not in an extension — attached macros cannot see extension members, so this check would never run"
+                        )))
                 return []
             }
         }

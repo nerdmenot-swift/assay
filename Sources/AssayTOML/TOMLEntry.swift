@@ -57,11 +57,13 @@ extension RawDecodable {
     ) -> Diagnosis<Self> {
         var sink = IssueSink(limits: limits)
         guard let raw = __assayTOMLDocument(bytes, into: &sink, limits: limits) else {
-            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(
+                sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         var __rootPath: [PathStep] = []
         let value = Self._assay(from: raw, into: &sink, at: &__rootPath)
-        return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
+        return Diagnosis(
+            sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
     public static func diagnose(
@@ -89,8 +91,9 @@ extension RawEncodableSchema {
         let raw = _assayEncodeRaw(into: &sink, at: [])
         let bytes = TOML.encode(raw, into: &sink)
         guard sink.isValid else {
-            throw AssayError(issues: sink.issues, source: SourceBytes(Array(bytes)),
-                             sourceName: "<encoded.toml>")
+            throw AssayError(
+                issues: sink.issues, source: SourceBytes(Array(bytes)),
+                sourceName: "<encoded.toml>")
         }
         return bytes
     }
@@ -135,8 +138,10 @@ extension ContextualRawDecodable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) throws -> Self {
-        try diagnose(toml: bytes, context: context,
-                     limits: limits, sourceName: sourceName).get()
+        try diagnose(
+            toml: bytes, context: context,
+            limits: limits, sourceName: sourceName
+        ).get()
     }
 
     public static func parse(
@@ -145,8 +150,9 @@ extension ContextualRawDecodable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) throws -> Self {
-        try parse(toml: Array(text.utf8), context: context,
-                  limits: limits, sourceName: sourceName)
+        try parse(
+            toml: Array(text.utf8), context: context,
+            limits: limits, sourceName: sourceName)
     }
 
     public static func diagnose(
@@ -157,11 +163,13 @@ extension ContextualRawDecodable {
     ) -> Diagnosis<Self> {
         var sink = IssueSink(limits: limits)
         guard let raw = __assayTOMLDocument(bytes, into: &sink, limits: limits) else {
-            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(
+                sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         var __rootPath: [PathStep] = []
         let value = Self._assay(from: raw, into: &sink, at: &__rootPath, context: context)
-        return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
+        return Diagnosis(
+            sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
     public static func diagnose(
@@ -170,7 +178,8 @@ extension ContextualRawDecodable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) -> Diagnosis<Self> {
-        diagnose(toml: Array(text.utf8), context: context,
-                 limits: limits, sourceName: sourceName)
+        diagnose(
+            toml: Array(text.utf8), context: context,
+            limits: limits, sourceName: sourceName)
     }
 }

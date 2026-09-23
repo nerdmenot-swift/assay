@@ -48,11 +48,12 @@ struct PlainAccount: Equatable {
 }
 
 func runValidateBenchmarks() {
-    let json = Array("""
-    {"username": "ada-lovelace", "email": "ada@example.com", "age": 36, \
-    "tags": ["mathematics", "engines", "notes"], "score": 9.75, \
-    "note": "the first programmer"}
-    """.utf8)
+    let json = Array(
+        """
+        {"username": "ada-lovelace", "email": "ada@example.com", "age": 36, \
+        "tags": ["mathematics", "engines", "notes"], "score": 9.75, \
+        "note": "the first programmer"}
+        """.utf8)
 
     guard let value = try? RuledAccount.parse(json: json) else {
         print("validate benchmark: fixture does not parse"); return
@@ -76,19 +77,24 @@ func runValidateBenchmarks() {
     }
 
     func row(_ label: String, _ ns: Double, _ blocks: Double?) {
-        print(pad(label, 38, right: true)
-              + pad(String(format: "%.0f", ns), 12)
-              + pad(blocks.map { String(format: "%.1f", $0) } ?? "n/a", 10))
+        print(
+            pad(label, 38, right: true)
+                + pad(String(format: "%.0f", ns), 12)
+                + pad(blocks.map { String(format: "%.1f", $0) } ?? "n/a", 10))
     }
     row("decode, schema WITH rules", ruledNs, nil)
     row("decode, same schema NO rules", plainNs, nil)
     row("validate a constructed value", validateNs, alloc.blocks)
 
     print("")
-    print(String(format: "rules cost inside a decode: %.0f ns (%.1f%% of it)",
-                 ruledNs - plainNs, (ruledNs - plainNs) / ruledNs * 100))
-    print(String(format: "validating separately:      %.0f ns (%.2fx a full decode)",
-                 validateNs, validateNs / ruledNs))
+    print(
+        String(
+            format: "rules cost inside a decode: %.0f ns (%.1f%% of it)",
+            ruledNs - plainNs, (ruledNs - plainNs) / ruledNs * 100))
+    print(
+        String(
+            format: "validating separately:      %.0f ns (%.2fx a full decode)",
+            validateNs, validateNs / ruledNs))
 
     // OVER A BATCH, against a baseline this arm measures ITSELF.
     //
@@ -103,8 +109,9 @@ func runValidateBenchmarks() {
     // comparison a reader actually wants — "is validating cheaper than decoding again?"
     print("")
     print("Over a batch — per row, against a full decode measured in this same run")
-    print(pad("rows", 10, right: true) + pad("total ns", 14) + pad("per row", 10)
-          + pad(String(format: "vs %.0f ns decode", ruledNs), 18))
+    print(
+        pad("rows", 10, right: true) + pad("total ns", 14) + pad("per row", 10)
+            + pad(String(format: "vs %.0f ns decode", ruledNs), 18))
     print(String(repeating: "-", count: 52))
     for n in [64, 1_000, 20_000] {
         let batch = Array(repeating: value, count: n)
@@ -114,10 +121,11 @@ func runValidateBenchmarks() {
             precondition(d.isValid)
         }
         let perRow = ns / Double(n)
-        print(pad("\(n)", 10, right: true)
-              + pad(String(format: "%.0f", ns), 14)
-              + pad(String(format: "%.0f", perRow), 10)
-              + pad(String(format: "%.3fx", perRow / ruledNs), 18))
+        print(
+            pad("\(n)", 10, right: true)
+                + pad(String(format: "%.0f", ns), 14)
+                + pad(String(format: "%.0f", perRow), 10)
+                + pad(String(format: "%.3fx", perRow / ruledNs), 18))
     }
 
     // The failing path, which is the one a real dataset takes. Reporting must not be so
@@ -133,8 +141,10 @@ func runValidateBenchmarks() {
         _ = RuledAccount.diagnose(badBatch, limits: Limits(maxIssues: 100))
     }
     print(String(format: "1,000 rows, all clean:  %.0f ns", cleanNs))
-    print(String(format: "1,000 rows, all failing: %.0f ns (%.2fx) — bounded by maxIssues,",
-                 badNs, badNs / cleanNs))
+    print(
+        String(
+            format: "1,000 rows, all failing: %.0f ns (%.2fx) — bounded by maxIssues,",
+            badNs, badNs / cleanNs))
     print("which is why one sink covers the batch rather than one per element.")
 }
 
@@ -175,32 +185,43 @@ func runRuleCostBenchmarks() {
 
     print("")
     print("Per-rule cost — one rule per type, against the same value")
-    print(String(format: "fixed cost of a diagnose call: %.1f ns (measured, see source)",
-                 fixed))
+    print(
+        String(
+            format: "fixed cost of a diagnose call: %.1f ns (measured, see source)",
+            fixed))
     print(pad("rule", 26, right: true) + pad("total ns", 12) + pad("rule ns", 12))
     print(String(repeating: "-", count: 50))
 
     func line(_ name: String, _ ns: Double) {
-        print(pad(name, 26, right: true)
-              + pad(String(format: "%.1f", ns), 12)
-              + pad(String(format: "%.1f", ns - fixed), 12))
+        print(
+            pad(name, 26, right: true)
+                + pad(String(format: "%.1f", ns), 12)
+                + pad(String(format: "%.1f", ns - fixed), 12))
     }
     line(".range(13...120) on Int", one)
-    line(".min(3) on String",
-         measure(iterations: iters) { _ = RMin.diagnose(RMin(s: "ada@example.com")) })
-    line(".max(64) on String",
-         measure(iterations: iters) { _ = RMax.diagnose(RMax(s: "ada@example.com")) })
-    line(".min(1) on [String]",
-         measure(iterations: iters) { _ = RCount.diagnose(RCount(a: ["x"])) })
-    line(".email",
-         measure(iterations: iters) { _ = REmail.diagnose(REmail(s: "ada@example.com")) })
-    line(".url",
-         measure(iterations: iters) { _ = RURL.diagnose(RURL(s: "https://example.com/a")) })
-    line(".uuid",
-         measure(iterations: iters) {
-             _ = RUUID.diagnose(RUUID(s: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6")) })
-    line(".regex",
-         measure(iterations: iters) { _ = RRegex.diagnose(RRegex(s: "abc123")) })
+    line(
+        ".min(3) on String",
+        measure(iterations: iters) { _ = RMin.diagnose(RMin(s: "ada@example.com")) })
+    line(
+        ".max(64) on String",
+        measure(iterations: iters) { _ = RMax.diagnose(RMax(s: "ada@example.com")) })
+    line(
+        ".min(1) on [String]",
+        measure(iterations: iters) { _ = RCount.diagnose(RCount(a: ["x"])) })
+    line(
+        ".email",
+        measure(iterations: iters) { _ = REmail.diagnose(REmail(s: "ada@example.com")) })
+    line(
+        ".url",
+        measure(iterations: iters) { _ = RURL.diagnose(RURL(s: "https://example.com/a")) })
+    line(
+        ".uuid",
+        measure(iterations: iters) {
+            _ = RUUID.diagnose(RUUID(s: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"))
+        })
+    line(
+        ".regex",
+        measure(iterations: iters) { _ = RRegex.diagnose(RRegex(s: "abc123")) })
 
     // The `.each` arm is reported per ELEMENT, not per call, because that is the shape the
     // per-value compilation punished: 20 elements meant 20 compilations.
@@ -208,7 +229,8 @@ func runRuleCostBenchmarks() {
     let each = measure(iterations: iters / 10) {
         _ = RRegexEach.diagnose(RRegexEach(a: Array(repeating: "abc123", count: n)))
     }
-    print(pad(".each(.regex) x\(n)", 26, right: true)
-          + pad(String(format: "%.1f", each), 12)
-          + pad(String(format: "%.1f/elem", (each - fixed) / Double(n)), 12))
+    print(
+        pad(".each(.regex) x\(n)", 26, right: true)
+            + pad(String(format: "%.1f", each), 12)
+            + pad(String(format: "%.1f/elem", (each - fixed) / Double(n)), 12))
 }

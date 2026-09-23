@@ -39,7 +39,7 @@ let KEY_POOL = [
     "from_number", "to_number", "price_unit", "namespace", "resource_version", "uid",
     "generation", "cluster_name", "replicas", "ready_replicas", "image_pull_policy",
     "restart_count", "container_id", "node_name", "host_ip", "pod_ip", "phase",
-    "qos_class", "service_account", "termination_message_path", "dns_policy",
+    "qos_class", "service_account", "termination_message_path", "dns_policy"
 ]
 
 let LOWER = Array("abcdefghijklmnopqrstuvwxyz")
@@ -53,15 +53,20 @@ let HEX = Array("0123456789abcdef")
 func vInt(_ r: inout SplitMix64) -> JSON { .int(r.int(in: 0...999_999)) }
 
 /// 13 digits — epoch millis, the one common width where SWAR would win.
-func vBigInt(_ r: inout SplitMix64) -> JSON { .int(r.int(in: 1_700_000_000_000...1_800_000_000_000)) }
+func vBigInt(_ r: inout SplitMix64) -> JSON {
+    .int(r.int(in: 1_700_000_000_000...1_800_000_000_000))
+}
 
 func vDouble(_ r: inout SplitMix64) -> JSON { .double(r.double(in: 0...10_000)) }
 func vBool(_ r: inout SplitMix64) -> JSON { .bool(r.bool()) }
 
 /// ≤15 bytes: enum-like values and codes. Free on 64-bit, allocates on wasm32 (SSO = 8).
 func vShortString(_ r: inout SplitMix64) -> JSON {
-    .string(r.pick(["active", "pending", "failed", "usd", "eur", "GET", "POST",
-                    "succeeded", "canceled", "Running", "Ready", "true", "v1"]))
+    .string(
+        r.pick([
+            "active", "pending", "failed", "usd", "eur", "GET", "POST",
+            "succeeded", "canceled", "Running", "Ready", "true", "v1"
+        ]))
 }
 
 /// 30–120 bytes: one malloc per field on every platform.
@@ -79,22 +84,27 @@ func vUUID(_ r: inout SplitMix64) -> JSON {
 /// payload is full of them. §6.3 calls this the highest win-to-effort ratio available.
 func vDate(_ r: inout SplitMix64) -> JSON {
     func two(_ v: Int) -> String { v < 10 ? "0\(v)" : "\(v)" }
-    return .string("\(r.int(in: 2020...2026))-\(two(r.int(in: 1...12)))-\(two(r.int(in: 1...28)))"
-                   + "T\(two(r.int(in: 0...23))):\(two(r.int(in: 0...59))):\(two(r.int(in: 0...59)))Z")
+    return .string(
+        "\(r.int(in: 2020...2026))-\(two(r.int(in: 1...12)))-\(two(r.int(in: 1...28)))"
+            + "T\(two(r.int(in: 0...23))):\(two(r.int(in: 0...59))):\(two(r.int(in: 0...59)))Z")
 }
 
 /// Forces the unescape path — the largest fork in any decoder.
 func vEscaped(_ r: inout SplitMix64) -> JSON {
-    let parts = ["say \"hi\"", "line\nbreak", "tab\there", "back\\slash",
-                 "unicode éè", "emoji \u{1F600}", "quote\"inside"]
+    let parts = [
+        "say \"hi\"", "line\nbreak", "tab\there", "back\\slash",
+        "unicode éè", "emoji \u{1F600}", "quote\"inside"
+    ]
     let tail = String((0..<8).map { _ in r.pick(LOWER) })
     return .string(r.pick(parts) + " " + tail)
 }
 
 // MARK: - Builders
 
-func objectOf(_ r: inout SplitMix64, target: Int,
-              _ gen: (inout SplitMix64) -> JSON) -> JSON {
+func objectOf(
+    _ r: inout SplitMix64, target: Int,
+    _ gen: (inout SplitMix64) -> JSON
+) -> JSON {
     var pairs: [JSON.Member] = []
     var i = 0
     while true {
@@ -106,8 +116,10 @@ func objectOf(_ r: inout SplitMix64, target: Int,
     }
 }
 
-func arrayOf(_ r: inout SplitMix64, target: Int,
-             _ gen: (inout SplitMix64) -> JSON) -> JSON {
+func arrayOf(
+    _ r: inout SplitMix64, target: Int,
+    _ gen: (inout SplitMix64) -> JSON
+) -> JSON {
     var items: [JSON] = []
     while true {
         items.append(gen(&r))
@@ -119,10 +131,12 @@ func arrayOf(_ r: inout SplitMix64, target: Int,
 func structsOf(_ r: inout SplitMix64, _ target: Int) -> JSON {
     var items: [JSON] = []
     while true {
-        items.append(.object([
-            .init("id", vInt(&r)), .init("name", vShortString(&r)),
-            .init("created_at", vDate(&r)), .init("active", vBool(&r)), .init("score", vDouble(&r)),
-        ]))
+        items.append(
+            .object([
+                .init("id", vInt(&r)), .init("name", vShortString(&r)),
+                .init("created_at", vDate(&r)), .init("active", vBool(&r)),
+                .init("score", vDouble(&r))
+            ]))
         let doc = JSON.object([.init("items", .array(items))])
         if doc.byteCount >= target { return doc }
     }
@@ -133,18 +147,30 @@ func nested3(_ r: inout SplitMix64, _ target: Int) -> JSON {
     let attributes = objectOf(&r, target: innerTarget, vShortString)
     var included: [JSON] = []
     if case .object(let pairs) = structsOf(&r, innerTarget),
-       case .array(let items)? = pairs.first(where: { $0.key == "items" })?.value {
+        case .array(let items)? = pairs.first(where: { $0.key == "items" })?.value
+    {
         included = items
     }
     return .object([
-        .init("meta", .object([.init("request_id", vUUID(&r)), .init("timestamp", vDate(&r)),
-                          .init("version", .string("v1"))])),
-        .init("data", .object([
-            .init("attributes", attributes),
-            .init("relationships", .object([
-                .init("owner", .object([.init("id", vInt(&r)), .init("type", .string("user"))]))])),
-        ])),
-        .init("included", .array(included)),
+        .init(
+            "meta",
+            .object([
+                .init("request_id", vUUID(&r)), .init("timestamp", vDate(&r)),
+                .init("version", .string("v1"))
+            ])),
+        .init(
+            "data",
+            .object([
+                .init("attributes", attributes),
+                .init(
+                    "relationships",
+                    .object([
+                        .init(
+                            "owner",
+                            .object([.init("id", vInt(&r)), .init("type", .string("user"))]))
+                    ]))
+            ])),
+        .init("included", .array(included))
     ])
 }
 
@@ -195,12 +221,15 @@ func unknownKeys(_ r: inout SplitMix64, _ target: Int) -> JSON {
 func floatsDense(_ r: inout SplitMix64, _ target: Int) -> JSON {
     var coords: [JSON] = []
     while true {
-        coords.append(.array([
-            .double(r.double(in: -180...180)),
-            .double(r.double(in: -90...90)),
-        ]))
-        let doc = JSON.object([.init("type", .string("Polygon")),
-                               .init("coordinates", .array(coords))])
+        coords.append(
+            .array([
+                .double(r.double(in: -180...180)),
+                .double(r.double(in: -90...90))
+            ]))
+        let doc = JSON.object([
+            .init("type", .string("Polygon")),
+            .init("coordinates", .array(coords))
+        ])
         if doc.byteCount >= target { return doc }
     }
 }
@@ -214,25 +243,26 @@ func floatsDense(_ r: inout SplitMix64, _ target: Int) -> JSON {
 func apimodel(_ r: inout SplitMix64, _ target: Int) -> JSON {
     var items: [JSON] = []
     while true {
-        items.append(.object([
-            .init("id", vUUID(&r)),
-            .init("sequence", vInt(&r)),
-            .init("name", vShortString(&r)),
-            .init("description", vLongString(&r)),
-            .init("created_at", vDate(&r)),
-            .init("updated_at", vDate(&r)),
-            .init("amount", vDouble(&r)),
-            .init("active", vBool(&r)),
-            .init("retry_count", vInt(&r)),
-            .init("owner_id", vUUID(&r)),
-        ]))
+        items.append(
+            .object([
+                .init("id", vUUID(&r)),
+                .init("sequence", vInt(&r)),
+                .init("name", vShortString(&r)),
+                .init("description", vLongString(&r)),
+                .init("created_at", vDate(&r)),
+                .init("updated_at", vDate(&r)),
+                .init("amount", vDouble(&r)),
+                .init("active", vBool(&r)),
+                .init("retry_count", vInt(&r)),
+                .init("owner_id", vUUID(&r))
+            ]))
         let doc = JSON.object([
             .init("request_id", vUUID(&r)),
             .init("generated_at", vDate(&r)),
             .init("page", .int(items.count)),
             .init("total_count", .int(items.count * 3)),
             .init("has_more", .bool(true)),
-            .init("items", .array(items)),
+            .init("items", .array(items))
         ])
         if doc.byteCount >= target { return doc }
     }
@@ -245,53 +275,68 @@ struct Shape: @unchecked Sendable {
 }
 
 let SHAPES: [Shape] = [
-    Shape(name: "scalars",
-          doc: "All Int/Double/Bool. Isolates number parsing and struct fill.",
-          build: { r, t in objectOf(&r, target: t) { r in r.bool() ? vInt(&r) : vDouble(&r) } }),
-    Shape(name: "short-strings",
-          doc: "All string values <=15 bytes. Isolates the SSO win and exposes the wasm32 cliff.",
-          build: { r, t in objectOf(&r, target: t, vShortString) }),
-    Shape(name: "long-strings",
-          doc: "All string values 30-120 bytes. One malloc per field, worst case.",
-          build: { r, t in objectOf(&r, target: t, vLongString) }),
-    Shape(name: "uuids-and-dates",
-          doc: "The realistic API case. Every string allocates on every platform.",
-          build: { r, t in objectOf(&r, target: t) { r in r.bool() ? vUUID(&r) : vDate(&r) } }),
-    Shape(name: "escaped",
-          doc: "Strings requiring unescaping. Separates the memcpy path from the transform path.",
-          build: { r, t in objectOf(&r, target: t, vEscaped) }),
-    Shape(name: "arrays-of-scalars",
-          doc: "Tests the exact-sizing hypothesis of allocation strategy 2.1.",
-          build: { r, t in arrayOf(&r, target: t, vInt) }),
-    Shape(name: "arrays-of-structs",
-          doc: "The other side of exact-sizing: per-element work dominates.",
-          build: structsOf),
-    Shape(name: "nested-3-deep",
-          doc: "Realistic envelope + payload + metadata.",
-          build: nested3),
-    Shape(name: "mixed",
-          doc: "A bit of everything, in real-payload proportions.",
-          build: mixed),
-    Shape(name: "bigints",
-          doc: "13-digit epoch-millis. The one integer width where SWAR would win.",
-          build: { r, t in objectOf(&r, target: t, vBigInt) }),
-    Shape(name: "optionals-absent",
-          doc: "Half the declared fields are absent.",
-          build: optionalsAbsent),
-    Shape(name: "optionals-present",
-          doc: "All declared fields present. Control for optionals-absent.",
-          build: mixed),
-    Shape(name: "unknown-keys",
-          doc: "Half the payload keys are not in the schema. Skip-cost.",
-          build: unknownKeys),
-    Shape(name: "floats-dense",
-          doc: "canada.json-shaped coordinate pairs. The case a scalar decoder is "
-             + "expected to lose; generated so the loss can be published.",
-          build: floatsDense),
-    Shape(name: "apimodel",
-          doc: "Fixed field set, scales by array length. The only shape a typed "
-             + "head-to-head against Foundation's Codable can use.",
-          build: apimodel),
+    Shape(
+        name: "scalars",
+        doc: "All Int/Double/Bool. Isolates number parsing and struct fill.",
+        build: { r, t in objectOf(&r, target: t) { r in r.bool() ? vInt(&r) : vDouble(&r) } }),
+    Shape(
+        name: "short-strings",
+        doc: "All string values <=15 bytes. Isolates the SSO win and exposes the wasm32 cliff.",
+        build: { r, t in objectOf(&r, target: t, vShortString) }),
+    Shape(
+        name: "long-strings",
+        doc: "All string values 30-120 bytes. One malloc per field, worst case.",
+        build: { r, t in objectOf(&r, target: t, vLongString) }),
+    Shape(
+        name: "uuids-and-dates",
+        doc: "The realistic API case. Every string allocates on every platform.",
+        build: { r, t in objectOf(&r, target: t) { r in r.bool() ? vUUID(&r) : vDate(&r) } }),
+    Shape(
+        name: "escaped",
+        doc: "Strings requiring unescaping. Separates the memcpy path from the transform path.",
+        build: { r, t in objectOf(&r, target: t, vEscaped) }),
+    Shape(
+        name: "arrays-of-scalars",
+        doc: "Tests the exact-sizing hypothesis of allocation strategy 2.1.",
+        build: { r, t in arrayOf(&r, target: t, vInt) }),
+    Shape(
+        name: "arrays-of-structs",
+        doc: "The other side of exact-sizing: per-element work dominates.",
+        build: structsOf),
+    Shape(
+        name: "nested-3-deep",
+        doc: "Realistic envelope + payload + metadata.",
+        build: nested3),
+    Shape(
+        name: "mixed",
+        doc: "A bit of everything, in real-payload proportions.",
+        build: mixed),
+    Shape(
+        name: "bigints",
+        doc: "13-digit epoch-millis. The one integer width where SWAR would win.",
+        build: { r, t in objectOf(&r, target: t, vBigInt) }),
+    Shape(
+        name: "optionals-absent",
+        doc: "Half the declared fields are absent.",
+        build: optionalsAbsent),
+    Shape(
+        name: "optionals-present",
+        doc: "All declared fields present. Control for optionals-absent.",
+        build: mixed),
+    Shape(
+        name: "unknown-keys",
+        doc: "Half the payload keys are not in the schema. Skip-cost.",
+        build: unknownKeys),
+    Shape(
+        name: "floats-dense",
+        doc: "canada.json-shaped coordinate pairs. The case a scalar decoder is "
+            + "expected to lose; generated so the loss can be published.",
+        build: floatsDense),
+    Shape(
+        name: "apimodel",
+        doc: "Fixed field set, scales by array length. The only shape a typed "
+            + "head-to-head against Foundation's Codable can use.",
+        build: apimodel)
 ]
 
 // MARK: - Negative cases
@@ -305,50 +350,62 @@ struct Negative: @unchecked Sendable {
 }
 
 let NEGATIVES: [Negative] = [
-    Negative(name: "invalid-early", doc: "Malformed at byte 10. Measures fail-fast.",
-             build: { r in
-                 var b = mixed(&r, 8_192).encoded
-                 b[10] = 0xFF; b[11] = 0xFE
-                 return b
-             }),
-    Negative(name: "invalid-late", doc: "Malformed near byte 8000.",
-             build: { r in
-                 var b = mixed(&r, 8_192).encoded
-                 let cut = min(b.count - 20, 8_000)
-                 b[cut] = 0x40; b[cut + 1] = 0x40
-                 return b
-             }),
-    Negative(name: "type-mismatch", doc: "Well-formed JSON, wrong types for the schema.",
-             build: { r in
-                 guard case .object(let pairs) = mixed(&r, 8_192) else { return [] }
-                 return JSON.object(pairs.enumerated().map { i, p in
-                     i % 3 == 0
-                         ? .init(p.key, i % 2 == 0 ? .array([.string("wrong")])
-                                              : .object([.init("wrong", .string("shape"))]))
-                         : p
-                 }).encoded
-             }),
-    Negative(name: "truncated", doc: "Unterminated document.",
-             build: { r in
-                 let b = mixed(&r, 8_192).encoded
-                 return Array(b[0..<(b.count / 2)])
-             }),
-    Negative(name: "validation-fail-many",
-             doc: "20 rule violations. Exercises issue collection from the unhappy side.",
-             build: { r in
-                 guard case .object(let pairs) = mixed(&r, 8_192) else { return [] }
-                 return JSON.object(pairs.enumerated().map { i, p in
-                     i < 20 ? .init(p.key, .string("")) : p
-                 }).encoded
-             }),
-    Negative(name: "deep-nesting", doc: "200 levels deep. Exercises Limits.maxDepth.",
-             build: { _ in
-                 let depth = 200
-                 var b: [UInt8] = []
-                 for _ in 0..<depth { b.append(contentsOf: Array("{\"a\":".utf8)) }
-                 b.append(0x31)
-                 for _ in 0..<depth { b.append(0x7D) }
-                 return b
-             }),
+    Negative(
+        name: "invalid-early", doc: "Malformed at byte 10. Measures fail-fast.",
+        build: { r in
+            var b = mixed(&r, 8_192).encoded
+            b[10] = 0xFF; b[11] = 0xFE
+            return b
+        }),
+    Negative(
+        name: "invalid-late", doc: "Malformed near byte 8000.",
+        build: { r in
+            var b = mixed(&r, 8_192).encoded
+            let cut = min(b.count - 20, 8_000)
+            b[cut] = 0x40; b[cut + 1] = 0x40
+            return b
+        }),
+    Negative(
+        name: "type-mismatch", doc: "Well-formed JSON, wrong types for the schema.",
+        build: { r in
+            guard case .object(let pairs) = mixed(&r, 8_192) else { return [] }
+            return JSON.object(
+                pairs.enumerated().map { i, p in
+                    i % 3 == 0
+                        ? .init(
+                            p.key,
+                            i % 2 == 0
+                                ? .array([.string("wrong")])
+                                : .object([.init("wrong", .string("shape"))]))
+                        : p
+                }
+            ).encoded
+        }),
+    Negative(
+        name: "truncated", doc: "Unterminated document.",
+        build: { r in
+            let b = mixed(&r, 8_192).encoded
+            return Array(b[0..<(b.count / 2)])
+        }),
+    Negative(
+        name: "validation-fail-many",
+        doc: "20 rule violations. Exercises issue collection from the unhappy side.",
+        build: { r in
+            guard case .object(let pairs) = mixed(&r, 8_192) else { return [] }
+            return JSON.object(
+                pairs.enumerated().map { i, p in
+                    i < 20 ? .init(p.key, .string("")) : p
+                }
+            ).encoded
+        }),
+    Negative(
+        name: "deep-nesting", doc: "200 levels deep. Exercises Limits.maxDepth.",
+        build: { _ in
+            let depth = 200
+            var b: [UInt8] = []
+            for _ in 0..<depth { b.append(contentsOf: Array("{\"a\":".utf8)) }
+            b.append(0x31)
+            for _ in 0..<depth { b.append(0x7D) }
+            return b
+        })
 ]
-

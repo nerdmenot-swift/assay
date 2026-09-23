@@ -29,21 +29,26 @@ func expandSchemaForTesting(
         return ("", ["no struct or enum found in source"])
     }
     let structDeclName = structDecl?.name.text ?? enumDecl!.name.text
-    guard let attribute = decl.attributes
-        .compactMap({ $0.as(AttributeSyntax.self) })
-        .first(where: { $0.attributeName.trimmedDescription == "Schema" }) else {
+    guard
+        let attribute = decl.attributes
+            .compactMap({ $0.as(AttributeSyntax.self) })
+            .first(where: { $0.attributeName.trimmedDescription == "Schema" })
+    else {
         return ("", ["no @Schema attribute found"])
     }
 
-    let extensions = (try? SchemaMacro.expansion(
-        of: attribute,
-        attachedTo: decl,
-        providingExtensionsOf: TypeSyntax(stringLiteral: structDeclName),
-        conformingTo: [],
-        in: context)) ?? []
+    let extensions =
+        (try? SchemaMacro.expansion(
+            of: attribute,
+            attachedTo: decl,
+            providingExtensionsOf: TypeSyntax(stringLiteral: structDeclName),
+            conformingTo: [],
+            in: context)) ?? []
 
-    return (extensions.map(\.description).joined(separator: "\n"),
-            context.diagnostics.map(\.message))
+    return (
+        extensions.map(\.description).joined(separator: "\n"),
+        context.diagnostics.map(\.message)
+    )
 }
 
 @Suite("Macro diagnostics")
@@ -53,44 +58,50 @@ struct MacroDiagnosticTests {
     func needsTypeAnnotation() {
         // A macro only sees source text — it cannot ask the type checker what `3` is,
         // and guessing Int would be wrong the moment someone writes `var timeout = 1.5`.
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema struct S { var x = 3 }
-        """)
-        #expect(diags.contains {
-            $0.contains("'x'") && $0.contains("explicit type annotation")
-        })
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S { var x = 3 }
+            """)
+        #expect(
+            diags.contains {
+                $0.contains("'x'") && $0.contains("explicit type annotation")
+            })
     }
 
     @Test("let with an initializer cannot be decoded")
     func letWithInitializer() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema struct S { let y: Int = 3
-            var a: String }
-        """)
-        #expect(diags.contains {
-            $0.contains("'let y'") && $0.contains("cannot be decoded")
-        })
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S { let y: Int = 3
+                var a: String }
+            """)
+        #expect(
+            diags.contains {
+                $0.contains("'let y'") && $0.contains("cannot be decoded")
+            })
     }
 
     @Test("two properties reading the same wire key is an error")
     func duplicateKey() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema struct S {
-            @Key("id") var a: String
-            @Key("id") var b: String
-        }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S {
+                @Key("id") var a: String
+                @Key("id") var b: String
+            }
+            """)
         #expect(diags.contains { $0.contains("duplicate wire key \"id\"") })
     }
 
     @Test("aliases participate in duplicate detection too")
     func duplicateAlias() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema struct S {
-            var email: String
-            @Key("mail", or: "email") var other: String
-        }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S {
+                var email: String
+                @Key("mail", or: "email") var other: String
+            }
+            """)
         #expect(diags.contains { $0.contains("duplicate wire key \"email\"") })
     }
 
@@ -103,41 +114,46 @@ struct MacroDiagnosticTests {
 
     @Test(".collect without an @Extras property tells you what to add")
     func collectWithoutExtras() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema(unknownKeys: .collect) struct S { var a: String }
-        """)
-        #expect(diags.contains {
-            $0.contains("@Extras") && $0.contains("[String: RawValue]")
-        })
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema(unknownKeys: .collect) struct S { var a: String }
+            """)
+        #expect(
+            diags.contains {
+                $0.contains("@Extras") && $0.contains("[String: RawValue]")
+            })
     }
 
     @Test("@Extras must be a String-keyed dictionary")
     func extrasWrongType() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema struct S {
-            var a: String
-            @Extras var rest: [Int: RawValue]
-        }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S {
+                var a: String
+                @Extras var rest: [Int: RawValue]
+            }
+            """)
         #expect(diags.contains { $0.contains("dictionary keyed by String") })
     }
 
     @Test("two @Extras properties is an error")
     func multipleExtras() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema struct S {
-            @Extras var a: [String: RawValue]
-            @Extras var b: [String: RawValue]
-        }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S {
+                @Extras var a: [String: RawValue]
+                @Extras var b: [String: RawValue]
+            }
+            """)
         #expect(diags.contains { $0.contains("only one @Extras") })
     }
 
     @Test("@Schema on a non-struct is refused")
     func notAStruct() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema class C { var a: String }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema class C { var a: String }
+            """)
         // A class parses as a class decl, so the helper reports no struct — but applying
         // the macro to an enum/class through the compiler surfaces the macro's own
         // diagnostic; assert the helper's failure mode here and the macro's directly.
@@ -146,10 +162,11 @@ struct MacroDiagnosticTests {
 
     @Test("a clean struct produces no diagnostics")
     func clean() {
-        let (expansion, diags) = expandSchemaForTesting("""
-        @Schema struct S { var a: String
-            var b: Int }
-        """)
+        let (expansion, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S { var a: String
+                var b: Int }
+            """)
         #expect(diags.isEmpty)
         #expect(!expansion.isEmpty)
     }
@@ -189,41 +206,44 @@ struct MacroExpansionTests {
         let (expansion, _) = expandSchemaForTesting(
             "@Schema(keys: .snakeCase) struct S { var avatarURL: String }")
         #expect(expansion.contains("\"avatar_url\""))
-        #expect(!expansion.contains("\"avatarUrl\""))     // the .convertFromSnakeCase bug
+        #expect(!expansion.contains("\"avatarUrl\""))  // the .convertFromSnakeCase bug
     }
 
     @Test("the window table is emitted sparse, never as a 256-element literal")
     func sparseTable() {
         // docs/COMPILE-TIME.md §3 rule 1: a 256-element array literal costs 16% of
         // expansion time in the type checker. The macro must never regress to it.
-        let (expansion, _) = expandSchemaForTesting("""
-        @Schema struct S { var alpha: String
-            var beta: Int
-            var gamma: Bool }
-        """)
+        let (expansion, _) = expandSchemaForTesting(
+            """
+            @Schema struct S { var alpha: String
+                var beta: Int
+                var gamma: Bool }
+            """)
         #expect(expansion.contains("repeating:"))
         #expect(!expansion.contains(", 3, 3, 3, 3, 3, 3, 3, 3,"))
     }
 
     @Test("@Ignore excludes a field from decode but the init still receives defaults")
     func ignored() {
-        let (expansion, _) = expandSchemaForTesting("""
-        @Schema struct S { var a: String
-            @Ignore var scratch: [String] = [] }
-        """)
+        let (expansion, _) = expandSchemaForTesting(
+            """
+            @Schema struct S { var a: String
+                @Ignore var scratch: [String] = [] }
+            """)
         #expect(!expansion.contains("scratch"))
     }
 
     @Test("static, computed and lazy members are skipped")
     func skippedMembers() {
-        let (expansion, diags) = expandSchemaForTesting("""
-        @Schema struct S {
-            var a: String
-            static var shared: Int = 0
-            var computed: Int { 42 }
-            lazy var cache: [String: Int] = [:]
-        }
-        """)
+        let (expansion, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S {
+                var a: String
+                static var shared: Int = 0
+                var computed: Int { 42 }
+                lazy var cache: [String: Int] = [:]
+            }
+            """)
         #expect(diags.isEmpty)
         #expect(!expansion.contains("shared"))
         #expect(!expansion.contains("computed"))
@@ -232,13 +252,14 @@ struct MacroExpansionTests {
 
     @Test("presence bitmask marks only required fields")
     func requiredMask() {
-        let (expansion, _) = expandSchemaForTesting("""
-        @Schema struct S {
-            var required: String
-            var optional: String?
-            var defaulted: Int = 3
-        }
-        """)
+        let (expansion, _) = expandSchemaForTesting(
+            """
+            @Schema struct S {
+                var required: String
+                var optional: String?
+                var defaulted: Int = 3
+            }
+            """)
         // Field 0 is required -> reported when bit 0 unset. Optionals and defaults are
         // absent-safe, so no missing-check is emitted for them.
         #expect(expansion.contains("__presence & 1 == 0"))
@@ -256,16 +277,19 @@ func expandWrapsForTesting(
     let context = BasicMacroExpansionContext(
         sourceFiles: [file: .init(moduleName: "Test", fullFilePath: "test.swift")])
     guard let decl = file.statements.compactMap({ $0.item.as(StructDeclSyntax.self) }).first,
-          let attribute = decl.attributes.compactMap({ $0.as(AttributeSyntax.self) })
-            .first(where: { $0.attributeName.trimmedDescription == "Wraps" }) else {
+        let attribute = decl.attributes.compactMap({ $0.as(AttributeSyntax.self) })
+            .first(where: { $0.attributeName.trimmedDescription == "Wraps" })
+    else {
         return ("", ["no @Wraps attribute found"])
     }
-    let members = (try? WrapsMacro.expansion(
-        of: attribute, providingMembersOf: decl, in: context)) ?? []
-    let exts = (try? WrapsMacro.expansion(
-        of: attribute, attachedTo: decl,
-        providingExtensionsOf: TypeSyntax(stringLiteral: decl.name.text),
-        conformingTo: [], in: context)) ?? []
+    let members =
+        (try? WrapsMacro.expansion(
+            of: attribute, providingMembersOf: decl, in: context)) ?? []
+    let exts =
+        (try? WrapsMacro.expansion(
+            of: attribute, attachedTo: decl,
+            providingExtensionsOf: TypeSyntax(stringLiteral: decl.name.text),
+            conformingTo: [], in: context)) ?? []
     let text = (members.map(\.description) + exts.map(\.description)).joined(separator: "\n")
     // Both attachments run the same diagnostic path, so the same message appears twice.
     var seen: Set<String> = []
@@ -299,7 +323,8 @@ struct RefusalTests {
 
     @Test("@XML in both forms is fine once the format is declared")
     func xmlWithFormat() {
-        let d = diags(#"@Schema(formats: .xml) @XML(root: "b") struct S { @XML(.attribute) var a: Int }"#)
+        let d = diags(
+            #"@Schema(formats: .xml) @XML(root: "b") struct S { @XML(.attribute) var a: Int }"#)
         #expect(d.isEmpty, "got \(d)")
     }
 
@@ -325,15 +350,17 @@ struct RefusalTests {
             sourceFiles: [file: .init(moduleName: "Test", fullFilePath: "test.swift")])
         let structDecl = file.statements.compactMap { $0.item.as(StructDeclSyntax.self) }.first!
         let attribute = structDecl.attributes.first!.as(AttributeSyntax.self)!
-        _ = try? SchemaMacro.expansion(of: attribute,
-                                       attachedTo: structDecl,
-                                       providingExtensionsOf: TypeSyntax(stringLiteral: "S"),
-                                       conformingTo: [], in: context)
+        _ = try? SchemaMacro.expansion(
+            of: attribute,
+            attachedTo: structDecl,
+            providingExtensionsOf: TypeSyntax(stringLiteral: "S"),
+            conformingTo: [], in: context)
         let d = context.diagnostics.first { $0.message.contains("applies to String") }
         // The node it points at is the attribute itself — `@Validate(.email)` — so its
         // description is the attribute source, not the whole struct.
-        #expect(d?.node.trimmedDescription == "@Validate(.email)",
-                "diagnostic is attached to: \(String(describing: d?.node.trimmedDescription))")
+        #expect(
+            d?.node.trimmedDescription == "@Validate(.email)",
+            "diagnostic is attached to: \(String(describing: d?.node.trimmedDescription))")
     }
 
     // FOUR COMBINATIONS THAT USED TO COMPILE AND DO NOTHING, found by the audit on
@@ -344,7 +371,8 @@ struct RefusalTests {
 
     @Test("@Key on an @Extras bag — the bag has no wire key of its own")
     func keyOnExtras() {
-        let d = diags("""
+        let d = diags(
+            """
             @Schema struct S { var a: Int
                 @Key("bag") @Extras var rest: [String: RawValue] = [:] }
             """)
@@ -353,7 +381,8 @@ struct RefusalTests {
 
     @Test("@Key(path:) beside @Inline — two answers for one location")
     func keyPathWithInline() {
-        let d = diags("""
+        let d = diags(
+            """
             @Schema struct S { @Schema struct In: Equatable { var a: String }
                 @Key(path: "x.y") @Inline var inner: In }
             """)
@@ -362,7 +391,8 @@ struct RefusalTests {
 
     @Test("@Coerce on something that is not a coercible scalar")
     func coerceOnNonScalar() {
-        let d = diags("""
+        let d = diags(
+            """
             @Schema struct S { @Schema struct In: Equatable { var a: String }
                 @Coerce var inner: In }
             """)
@@ -375,9 +405,12 @@ struct RefusalTests {
         // The declared type is String and the wire type is Int; the wire type is the one
         // that coerces, so reading the declared type here would refuse the exact pairing
         // the two attributes exist for.
-        #expect(diags("""
-            @Schema struct S { @Coerce @Transform({ (s: Int) in String(s) }) var port: String }
-            """).isEmpty)
+        #expect(
+            diags(
+                """
+                @Schema struct S { @Coerce @Transform({ (s: Int) in String(s) }) var port: String }
+                """
+            ).isEmpty)
     }
 
     @Test("@XML(.attribute) on an array is refused when DECODING, not only when encoding")
@@ -385,7 +418,8 @@ struct RefusalTests {
         let d = diags("@Schema(formats: .xml) struct S { @XML(.attribute) var tags: [String] }")
         #expect(d.contains { $0.contains("applies to scalar fields") }, "got \(d)")
         // And it still fires on the encoding side, which is where it always did.
-        let e = diags("""
+        let e = diags(
+            """
             @Schema(formats: .xml, encodes: true) struct S { @XML(.attribute) var tags: [String] }
             """)
         #expect(e.contains { $0.contains("applies to scalar fields") }, "got \(e)")
@@ -400,14 +434,17 @@ struct RefusalTests {
         #expect(d.isEmpty, "got \(d)")
         #expect(exp.contains("__extras[__uk] = __uv"), "expansion does not collect")
         let (warn, d2) = expandSchemaForTesting(
-            "@Schema(unknownKeys: .warn) struct S { var a: Int; @Extras var rest: [String: RawValue] }")
+            "@Schema(unknownKeys: .warn) struct S { var a: Int; @Extras var rest: [String: RawValue] }"
+        )
         #expect(d2.isEmpty)
         #expect(warn.contains("__extras[__uk] = __uv"))
     }
 
     @Test("@Extras with unknownKeys: .reject is contradictory")
     func extrasWithReject() {
-        let d = diags("@Schema(unknownKeys: .reject) struct S { var a: Int; @Extras var r: [String: RawValue] }")
+        let d = diags(
+            "@Schema(unknownKeys: .reject) struct S { var a: Int; @Extras var r: [String: RawValue] }"
+        )
         #expect(d.contains { $0.contains("both cannot hold") }, "got \(d)")
     }
 
@@ -442,7 +479,8 @@ struct RefusalTests {
         // The WIRE type is what @Preprocess sees. The first version of this refusal read
         // the declared type and refused exactly the pairing the attributes exist for.
         let transformed = diags(
-            "@Schema struct S { @Preprocess(.trim) @Transform({ (s: String) in s.count }) var n: Int }")
+            "@Schema struct S { @Preprocess(.trim) @Transform({ (s: String) in s.count }) var n: Int }"
+        )
         #expect(transformed.isEmpty, "a String wire type is a String: \(transformed)")
     }
 
@@ -460,19 +498,21 @@ struct RefusalTests {
 
 extension RefusalTests {
 
-    @Test("undecodable shapes are refused with the alternative named", arguments: [
-        ("var a: Set<String>", "Set"),
-        ("var a: Int??", "optional of an optional"),
-        ("var a: [Int?]", "array of optionals"),
-        ("var a: (Int, Int)", "tuple"),
-        ("var a: (Int) -> Int", "function type"),
-        ("var a: Any", "cannot be decoded"),
-        ("var a: Int!", "implicitly unwrapped"),
-        ("var a: Character", "not a field type"),
-        ("var a: Data", "not a field type"),
-        ("var a: URL", "not a field type"),
-        ("var a: Decimal", "not a field type"),
-    ])
+    @Test(
+        "undecodable shapes are refused with the alternative named",
+        arguments: [
+            ("var a: Set<String>", "Set"),
+            ("var a: Int??", "optional of an optional"),
+            ("var a: [Int?]", "array of optionals"),
+            ("var a: (Int, Int)", "tuple"),
+            ("var a: (Int) -> Int", "function type"),
+            ("var a: Any", "cannot be decoded"),
+            ("var a: Int!", "implicitly unwrapped"),
+            ("var a: Character", "not a field type"),
+            ("var a: Data", "not a field type"),
+            ("var a: URL", "not a field type"),
+            ("var a: Decimal", "not a field type")
+        ])
     func undecodable(_ decl: String, _ fragment: String) {
         let d = diags("@Schema struct S { \(decl); var ok: Int }")
         #expect(d.contains { $0.contains(fragment) }, "\(decl): \(d)")
@@ -492,7 +532,8 @@ extension RefusalTests {
 
     @Test("@Extras with a value type that cannot hold anything")
     func extrasValueType() {
-        let d = diags("@Schema(unknownKeys: .collect) struct S { var a: Int; @Extras var r: [String: Int] }")
+        let d = diags(
+            "@Schema(unknownKeys: .collect) struct S { var a: Int; @Extras var r: [String: Int] }")
         #expect(d.contains { $0.contains("[String: RawValue]") }, "\(d)")
     }
 
@@ -501,7 +542,8 @@ extension RefusalTests {
     @Test("a nested nominal type gets a _assayRequire assertion, once")
     func requireAssertion() {
         let (exp, d) = expandSchemaForTesting(
-            "@Schema(formats: .all) struct S { var n: N; var m: [N]; var o: N?; var p: [String: P] }")
+            "@Schema(formats: .all) struct S { var n: N; var m: [N]; var o: N?; var p: [String: P] }"
+        )
         #expect(d.isEmpty, "\(d)")
         #expect(exp.components(separatedBy: "Assay._assayRequireJSON(N.self)").count == 2)
         #expect(exp.contains("Assay._assayRequireJSON(P.self)"))
@@ -517,21 +559,28 @@ extension RefusalTests {
 
     @Test("a field check whose parameter type is not the field's")
     func checkParamType() {
-        let d = diags(#"@Schema struct S { var a: Int; @Check(\S.a) static func f(_ a: String) -> String? { nil } }"#)
+        let d = diags(
+            #"@Schema struct S { var a: Int; @Check(\S.a) static func f(_ a: String) -> String? { nil } }"#
+        )
         #expect(d.contains { $0.contains("declares its parameter as 'String'") }, "\(d)")
     }
 
     @Test("a cross-field check with the wrong shape")
     func crossShape() {
-        let d = diags(#"@Schema struct S { var a: Int; @Check static func f(_ v: S) -> String? { nil } }"#)
+        let d = diags(
+            #"@Schema struct S { var a: Int; @Check static func f(_ v: S) -> String? { nil } }"#)
         #expect(d.contains { $0.contains("inout Issues<S>") }, "\(d)")
-        let ok = diags(#"@Schema struct S { var a: Int; @Check static func f(_ v: S, _ i: inout Issues<S>) {} }"#)
+        let ok = diags(
+            #"@Schema struct S { var a: Int; @Check static func f(_ v: S, _ i: inout Issues<S>) {} }"#
+        )
         #expect(ok.isEmpty, "\(ok)")
     }
 
     @Test("a key path to a property the type does not declare")
     func checkUnknownField() {
-        let d = diags(#"@Schema struct S { var a: Int; @Check(\S.b) static func f(_ b: Int) -> String? { nil } }"#)
+        let d = diags(
+            #"@Schema struct S { var a: Int; @Check(\S.b) static func f(_ b: Int) -> String? { nil } }"#
+        )
         #expect(d.contains { $0.contains("does not declare") && $0.contains("'a'") }, "\(d)")
     }
 

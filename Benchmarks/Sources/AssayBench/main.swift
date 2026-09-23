@@ -29,27 +29,62 @@ struct Arm {
 var falsification: FalsificationResult? = nil
 
 let arms: [Arm] = [
-    Arm(name: "falsification", summary: "struct decode / prefix+skip / value model / negative path vs Foundation") {
+    Arm(
+        name: "falsification",
+        summary: "struct decode / prefix+skip / value model / negative path vs Foundation"
+    ) {
         falsification = runFalsification()
         return falsification != nil
     },
-    Arm(name: "allocations", summary: "live blocks per decoded value — the CI gate") { runAllocationGate() },
-    Arm(name: "formats", summary: "YAML and XML vs Yams / Foundation") { runFormatBenchmarks(corpusDir: corpusDir, sizes: sizes); return true },
-    Arm(name: "toml", summary: "TOML vs toml++ (TOMLKit)") { runTOMLBenchmarks(corpusDir: corpusDir, sizes: sizes); return true },
-    Arm(name: "encode", summary: "JSON/YAML/XML encoding vs JSONEncoder") { runEncodeBenchmarks(); return true },
+    Arm(name: "allocations", summary: "live blocks per decoded value — the CI gate") {
+        runAllocationGate()
+    },
+    Arm(name: "formats", summary: "YAML and XML vs Yams / Foundation") {
+        runFormatBenchmarks(corpusDir: corpusDir, sizes: sizes); return true
+    },
+    Arm(name: "toml", summary: "TOML vs toml++ (TOMLKit)") {
+        runTOMLBenchmarks(corpusDir: corpusDir, sizes: sizes); return true
+    },
+    Arm(name: "encode", summary: "JSON/YAML/XML encoding vs JSONEncoder") {
+        runEncodeBenchmarks(); return true
+    },
     Arm(name: "keypath", summary: "@Key(path:) vs nested @Schema") { runKeyPathBenchmarks() },
-    Arm(name: "coldstart", summary: "first decode per type, 60 types") { runColdStartBenchmarks(); return true },
-    Arm(name: "largedoc", summary: "0.2–8 MB documents") { runLargeDocumentBenchmarks(); return true },
-    Arm(name: "totalalloc", summary: "total malloc traffic (Darwin only)") { runTotalAllocationBenchmarks(); return true },
-    Arm(name: "zippy", summary: "vs ZippyJSON (simdjson + Codable)") { runZippyBenchmarks(); return true },
-    Arm(name: "dates", summary: "Date fields vs JSONDecoder .iso8601") { runDateBenchmarks(corpusDir: corpusDir, sizes: sizes); return true },
-    Arm(name: "validate", summary: "T.validate(_:) on an existing value") { runValidateBenchmarks(); return true },
-    Arm(name: "rules", summary: "per-rule cost of the rule engine") { runRuleCostBenchmarks(); return true },
-    Arm(name: "simd", summary: "the SIMD-tier baseline (yyjson)") { runSIMDBaselineBenchmarks(corpusDir: corpusDir, sizes: sizes); return true },
-    Arm(name: "decomposition", summary: "where decode time goes") { runDecompositionBenchmarks(corpusDir: corpusDir, sizes: sizes); return true },
-    Arm(name: "dict", summary: "[String: T] dictionary fields") { runDictionaryBenchmarks(corpusDir: corpusDir, sizes: sizes); return true },
-    Arm(name: "fieldsweep", summary: "per-field decode cost across the jump-table threshold") { runFieldSweepBenchmarks() },
-    Arm(name: "coverage", summary: "plists, XML→RawValue, unions, @Inline, @Wraps") { runCoverageBenchmarks() },
+    Arm(name: "coldstart", summary: "first decode per type, 60 types") {
+        runColdStartBenchmarks(); return true
+    },
+    Arm(name: "largedoc", summary: "0.2–8 MB documents") {
+        runLargeDocumentBenchmarks(); return true
+    },
+    Arm(name: "totalalloc", summary: "total malloc traffic (Darwin only)") {
+        runTotalAllocationBenchmarks(); return true
+    },
+    Arm(name: "zippy", summary: "vs ZippyJSON (simdjson + Codable)") {
+        runZippyBenchmarks(); return true
+    },
+    Arm(name: "dates", summary: "Date fields vs JSONDecoder .iso8601") {
+        runDateBenchmarks(corpusDir: corpusDir, sizes: sizes); return true
+    },
+    Arm(name: "validate", summary: "T.validate(_:) on an existing value") {
+        runValidateBenchmarks(); return true
+    },
+    Arm(name: "rules", summary: "per-rule cost of the rule engine") {
+        runRuleCostBenchmarks(); return true
+    },
+    Arm(name: "simd", summary: "the SIMD-tier baseline (yyjson)") {
+        runSIMDBaselineBenchmarks(corpusDir: corpusDir, sizes: sizes); return true
+    },
+    Arm(name: "decomposition", summary: "where decode time goes") {
+        runDecompositionBenchmarks(corpusDir: corpusDir, sizes: sizes); return true
+    },
+    Arm(name: "dict", summary: "[String: T] dictionary fields") {
+        runDictionaryBenchmarks(corpusDir: corpusDir, sizes: sizes); return true
+    },
+    Arm(name: "fieldsweep", summary: "per-field decode cost across the jump-table threshold") {
+        runFieldSweepBenchmarks()
+    },
+    Arm(name: "coverage", summary: "plists, XML→RawValue, unions, @Inline, @Wraps") {
+        runCoverageBenchmarks()
+    }
 ]
 
 @MainActor
@@ -78,7 +113,9 @@ if args.isEmpty {
     selected = picked
 }
 
-print("AssayBench — \(selected.count == arms.count ? "every arm" : selected.map(\.name).joined(separator: ", "))")
+print(
+    "AssayBench — \(selected.count == arms.count ? "every arm" : selected.map(\.name).joined(separator: ", "))"
+)
 print("Toolchain: \(ProcessInfo.processInfo.operatingSystemVersionString)")
 print("Warm (decoder hoisted). Minimum of 5 rounds. -O. Scalar Swift, no SIMD, no C.")
 print("")
@@ -95,8 +132,10 @@ if let f = falsification {
     print(String(repeating: "=", count: 40))
     func summarise(_ label: String, _ rs: [Double]) {
         guard !rs.isEmpty else { return }
-        print(String(format: "%@: %.2fx mean over %d files",
-                     label, rs.reduce(0, +) / Double(rs.count), rs.count))
+        print(
+            String(
+                format: "%@: %.2fx mean over %d files",
+                label, rs.reduce(0, +) / Double(rs.count), rs.count))
     }
     summarise("struct decode      ", f.structRatios)
     summarise("prefix + skip      ", f.prefixRatios)

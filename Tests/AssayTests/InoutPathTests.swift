@@ -43,45 +43,57 @@ struct InoutPathTests {
 
     @Test("an issue after a failed array element, and in a later element")
     func arrayElement() {
-        #expect(Self.paths(IPList.self,
-            #"{"items":[{"x":"bad"},{"x":1},{"x":"bad"}],"tail":"bad"}"#)
-            == ["items[0].x", "items[2].x", "tail"])
+        #expect(
+            Self.paths(
+                IPList.self,
+                #"{"items":[{"x":"bad"},{"x":1},{"x":"bad"}],"tail":"bad"}"#)
+                == ["items[0].x", "items[2].x", "tail"])
     }
 
     @Test("an issue after a failed dictionary value")
     func dictionaryValue() {
-        #expect(Self.paths(IPMap.self, #"{"m":{"k":{"x":"bad"}},"after":"bad"}"#)
-            == ["m.k.x", "after"])
+        #expect(
+            Self.paths(IPMap.self, #"{"m":{"k":{"x":"bad"}},"after":"bad"}"#)
+                == ["m.k.x", "after"])
     }
 
     @Test("an issue after failures inside a @Key(path:) group")
     func pathGroup() {
-        #expect(Self.paths(IPGroup.self,
-            #"{"p":{"list":"notarray","inner":{"x":"bad"}},"z":"bad"}"#)
-            == ["p.list", "p.inner.x", "z"])
+        #expect(
+            Self.paths(
+                IPGroup.self,
+                #"{"p":{"list":"notarray","inner":{"x":"bad"}},"z":"bad"}"#)
+                == ["p.list", "p.inner.x", "z"])
     }
 
     @Test("groups inside array elements, then a sibling of the array")
     func groupsInArray() {
-        #expect(Self.paths(IPGroups.self, """
-            {"rows":[{"p":{"list":[1],"inner":{"x":"bad"}},"z":1},
-                     {"p":{"list":"no","inner":{"x":2}},"z":"bad"}],
-             "last":"bad"}
-            """) == ["rows[0].p.inner.x", "rows[1].p.list", "rows[1].z", "last"])
+        #expect(
+            Self.paths(
+                IPGroups.self,
+                """
+                {"rows":[{"p":{"list":[1],"inner":{"x":"bad"}},"z":1},
+                         {"p":{"list":"no","inner":{"x":2}},"z":"bad"}],
+                 "last":"bad"}
+                """) == ["rows[0].p.inner.x", "rows[1].p.list", "rows[1].z", "last"])
     }
 
     /// A container given the wrong type must be CONSUMED after it is reported. Until
     /// 2026-09-19 none of these were: the leftover value was read where ',' or '}' was
     /// expected, and one false `malformed_document` replaced every later issue, which is the
     /// opposite of what `diagnose` promises.
-    @Test("a wrong-typed container is consumed, so later issues still appear",
-          arguments: [
+    @Test(
+        "a wrong-typed container is consumed, so later issues still appear",
+        arguments: [
             #"{"list":"notarray","z":"bad"}"#, #"{"list":{"o":1},"z":"bad"}"#,
-            #"{"list":7,"z":"bad"}"#,
-          ])
+            #"{"list":7,"z":"bad"}"#
+        ])
     func arrayMismatchResyncs(_ json: String) {
         #expect(Self.paths(IPFlat.self, json) == ["list", "z"])
-        #expect(!IPFlat.diagnose(json: json).issues.contains { $0.code.codeString == "malformed_document" })
+        #expect(
+            !IPFlat.diagnose(json: json).issues.contains {
+                $0.code.codeString == "malformed_document"
+            })
     }
 
     @Test("nested object, dictionary and enum mismatches resync too")
@@ -89,7 +101,8 @@ struct InoutPathTests {
         #expect(Self.paths(IPOuter.self, #"{"a":"notobject","b":"bad"}"#) == ["a", "b"])
         #expect(Self.paths(IPOuter.self, #"{"a":[1,2],"b":"bad"}"#) == ["a", "b"])
         #expect(Self.paths(IPMap.self, #"{"m":"notobject","after":"bad"}"#) == ["m", "after"])
-        #expect(Self.paths(IPList.self, #"{"items":[7,{"x":1}],"tail":"bad"}"#) == ["items[0]", "tail"])
+        #expect(
+            Self.paths(IPList.self, #"{"items":[7,{"x":1}],"tail":"bad"}"#) == ["items[0]", "tail"])
         // A closed enum (Enums.swift) and an open one (EnumGen), each given a non-string.
         #expect(Self.paths(IPEnumHolder.self, #"{"c":42,"o":"red","z":"bad"}"#) == ["c", "z"])
         #expect(Self.paths(IPEnumHolder.self, #"{"c":"red","o":["x"],"z":"bad"}"#) == ["o", "z"])
@@ -105,15 +118,17 @@ struct InoutPathTests {
         #expect(paths(IPOuter.self, "a:\n  x: bad\nb: bad\n") == ["a.x", "b"])
         // Elements carry their index and dictionary entries their key, as on the JSON
         // path. These read `items.x` and `m.x` until the element-path fix the same day.
-        #expect(paths(IPList.self, "items:\n- x: bad\n- x: 1\ntail: bad\n") == ["items[0].x", "tail"])
+        #expect(
+            paths(IPList.self, "items:\n- x: bad\n- x: 1\ntail: bad\n") == ["items[0].x", "tail"])
         #expect(paths(IPMap.self, "m:\n  k:\n    x: bad\nafter: bad\n") == ["m.k.x", "after"])
     }
 
     @Test("a clean decode through every nesting shape")
     func clean() throws {
-        let g = try IPGroups.parse(json: """
-            {"rows":[{"p":{"list":[1,2],"inner":{"x":3}},"z":4}],"last":5}
-            """)
+        let g = try IPGroups.parse(
+            json: """
+                {"rows":[{"p":{"list":[1,2],"inner":{"x":3}},"z":4}],"last":5}
+                """)
         #expect(g.rows.first?.list == [1, 2] && g.last == 5)
     }
 }

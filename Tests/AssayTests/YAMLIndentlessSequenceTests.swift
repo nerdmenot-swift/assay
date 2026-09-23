@@ -31,7 +31,9 @@ import AssayYAML
 @Schema(formats: .all) struct IndentlessTwo: Equatable { var items: [String]; var copy: [String] }
 @Schema(formats: .all) struct IndentlessNext: Equatable { var items: [String]; var next: Int }
 @Schema(formats: .all) struct K8sPort: Equatable { var containerPort: Int }
-@Schema(formats: .all) struct K8sContainer: Equatable { var name: String; var ports: [K8sPort] = [] }
+@Schema(formats: .all) struct K8sContainer: Equatable {
+    var name: String; var ports: [K8sPort] = []
+}
 @Schema(formats: .all) struct K8sSpec: Equatable { var containers: [K8sContainer] }
 @Schema(formats: .all) struct K8sPod: Equatable { var spec: K8sSpec }
 
@@ -40,22 +42,25 @@ struct YAMLIndentlessSequenceTests {
 
     @Test("the indented form decodes, as it always did")
     func indentedWorks() throws {
-        #expect(try IndentlessDoc.parse(yaml: "items:\n  - a\n  - b\n") ==
-                IndentlessDoc(items: ["a", "b"]))
-        #expect(try IndentlessRows.parse(yaml: "items:\n  - name: x\n") ==
-                IndentlessRows(items: [IndentlessRow(name: "x")]))
+        #expect(
+            try IndentlessDoc.parse(yaml: "items:\n  - a\n  - b\n")
+                == IndentlessDoc(items: ["a", "b"]))
+        #expect(
+            try IndentlessRows.parse(yaml: "items:\n  - name: x\n")
+                == IndentlessRows(items: [IndentlessRow(name: "x")]))
     }
 
     @Test("a sequence of scalars at the key's indentation")
     func scalars() throws {
-        #expect(try IndentlessDoc.parse(yaml: "items:\n- a\n- b\n") ==
-                IndentlessDoc(items: ["a", "b"]))
+        #expect(
+            try IndentlessDoc.parse(yaml: "items:\n- a\n- b\n") == IndentlessDoc(items: ["a", "b"]))
     }
 
     @Test("a sequence of mappings at the key's indentation")
     func mappings() throws {
-        #expect(try IndentlessRows.parse(yaml: "items:\n- name: x\n- name: y\n") ==
-                IndentlessRows(items: [IndentlessRow(name: "x"), IndentlessRow(name: "y")]))
+        #expect(
+            try IndentlessRows.parse(yaml: "items:\n- name: x\n- name: y\n")
+                == IndentlessRows(items: [IndentlessRow(name: "x"), IndentlessRow(name: "y")]))
     }
 
     @Test("the one-entry form, which was silently mis-parsed, has one key")
@@ -71,26 +76,30 @@ struct YAMLIndentlessSequenceTests {
 
     @Test("the sequence ends at the next key, and an anchor on the key covers it")
     func boundaries() throws {
-        #expect(try IndentlessTwo.parse(yaml: "items: &l\n- a\n- b\ncopy: *l\n") ==
-                IndentlessTwo(items: ["a", "b"], copy: ["a", "b"]))
-        #expect(try IndentlessNext.parse(yaml: "items:\n# note\n- a\nnext: 1\n") ==
-                IndentlessNext(items: ["a"], next: 1))
+        #expect(
+            try IndentlessTwo.parse(yaml: "items: &l\n- a\n- b\ncopy: *l\n")
+                == IndentlessTwo(items: ["a", "b"], copy: ["a", "b"]))
+        #expect(
+            try IndentlessNext.parse(yaml: "items:\n# note\n- a\nnext: 1\n")
+                == IndentlessNext(items: ["a"], next: 1))
     }
 
     @Test("a Kubernetes-shaped document: indentless at two levels")
     func kubernetesShape() throws {
-        let pod = try K8sPod.parse(yaml: """
-            spec:
-              containers:
-              - name: web
-                ports:
-                - containerPort: 80
-              - name: side
-            """)
-        #expect(pod.spec.containers == [
-            K8sContainer(name: "web", ports: [K8sPort(containerPort: 80)]),
-            K8sContainer(name: "side"),
-        ])
+        let pod = try K8sPod.parse(
+            yaml: """
+                spec:
+                  containers:
+                  - name: web
+                    ports:
+                    - containerPort: 80
+                  - name: side
+                """)
+        #expect(
+            pod.spec.containers == [
+                K8sContainer(name: "web", ports: [K8sPort(containerPort: 80)]),
+                K8sContainer(name: "side")
+            ])
     }
 
     @Test("a mapping at the key's column is still a sibling, not a value")

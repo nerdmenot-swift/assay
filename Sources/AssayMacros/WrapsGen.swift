@@ -44,7 +44,7 @@ public struct WrapsMacro {
         "String": "string",
         "Int64": "int",
         "Double": "double",
-        "Bool": "bool",
+        "Bool": "bool"
     ]
 
     /// What `RuleTypeCheck` should type-check the rules against.
@@ -67,31 +67,42 @@ public struct WrapsMacro {
         _ context: some MacroExpansionContext
     ) -> Parsed? {
         guard let args = node.arguments?.as(LabeledExprListSyntax.self),
-              let first = args.first else {
-            context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
-                "@Wraps needs the wrapped type: @Wraps(String.self, .email)")))
+            let first = args.first
+        else {
+            context.diagnose(
+                Diagnostic(
+                    node: Syntax(node),
+                    message: SimpleDiagnostic(
+                        "@Wraps needs the wrapped type: @Wraps(String.self, .email)")))
             return nil
         }
         var wrapped = first.expression.trimmedDescription
         if wrapped.hasSuffix(".self") { wrapped.removeLast(5) }
 
         guard leaves[wrapped] != nil else {
-            context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
-                "@Wraps can wrap \(leaves.keys.sorted().joined(separator: ", ")), not "
-                + "'\(wrapped)'. A macro sees the type's NAME and nothing else, so it cannot "
-                + "know how to read one it does not recognise. For any other type, write the "
-                + "`AssayerBacked` conformance by hand — it is three lines and `@Wraps` is "
-                + "only sugar over it.")))
+            context.diagnose(
+                Diagnostic(
+                    node: Syntax(node),
+                    message: SimpleDiagnostic(
+                        "@Wraps can wrap \(leaves.keys.sorted().joined(separator: ", ")), not "
+                            + "'\(wrapped)'. A macro sees the type's NAME and nothing else, so it cannot "
+                            + "know how to read one it does not recognise. For any other type, write the "
+                            + "`AssayerBacked` conformance by hand — it is three lines and `@Wraps` is "
+                            + "only sugar over it.")))
             return nil
         }
 
         // A body with stored properties would collide with the generated storage.
         for m in decl.memberBlock.members {
             if let v = m.decl.as(VariableDeclSyntax.self),
-               v.bindings.contains(where: { $0.accessorBlock == nil }) {
-                context.diagnose(Diagnostic(node: Syntax(v), message: SimpleDiagnostic(
-                    "@Wraps generates the storage, so the type's body must not declare a "
-                    + "stored property. Computed properties and methods are fine.")))
+                v.bindings.contains(where: { $0.accessorBlock == nil })
+            {
+                context.diagnose(
+                    Diagnostic(
+                        node: Syntax(v),
+                        message: SimpleDiagnostic(
+                            "@Wraps generates the storage, so the type's body must not declare a "
+                                + "stored property. Computed properties and methods are fine.")))
                 return nil
             }
         }
@@ -105,9 +116,12 @@ public struct WrapsMacro {
             while name.hasPrefix(".") { name.removeFirst() }
             if let paren = name.firstIndex(of: "(") { name = String(name[name.startIndex..<paren]) }
             if let wanted = RuleTypeCheck.expectedCategory(rule: name, on: cat) {
-                context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
-                    "'.\(name)' applies to \(wanted), and @Wraps(\(wrapped).self) wraps a "
-                    + "\(wrapped).")))
+                context.diagnose(
+                    Diagnostic(
+                        node: Syntax(node),
+                        message: SimpleDiagnostic(
+                            "'.\(name)' applies to \(wanted), and @Wraps(\(wrapped).self) wraps a "
+                                + "\(wrapped).")))
                 return nil
             }
         }
@@ -154,7 +168,7 @@ extension WrapsMacro: MemberMacro {
                 guard __sink.isValid else { return nil }
                 self.raw = raw
             }
-            """,
+            """
         ]
     }
 }
@@ -169,7 +183,8 @@ extension WrapsMacro: ExtensionMacro {
     ) throws -> [ExtensionDeclSyntax] {
         guard let p = parse(node, declaration, context) else { return [] }
         let leaf = Self.leaves[p.wrapped]!
-        let validate = p.rules.isEmpty
+        let validate =
+            p.rules.isEmpty
             ? ""
             : ".validate(\(p.rules.joined(separator: ", ")))"
 
@@ -178,15 +193,15 @@ extension WrapsMacro: ExtensionMacro {
         // token — so declaring the conformance and letting the type checker do the work is
         // the only sound route.
         let ext: DeclSyntax = """
-        extension \(type): Assay.AssayerBacked, Swift.Equatable, Swift.Hashable,
-                           Swift.CustomStringConvertible {
-            nonisolated public static var assaySchema: Assay.Assayer<\(type)> {
-                Assay.Assayer.\(raw: leaf)\(raw: validate)
-                    .map { \(type)(__assayUnchecked: $0) }
+            extension \(type): Assay.AssayerBacked, Swift.Equatable, Swift.Hashable,
+                               Swift.CustomStringConvertible {
+                nonisolated public static var assaySchema: Assay.Assayer<\(type)> {
+                    Assay.Assayer.\(raw: leaf)\(raw: validate)
+                        .map { \(type)(__assayUnchecked: $0) }
+                }
+                public var description: String { String(describing: raw) }
             }
-            public var description: String { String(describing: raw) }
-        }
-        """
+            """
         return [ext.as(ExtensionDeclSyntax.self)!]
     }
 }

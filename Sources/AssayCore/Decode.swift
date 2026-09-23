@@ -28,8 +28,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeString(
-        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
-        , _ element: Int = -1
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ element: Int = -1
     ) -> String? {
         beginValue()
         if let s = scanString() { return s }
@@ -41,8 +40,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeInt(
-        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
-        , _ element: Int = -1
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ element: Int = -1
     ) -> Int? {
         beginValue()
         if let v = scanInt64(), let n = Int(exactly: v) { return n }
@@ -54,8 +52,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeInt64(
-        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
-        , _ element: Int = -1
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ element: Int = -1
     ) -> Int64? {
         beginValue()
         if let v = scanInt64() { return v }
@@ -67,8 +64,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeInt32(
-        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
-        , _ element: Int = -1
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ element: Int = -1
     ) -> Int32? {
         beginValue()
         if let v = scanInt64(), let n = Int32(exactly: v) { return n }
@@ -80,8 +76,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeUInt(
-        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
-        , _ element: Int = -1
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ element: Int = -1
     ) -> UInt? {
         beginValue()
         if let v = scanInt64(), let n = UInt(exactly: v) { return n }
@@ -93,8 +88,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeDouble(
-        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
-        , _ element: Int = -1
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ element: Int = -1
     ) -> Double? {
         beginValue()
         if let v = scanDouble() { return v }
@@ -106,8 +100,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeFloat(
-        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
-        , _ element: Int = -1
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ element: Int = -1
     ) -> Float? {
         beginValue()
         if let v = scanDouble() { return Float(v) }
@@ -119,8 +112,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeBool(
-        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
-        , _ element: Int = -1
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ element: Int = -1
     ) -> Bool? {
         beginValue()
         if let v = scanBool() { return v }
@@ -163,26 +155,32 @@ extension AssayReader {
             // Syntactically a number, and not representable. Saying "must be a double"
             // would be false — it IS a double-shaped literal — and saying nothing would
             // ship infinity.
-            sink.add(Issue(code: .numberOverflow, path: p,
-                           location: SourceSpan(lo: numberRangeErrorAt,
-                                                len: numberRangeErrorLength)))
+            sink.add(
+                Issue(
+                    code: .numberOverflow, path: p,
+                    location: SourceSpan(
+                        lo: numberRangeErrorAt,
+                        len: numberRangeErrorLength)))
             numberRangeErrorAt = -1
             return
         }
         if escapeErrorAt >= 0 {
             // The string was scanned to its closing quote already; say what was wrong
             // with it rather than that it was not a string.
-            sink.add(Issue(code: .invalidEscape, path: p,
-                           location: SourceSpan(lo: escapeErrorAt, len: 2)))
+            sink.add(
+                Issue(
+                    code: .invalidEscape, path: p,
+                    location: SourceSpan(lo: escapeErrorAt, len: 2)))
             escapeErrorAt = -1
             return
         }
-        sink.add(Issue(
-            code: .typeMismatch,
-            path: p,
-            params: ["expected": .string(expected)],
-            received: describeCurrentValue(),
-            location: SourceSpan(lo: cursor, len: 1)))
+        sink.add(
+            Issue(
+                code: .typeMismatch,
+                path: p,
+                params: ["expected": .string(expected)],
+                received: describeCurrentValue(),
+                location: SourceSpan(lo: cursor, len: 1)))
         // Resynchronise so one bad field does not cascade into a hundred parse errors —
         // this is what makes "all the errors, all the time" produce a useful report
         // rather than noise.
@@ -328,12 +326,13 @@ extension AssayReader {
     public mutating func _nullNotAllowed(
         _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ expected: String
     ) {
-        sink.add(Issue(
-            code: .typeMismatch,
-            path: path + [.key(String(describing: key))],
-            params: ["expected": .string(expected)],
-            received: "null",
-            location: SourceSpan(lo: cursor, len: 4)))
+        sink.add(
+            Issue(
+                code: .typeMismatch,
+                path: path + [.key(String(describing: key))],
+                params: ["expected": .string(expected)],
+                received: "null",
+                location: SourceSpan(lo: cursor, len: 4)))
     }
 }
 
@@ -412,11 +411,12 @@ extension AssayReader {
     mutating func overflowed(
         _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ value: Int
     ) {
-        sink.add(Issue(
-            code: .numberOverflow,
-            path: path + [.key(String(describing: key))],
-            received: String(value),
-            location: lastValueSpan))
+        sink.add(
+            Issue(
+                code: .numberOverflow,
+                path: path + [.key(String(describing: key))],
+                received: String(value),
+                location: lastValueSpan))
     }
 
     @_documentation(visibility: internal)

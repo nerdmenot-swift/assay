@@ -54,46 +54,46 @@ extension SchemaMacro {
             let rulesExpr = ruleArrayReference(f, i)
             let required = !f.isOptional && f.defaultExpr == nil && f.fallback == nil
             var entry = """
-                    Assay.FieldDescriptor(
-                        wireKey: "\(f.wireKey)",
-                        aliases: [\(aliases)],
-                        propertyName: "\(f.name)",
-                        type: \(typeDescriptor(f.typeName, f)),
-                        isRequired: \(required),
-                        rules: \(rulesExpr))
-            """
-            if let t = f.transform {
-                // `.input` and `.output` differ exactly here. Zod shipped one document first
-                // and added the distinction in v4 after finding it wrong.
-                entry = """
                         Assay.FieldDescriptor(
                             wireKey: "\(f.wireKey)",
                             aliases: [\(aliases)],
                             propertyName: "\(f.name)",
                             type: \(typeDescriptor(f.typeName, f)),
-                            wireType: \(typeDescriptor(t.wireType, f)),
                             isRequired: \(required),
                             rules: \(rulesExpr))
                 """
+            if let t = f.transform {
+                // `.input` and `.output` differ exactly here. Zod shipped one document first
+                // and added the distinction in v4 after finding it wrong.
+                entry = """
+                            Assay.FieldDescriptor(
+                                wireKey: "\(f.wireKey)",
+                                aliases: [\(aliases)],
+                                propertyName: "\(f.name)",
+                                type: \(typeDescriptor(f.typeName, f)),
+                                wireType: \(typeDescriptor(t.wireType, f)),
+                                isRequired: \(required),
+                                rules: \(rulesExpr))
+                    """
             }
             entries.append(entry)
         }
         _ = groups
 
         return """
-        /// This type's shape, for `jsonSchema(for:)`. `docs/EXPERIENCE.md` §14.
-        ///
-        /// A descriptor rather than document text: the rule-to-keyword mapping lives once in
-        /// `AssayCore`, not once per type in every user's expansion.
-        nonisolated public static var _assaySchemaDescriptor: Assay.SchemaDescriptor {
-            Assay.SchemaDescriptor(
-                typeName: "\(typeName)",
-                fields: [
-        \(entries.joined(separator: ",\n"))
-                ],
-                rejectsUnknownKeys: \(policy == "reject"))
-        }
-        """
+            /// This type's shape, for `jsonSchema(for:)`. `docs/EXPERIENCE.md` §14.
+            ///
+            /// A descriptor rather than document text: the rule-to-keyword mapping lives once in
+            /// `AssayCore`, not once per type in every user's expansion.
+            nonisolated public static var _assaySchemaDescriptor: Assay.SchemaDescriptor {
+                Assay.SchemaDescriptor(
+                    typeName: "\(typeName)",
+                    fields: [
+            \(entries.joined(separator: ",\n"))
+                    ],
+                    rejectsUnknownKeys: \(policy == "reject"))
+            }
+            """
     }
 
     /// The `static let` the validator already holds, or `[]`. Never a fresh rule literal —
@@ -137,7 +137,7 @@ extension SchemaMacro {
         case "String": return ".string"
         case "Bool": return ".boolean"
         case "Int", "Int8", "Int16", "Int32", "Int64",
-             "UInt", "UInt8", "UInt16", "UInt32", "UInt64":
+            "UInt", "UInt8", "UInt16", "UInt32", "UInt64":
             return ".integer"
         case "Double", "Float": return ".number"
         case "RawValue", "Assay.RawValue", "JSON.Value", "Assay.JSON.Value":
@@ -167,18 +167,20 @@ extension SchemaMacro {
     static func describeDiagnostics(_ fields: [SchemaField]) -> [String] {
         var out: [String] = []
         if fields.contains(where: { $0.pathSegments != nil }) {
-            out.append("@Schema(describes: true) cannot describe a @Key(path:) field. JSON "
-                + "Schema's `properties` map is flat, so a field living at `profile.name` "
-                + "would have to be described either as a top-level `profile.name` key (which "
-                + "no document has) or as a nested object (which would claim this type reads "
-                + "keys it does not). Use a nested @Schema type for the shape you want to "
-                + "publish, or drop `describes: true`.")
+            out.append(
+                "@Schema(describes: true) cannot describe a @Key(path:) field. JSON "
+                    + "Schema's `properties` map is flat, so a field living at `profile.name` "
+                    + "would have to be described either as a top-level `profile.name` key (which "
+                    + "no document has) or as a nested object (which would claim this type reads "
+                    + "keys it does not). Use a nested @Schema type for the shape you want to "
+                    + "publish, or drop `describes: true`.")
         }
         if fields.contains(where: { $0.xmlPlacement != nil }) {
-            out.append("@Schema(describes: true) describes a JSON document, and @XML placement "
-                + "(.attribute/.text/.wrapped) has no JSON equivalent — an attribute is not a "
-                + "property. Emitting a JSON Schema for this type would describe a document "
-                + "shape that only exists in XML.")
+            out.append(
+                "@Schema(describes: true) describes a JSON document, and @XML placement "
+                    + "(.attribute/.text/.wrapped) has no JSON equivalent — an attribute is not a "
+                    + "property. Emitting a JSON Schema for this type would describe a document "
+                    + "shape that only exists in XML.")
         }
         return out
     }

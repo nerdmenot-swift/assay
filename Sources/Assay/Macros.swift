@@ -11,7 +11,6 @@
 
 public import AssayCore
 
-
 /// Attach to a struct to make it decodable.
 ///
 ///     @Schema(keys: .snakeCase)
@@ -27,7 +26,11 @@ public import AssayCore
 // `Assayable` is deliberately absent from this list: both `JSONAssayable` and
 // `RawDecodable` refine it, so declaring it here would promise a conformance the expansion
 // does not itself emit.
-@attached(extension, conformances: JSONAssayable, RawDecodable, Validatable, AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema, XMLEncodableSchema, XMLRooted, ContextualJSONAssayable, ContextualRawDecodable, ContextualValidatable, ContextualAsyncCheckAssayable, SchemaDescribing, names: arbitrary)
+@attached(
+    extension, conformances: JSONAssayable, RawDecodable, Validatable, AsyncCheckAssayable,
+    JSONEncodableSchema, RawEncodableSchema, XMLEncodableSchema, XMLRooted, ContextualJSONAssayable,
+    ContextualRawDecodable, ContextualValidatable, ContextualAsyncCheckAssayable, SchemaDescribing,
+    names: arbitrary)
 public macro Schema(
     keys: KeyNamingStyle = .camelCase,
     unknownKeys: UnknownKeys = .ignore,
@@ -37,7 +40,6 @@ public macro Schema(
     describes: Bool = false,
     discriminator: Discriminator? = nil
 ) = #externalMacro(module: "AssayMacros", type: "SchemaMacro")
-
 
 /// `@Schema(context: AppContext.self)` — the contextual form. `EXPERIENCE.md` §10.
 ///
@@ -52,11 +54,12 @@ public macro Schema(
 /// good `NSManagedObjectContext`-shaped handle for a concurrency property nothing here
 /// needs. The `async` door is the one place it crosses an isolation boundary, and Swift's
 /// own `Sendable` checking reports that at the call site, where it is legible.
-@attached(extension, conformances: JSONAssayable, RawDecodable, Validatable,
-          AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema,
-          XMLEncodableSchema, XMLRooted, ContextualJSONAssayable,
-          ContextualRawDecodable, ContextualValidatable, ContextualAsyncCheckAssayable,
-          SchemaDescribing, names: arbitrary)
+@attached(
+    extension, conformances: JSONAssayable, RawDecodable, Validatable,
+    AsyncCheckAssayable, JSONEncodableSchema, RawEncodableSchema,
+    XMLEncodableSchema, XMLRooted, ContextualJSONAssayable,
+    ContextualRawDecodable, ContextualValidatable, ContextualAsyncCheckAssayable,
+    SchemaDescribing, names: arbitrary)
 public macro Schema<C>(
     context: C.Type,
     keys: KeyNamingStyle = .camelCase,
@@ -67,7 +70,6 @@ public macro Schema<C>(
     describes: Bool = false,
     discriminator: Discriminator? = nil
 ) = #externalMacro(module: "AssayMacros", type: "SchemaMacro")
-
 
 /// The forward-compatibility catch-all case of an open enum. `docs/ENCODING.md` q2.
 ///
@@ -89,7 +91,6 @@ public macro Schema<C>(
 @attached(peer)
 public macro Unknown(roundTrips: Bool = false) =
     #externalMacro(module: "AssayMacros", type: "UnknownMacro")
-
 
 /// Read a nested type's keys from THIS level. `EXPERIENCE.md` §4.
 ///
@@ -124,7 +125,6 @@ public macro Unknown(roundTrips: Bool = false) =
 public macro Inline() =
     #externalMacro(module: "AssayMacros", type: "InlineMacro")
 
-
 /// Accept a single value where an array is declared. `EXPERIENCE.md` §9.
 ///
 /// ```swift
@@ -149,7 +149,6 @@ public macro Inline() =
 public macro OneOrMany() =
     #externalMacro(module: "AssayMacros", type: "OneOrManyMacro")
 
-
 /// Sugar for the validated-scalar wrapper. `EXPERIENCE.md` §8.
 ///
 /// ```swift
@@ -173,17 +172,16 @@ public macro OneOrMany() =
 /// nothing else, so it cannot emit a reader for one it does not recognise. For anything
 /// else, write the `AssayerBacked` conformance by hand — this macro is only sugar over it.
 @attached(member, names: named(raw), named(__assayWrapRules), named(init))
-@attached(extension, conformances: AssayerBacked, Equatable, Hashable,
-          CustomStringConvertible, names: arbitrary)
+@attached(
+    extension, conformances: AssayerBacked, Equatable, Hashable,
+    CustomStringConvertible, names: arbitrary)
 public macro Wraps(_ wrapped: Any.Type, _ rules: Rule...) =
     #externalMacro(module: "AssayMacros", type: "WrapsMacro")
-
 
 /// Place a field in an XML document. See `XMLPlacement`.
 @attached(peer)
 public macro XML(_ placement: XMLPlacement) =
     #externalMacro(module: "AssayMacros", type: "XMLMacro")
-
 
 /// Name the document's root element. Goes on the TYPE, not on a var.
 ///
@@ -209,7 +207,6 @@ public macro XML(_ placement: XMLPlacement) =
 public macro XML(root: String) =
     #externalMacro(module: "AssayMacros", type: "XMLMacro")
 
-
 /// The encode direction of a `@Transform`. `docs/ENCODING.md` question 3.
 ///
 ///     @Transform({ (a: [String]) in Set(a) })
@@ -223,12 +220,10 @@ public macro XML(root: String) =
 public macro Inverse<Value, Wire>(_ inverse: (Value) -> Wire) =
     #externalMacro(module: "AssayMacros", type: "InverseMacro")
 
-
 /// Override the wire key for one property.
 @attached(peer)
 public macro Key(_ name: String, or aliases: String...) =
     #externalMacro(module: "AssayMacros", type: "KeyMacro")
-
 
 /// Reach a field through intermediate objects. `EXPERIENCE.md` §4, `ROADMAP.md` §3.
 ///
@@ -246,11 +241,9 @@ public macro Key(_ name: String, or aliases: String...) =
 @attached(peer)
 public macro Key(path: String) = #externalMacro(module: "AssayMacros", type: "KeyMacro")
 
-
 /// Exclude a stored property the macro would otherwise decode.
 @attached(peer)
 public macro Ignore() = #externalMacro(module: "AssayMacros", type: "IgnoreMacro")
-
 
 /// The sink for keys the schema did not declare, used with
 /// `@Schema(unknownKeys: .collect)`.
@@ -270,7 +263,6 @@ public macro Ignore() = #externalMacro(module: "AssayMacros", type: "IgnoreMacro
 /// is dispatched through a per-format protocol.
 @attached(peer)
 public macro Extras() = #externalMacro(module: "AssayMacros", type: "ExtrasMacro")
-
 
 /// Declare what "valid" means for one field.
 ///
@@ -296,7 +288,6 @@ public macro Extras() = #externalMacro(module: "AssayMacros", type: "ExtrasMacro
 @attached(peer)
 public macro Validate(_ rules: Rule...) =
     #externalMacro(module: "AssayMacros", type: "ValidateMacro")
-
 
 /// How a `Date` property reads its wire value. Without this attribute, `Date` fields
 /// expect ISO-8601.
@@ -328,7 +319,6 @@ public macro Validate(_ rules: Rule...) =
 public macro DateFormat(_ formats: AssayCore.DateFormat...) =
     #externalMacro(module: "AssayMacros", type: "DateFormatMacro")
 
-
 /// Allow a scalar of the wrong type through the documented conversion rules.
 ///
 ///     @Coerce var port: Int          // "8080" -> 8080
@@ -347,7 +337,6 @@ public macro DateFormat(_ formats: AssayCore.DateFormat...) =
 /// arrives as text.
 @attached(peer)
 public macro Coerce() = #externalMacro(module: "AssayMacros", type: "CoerceMacro")
-
 
 /// A validation function with real types, breakpoints and its own tests.
 ///
@@ -372,11 +361,9 @@ public macro Coerce() = #externalMacro(module: "AssayMacros", type: "CoerceMacro
 @attached(peer)
 public macro Check() = #externalMacro(module: "AssayMacros", type: "CheckMacro")
 
-
 @attached(peer)
 public macro Check<Root, Value>(_ keyPath: KeyPath<Root, Value>) =
     #externalMacro(module: "AssayMacros", type: "CheckMacro")
-
 
 /// An asynchronous check — a database lookup, a network round trip.
 ///
@@ -387,7 +374,6 @@ public macro Check<Root, Value>(_ keyPath: KeyPath<Root, Value>) =
 /// value you already know is invalid is waste), and then all of them run concurrently.
 @attached(peer)
 public macro AsyncCheck() = #externalMacro(module: "AssayMacros", type: "CheckMacro")
-
 
 /// The field form, for a check that needs a round trip to answer — "is this address
 /// already registered?" is a field check that happens to need a database:
@@ -405,13 +391,11 @@ public macro AsyncCheck() = #externalMacro(module: "AssayMacros", type: "CheckMa
 public macro AsyncCheck<Root, Value>(_ keyPath: KeyPath<Root, Value>) =
     #externalMacro(module: "AssayMacros", type: "CheckMacro")
 
-
 /// Normalise a string before its rules run: `@Preprocess(.trim, .lowercase)`.
 /// Runs on the wire value, before validation — the other side of `@Transform`.
 @attached(peer)
 public macro Preprocess(_ ops: PreprocessOp...) =
     #externalMacro(module: "AssayMacros", type: "PreprocessMacro")
-
 
 /// Change the type after validation. The closure's parameter annotation names the wire
 /// type the value arrives as; the declared property type is what it becomes:
@@ -424,7 +408,6 @@ public macro Preprocess(_ ops: PreprocessOp...) =
 @attached(peer)
 public macro Transform<In, Out>(_ transform: (In) -> Out) =
     #externalMacro(module: "AssayMacros", type: "TransformMacro")
-
 
 /// Salvage: on absence OR any issue at this field, assign this value and record a
 /// warning. The fallback value is trusted without re-validation — silently swallowing

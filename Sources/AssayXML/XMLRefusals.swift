@@ -25,35 +25,65 @@ import Assay
 
 extension Assayable {
 
-    @available(*, unavailable, message: "this schema does not decode XML. Add `formats: .xml` (or `.all`) to its @Schema, e.g. @Schema(formats: .xml).")
-    public static func parse(xml bytes: [UInt8], limits: Limits = .default,
-                             sourceName: String = "<input>") throws -> Self {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode XML. Add `formats: .xml` (or `.all`) to its @Schema, e.g. @Schema(formats: .xml)."
+    )
+    public static func parse(
+        xml bytes: [UInt8], limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) throws -> Self {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "this schema does not decode XML. Add `formats: .xml` (or `.all`) to its @Schema, e.g. @Schema(formats: .xml).")
-    public static func parse(xml text: String, limits: Limits = .default,
-                             sourceName: String = "<input>") throws -> Self {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode XML. Add `formats: .xml` (or `.all`) to its @Schema, e.g. @Schema(formats: .xml)."
+    )
+    public static func parse(
+        xml text: String, limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) throws -> Self {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "this schema does not decode XML. Add `formats: .xml` (or `.all`) to its @Schema, e.g. @Schema(formats: .xml).")
-    public static func diagnose(xml bytes: [UInt8], limits: Limits = .default,
-                                sourceName: String = "<input>") -> Diagnosis<Self> {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode XML. Add `formats: .xml` (or `.all`) to its @Schema, e.g. @Schema(formats: .xml)."
+    )
+    public static func diagnose(
+        xml bytes: [UInt8], limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) -> Diagnosis<Self> {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "this schema does not decode XML. Add `formats: .xml` (or `.all`) to its @Schema, e.g. @Schema(formats: .xml).")
-    public static func diagnose(xml text: String, limits: Limits = .default,
-                                sourceName: String = "<input>") -> Diagnosis<Self> {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode XML. Add `formats: .xml` (or `.all`) to its @Schema, e.g. @Schema(formats: .xml)."
+    )
+    public static func diagnose(
+        xml text: String, limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) -> Diagnosis<Self> {
         fatalError("unavailable")
     }
 
     // XML's encoder takes a root element name, so the signature has to match the real one
     // for the refusal to be the overload that is chosen.
-    @available(*, unavailable, message: "this schema does not encode XML. It needs both `encodes: true` and the format — e.g. @Schema(formats: .xml, encodes: true).")
-    public func encodedXML(root: String? = nil, pretty: Bool = false,
-                           declaration: Bool = true) throws -> EncodedBytes {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not encode XML. It needs both `encodes: true` and the format — e.g. @Schema(formats: .xml, encodes: true)."
+    )
+    public func encodedXML(
+        root: String? = nil, pretty: Bool = false,
+        declaration: Bool = true
+    ) throws -> EncodedBytes {
         fatalError("unavailable")
     }
 }

@@ -54,7 +54,8 @@ struct AssayerBackedTests {
     /// ordinary door, with no macro change of any kind.
     @Test("a wrapper type is an ordinary field")
     func wrapperIsAnOrdinaryField() throws {
-        let a = try MailAccount.parse(json: Array(#"{"email":"ada@example.com","name":"Ada"}"#.utf8))
+        let a = try MailAccount.parse(
+            json: Array(#"{"email":"ada@example.com","name":"Ada"}"#.utf8))
         #expect(a.email == EmailAddress(raw: "ada@example.com"))
         #expect(a.name == "Ada")
     }
@@ -84,16 +85,18 @@ struct AssayerBackedTests {
 
         let bad = EvenHolder.diagnose(json: Array(#"{"n": 5}"#.utf8))
         #expect(!bad.isValid)
-        #expect(bad.issues.contains { $0.code == .assayerConversionFailed },
-                "\(bad.issues.map(\.code))")
+        #expect(
+            bad.issues.contains { $0.code == .assayerConversionFailed },
+            "\(bad.issues.map(\.code))")
     }
 
     /// A wrapper in an array and in an optional — the shapes that would break if the
     /// conformance only worked at the top level of a field.
     @Test("wrappers work in arrays and optionals")
     func collections() throws {
-        let m = try ManyMails.parse(json: Array(
-            #"{"to":["a@e.com","b@e.com"],"cc":null}"#.utf8))
+        let m = try ManyMails.parse(
+            json: Array(
+                #"{"to":["a@e.com","b@e.com"],"cc":null}"#.utf8))
         #expect(m.to.count == 2)
         #expect(m.cc == nil)
     }
@@ -113,7 +116,7 @@ struct AssayerValueTests {
     func dynamicObject() throws {
         let schema = Assayer.object([
             .init("name", .raw),
-            .init("nickname", .raw, optional: true),
+            .init("nickname", .raw, optional: true)
         ])
         let v = try schema.parse(json: Array(#"{"name":"Ada"}"#.utf8))
         #expect(v["name"] == .string("Ada"))
@@ -123,7 +126,7 @@ struct AssayerValueTests {
     func presence() {
         let schema = Assayer.object([
             .init("required", .raw),
-            .init("optional", .raw, optional: true),
+            .init("optional", .raw, optional: true)
         ])
         let d = schema.diagnose(json: Array(#"{}"#.utf8))
         #expect(!d.isValid)
@@ -158,8 +161,9 @@ struct AssayerValueTests {
 
         let d = Self.cyclic().diagnose(json: Array(json.utf8), limits: .default)
         #expect(!d.isValid)
-        #expect(d.issues.contains { $0.code == .depthExceeded },
-                "must be refused by the depth limit, not by running out of stack")
+        #expect(
+            d.issues.contains { $0.code == .depthExceeded },
+            "must be refused by the depth limit, not by running out of stack")
     }
 
     @Test("arrays and optionals compose")

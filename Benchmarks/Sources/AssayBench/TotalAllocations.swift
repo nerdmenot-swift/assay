@@ -96,13 +96,15 @@ func runTotalAllocationBenchmarks() {
         allocSink(keep.count)
     }
     guard let p = probe, p.allocations >= 100, p.allocations <= 260 else {
-        print("  SELF-CHECK FAILED — 100 exactly-sized arrays counted "
-              + "\(probe?.allocations ?? -1) allocations, expected 100 plus the array's own")
+        print(
+            "  SELF-CHECK FAILED — 100 exactly-sized arrays counted "
+                + "\(probe?.allocations ?? -1) allocations, expected 100 plus the array's own")
         print("  growth. Not reporting a number from an instrument that cannot count.")
         return
     }
-    print("self-check: 100 exactly-sized [Int] allocations counted as "
-          + "\(p.allocations) allocs / \(p.deallocations) frees — instrument trusted")
+    print(
+        "self-check: 100 exactly-sized [Int] allocations counted as "
+            + "\(p.allocations) allocs / \(p.deallocations) frees — instrument trusted")
     print("")
 
     let corpusItem = #"""
@@ -112,8 +114,9 @@ func runTotalAllocationBenchmarks() {
         "owner_id":"owner-0"}
         """#.replacingOccurrences(of: "\\\n", with: "")
 
-    print(pad("shape", 16, right: true) + pad("Foundation", 12) + pad("Assay", 10)
-          + pad("ratio", 9) + pad("transient", 11))
+    print(
+        pad("shape", 16, right: true) + pad("Foundation", 12) + pad("Assay", 10)
+            + pad("ratio", 9) + pad("transient", 11))
     print(String(repeating: "-", count: 58))
 
     for count in [1, 10, 50] {
@@ -129,7 +132,8 @@ func runTotalAllocationBenchmarks() {
         let decoder = JSONDecoder()
 
         guard (try? AllocPayload.parse(json: bytes)) != nil,
-              (try? decoder.decode(CodableAllocPayload.self, from: data)) != nil else {
+            (try? decoder.decode(CodableAllocPayload.self, from: data)) != nil
+        else {
             print(pad("\(count) items", 16, right: true) + "  SKIPPED — a decoder failed")
             continue
         }
@@ -138,24 +142,31 @@ func runTotalAllocationBenchmarks() {
         // inside is deliberate: `deallocations` then covers the retained output too, so
         // `allocations - deallocations` is near zero and the ALLOCATION count is the whole
         // story — retained plus transient, which is what "total traffic" means.
-        guard let mine = countingAllocations({
-                  allocSink((try? AllocPayload.parse(json: bytes))?.items.count ?? 0)
-              }),
-              let theirs = countingAllocations({
-                  allocSink((try? decoder.decode(CodableAllocPayload.self, from: data))?
-                              .items.count ?? 0)
-              }) else { continue }
+        guard
+            let mine = countingAllocations({
+                allocSink((try? AllocPayload.parse(json: bytes))?.items.count ?? 0)
+            }),
+            let theirs = countingAllocations({
+                allocSink(
+                    (try? decoder.decode(CodableAllocPayload.self, from: data))?
+                        .items.count ?? 0)
+            })
+        else { continue }
 
         // The retained output is identical on both sides and cancels; what is left is
         // transient. Reported as a count rather than a share, because attributing it
         // precisely would need the stack frames this hook is deliberately not collecting.
         let transient = theirs.allocations - mine.allocations
-        print(pad("\(count) items", 16, right: true)
-              + pad("\(theirs.allocations)", 12)
-              + pad("\(mine.allocations)", 10)
-              + pad(String(format: "%.2fx", Double(theirs.allocations)
-                                            / Double(max(1, mine.allocations))), 9)
-              + pad("\(transient)", 11))
+        print(
+            pad("\(count) items", 16, right: true)
+                + pad("\(theirs.allocations)", 12)
+                + pad("\(mine.allocations)", 10)
+                + pad(
+                    String(
+                        format: "%.2fx",
+                        Double(theirs.allocations)
+                            / Double(max(1, mine.allocations))), 9)
+                + pad("\(transient)", 11))
     }
 
     // The `Data` door (`AssayFoundation/DataParsing.swift`), measured with the one
@@ -166,8 +177,9 @@ func runTotalAllocationBenchmarks() {
     print("Data input — Array(data) + parse(json:) against parse(json: Data)")
     print("The same document and the same decode; the difference is the input copy.")
     print("")
-    print(pad("document", 16, right: true) + pad("bytes", 10) + pad("Array(data)", 13)
-          + pad("Data", 8) + pad("saved", 8))
+    print(
+        pad("document", 16, right: true) + pad("bytes", 10) + pad("Array(data)", 13)
+            + pad("Data", 8) + pad("saved", 8))
     print(String(repeating: "-", count: 55))
 
     for count in [1, 50, 200] {
@@ -184,18 +196,21 @@ func runTotalAllocationBenchmarks() {
             print(pad("\(count) items", 16, right: true) + "  SKIPPED — the Data door failed")
             continue
         }
-        guard let viaArray = countingAllocations({
-                  allocSink((try? AllocPayload.parse(json: Array(data)))?.items.count ?? 0)
-              }),
-              let viaData = countingAllocations({
-                  allocSink((try? AllocPayload.parse(json: data))?.items.count ?? 0)
-              }) else { continue }
+        guard
+            let viaArray = countingAllocations({
+                allocSink((try? AllocPayload.parse(json: Array(data)))?.items.count ?? 0)
+            }),
+            let viaData = countingAllocations({
+                allocSink((try? AllocPayload.parse(json: data))?.items.count ?? 0)
+            })
+        else { continue }
 
-        print(pad("\(count) items", 16, right: true)
-              + pad("\(data.count)", 10)
-              + pad("\(viaArray.allocations)", 13)
-              + pad("\(viaData.allocations)", 8)
-              + pad("\(viaArray.allocations - viaData.allocations)", 8))
+        print(
+            pad("\(count) items", 16, right: true)
+                + pad("\(data.count)", 10)
+                + pad("\(viaArray.allocations)", 13)
+                + pad("\(viaData.allocations)", 8)
+                + pad("\(viaArray.allocations - viaData.allocations)", 8))
     }
 
     print("")

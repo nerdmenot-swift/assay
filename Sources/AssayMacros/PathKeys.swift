@@ -102,9 +102,10 @@ enum PathTree {
         var nextBit = 0
         return order.map { first in
             let members = byFirst[first]!
-            return PathGroup(segment: first,
-                             node: node(from: members, bit: &nextBit),
-                             fieldIndices: members.map(\.0))
+            return PathGroup(
+                segment: first,
+                node: node(from: members, bit: &nextBit),
+                fieldIndices: members.map(\.0))
         }
     }
 
@@ -138,8 +139,9 @@ enum PathTree {
     ) -> String {
         var out = ""
         for g in groups {
-            out += checks(g.node, fields: fields, prefix: [g.segment],
-                          parentPath: "path", indent: indent)
+            out += checks(
+                g.node, fields: fields, prefix: [g.segment],
+                parentPath: "path", indent: indent)
         }
         return out
     }
@@ -155,7 +157,8 @@ enum PathTree {
         // Leaves that must exist once this object does.
         var inner = ""
         for (seg, i) in n.leaves where isRequired(fields[i]) {
-            inner += "\(pad)    if __presence & \(presenceBit(i)) == 0 {\n"
+            inner +=
+                "\(pad)    if __presence & \(presenceBit(i)) == 0 {\n"
                 + "\(pad)        reader._missingRequired(&sink, \(here), \"\(seg)\")\n"
                 + "\(pad)    }\n"
         }
@@ -163,8 +166,9 @@ enum PathTree {
         // it in. Wrapping it as well emitted the test twice — visible only by reading the
         // expansion, since a doubled test is still correct and still passes every test.
         for (seg, child) in n.children {
-            inner += checks(child, fields: fields, prefix: prefix + [seg],
-                            parentPath: here, indent: indent + 4)
+            inner += checks(
+                child, fields: fields, prefix: prefix + [seg],
+                parentPath: here, indent: indent + 4)
         }
         guard !inner.isEmpty else { return "" }
 

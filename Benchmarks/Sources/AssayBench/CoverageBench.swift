@@ -102,16 +102,20 @@ func runCoverageBenchmarks() -> Bool {
     // ---- plists, against Foundation ----
     print("")
     print("Property lists — T.parse(plist:) vs Foundation PropertyListDecoder")
-    print(pad("flavour", 12, right: true) + pad("rows", 7) + pad("bytes", 9)
-          + pad("Foundation ns", 15) + pad("Assay ns", 12) + pad("ratio", 9))
+    print(
+        pad("flavour", 12, right: true) + pad("rows", 7) + pad("bytes", 9)
+            + pad("Foundation ns", 15) + pad("Assay ns", 12) + pad("ratio", 9))
     print(String(repeating: "-", count: 64))
 
     let rows = (0..<200).map {
-        CodableCovRow(id: Int64($0), name: "name-\($0)", score: Double($0) * 1.5,
-                      active: $0 % 2 == 0)
+        CodableCovRow(
+            id: Int64($0), name: "name-\($0)", score: Double($0) * 1.5,
+            active: $0 % 2 == 0)
     }
-    for (flavour, format) in [("binary", PropertyListSerialization.PropertyListFormat.binary),
-                              ("xml", .xml)] {
+    for (flavour, format) in [
+        ("binary", PropertyListSerialization.PropertyListFormat.binary),
+        ("xml", .xml)
+    ] {
         let encoder = PropertyListEncoder()
         encoder.outputFormat = format
         guard let data = try? encoder.encode(CodableCovRows(rows: rows)) else {
@@ -120,10 +124,11 @@ func runCoverageBenchmarks() -> Bool {
         let bytes = [UInt8](data)
         // Correctness before timing: both sides must produce the same 200 rows.
         guard let mine = try? CovRows.parse(plist: bytes),
-              let theirs = try? PropertyListDecoder().decode(CodableCovRows.self, from: data),
-              mine.rows.count == theirs.rows.count, mine.rows.count == rows.count,
-              mine.rows[7].name == theirs.rows[7].name,
-              mine.rows[7].score == theirs.rows[7].score else {
+            let theirs = try? PropertyListDecoder().decode(CodableCovRows.self, from: data),
+            mine.rows.count == theirs.rows.count, mine.rows.count == rows.count,
+            mine.rows[7].name == theirs.rows[7].name,
+            mine.rows[7].score == theirs.rows[7].score
+        else {
             print("  \(flavour): the two decoders disagree — not timed"); ok = false; continue
         }
         let iters = max(200, iterationCount(forBytes: bytes.count) / 4)
@@ -131,11 +136,12 @@ func runCoverageBenchmarks() -> Bool {
             _ = try? PropertyListDecoder().decode(CodableCovRows.self, from: data)
         }
         let aNs = measure(iterations: iters) { _ = try? CovRows.parse(plist: bytes) }
-        print(pad(flavour, 12, right: true) + pad("\(rows.count)", 7)
-              + pad("\(bytes.count)", 9)
-              + pad(String(format: "%.0f", fNs), 15)
-              + pad(String(format: "%.0f", aNs), 12)
-              + pad(String(format: "%.2fx", fNs / aNs), 9))
+        print(
+            pad(flavour, 12, right: true) + pad("\(rows.count)", 7)
+                + pad("\(bytes.count)", 9)
+                + pad(String(format: "%.0f", fNs), 15)
+                + pad(String(format: "%.0f", aNs), 12)
+                + pad(String(format: "%.2fx", fNs / aNs), 9))
     }
 
     // ---- the XML→RawValue projection ----
@@ -147,8 +153,9 @@ func runCoverageBenchmarks() -> Bool {
     print("XML → RawValue projection — the step with no arm, and a 4x regression in it")
     print("shipped unnoticed. Parse-and-project against parse alone; the delta is the")
     print("projection.")
-    print(pad("shape", 14, right: true) + pad("elements", 10) + pad("parse ns", 12)
-          + pad("+project ns", 13) + pad("projection", 12))
+    print(
+        pad("shape", 14, right: true) + pad("elements", 10) + pad("parse ns", 12)
+            + pad("+project ns", 13) + pad("projection", 12))
     print(String(repeating: "-", count: 61))
 
     for (shape, doc) in [("leaves", xmlLeaves(2_000)), ("nested", xmlNested(2_000))] {
@@ -168,58 +175,69 @@ func runCoverageBenchmarks() -> Bool {
             guard let d = XML.decode(bytes, into: &s, limits: .default) else { return }
             _ = RawValue(d.root)
         }
-        print(pad(shape, 14, right: true) + pad("2000", 10)
-              + pad(String(format: "%.0f", parseNs), 12)
-              + pad(String(format: "%.0f", bothNs), 13)
-              + pad(String(format: "%.0f ns", bothNs - parseNs), 12))
+        print(
+            pad(shape, 14, right: true) + pad("2000", 10)
+                + pad(String(format: "%.0f", parseNs), 12)
+                + pad(String(format: "%.0f", bothNs), 13)
+                + pad(String(format: "%.0f ns", bothNs - parseNs), 12))
     }
 
     // ---- unions, @Inline, @Wraps: each against its alternative ----
     print("")
     print("Features with no competitor — measured against the alternative a developer")
     print("would otherwise write. A ratio near 1.00x is the claim being made.")
-    print(pad("feature", 20, right: true) + pad("alternative ns", 16)
-          + pad("feature ns", 13) + pad("ratio", 9))
+    print(
+        pad("feature", 20, right: true) + pad("alternative ns", 16)
+            + pad("feature ns", 13) + pad("ratio", 9))
     print(String(repeating: "-", count: 58))
 
-    func compare(_ label: String, iterations: Int = 20_000,
-                 alternative: @escaping () -> Void, feature: @escaping () -> Void) {
+    func compare(
+        _ label: String, iterations: Int = 20_000,
+        alternative: @escaping () -> Void, feature: @escaping () -> Void
+    ) {
         let base = measure(iterations: iterations, alternative)
         let mine = measure(iterations: iterations, feature)
-        print(pad(label, 20, right: true)
-              + pad(String(format: "%.1f", base), 16)
-              + pad(String(format: "%.1f", mine), 13)
-              + pad(String(format: "%.2fx", mine / base), 9))
+        print(
+            pad(label, 20, right: true)
+                + pad(String(format: "%.1f", base), 16)
+                + pad(String(format: "%.1f", mine), 13)
+                + pad(String(format: "%.2fx", mine / base), 9))
     }
 
     let clickBytes = Array(#"{"type":"click","x":12,"y":40,"target":"buy-button"}"#.utf8)
     let variantBytes = Array(#"{"x":12,"y":40,"target":"buy-button"}"#.utf8)
     guard (try? CovEvent.parse(json: clickBytes)) != nil,
-          (try? ClickEvent.parse(json: variantBytes)) != nil else {
+        (try? ClickEvent.parse(json: variantBytes)) != nil
+    else {
         print("  union fixture did not decode"); return false
     }
-    compare("union vs variant",
-            alternative: { _ = try? ClickEvent.parse(json: variantBytes) },
-            feature: { _ = try? CovEvent.parse(json: clickBytes) })
+    compare(
+        "union vs variant",
+        alternative: { _ = try? ClickEvent.parse(json: variantBytes) },
+        feature: { _ = try? CovEvent.parse(json: clickBytes) })
 
     let flatBytes = Array(#"{"items":["a","b"],"page":1,"perPage":50,"total":900}"#.utf8)
     let nestBytes = Array(#"{"items":["a","b"],"meta":{"page":1,"perPage":50,"total":900}}"#.utf8)
     guard (try? CovInlined.parse(json: flatBytes)) != nil,
-          (try? CovNested.parse(json: nestBytes)) != nil else {
+        (try? CovNested.parse(json: nestBytes)) != nil
+    else {
         print("  @Inline fixture did not decode"); return false
     }
-    compare("@Inline vs nested",
-            alternative: { _ = try? CovNested.parse(json: nestBytes) },
-            feature: { _ = try? CovInlined.parse(json: flatBytes) })
+    compare(
+        "@Inline vs nested",
+        alternative: { _ = try? CovNested.parse(json: nestBytes) },
+        feature: { _ = try? CovInlined.parse(json: flatBytes) })
 
     let wrapBytes = Array(#"{"email":"a@example.com","note":"hi"}"#.utf8)
     guard (try? CovWrapped.parse(json: wrapBytes)) != nil,
-          (try? CovPlain.parse(json: wrapBytes)) != nil else {
+        (try? CovPlain.parse(json: wrapBytes)) != nil
+    else {
         print("  @Wraps fixture did not decode"); return false
     }
-    compare("@Wraps vs @Validate",
-            alternative: { _ = try? CovPlain.parse(json: wrapBytes) },
-            feature: { _ = try? CovWrapped.parse(json: wrapBytes) })
+    compare(
+        "@Wraps vs @Validate",
+        alternative: { _ = try? CovPlain.parse(json: wrapBytes) },
+        feature: { _ = try? CovWrapped.parse(json: wrapBytes) })
 
     return ok
 }

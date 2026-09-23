@@ -28,8 +28,9 @@ extension YAML.Parser {
             if column < indent { break }
             if column > indent { break }
             guard r.currentByte == UInt8(ascii: "-"),
-                  let next = r.byte(at: 1),
-                  next == 0x20 || next == 0x0A || next == 0x0D else { break }
+                let next = r.byte(at: 1),
+                next == 0x20 || next == 0x0A || next == 0x0D
+            else { break }
 
             r.advanceBy(1)
             skipInlineSpace(&r)
@@ -42,8 +43,11 @@ extension YAML.Parser {
                 skipBlanksAndComments(&r)
                 if !r.atEnd, currentColumn(&r) > column {
                     let itemColumn = currentColumn(&r)
-                    guard let item = parseNode(&r, &sink, indent: itemColumn - 1,
-                                               depth: depth + 1) else { return nil }
+                    guard
+                        let item = parseNode(
+                            &r, &sink, indent: itemColumn - 1,
+                            depth: depth + 1)
+                    else { return nil }
                     B.append(&items, item)
                 } else {
                     B.append(&items, B.scalar("", style: .plain, tag: nil))
@@ -51,8 +55,11 @@ extension YAML.Parser {
                 continue
             }
             let itemColumn = currentColumn(&r)
-            guard let item = parseNode(&r, &sink, indent: itemColumn - 1,
-                                       depth: depth + 1) else { return nil }
+            guard
+                let item = parseNode(
+                    &r, &sink, indent: itemColumn - 1,
+                    depth: depth + 1)
+            else { return nil }
             B.append(&items, item)
         }
         hints.setItems(B.itemCount(items), at: depth)
@@ -87,11 +94,15 @@ extension YAML.Parser {
             // Explicit key: "? key" then "\n: value"
             var key: B.Value
             if r.currentByte == UInt8(ascii: "?"),
-               let n = r.byte(at: 1), n == 0x20 || n == 0x0A {
+                let n = r.byte(at: 1), n == 0x20 || n == 0x0A
+            {
                 r.advanceBy(1)
                 skipInlineSpace(&r)
-                guard let k = parseNode(&r, &sink, indent: column,
-                                        depth: depth + 1) else { return nil }
+                guard
+                    let k = parseNode(
+                        &r, &sink, indent: column,
+                        depth: depth + 1)
+                else { return nil }
                 key = k
                 skipBlanksAndComments(&r)
                 guard r.currentByte == UInt8(ascii: ":") else {
@@ -120,7 +131,8 @@ extension YAML.Parser {
             let valueStart = r.byteOffset
             var value: B.Value
             if r.currentByte == nil || r.currentByte == 0x0A || r.currentByte == 0x0D
-                || r.currentByte == UInt8(ascii: "#") {
+                || r.currentByte == UInt8(ascii: "#")
+            {
                 skipBlanksAndComments(&r)
                 let nextColumn = currentColumn(&r)
                 // A nested value is indented past the key — or is a block SEQUENCE at the
@@ -134,18 +146,25 @@ extension YAML.Parser {
                 // `items:\n- name: x` parsed as `{items: "", "- name": "x"}`, which is not
                 // YAML at all — a plain scalar cannot begin with "- ".
                 if r.atEnd || nextColumn < indent
-                    || (nextColumn == indent && !isSequenceEntry(&r)) {
+                    || (nextColumn == indent && !isSequenceEntry(&r))
+                {
                     value = B.scalar("", style: .plain, tag: nil)
                 } else {
-                    guard let v = parseNode(&r, &sink, indent: indent, depth: depth + 1,
-                                            indentlessSequence: true) else { return nil }
+                    guard
+                        let v = parseNode(
+                            &r, &sink, indent: indent, depth: depth + 1,
+                            indentlessSequence: true)
+                    else { return nil }
                     value = v
                 }
             } else {
                 // Same line — which may still be only properties (`key: &a` or `key: !!seq`)
                 // with the sequence itself indentless on the lines below.
-                guard let v = parseNode(&r, &sink, indent: indent, depth: depth + 1,
-                                        indentlessSequence: true) else { return nil }
+                guard
+                    let v = parseNode(
+                        &r, &sink, indent: indent, depth: depth + 1,
+                        indentlessSequence: true)
+                else { return nil }
                 value = v
             }
 
@@ -159,8 +178,11 @@ extension YAML.Parser {
                 // destroyed the originals: 20,002 node copies and 20,002 destroys per
                 // `base/yaml` call (count.py explain, 2026-09-19).
                 let span = trimmedSpan(&r, from: valueStart)
-                guard B.appendPair(&pairs, key: consume key, value: consume value,
-                                   span: span) else {
+                guard
+                    B.appendPair(
+                        &pairs, key: consume key, value: consume value,
+                        span: span)
+                else {
                     // A key this builder cannot represent: `RawValue`'s keys are Strings and
                     // `? [a, b] : c` is legal YAML. Reported HERE since 2026-09-20, where the
                     // key is read; the projection used to fail and the entry point reported.

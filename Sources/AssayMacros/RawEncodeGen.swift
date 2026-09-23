@@ -31,14 +31,16 @@ extension SchemaMacro {
     ) -> String {
         var lines = ""
         for (i, f) in fields.enumerated() where f.pathSegments == nil {
-            let value = f.transform != nil
+            let value =
+                f.transform != nil
                 ? "Self.__assayInverse_\(i)(self.\(f.identifier))"
                 : "self.\(f.identifier)"
             let expr: String
             if f.isOptional {
                 // Optional absent encodes as an explicit null, matching the JSON writer:
                 // `nil` decoded from an absent key or a null, and null round-trips both.
-                expr = "(\(value).map { __o in \(rawExpr(f.decodedType, "__o", key: f.wireKey, index: i)) } ?? .null)"
+                expr =
+                    "(\(value).map { __o in \(rawExpr(f.decodedType, "__o", key: f.wireKey, index: i)) } ?? .null)"
             } else {
                 expr = rawExpr(f.decodedType, value, key: f.wireKey, index: i)
             }
@@ -48,7 +50,8 @@ extension SchemaMacro {
         // `@Key(path:)` — one nested mapping per prefix, so the document this writes is
         // the document this schema reads. See `EncodeGen.encodePathNode`.
         for g in groups {
-            lines += "        __m.append(.init(key: \"\(g.segment)\", value: "
+            lines +=
+                "        __m.append(.init(key: \"\(g.segment)\", value: "
                 + rawPathValue(g.node, fields: fields) + "))\n"
         }
 
@@ -56,42 +59,44 @@ extension SchemaMacro {
             // Q6, same contract as the JSON writer: collected keys are written back, and a
             // collision with a declared key is reported rather than silently duplicated.
             lines += """
-                    for __x in self.\(e.identifier).sorted(by: { $0.key < $1.key }) {
-                        if Self.__assayDeclaredKeys.contains(__x.key) {
-                            sink.add(Assay.Issue(
-                                code: .extrasKeyCollision,
-                                path: path + [.key(__x.key)],
-                                params: ["key": .string(__x.key)]))
-                            continue
+                        for __x in self.\(e.identifier).sorted(by: { $0.key < $1.key }) {
+                            if Self.__assayDeclaredKeys.contains(__x.key) {
+                                sink.add(Assay.Issue(
+                                    code: .extrasKeyCollision,
+                                    path: path + [.key(__x.key)],
+                                    params: ["key": .string(__x.key)]))
+                                continue
+                            }
+                            __m.append(.init(key: __x.key, value: __x.value))
                         }
-                        __m.append(.init(key: __x.key, value: __x.value))
-                    }
 
-            """
+                """
         }
 
         return """
-        nonisolated public func _assayEncodeRaw(
-            into sink: inout Assay.IssueSink,
-            at path: [Assay.PathStep]
-        ) -> Assay.RawValue {
-            var __m: [Assay.RawValue.Member] = []
-            __m.reserveCapacity(\(fields.count))
-        \(lines)    return .mapping(__m)
-        }
-        """
+            nonisolated public func _assayEncodeRaw(
+                into sink: inout Assay.IssueSink,
+                at path: [Assay.PathStep]
+            ) -> Assay.RawValue {
+                var __m: [Assay.RawValue.Member] = []
+                __m.reserveCapacity(\(fields.count))
+            \(lines)    return .mapping(__m)
+            }
+            """
     }
 
     /// A `RawValue` expression for one value of `type`.
     static func rawExpr(_ type: String, _ expr: String, key: String, index i: Int) -> String {
         if isDateType(type) {
-            return "Assay._assayRawDate(\(expr).timeIntervalSince1970, Self.__assayDateFormats_\(i))"
+            return
+                "Assay._assayRawDate(\(expr).timeIntervalSince1970, Self.__assayDateFormats_\(i))"
         }
         if isUUIDType(type) {
             return ".string(\(expr).uuidString)"
         }
         if let element = arrayElement(type) {
-            return ".sequence(\(expr).map { __e\(i) in \(rawExpr(element, "__e\(i)", key: key, index: i)) })"
+            return
+                ".sequence(\(expr).map { __e\(i) in \(rawExpr(element, "__e\(i)", key: key, index: i)) })"
         }
         if let value = dictionaryValue(type) {
             // Sorted, for the same reason the JSON writer sorts: a Dictionary has no order
@@ -100,14 +105,14 @@ extension SchemaMacro {
                 + ".init(key: __k\(i), value: \(rawExpr(value, "\(expr)[__k\(i)]!", key: key, index: i))) })"
         }
         switch type {
-        case "String":              return ".string(\(expr))"
-        case "Bool":                return ".bool(\(expr))"
+        case "String": return ".string(\(expr))"
+        case "Bool": return ".bool(\(expr))"
         case "Int", "Int32", "UInt",
-             "Int8", "Int16", "UInt8", "UInt16", "UInt32", "UInt64":
+            "Int8", "Int16", "UInt8", "UInt16", "UInt32", "UInt64":
             return ".int(Int64(\(expr)))"
-        case "Int64":               return ".int(\(expr))"
-        case "Double":              return ".double(\(expr))"
-        case "Float":               return ".double(Double(\(expr)))"
+        case "Int64": return ".int(\(expr))"
+        case "Double": return ".double(\(expr))"
+        case "Float": return ".double(Double(\(expr)))"
         case "RawValue", "Assay.RawValue": return "\(expr)"
         default:
             return "\(expr)._assayEncodeRaw(into: &sink, at: path + [.key(\"\(key)\")])"
@@ -124,10 +129,12 @@ extension SchemaMacro {
         var members: [String] = []
         for (seg, i) in n.leaves {
             let f = fields[i]
-            let value = f.transform != nil
+            let value =
+                f.transform != nil
                 ? "Self.__assayInverse_\(i)(self.\(f.identifier))"
                 : "self.\(f.identifier)"
-            let expr = f.isOptional
+            let expr =
+                f.isOptional
                 ? "(\(value).map { __o in \(rawExpr(f.decodedType, "__o", key: seg, index: i)) } ?? .null)"
                 : rawExpr(f.decodedType, value, key: seg, index: i)
             members.append(".init(key: \"\(seg)\", value: \(expr))")

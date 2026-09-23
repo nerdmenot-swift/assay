@@ -36,8 +36,9 @@ struct Account: Equatable {
 @Suite("Validating a constructed value")
 struct ValidateValueTests {
 
-    static let good = Account(username: "ada", email: "ada@example.com", age: 36,
-                              tags: ["x"], passphrase: "hunter22", note: "")
+    static let good = Account(
+        username: "ada", email: "ada@example.com", age: 36,
+        tags: ["x"], passphrase: "hunter22", note: "")
 
     @Test("a legal value reports nothing")
     func clean() throws {
@@ -50,9 +51,9 @@ struct ValidateValueTests {
     @Test("every violation is reported, not just the first")
     func allIssues() {
         var a = Self.good
-        a.username = "ab"                  // .min(3)
-        a.email = "not-an-email"           // .email
-        a.age = 200                        // .range
+        a.username = "ab"  // .min(3)
+        a.email = "not-an-email"  // .email
+        a.age = 200  // .range
         let v = Account.diagnose(a)
         #expect(!v.isValid)
         #expect(v.issues.count == 3, "got \(v.issues.map(\.message))")
@@ -100,9 +101,9 @@ struct ValidateValueTests {
         a.passphrase = "1234"
         let viaValidate = Account.diagnose(a).issues.first?.message
         let json = """
-        {"username": "ada", "email": "ada@example.com", "age": 36, \
-        "tags": ["x"], "passphrase": "1234", "note": ""}
-        """
+            {"username": "ada", "email": "ada@example.com", "age": 36, \
+            "tags": ["x"], "passphrase": "1234", "note": ""}
+            """
         let viaDecode = Account.diagnose(json: json).issues.first?.message
         #expect(viaValidate == viaDecode)
         #expect(viaValidate == "a passphrase needs 8 characters")
@@ -134,13 +135,15 @@ struct ValidateValueRoundTripTests {
             let email = (next() % 2 == 0) ? "u@example.com" : "nope"
             let tagCount = 1 + Int(next() % 3)
             let tags = (0..<tagCount).map { "t\($0)" }
-            let pass = (next() % 3 == 0) ? "null" : "\"\(String(repeating: "p", count: 4 + Int(next() % 12)))\""
+            let pass =
+                (next() % 3 == 0)
+                ? "null" : "\"\(String(repeating: "p", count: 4 + Int(next() % 12)))\""
 
             let json = """
-            {"username": "\(name)", "email": "\(email)", "age": \(age), \
-            "tags": [\(tags.map { "\"\($0)\"" }.joined(separator: ", "))], \
-            "passphrase": \(pass), "note": "n"}
-            """
+                {"username": "\(name)", "email": "\(email)", "age": \(age), \
+                "tags": [\(tags.map { "\"\($0)\"" }.joined(separator: ", "))], \
+                "passphrase": \(pass), "note": "n"}
+                """
             let d = Account.diagnose(json: json)
             guard d.isValid, let value = d.value else { continue }
             accepted += 1
@@ -162,13 +165,13 @@ struct ValidateValueRoundTripTests {
     @Test("what decoding rejects on a plain rule, validating rejects too")
     func converse() throws {
         let cases: [(String, String)] = [
-            ("\"ab\"", "username"), ("\"\(String(repeating: "z", count: 30))\"", "username"),
+            ("\"ab\"", "username"), ("\"\(String(repeating: "z", count: 30))\"", "username")
         ]
         for (literal, field) in cases {
             let json = """
-            {"username": \(literal), "email": "a@b.com", "age": 30, "tags": ["t"], \
-            "passphrase": null, "note": ""}
-            """
+                {"username": \(literal), "email": "a@b.com", "age": 30, "tags": ["t"], \
+                "passphrase": null, "note": ""}
+                """
             let d = Account.diagnose(json: json)
             #expect(!d.isValid, "expected decoding to reject \(literal)")
 
@@ -178,8 +181,9 @@ struct ValidateValueRoundTripTests {
             a.tags = ["t"]
             a.passphrase = nil
             let v = Account.diagnose(a)
-            #expect(v.issues.contains { $0.path.pathDescription == field },
-                    "validating missed what decoding caught on \(field)")
+            #expect(
+                v.issues.contains { $0.path.pathDescription == field },
+                "validating missed what decoding caught on \(field)")
         }
     }
 }
@@ -236,12 +240,13 @@ struct ValidateValueExclusionTests {
 
     @Test("the expansion names the excluded fields where quick-help will show them")
     func exclusionsAreDocumented() {
-        let (code, _) = expandSchemaForTesting("""
-        @Schema struct S {
-            @Validate(.range(1...10)) @Fallback(5) var level: Int
-            @Validate(.min(2)) var name: String
-        }
-        """)
+        let (code, _) = expandSchemaForTesting(
+            """
+            @Schema struct S {
+                @Validate(.range(1...10)) @Fallback(5) var level: Int
+                @Validate(.min(2)) var name: String
+            }
+            """)
         #expect(code.contains("Rules NOT re-checked here"))
         #expect(code.contains("`level`"))
         #expect(!code.contains("`name`"), "name is checked, so it must not be listed")
@@ -287,9 +292,11 @@ struct ValidateValueCheckTests {
 
     @Test("a batch names the row, and one sink bounds the whole report")
     func batch() {
-        let rows = [Booking(start: 0, end: 1, guests: 1),
-                    Booking(start: 5, end: 1, guests: 1),
-                    Booking(start: 0, end: 1, guests: 0)]
+        let rows = [
+            Booking(start: 0, end: 1, guests: 1),
+            Booking(start: 5, end: 1, guests: 1),
+            Booking(start: 0, end: 1, guests: 0)
+        ]
         let v = Booking.diagnose(rows)
         #expect(v.issues.count == 2)
         let paths = v.issues.map(\.path.pathDescription)
@@ -314,14 +321,14 @@ struct ValidateValueCheckTests {
         #expect(!code.contains("_assayCheck"))
         #expect(!code.contains("Validatable"))
 
-        let (withRules, _) = expandSchemaForTesting("""
-        @Schema struct S { @Validate(.min(1)) var a: Int }
-        """)
+        let (withRules, _) = expandSchemaForTesting(
+            """
+            @Schema struct S { @Validate(.min(1)) var a: Int }
+            """)
         #expect(withRules.contains("_assayCheck"))
         #expect(withRules.contains("Assay.Validatable"))
     }
 }
-
 
 // MARK: - The seam an external reader uses
 //
@@ -344,9 +351,10 @@ struct ValidationOnlySchemaTests {
     /// the JSON body it was given cost 118 ms/type against 52.8 for the rules alone.
     @Test("formats: [] emits the rules and no decoder")
     func noDecoderEmitted() {
-        let (code, diags) = expandSchemaForTesting("""
-        @Schema(formats: []) struct S { @Validate(.min(1)) var a: String }
-        """)
+        let (code, diags) = expandSchemaForTesting(
+            """
+            @Schema(formats: []) struct S { @Validate(.min(1)) var a: String }
+            """)
         #expect(diags.isEmpty)
         #expect(code.contains("_assayCheck"), "the rules are still there")
         #expect(code.contains("Assay.Validatable"))
@@ -356,8 +364,10 @@ struct ValidationOnlySchemaTests {
 
     @Test("the rules run exactly as they do on a decoding type")
     func rulesStillRun() throws {
-        #expect(ExternallyDecoded.diagnose(
-            ExternallyDecoded(vendor: "VTS", passengers: 3)).isValid)
+        #expect(
+            ExternallyDecoded.diagnose(
+                ExternallyDecoded(vendor: "VTS", passengers: 3)
+            ).isValid)
         let d = ExternallyDecoded.diagnose(ExternallyDecoded(vendor: "", passengers: 99))
         #expect(d.issues.count == 2)
         #expect(throws: AssayError.self) {
@@ -375,9 +385,10 @@ struct ValidationOnlySchemaTests {
 
     @Test("but encodes: true is enough on its own")
     func encodingCounts() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema(formats: [], encodes: true) struct S { var a: Int }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema(formats: [], encodes: true) struct S { var a: Int }
+            """)
         #expect(diags.isEmpty)
     }
 }
@@ -391,10 +402,12 @@ struct CallerSuppliedPathTests {
     @Test("a caller can name the real row")
     func namedRow() {
         let bad = ExternallyDecoded(vendor: "", passengers: 99)
-        #expect(ExternallyDecoded.diagnose(bad).issues.map(\.path.pathDescription)
+        #expect(
+            ExternallyDecoded.diagnose(bad).issues.map(\.path.pathDescription)
                 == ["vendor", "passengers"])
-        #expect(ExternallyDecoded.diagnose(bad, at: [.index(91_824)])
-                    .issues.map(\.path.pathDescription)
+        #expect(
+            ExternallyDecoded.diagnose(bad, at: [.index(91_824)])
+                .issues.map(\.path.pathDescription)
                 == ["[91824].vendor", "[91824].passengers"])
     }
 
@@ -420,7 +433,8 @@ struct CallerSuppliedPathTests {
     @Test("an empty path is the default, and matches diagnose(_:)")
     func emptyPathIsDefault() {
         let bad = ExternallyDecoded(vendor: "", passengers: 99)
-        #expect(ExternallyDecoded.diagnose(bad, at: []).issues.map(\.path.pathDescription)
+        #expect(
+            ExternallyDecoded.diagnose(bad, at: []).issues.map(\.path.pathDescription)
                 == ExternallyDecoded.diagnose(bad).issues.map(\.path.pathDescription))
     }
 }

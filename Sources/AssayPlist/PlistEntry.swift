@@ -99,14 +99,17 @@ extension RawDecodable {
         var sink = IssueSink(limits: limits)
         if bytes.count > limits.maxBytes {
             sink.add(Issue(code: .tooManyBytes, params: ["maxBytes": .int(limits.maxBytes)]))
-            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(
+                sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         guard let raw = produce(bytes, &sink, limits) else {
-            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(
+                sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         var __rootPath: [PathStep] = []
         let value = Self._assay(from: raw, into: &sink, at: &__rootPath)
-        return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
+        return Diagnosis(
+            sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 }
 
@@ -130,7 +133,7 @@ public enum Plist {
     ) -> RawValue? {
         switch encoding(of: bytes) {
         case .binary: return BinaryPlist.decode(bytes, into: &sink, limits: limits)
-        case .xml:    return XMLPlist.decode(bytes, into: &sink, limits: limits)
+        case .xml: return XMLPlist.decode(bytes, into: &sink, limits: limits)
         }
     }
 }
@@ -148,8 +151,10 @@ extension ContextualRawDecodable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) throws -> Self {
-        try diagnose(plist: bytes, context: context,
-                     limits: limits, sourceName: sourceName).get()
+        try diagnose(
+            plist: bytes, context: context,
+            limits: limits, sourceName: sourceName
+        ).get()
     }
 
     public static func diagnose(
@@ -161,13 +166,16 @@ extension ContextualRawDecodable {
         var sink = IssueSink(limits: limits)
         if bytes.count > limits.maxBytes {
             sink.add(Issue(code: .tooManyBytes, params: ["maxBytes": .int(limits.maxBytes)]))
-            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(
+                sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         guard let raw = Plist.decode(bytes, into: &sink, limits: limits) else {
-            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(
+                sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         var __rootPath: [PathStep] = []
         let value = Self._assay(from: raw, into: &sink, at: &__rootPath, context: context)
-        return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
+        return Diagnosis(
+            sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 }

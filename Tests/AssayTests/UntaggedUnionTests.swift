@@ -2,7 +2,6 @@
 // Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
 // See LICENSE and NOTICE at the repository root for terms.
 
-
 //===----------------------------------------------------------------------===//
 // Untagged unions. `docs/UNIONS.md` §§2.2 and 3: everything a tagged union does not have
 // to answer — which branch to blame when they all fail, and what stops nested unions
@@ -53,7 +52,8 @@ struct UntaggedUnionTests {
     @Test("struct branches are distinguished by shape")
     func structBranches() throws {
         #expect(try Figure.parse(json: #"{"x":1,"y":2}"#) == .point(UntaggedPoint(x: 1, y: 2)))
-        #expect(try Figure.parse(json: #"{"from":"a","to":"b","width":3}"#)
+        #expect(
+            try Figure.parse(json: #"{"from":"a","to":"b","width":3}"#)
                 == .line(UntaggedLine(from: "a", to: "b", width: 3)))
     }
 
@@ -86,15 +86,18 @@ struct UntaggedUnionErrors {
 
         let summary = d.issues.first { $0.code == .unionNoVariantMatched }
         #expect(summary != nil, "\(d.issues.map { "\($0.code)" })")
-        #expect(summary?.params["closest"] == .string("point"),
-                "got \(String(describing: summary?.params["closest"]))")
+        #expect(
+            summary?.params["closest"] == .string("point"),
+            "got \(String(describing: summary?.params["closest"]))")
         #expect(summary?.params["variants"] == .string("point, line"))
 
         // And the closest branch's detail follows it — the `y` field, not `line`'s fields.
-        #expect(d.issues.contains { $0.path.pathDescription == "y" },
-                "\(d.issues.map { "\($0.code) at \($0.path.pathDescription)" })")
-        #expect(!d.issues.contains { $0.path.pathDescription == "width" },
-                "the branch that was not closest must not be reported")
+        #expect(
+            d.issues.contains { $0.path.pathDescription == "y" },
+            "\(d.issues.map { "\($0.code) at \($0.path.pathDescription)" })")
+        #expect(
+            !d.issues.contains { $0.path.pathDescription == "width" },
+            "the branch that was not closest must not be reported")
     }
 
     @Test("the summary names the type and every variant")
@@ -112,12 +115,15 @@ struct UntaggedUnionErrors {
         limits.verboseUnions = true
         let quiet = Figure.diagnose(json: #"{"x":1,"y":"nope"}"#)
         let loud = Figure.diagnose(json: #"{"x":1,"y":"nope"}"#, limits: limits)
-        #expect(loud.issues.count > quiet.issues.count, """
-                verbose mode must add the branches the summary left out — \\
-                quiet=\(quiet.issues.count) loud=\(loud.issues.count)
-                """)
-        #expect(loud.issues.contains { $0.path.pathDescription == "width" },
-                "the branch that was not closest should appear in verbose mode")
+        #expect(
+            loud.issues.count > quiet.issues.count,
+            """
+            verbose mode must add the branches the summary left out — \\
+            quiet=\(quiet.issues.count) loud=\(loud.issues.count)
+            """)
+        #expect(
+            loud.issues.contains { $0.path.pathDescription == "width" },
+            "the branch that was not closest should appear in verbose mode")
     }
 
     /// A failed union inside a struct must not derail the rest of the document.
@@ -126,8 +132,9 @@ struct UntaggedUnionErrors {
         let d = FigurePair.diagnose(json: #"{"figure":{"zzz":1},"name":"ok"}"#)
         // The union's issues, and nothing about `name`, which decoded fine.
         #expect(!d.isValid)
-        #expect(!d.issues.contains { $0.path.pathDescription == "name" },
-                "\(d.issues.map { "\($0.code) at \($0.path.pathDescription)" })")
+        #expect(
+            !d.issues.contains { $0.path.pathDescription == "name" },
+            "\(d.issues.map { "\($0.code) at \($0.path.pathDescription)" })")
     }
 }
 
@@ -149,8 +156,9 @@ struct UntaggedUnionBudget {
         let doc = #"{"figures":[{"z":1},{"z":1},{"z":1}]}"#
         let d = FigureMany.diagnose(json: doc, limits: limits)
         #expect(!d.isValid)
-        #expect(d.issues.contains { $0.code == .unionBudgetExhausted },
-                "\(d.issues.map { "\($0.code)" })")
+        #expect(
+            d.issues.contains { $0.code == .unionBudgetExhausted },
+            "\(d.issues.map { "\($0.code)" })")
     }
 
     /// The budget must not be refunded by a rewind, or it bounds nothing.
@@ -162,8 +170,9 @@ struct UntaggedUnionBudget {
         // replay. If any of those refunded the counter, one attempt would never be exceeded.
         let doc = #"{"figures":[{"z":1}]}"#
         let d = FigureMany.diagnose(json: doc, limits: limits)
-        #expect(d.issues.contains { $0.code == .unionBudgetExhausted },
-                "\(d.issues.map { "\($0.code)" })")
+        #expect(
+            d.issues.contains { $0.code == .unionBudgetExhausted },
+            "\(d.issues.map { "\($0.code)" })")
     }
 
     /// The default is far above any real document, so ordinary use never sees it.
@@ -172,7 +181,7 @@ struct UntaggedUnionBudget {
         var doc = #"{"figures":["#
         for i in 0..<200 {
             if i > 0 { doc += "," }
-            doc += #"{"from":"a","to":"b","width":1}"#     // always the SECOND branch
+            doc += #"{"from":"a","to":"b","width":1}"#  // always the SECOND branch
         }
         doc += "]}"
         let v = try FigureMany.parse(json: doc)

@@ -46,9 +46,13 @@ extension YAML.Parser {
         // `Int.max` is the flow-context caller, where multi-line plain scalars are out
         // of scope (see this file's header) — no line can be indented past it.
         var pendingBreaks = 0
-        while indent != Int.max, let more = plainContinuation(&r, indent: indent,
-                                                             breaks: &pendingBreaks) {
-            content += pendingBreaks > 0
+        while indent != Int.max,
+            let more = plainContinuation(
+                &r, indent: indent,
+                breaks: &pendingBreaks)
+        {
+            content +=
+                pendingBreaks > 0
                 ? String(repeating: "\n", count: pendingBreaks)
                 : " "
             content += more
@@ -109,7 +113,8 @@ extension YAML.Parser {
             // Guarding against `-` here produced a rejection libyaml does not make,
             // which the differential caught.
             if first == UInt8(ascii: "?") || first == UInt8(ascii: "&")
-                || first == UInt8(ascii: "*") {
+                || first == UInt8(ascii: "*")
+            {
                 r.seek(to: mark); return nil
             }
 
@@ -124,7 +129,8 @@ extension YAML.Parser {
             var i = textStart
             while i < end {
                 if r.byte(absolute: i) == UInt8(ascii: ":"),
-                   i + 1 >= end || r.byte(absolute: i + 1) == 0x20 {
+                    i + 1 >= end || r.byte(absolute: i + 1) == 0x20
+                {
                     r.seek(to: mark); return nil
                 }
                 i += 1
@@ -148,7 +154,7 @@ extension YAML.Parser {
         var needsUnescape = false
         while let c = r.currentByte {
             if c == quote {
-                if !double, r.byte(at: 1) == quote {          // '' is a literal '
+                if !double, r.byte(at: 1) == quote {  // '' is a literal '
                     needsUnescape = true
                     r.advanceBy(2)
                     continue
@@ -171,7 +177,7 @@ extension YAML.Parser {
 
         let content: String
         if !needsUnescape {
-            content = raw                                    // fast path: one copy
+            content = raw  // fast path: one copy
         } else if double {
             guard let u = unescapeDouble(raw, &r, &sink) else { return nil }
             content = u
@@ -236,12 +242,16 @@ extension YAML.Parser {
         let folded = r.currentByte == UInt8(ascii: ">")
         r.advanceBy(1)
 
-        var chomp: Character = "c"                    // c=clip, s=strip, k=keep
+        var chomp: Character = "c"  // c=clip, s=strip, k=keep
         var explicitIndent = 0
         while let c = r.currentByte, c != 0x0A, c != 0x0D {
-            if c == UInt8(ascii: "-") { chomp = "s" }
-            else if c == UInt8(ascii: "+") { chomp = "k" }
-            else if c >= 0x31 && c <= 0x39 { explicitIndent = Int(c - 0x30) }
+            if c == UInt8(ascii: "-") {
+                chomp = "s"
+            } else if c == UInt8(ascii: "+") {
+                chomp = "k"
+            } else if c >= 0x31 && c <= 0x39 {
+                explicitIndent = Int(c - 0x30)
+            }
             r.advanceBy(1)
         }
         skipLine(&r)
@@ -300,9 +310,9 @@ extension YAML.Parser {
         }
 
         switch chomp {
-        case "s": break                                    // strip: no trailing newline
-        case "k": content += "\n\n"                         // keep (approximate)
-        default: if !content.isEmpty { content += "\n" }    // clip: exactly one
+        case "s": break  // strip: no trailing newline
+        case "k": content += "\n\n"  // keep (approximate)
+        default: if !content.isEmpty { content += "\n" }  // clip: exactly one
         }
 
         return B.scalar(content, style: folded ? .folded : .literal, tag: nil)

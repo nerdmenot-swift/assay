@@ -45,27 +45,33 @@ extension SchemaMacro {
         for member in structDecl.memberBlock.members {
             guard let fn = member.decl.as(FunctionDeclSyntax.self) else { continue }
             let attrs = fn.attributes.compactMap { $0.as(AttributeSyntax.self) }
-            guard let checkAttr = attrs.first(where: {
-                let n = $0.attributeName.trimmedDescription
-                return n == "Check" || n == "AsyncCheck"
-            }) else { continue }
+            guard
+                let checkAttr = attrs.first(where: {
+                    let n = $0.attributeName.trimmedDescription
+                    return n == "Check" || n == "AsyncCheck"
+                })
+            else { continue }
 
             let isAsync = checkAttr.attributeName.trimmedDescription == "AsyncCheck"
 
             guard fn.modifiers.contains(where: { $0.name.text == "static" }) else {
-                context.diagnose(Diagnostic(node: Syntax(fn), message: SimpleDiagnostic(
-                    "@Check function '\(fn.name.text)' must be static")))
+                context.diagnose(
+                    Diagnostic(
+                        node: Syntax(fn),
+                        message: SimpleDiagnostic(
+                            "@Check function '\(fn.name.text)' must be static")))
                 continue
             }
 
             // Field form: @Check(\.workEmail)
             var field: String?
             if let args = checkAttr.arguments?.as(LabeledExprListSyntax.self),
-               let first = args.first {
+                let first = args.first
+            {
                 let text = first.expression.trimmedDescription
                 if text.hasPrefix("\\.") {
                     field = SchemaMacro.unbackticked(String(text.dropFirst(2)))
-                } else if text.hasPrefix("\\") , let dot = text.firstIndex(of: ".") {
+                } else if text.hasPrefix("\\"), let dot = text.firstIndex(of: ".") {
                     field = SchemaMacro.unbackticked(String(text[text.index(after: dot)...]))
                 }
             }
@@ -81,16 +87,21 @@ extension SchemaMacro {
             }
             if let field {
                 guard let f = fields.first(where: { $0.name == field }) else {
-                    refuse("@Check(\\.\(field)) names a property this type does not declare"
-                        + (fields.isEmpty ? "." : "; the fields are "
-                           + fields.map { "'\($0.name)'" }.joined(separator: ", ") + "."))
+                    refuse(
+                        "@Check(\\.\(field)) names a property this type does not declare"
+                            + (fields.isEmpty
+                                ? "."
+                                : "; the fields are "
+                                    + fields.map { "'\($0.name)'" }.joined(separator: ", ") + "."))
                     continue
                 }
                 guard params.count == expectedCount else {
-                    refuse("a field check takes the field's value\(hasContext ? " and the context" : "") "
-                        + "and returns `String?` — `static func \(fn.name.text)(_ value: "
-                        + "\(f.typeName)\(hasContext ? ", _ context: Context" : "")) -> String?`; "
-                        + "'\(fn.name.text)' declares \(params.count) parameter\(params.count == 1 ? "" : "s").")
+                    refuse(
+                        "a field check takes the field's value\(hasContext ? " and the context" : "") "
+                            + "and returns `String?` — `static func \(fn.name.text)(_ value: "
+                            + "\(f.typeName)\(hasContext ? ", _ context: Context" : "")) -> String?`; "
+                            + "'\(fn.name.text)' declares \(params.count) parameter\(params.count == 1 ? "" : "s")."
+                    )
                     continue
                 }
                 // The check receives the CONSTRUCTED property — after `@Transform` — so the
@@ -99,27 +110,33 @@ extension SchemaMacro {
                 let declared = params.first!.type.trimmedDescription
                 let wanted = f.typeName
                 if SchemaMacro.stripOptional(declared) != SchemaMacro.stripOptional(wanted) {
-                    refuse("@Check(\\.\(field)) receives the field's value, which is "
-                        + "'\(wanted)'; '\(fn.name.text)' declares its parameter as "
-                        + "'\(declared)'.")
+                    refuse(
+                        "@Check(\\.\(field)) receives the field's value, which is "
+                            + "'\(wanted)'; '\(fn.name.text)' declares its parameter as "
+                            + "'\(declared)'.")
                     continue
                 }
             } else {
                 guard params.count == expectedCount,
-                      params.last!.type.trimmedDescription.hasPrefix("inout ") else {
-                    refuse("a cross-field check takes the whole value\(hasContext ? ", the context" : "") "
-                        + "and the issue collector — `static func \(fn.name.text)(_ value: "
-                        + "\(structDecl.name.text)\(hasContext ? ", _ context: Context" : ""), "
-                        + "_ issues: inout Issues<\(structDecl.name.text)>)`; "
-                        + "'\(fn.name.text)' declares \(params.count) parameter\(params.count == 1 ? "" : "s")"
-                        + (params.count == expectedCount ? " and the last is not `inout`." : "."))
+                    params.last!.type.trimmedDescription.hasPrefix("inout ")
+                else {
+                    refuse(
+                        "a cross-field check takes the whole value\(hasContext ? ", the context" : "") "
+                            + "and the issue collector — `static func \(fn.name.text)(_ value: "
+                            + "\(structDecl.name.text)\(hasContext ? ", _ context: Context" : ""), "
+                            + "_ issues: inout Issues<\(structDecl.name.text)>)`; "
+                            + "'\(fn.name.text)' declares \(params.count) parameter\(params.count == 1 ? "" : "s")"
+                            + (params.count == expectedCount
+                                ? " and the last is not `inout`." : "."))
                     continue
                 }
             }
 
-            out.append(CheckDecl(functionName: fn.name.text,
-                                 fieldIdentifier: field,
-                                 isAsync: isAsync))
+            out.append(
+                CheckDecl(
+                    functionName: fn.name.text,
+                    fieldIdentifier: field,
+                    isAsync: isAsync))
         }
         return out
     }
@@ -127,14 +144,15 @@ extension SchemaMacro {
     /// The keypath→wire-key table cross-field checks resolve `at: \.field` against.
     static func fieldNameTable(_ typeName: String, _ fields: [SchemaField]) -> String {
         guard !fields.isEmpty else { return "" }
-        let entries = fields
+        let entries =
+            fields
             .map { "\\.\($0.identifier): \"\($0.wireKey)\"" }
             .joined(separator: ", ")
         // PartialKeyPath is not Sendable; the table is immutable, so unsafe is honest.
         return """
-        nonisolated(unsafe) static let __assayFieldNames: [PartialKeyPath<\(typeName)>: String] = [\(entries)]
+            nonisolated(unsafe) static let __assayFieldNames: [PartialKeyPath<\(typeName)>: String] = [\(entries)]
 
-        """
+            """
     }
 
     /// The post-construction check calls. `spans` gates caret capture for field checks.
@@ -166,24 +184,25 @@ extension SchemaMacro {
                 let wire = target?.wireKey ?? field
                 let member = target?.identifier ?? field
                 let span = spans, idx = indexOf[member]
-                let spanExpr = (span && idx != nil && fields[idx!].needsSpan)
+                let spanExpr =
+                    (span && idx != nil && fields[idx!].needsSpan)
                     ? "__sp\(idx!)" : "nil"
                 out += """
-                    if let __m = Self.\(check.functionName)(__result.\(member)\(ctxArg)) {
-                        sink.add(Assay.Issue(code: .custom(__m),
-                                             path: path + [.key("\(wire)")],
-                                             location: \(spanExpr)))
-                    }
+                        if let __m = Self.\(check.functionName)(__result.\(member)\(ctxArg)) {
+                            sink.add(Assay.Issue(code: .custom(__m),
+                                                 path: path + [.key("\(wire)")],
+                                                 location: \(spanExpr)))
+                        }
 
-                """
+                    """
             } else {
                 // Cross-field form: static func f(_ v: T, _ issues: inout Issues<T>)
                 out += """
-                    var __ck_\(check.functionName) = Assay.Issues<\(typeName)>(names: Self.__assayFieldNames)
-                    Self.\(check.functionName)(__result\(ctxArg), &__ck_\(check.functionName))
-                    __ck_\(check.functionName).merge(into: &sink, at: path)
+                        var __ck_\(check.functionName) = Assay.Issues<\(typeName)>(names: Self.__assayFieldNames)
+                        Self.\(check.functionName)(__result\(ctxArg), &__ck_\(check.functionName))
+                        __ck_\(check.functionName).merge(into: &sink, at: path)
 
-                """
+                    """
             }
         }
         return out
@@ -192,9 +211,11 @@ extension SchemaMacro {
     /// The async-check runner, emitted only when @AsyncCheck members exist. Sync work
     /// runs first and collects everything; async checks run only if the sync pass was
     /// clean, and then concurrently (EXPERIENCE.md §10's ordering, stated precisely).
-    static func asyncCheckRunner(_ typeName: String, _ checks: [CheckDecl],
-                                fields: [SchemaField] = [],
-                                ctx: String = "") -> String {
+    static func asyncCheckRunner(
+        _ typeName: String, _ checks: [CheckDecl],
+        fields: [SchemaField] = [],
+        ctx: String = ""
+    ) -> String {
         let ctxParam = ctx.isEmpty ? "" : ",\n            context: \(ctx)"
         let ctxArg = ctx.isEmpty ? "" : ", context"
         let asyncs = checks.filter(\.isAsync)
@@ -207,38 +228,38 @@ extension SchemaMacro {
             if let field = check.fieldIdentifier {
                 let member = fields.first { $0.name == field }?.identifier ?? field
                 return """
+                            group.addTask {
+                                var __i = Assay.Issues<\(typeName)>(names: Self.__assayFieldNames)
+                                if let __m = await Self.\(check.functionName)(
+                                    __value.\(member)\(ctxArg)) { __i.add(__m, at: \\.\(member)) }
+                                return __i
+                            }
+                    """
+            }
+            return """
                         group.addTask {
                             var __i = Assay.Issues<\(typeName)>(names: Self.__assayFieldNames)
-                            if let __m = await Self.\(check.functionName)(
-                                __value.\(member)\(ctxArg)) { __i.add(__m, at: \\.\(member)) }
+                            await Self.\(check.functionName)(__value\(ctxArg), &__i)
                             return __i
                         }
                 """
-            }
-            return """
-                    group.addTask {
-                        var __i = Assay.Issues<\(typeName)>(names: Self.__assayFieldNames)
-                        await Self.\(check.functionName)(__value\(ctxArg), &__i)
-                        return __i
-                    }
-            """
         }.joined(separator: "\n")
 
         return """
 
 
-        nonisolated public static func _assayAsyncChecks(
-            _ __value: \(typeName),
-            at path: [Assay.PathStep]\(ctxParam)
-        ) async -> [Assay.Issue] {
-            await withTaskGroup(of: Assay.Issues<\(typeName)>.self) { group in
-        \(tasks)
-                var __sink = Assay.IssueSink()
-                for await __i in group { __i.merge(into: &__sink, at: path) }
-                return __sink.issues
+            nonisolated public static func _assayAsyncChecks(
+                _ __value: \(typeName),
+                at path: [Assay.PathStep]\(ctxParam)
+            ) async -> [Assay.Issue] {
+                await withTaskGroup(of: Assay.Issues<\(typeName)>.self) { group in
+            \(tasks)
+                    var __sink = Assay.IssueSink()
+                    for await __i in group { __i.merge(into: &__sink, at: path) }
+                    return __sink.issues
+                }
             }
-        }
-        """
+            """
     }
 
     // MARK: @Preprocess / @Transform / @Fallback parsing
@@ -262,17 +283,27 @@ extension SchemaMacro {
         for attr in attributes where attr.attributeName.trimmedDescription == "Transform" {
             // Attributes have no trailing closures; the closure is the single argument.
             guard let args = attr.arguments?.as(LabeledExprListSyntax.self),
-                  let closure = args.first?.expression.as(ClosureExprSyntax.self) else {
-                context.diagnose(Diagnostic(node: Syntax(attr), message: SimpleDiagnostic(
-                    "@Transform takes a closure with a typed parameter, e.g. ({ (a: [String]) in Set(a) })")))
+                let closure = args.first?.expression.as(ClosureExprSyntax.self)
+            else {
+                context.diagnose(
+                    Diagnostic(
+                        node: Syntax(attr),
+                        message: SimpleDiagnostic(
+                            "@Transform takes a closure with a typed parameter, e.g. ({ (a: [String]) in Set(a) })"
+                        )))
                 return nil
             }
             guard let sig = closure.signature,
-                  let clause = sig.parameterClause?.as(ClosureParameterClauseSyntax.self),
-                  let first = clause.parameters.first,
-                  let type = first.type?.trimmedDescription else {
-                context.diagnose(Diagnostic(node: Syntax(attr), message: SimpleDiagnostic(
-                    "@Transform's closure parameter needs a type annotation — the wire type the value arrives as, e.g. ({ (a: [String]) in Set(a) })")))
+                let clause = sig.parameterClause?.as(ClosureParameterClauseSyntax.self),
+                let first = clause.parameters.first,
+                let type = first.type?.trimmedDescription
+            else {
+                context.diagnose(
+                    Diagnostic(
+                        node: Syntax(attr),
+                        message: SimpleDiagnostic(
+                            "@Transform's closure parameter needs a type annotation — the wire type the value arrives as, e.g. ({ (a: [String]) in Set(a) })"
+                        )))
                 return nil
             }
             return (closure.trimmedDescription, type)
@@ -283,7 +314,8 @@ extension SchemaMacro {
     static func fallbackExpr(from attributes: [AttributeSyntax]) -> String? {
         for attr in attributes where attr.attributeName.trimmedDescription == "Fallback" {
             guard let args = attr.arguments?.as(LabeledExprListSyntax.self),
-                  let first = args.first else { continue }
+                let first = args.first
+            else { continue }
             return first.expression.trimmedDescription
         }
         return nil

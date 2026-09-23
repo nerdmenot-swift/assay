@@ -93,15 +93,17 @@ func runLargeDocumentBenchmarks() {
     print("this arm's header — that the ratio would shrink towards 1.0 as allocation came to")
     print("dominate both decoders — was wrong. It is flat. See the header for what that means.")
     print("")
-    print(pad("items", 10, right: true) + pad("MB", 8) + pad("Foundation", 12)
-          + pad("Assay", 10) + pad("ratio", 9) + pad("Assay MB/s", 12))
+    print(
+        pad("items", 10, right: true) + pad("MB", 8) + pad("Foundation", 12)
+            + pad("Assay", 10) + pad("ratio", 9) + pad("Assay MB/s", 12))
     print(String(repeating: "-", count: 61))
 
     for count in [2_000, 20_000, 80_000] {
         var text = #"{"request_id":"req-1","total_count":\#(count),"items":["#
         for i in 0..<count {
             if i > 0 { text += "," }
-            text += #"{"id":"item-\#(i)","name":"a name of ordinary length \#(i)",""#
+            text +=
+                #"{"id":"item-\#(i)","name":"a name of ordinary length \#(i)",""#
                 + #"amount":\#(Double(i) * 1.5),"active":\#(i % 2 == 0),"retry_count":\#(i % 4)}"#
         }
         text += "]}"
@@ -117,8 +119,9 @@ func runLargeDocumentBenchmarks() {
 
         let decoder = JSONDecoder()
         guard let mine = try? BigPayload.parse(json: bytes, limits: limits),
-              let theirs = try? decoder.decode(CodableBigPayload.self, from: data),
-              mine.items.count == theirs.items.count else {
+            let theirs = try? decoder.decode(CodableBigPayload.self, from: data),
+            mine.items.count == theirs.items.count
+        else {
             print(pad("\(count)", 10, right: true) + "  SKIPPED — the two decoders disagree")
             continue
         }
@@ -133,12 +136,13 @@ func runLargeDocumentBenchmarks() {
             _ = try? BigPayload.parse(json: bytes, limits: limits)
         }
 
-        print(pad("\(count)", 10, right: true)
-              + pad(String(format: "%.1f", mb), 8)
-              + pad(String(format: "%.1f ms", foundation / 1_000_000), 12)
-              + pad(String(format: "%.1f ms", assay / 1_000_000), 10)
-              + pad(String(format: "%.2fx", foundation / assay), 9)
-              + pad(String(format: "%.0f", mb / (assay / 1_000_000_000)), 12))
+        print(
+            pad("\(count)", 10, right: true)
+                + pad(String(format: "%.1f", mb), 8)
+                + pad(String(format: "%.1f ms", foundation / 1_000_000), 12)
+                + pad(String(format: "%.1f ms", assay / 1_000_000), 10)
+                + pad(String(format: "%.2fx", foundation / assay), 9)
+                + pad(String(format: "%.0f", mb / (assay / 1_000_000_000)), 12))
     }
 
     // The input copy, at the size where it stops being a rounding error. `parse(json: Data)`
@@ -148,15 +152,17 @@ func runLargeDocumentBenchmarks() {
     print("")
     print("The input copy — Array(data) + parse against parse(json: Data), same decode")
     print("")
-    print(pad("items", 10, right: true) + pad("MB", 8) + pad("Array(data)", 13)
-          + pad("Data", 10) + pad("saved", 10))
+    print(
+        pad("items", 10, right: true) + pad("MB", 8) + pad("Array(data)", 13)
+            + pad("Data", 10) + pad("saved", 10))
     print(String(repeating: "-", count: 51))
 
     for count in [2_000, 20_000, 80_000] {
         var text = #"{"request_id":"req-1","total_count":\#(count),"items":["#
         for i in 0..<count {
             if i > 0 { text += "," }
-            text += #"{"id":"item-\#(i)","name":"a name of ordinary length \#(i)",""#
+            text +=
+                #"{"id":"item-\#(i)","name":"a name of ordinary length \#(i)",""#
                 + #"amount":\#(Double(i) * 1.5),"active":\#(i % 2 == 0),"retry_count":\#(i % 4)}"#
         }
         text += "]}"
@@ -167,8 +173,9 @@ func runLargeDocumentBenchmarks() {
         limits.maxBytes = data.count + 1
 
         guard let viaData = try? BigPayload.parse(json: data, limits: limits),
-              let viaArray = try? BigPayload.parse(json: Array(data), limits: limits),
-              viaData.items.count == viaArray.items.count else {
+            let viaArray = try? BigPayload.parse(json: Array(data), limits: limits),
+            viaData.items.count == viaArray.items.count
+        else {
             print(pad("\(count)", 10, right: true) + "  SKIPPED — the two doors disagree")
             continue
         }
@@ -181,11 +188,12 @@ func runLargeDocumentBenchmarks() {
             _ = try? BigPayload.parse(json: data, limits: limits)
         }
 
-        print(pad("\(count)", 10, right: true)
-              + pad(String(format: "%.1f", mb), 8)
-              + pad(String(format: "%.1f ms", copying / 1_000_000), 13)
-              + pad(String(format: "%.1f ms", direct / 1_000_000), 10)
-              + pad(String(format: "%.1f%%", (copying - direct) / copying * 100), 10))
+        print(
+            pad("\(count)", 10, right: true)
+                + pad(String(format: "%.1f", mb), 8)
+                + pad(String(format: "%.1f ms", copying / 1_000_000), 13)
+                + pad(String(format: "%.1f ms", direct / 1_000_000), 10)
+                + pad(String(format: "%.1f%%", (copying - direct) / copying * 100), 10))
     }
 
     print("")

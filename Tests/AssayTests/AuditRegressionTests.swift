@@ -41,16 +41,19 @@ struct AuditRegressionTests {
 
         // 9^6 ≈ 11.4M nodes from 331 bytes: refused, by name.
         var sink = IssueSink()
-        _ = YAML.decodeAll(Array(bomb(levels: 6, fanout: 9).utf8), into: &sink,
-                           limits: .default)
-        #expect(sink.issues.contains { $0.code == .yamlExpansionLimit },
-                "a 9^6 alias bomb must be refused")
+        _ = YAML.decodeAll(
+            Array(bomb(levels: 6, fanout: 9).utf8), into: &sink,
+            limits: .default)
+        #expect(
+            sink.issues.contains { $0.code == .yamlExpansionLimit },
+            "a 9^6 alias bomb must be refused")
 
         // The bound must not be so eager that ordinary aliasing breaks. 9^3 ≈ 15k nodes
         // is a large but legitimate document and still parses clean.
         var ok = IssueSink()
-        let docs = YAML.decodeAll(Array(bomb(levels: 3, fanout: 9).utf8), into: &ok,
-                                  limits: .default)
+        let docs = YAML.decodeAll(
+            Array(bomb(levels: 3, fanout: 9).utf8), into: &ok,
+            limits: .default)
         #expect(ok.issues.isEmpty, "legitimate aliasing must still parse")
         #expect(docs.count == 1)
     }
@@ -79,8 +82,10 @@ struct AuditRegressionTests {
 
         // And the invariant the bug violated, stated directly: a nil value and an empty
         // issue list must never coexist.
-        for d in [AuditCoerceInt32.diagnose(json: Array(#"{"n": "9e99"}"#.utf8)),
-                  AuditCoerceInt32.diagnose(json: Array(#"{"n": true}"#.utf8))] {
+        for d in [
+            AuditCoerceInt32.diagnose(json: Array(#"{"n": "9e99"}"#.utf8)),
+            AuditCoerceInt32.diagnose(json: Array(#"{"n": true}"#.utf8))
+        ] {
             if d.value == nil { #expect(!d.issues.isEmpty, "nil value with no issues") }
         }
     }

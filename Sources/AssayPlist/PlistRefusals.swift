@@ -17,39 +17,75 @@ import Assay
 
 extension Assayable {
 
-    @available(*, unavailable, message: "this schema does not decode property lists. A plist decodes through the RawValue projection, so add a non-JSON format to its @Schema — `formats: .all` is the usual answer, and any of .yaml/.xml/.toml also enables it.")
-    public static func parse(plist bytes: [UInt8], limits: Limits = .default,
-                             sourceName: String = "<input>") throws -> Self {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode property lists. A plist decodes through the RawValue projection, so add a non-JSON format to its @Schema — `formats: .all` is the usual answer, and any of .yaml/.xml/.toml also enables it."
+    )
+    public static func parse(
+        plist bytes: [UInt8], limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) throws -> Self {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "this schema does not decode property lists. A plist decodes through the RawValue projection, so add a non-JSON format to its @Schema — `formats: .all` is the usual answer, and any of .yaml/.xml/.toml also enables it.")
-    public static func diagnose(plist bytes: [UInt8], limits: Limits = .default,
-                                sourceName: String = "<input>") -> Diagnosis<Self> {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode property lists. A plist decodes through the RawValue projection, so add a non-JSON format to its @Schema — `formats: .all` is the usual answer, and any of .yaml/.xml/.toml also enables it."
+    )
+    public static func diagnose(
+        plist bytes: [UInt8], limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) -> Diagnosis<Self> {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "this schema does not decode property lists. A plist decodes through the RawValue projection, so add a non-JSON format to its @Schema — `formats: .all` is the usual answer, and any of .yaml/.xml/.toml also enables it.")
-    public static func parse(binaryPlist bytes: [UInt8], limits: Limits = .default,
-                             sourceName: String = "<input>") throws -> Self {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode property lists. A plist decodes through the RawValue projection, so add a non-JSON format to its @Schema — `formats: .all` is the usual answer, and any of .yaml/.xml/.toml also enables it."
+    )
+    public static func parse(
+        binaryPlist bytes: [UInt8], limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) throws -> Self {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "this schema does not decode property lists. A plist decodes through the RawValue projection, so add a non-JSON format to its @Schema — `formats: .all` is the usual answer, and any of .yaml/.xml/.toml also enables it.")
-    public static func diagnose(binaryPlist bytes: [UInt8], limits: Limits = .default,
-                                sourceName: String = "<input>") -> Diagnosis<Self> {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode property lists. A plist decodes through the RawValue projection, so add a non-JSON format to its @Schema — `formats: .all` is the usual answer, and any of .yaml/.xml/.toml also enables it."
+    )
+    public static func diagnose(
+        binaryPlist bytes: [UInt8], limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) -> Diagnosis<Self> {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "this schema does not decode property lists. A plist decodes through the RawValue projection, so add a non-JSON format to its @Schema — `formats: .all` is the usual answer, and any of .yaml/.xml/.toml also enables it.")
-    public static func parse(xmlPlist bytes: [UInt8], limits: Limits = .default,
-                             sourceName: String = "<input>") throws -> Self {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode property lists. A plist decodes through the RawValue projection, so add a non-JSON format to its @Schema — `formats: .all` is the usual answer, and any of .yaml/.xml/.toml also enables it."
+    )
+    public static func parse(
+        xmlPlist bytes: [UInt8], limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) throws -> Self {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "this schema does not decode property lists. A plist decodes through the RawValue projection, so add a non-JSON format to its @Schema — `formats: .all` is the usual answer, and any of .yaml/.xml/.toml also enables it.")
-    public static func diagnose(xmlPlist bytes: [UInt8], limits: Limits = .default,
-                                sourceName: String = "<input>") -> Diagnosis<Self> {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode property lists. A plist decodes through the RawValue projection, so add a non-JSON format to its @Schema — `formats: .all` is the usual answer, and any of .yaml/.xml/.toml also enables it."
+    )
+    public static func diagnose(
+        xmlPlist bytes: [UInt8], limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) -> Diagnosis<Self> {
         fatalError("unavailable")
     }
 }

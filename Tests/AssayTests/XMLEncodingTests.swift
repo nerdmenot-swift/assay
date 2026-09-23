@@ -49,22 +49,24 @@ struct XMLEncodingTests {
     @Test("round-trip: parse -> encode -> parse is identity")
     func roundTrip() throws {
         let xml = """
-        <XDoc id="7"><name>ada</name><ratio>1.5</ratio><active>true</active>\
-        <tags>a</tags><tags>b</tags><wrapped><item>w1</item></wrapped>\
-        <nested key="k"><value>1</value></nested>\
-        <items key="i1"><value>10</value></items><items key="i2"><value>20</value></items></XDoc>
-        """
+            <XDoc id="7"><name>ada</name><ratio>1.5</ratio><active>true</active>\
+            <tags>a</tags><tags>b</tags><wrapped><item>w1</item></wrapped>\
+            <nested key="k"><value>1</value></nested>\
+            <items key="i1"><value>10</value></items><items key="i2"><value>20</value></items></XDoc>
+            """
         let original = try XDoc.parse(xml: xml)
         let encoded = try Array(original.encodedXML())
         let again = try XDoc.parse(xml: encoded)
-        #expect(again == original,
-                "round-trip must be identity; encoded:\n\(String(decoding: encoded, as: UTF8.self))")
+        #expect(
+            again == original,
+            "round-trip must be identity; encoded:\n\(String(decoding: encoded, as: UTF8.self))")
     }
 
     @Test("Decision A: an unannotated field is an element, an annotated one an attribute")
     func placement() throws {
-        let v = XDoc(id: 7, name: "ada", ratio: 0, active: false, tags: [], wrapped: [],
-                     nested: XLeaf(key: "k", value: 1), items: [])
+        let v = XDoc(
+            id: 7, name: "ada", ratio: 0, active: false, tags: [], wrapped: [],
+            nested: XLeaf(key: "k", value: 1), items: [])
         let text = try v.xmlText()
         #expect(text.contains(#"id="7""#), "annotated field must be an attribute:\n\(text)")
         #expect(text.contains("<name>ada</name>"), "unannotated must be an element:\n\(text)")
@@ -73,8 +75,9 @@ struct XMLEncodingTests {
 
     @Test("Decision B: arrays are unwrapped repeated siblings by default")
     func unwrappedArrays() throws {
-        let v = XDoc(id: 1, name: "n", ratio: 0, active: false, tags: ["a", "b"],
-                     wrapped: [], nested: XLeaf(key: "k", value: 0), items: [])
+        let v = XDoc(
+            id: 1, name: "n", ratio: 0, active: false, tags: ["a", "b"],
+            wrapped: [], nested: XLeaf(key: "k", value: 0), items: [])
         let text = try v.xmlText()
         #expect(text.contains("<tags>a</tags><tags>b</tags>"), "got:\n\(text)")
         #expect(try XDoc.parse(xml: Array(v.encodedXML())) == v)
@@ -84,21 +87,24 @@ struct XMLEncodingTests {
     /// only option: an empty array must not come back as an absent one.
     @Test("@XML(.wrapped) keeps empty distinguishable, which unwrapped cannot")
     func wrappedKeepsEmpty() throws {
-        let v = XDoc(id: 1, name: "n", ratio: 0, active: false, tags: [], wrapped: [],
-                     nested: XLeaf(key: "k", value: 0), items: [])
+        let v = XDoc(
+            id: 1, name: "n", ratio: 0, active: false, tags: [], wrapped: [],
+            nested: XLeaf(key: "k", value: 0), items: [])
         let text = try v.xmlText()
         // The wrapper is written even when empty; the unwrapped array vanishes entirely.
-        #expect(text.contains("<wrapped/>") || text.contains("<wrapped></wrapped>"),
-                "an empty wrapped array must still write its wrapper:\n\(text)")
+        #expect(
+            text.contains("<wrapped/>") || text.contains("<wrapped></wrapped>"),
+            "an empty wrapped array must still write its wrapper:\n\(text)")
         #expect(!text.contains("<tags"), "an empty unwrapped array writes nothing")
         #expect(try XDoc.parse(xml: Array(v.encodedXML())) == v)
     }
 
     @Test("nested schemas and arrays of them round-trip")
     func nesting() throws {
-        let v = XDoc(id: 1, name: "n", ratio: 2.5, active: true, tags: ["x"],
-                     wrapped: ["w"], nested: XLeaf(key: "nk", value: 9),
-                     items: [XLeaf(key: "a", value: 1), XLeaf(key: "b", value: 2)])
+        let v = XDoc(
+            id: 1, name: "n", ratio: 2.5, active: true, tags: ["x"],
+            wrapped: ["w"], nested: XLeaf(key: "nk", value: 9),
+            items: [XLeaf(key: "a", value: 1), XLeaf(key: "b", value: 2)])
         let again = try XDoc.parse(xml: Array(v.encodedXML()))
         #expect(again == v)
     }
@@ -132,8 +138,9 @@ struct XMLEncodingTests {
 
     @Test("non-finite doubles are reported — XML has no numeric type to hold them")
     func nonFinite() {
-        let v = XDoc(id: 1, name: "n", ratio: .nan, active: false, tags: [], wrapped: [],
-                     nested: XLeaf(key: "k", value: 0), items: [])
+        let v = XDoc(
+            id: 1, name: "n", ratio: .nan, active: false, tags: [], wrapped: [],
+            nested: XLeaf(key: "k", value: 0), items: [])
         let d = v.diagnoseEncodeXML()
         #expect(!d.isValid)
         #expect(d.issues.contains { $0.code == .unrepresentableValue })
@@ -141,8 +148,9 @@ struct XMLEncodingTests {
 
     @Test("encoding is stable — twice gives identical bytes")
     func stable() throws {
-        let v = XDoc(id: 1, name: "n", ratio: 1, active: true, tags: ["b", "a"],
-                     wrapped: ["z"], nested: XLeaf(key: "k", value: 1), items: [])
+        let v = XDoc(
+            id: 1, name: "n", ratio: 1, active: true, tags: ["b", "a"],
+            wrapped: ["z"], nested: XLeaf(key: "k", value: 1), items: [])
         #expect(try Array(v.encodedXML()) == Array(v.encodedXML()))
     }
 }
@@ -152,17 +160,19 @@ struct XMLPlacementDiagnosticTests {
 
     @Test("@XML(.attribute) on an array is refused at expansion")
     func attributeOnArray() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema(formats: .all, encodes: true) struct S { @XML(.attribute) var tags: [String] }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema(formats: .all, encodes: true) struct S { @XML(.attribute) var tags: [String] }
+            """)
         #expect(diags.contains { $0.contains("scalar fields") && $0.contains("'tags'") })
     }
 
     @Test("@XML(.wrapped) on a scalar is refused at expansion")
     func wrappedOnScalar() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema(formats: .all, encodes: true) struct S { @XML(.wrapped) var name: String }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema(formats: .all, encodes: true) struct S { @XML(.wrapped) var name: String }
+            """)
         #expect(diags.contains { $0.contains("array fields") && $0.contains("'name'") })
     }
 }

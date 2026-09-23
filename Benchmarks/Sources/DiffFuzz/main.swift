@@ -94,10 +94,12 @@ func equivalent(_ mine: JSON.Value, _ theirs: Any) -> Bool {
 
 func runDifferential(corpus: URL) throws -> Int {
     var checked = 0
-    let files = try FileManager.default.contentsOfDirectory(at: corpus,
-                                                            includingPropertiesForKeys: nil)
-        .filter { $0.pathExtension == "json" && !$0.lastPathComponent.hasPrefix("neg-") }
-        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    let files = try FileManager.default.contentsOfDirectory(
+        at: corpus,
+        includingPropertiesForKeys: nil
+    )
+    .filter { $0.pathExtension == "json" && !$0.lastPathComponent.hasPrefix("neg-") }
+    .sorted { $0.lastPathComponent < $1.lastPathComponent }
 
     for file in files {
         let data = try Data(contentsOf: file)
@@ -128,23 +130,29 @@ func runFuzz(corpus: URL) throws -> Int {
 
     // Seeds: one small file per shape, plus the negatives — already-broken documents
     // mutate into interesting shapes faster than valid ones do.
-    let seeds = try FileManager.default.contentsOfDirectory(at: corpus,
-                                                            includingPropertiesForKeys: nil)
-        .filter { $0.lastPathComponent.contains("-512b") || $0.lastPathComponent.hasPrefix("neg-") }
-        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    let seeds = try FileManager.default.contentsOfDirectory(
+        at: corpus,
+        includingPropertiesForKeys: nil
+    )
+    .filter { $0.lastPathComponent.contains("-512b") || $0.lastPathComponent.hasPrefix("neg-") }
+    .sorted { $0.lastPathComponent < $1.lastPathComponent }
 
     let yamlSeeds: [[UInt8]] = [
         Array("a: 1\nb:\n  - x\n  - {c: 2, d: [1,2]}\nanchor: &a v\nref: *a\n".utf8),
-        Array("--- |\n  block\n---\n? [1,2]\n: complex\n".utf8),
+        Array("--- |\n  block\n---\n? [1,2]\n: complex\n".utf8)
     ]
     let xmlSeeds: [[UInt8]] = [
-        Array("<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY e \"v\">]><r a='1'>&e;<b/><![CDATA[x]]></r>".utf8),
-        Array("<r xmlns:n=\"u\"><n:a>t</n:a><!-- c --></r>".utf8),
+        Array(
+            "<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY e \"v\">]><r a='1'>&e;<b/><![CDATA[x]]></r>"
+                .utf8),
+        Array("<r xmlns:n=\"u\"><n:a>t</n:a><!-- c --></r>".utf8)
     ]
 
     let tomlSeeds: [[UInt8]] = [
-        Array("a = 1\nb.c = \"x\"\n[t]\nd = [1, {e = 2}, 1979-05-27T07:32:00Z]\n[[u]]\nf = 0x1f\n".utf8),
-        Array("s = \"\"\"\nq\\\n  r\"\"\"\nl = '''\np'''\nn = -1_0.5e+3\nt = 07:32:00.5\n".utf8),
+        Array(
+            "a = 1\nb.c = \"x\"\n[t]\nd = [1, {e = 2}, 1979-05-27T07:32:00Z]\n[[u]]\nf = 0x1f\n"
+                .utf8),
+        Array("s = \"\"\"\nq\\\n  r\"\"\"\nl = '''\np'''\nn = -1_0.5e+3\nt = 07:32:00.5\n".utf8)
     ]
 
     func exercise(_ bytes: [UInt8]) {
@@ -252,18 +260,18 @@ if CommandLine.arguments.count >= 4, CommandLine.arguments[1] == "--probe" {
     var s = IssueSink(limits: lim)
     switch kind {
     case "yaml": _ = YAML.decodeAll(bytes, into: &s, limits: lim)
-    case "xml":  _ = XML.decode(bytes, into: &s, limits: lim)
+    case "xml": _ = XML.decode(bytes, into: &s, limits: lim)
     case "toml": _ = TOML.decode(bytes, into: &s, limits: lim)
-    default:     _ = JSON.Value.decode(bytes, into: &s, limits: lim)
+    default: _ = JSON.Value.decode(bytes, into: &s, limits: lim)
     }
     print("issues: \(s.issues.count)")
     exit(0)
 }
 
 let corpus = URL(fileURLWithPath: #filePath)
-    .deletingLastPathComponent()      // DiffFuzz
-    .deletingLastPathComponent()      // Sources
-    .deletingLastPathComponent()      // Benchmarks
+    .deletingLastPathComponent()  // DiffFuzz
+    .deletingLastPathComponent()  // Sources
+    .deletingLastPathComponent()  // Benchmarks
     .appendingPathComponent("Corpus/files")
 
 guard FileManager.default.fileExists(atPath: corpus.path) else {
@@ -278,10 +286,12 @@ guard FileManager.default.fileExists(atPath: corpus.path) else {
 // unconditionally — the same shape `AssayBench/main.swift` had, fixed for the same reason:
 // a parser change should cost the oracle for that parser, not all of them.
 
-func report(_ title: String, _ oracle: String,
-            agreed: Int, bothRejected: Int,
-            assayOnly: [String], oracleOnly: [String],
-            disagreed: [(name: String, detail: String)]) {
+func report(
+    _ title: String, _ oracle: String,
+    agreed: Int, bothRejected: Int,
+    assayOnly: [String], oracleOnly: [String],
+    disagreed: [(name: String, detail: String)]
+) {
     print("")
     print("\(title) (oracle: \(oracle))")
     print("  agreed: \(agreed)   both rejected: \(bothRejected)")
@@ -289,22 +299,23 @@ func report(_ title: String, _ oracle: String,
     if !assayOnly.isEmpty {
         // Assay stricter. Not automatically a failure — it refuses XXE by construction,
         // and it implements a documented subset — so this is reported and not fatal.
-        print("  Assay rejected, oracle accepted (\(assayOnly.count)): "
-              + assayOnly.prefix(12).joined(separator: ", ")
-              + (assayOnly.count > 12 ? ", ..." : ""))
+        print(
+            "  Assay rejected, oracle accepted (\(assayOnly.count)): "
+                + assayOnly.prefix(12).joined(separator: ", ")
+                + (assayOnly.count > 12 ? ", ..." : ""))
     }
     if !oracleOnly.isEmpty {
         // The dangerous direction: Assay invented structure for input the oracle refused.
-        print("  ** Assay ACCEPTED, oracle rejected (\(oracleOnly.count)): "
-              + oracleOnly.prefix(12).joined(separator: ", ")
-              + (oracleOnly.count > 12 ? ", ..." : ""))
+        print(
+            "  ** Assay ACCEPTED, oracle rejected (\(oracleOnly.count)): "
+                + oracleOnly.prefix(12).joined(separator: ", ")
+                + (oracleOnly.count > 12 ? ", ..." : ""))
         for n in oracleOnly { fail("\(title): Assay accepted \(n), \(oracle) rejected it") }
     }
     for d in disagreed {
         fail("\(title): \(d.name) — \(d.detail)")
     }
 }
-
 
 struct Oracle {
     let name: String
@@ -316,7 +327,9 @@ struct Oracle {
 // level rather than a lazily-filled `var`: top-level state is MainActor-isolated and the
 // oracle closures are not.
 let jsonFiles: [(name: String, data: Data)] = {
-    guard let all = try? FileManager.default.contentsOfDirectory(at: corpus, includingPropertiesForKeys: nil)
+    guard
+        let all = try? FileManager.default.contentsOfDirectory(
+            at: corpus, includingPropertiesForKeys: nil)
     else { return [] }
     var out: [(name: String, data: Data)] = []
     for url in all.sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
@@ -332,48 +345,56 @@ let oracles: [Oracle] = [
         let checked = try runDifferential(corpus: corpus)
         print("JSON differential: \(checked) corpus files agree with JSONSerialization")
     },
-    Oracle(name: "yaml", summary: "YAML vs Yams/libyaml, hand-written and generated; JSON as YAML") {
+    Oracle(name: "yaml", summary: "YAML vs Yams/libyaml, hand-written and generated; JSON as YAML")
+    {
         let yamsHand = runYAMLDifferential(handWrittenYAML, oracleName: "Yams")
-        report("YAML hand-written", "Yams/libyaml",
-               agreed: yamsHand.agreed, bothRejected: yamsHand.bothRejected,
-               assayOnly: yamsHand.assayOnlyRejected, oracleOnly: yamsHand.oracleOnlyRejected,
-               disagreed: yamsHand.disagreed)
+        report(
+            "YAML hand-written", "Yams/libyaml",
+            agreed: yamsHand.agreed, bothRejected: yamsHand.bothRejected,
+            assayOnly: yamsHand.assayOnlyRejected, oracleOnly: yamsHand.oracleOnlyRejected,
+            disagreed: yamsHand.disagreed)
         var generatedYAML: [(name: String, text: String)] = []
         for (name, data) in jsonFiles {
             guard let value = try? JSON.Value.parse([UInt8](data)) else { continue }
             let rendered = renderYAML(RawValue(value))
             // A top-level scalar renders bare; mappings and sequences render with a
             // leading newline, which is legal YAML on its own.
-            generatedYAML.append((name, rendered.hasPrefix("\n") ? String(rendered.dropFirst()) : rendered))
+            generatedYAML.append(
+                (name, rendered.hasPrefix("\n") ? String(rendered.dropFirst()) : rendered))
         }
         let yamsGen = runYAMLDifferential(generatedYAML, oracleName: "Yams")
-        report("YAML generated (\(generatedYAML.count) documents)", "Yams/libyaml",
-               agreed: yamsGen.agreed, bothRejected: yamsGen.bothRejected,
-               assayOnly: yamsGen.assayOnlyRejected, oracleOnly: yamsGen.oracleOnlyRejected,
-               disagreed: yamsGen.disagreed)
+        report(
+            "YAML generated (\(generatedYAML.count) documents)", "Yams/libyaml",
+            agreed: yamsGen.agreed, bothRejected: yamsGen.bothRejected,
+            assayOnly: yamsGen.assayOnlyRejected, oracleOnly: yamsGen.oracleOnlyRejected,
+            disagreed: yamsGen.disagreed)
         // YAML 1.2 defines JSON as a strict subset, so the whole JSON corpus is a YAML
         // corpus and JSONSerialization is a second, independent oracle.
         let jsonAsYaml = runJSONAsYAML(jsonFiles)
-        report("JSON-as-YAML (\(jsonFiles.count) files)", "JSONSerialization",
-               agreed: jsonAsYaml.agreed, bothRejected: jsonAsYaml.bothRejected,
-               assayOnly: jsonAsYaml.assayOnlyRejected, oracleOnly: jsonAsYaml.oracleOnlyRejected,
-               disagreed: jsonAsYaml.disagreed)
+        report(
+            "JSON-as-YAML (\(jsonFiles.count) files)", "JSONSerialization",
+            agreed: jsonAsYaml.agreed, bothRejected: jsonAsYaml.bothRejected,
+            assayOnly: jsonAsYaml.assayOnlyRejected, oracleOnly: jsonAsYaml.oracleOnlyRejected,
+            disagreed: jsonAsYaml.disagreed)
         // The two doors against each other: the tree projected to `RawValue`, and the direct
         // parse the struct doors use. Everything above tests the tree door; this is what
         // keeps the second instantiation honest.
-        let everyDocument = handWrittenYAML + generatedYAML
+        let everyDocument =
+            handWrittenYAML + generatedYAML
             + jsonFiles.map { ($0.name, String(decoding: $0.data, as: UTF8.self)) }
         let (checkedDoors, doorFailures) = runYAMLDoorEquivalence(everyDocument)
         for f in doorFailures { fail("yaml-doors: \(f)") }
-        print("      YAML doors: \(checkedDoors) documents, the direct RawValue parse agrees "
-              + "with projecting the tree")
+        print(
+            "      YAML doors: \(checkedDoors) documents, the direct RawValue parse agrees "
+                + "with projecting the tree")
     },
     Oracle(name: "xml", summary: "XML vs Foundation XMLParser, hand-written and generated") {
         let xmlHand = runXMLDifferential(handWrittenXML)
-        report("XML hand-written", "Foundation XMLParser",
-               agreed: xmlHand.agreed, bothRejected: xmlHand.bothRejected,
-               assayOnly: xmlHand.assayOnlyRejected, oracleOnly: xmlHand.foundationOnlyRejected,
-               disagreed: xmlHand.disagreed)
+        report(
+            "XML hand-written", "Foundation XMLParser",
+            agreed: xmlHand.agreed, bothRejected: xmlHand.bothRejected,
+            assayOnly: xmlHand.assayOnlyRejected, oracleOnly: xmlHand.foundationOnlyRejected,
+            disagreed: xmlHand.disagreed)
         var generatedXML: [(name: String, text: String)] = []
         for (name, data) in jsonFiles {
             guard let value = try? JSON.Value.parse([UInt8](data)) else { continue }
@@ -381,66 +402,97 @@ let oracles: [Oracle] = [
         }
         let (checkedDoors, doorFailures) = runXMLDoorEquivalence(handWrittenXML + generatedXML)
         for f in doorFailures { fail("xml-doors: \(f)") }
-        print("      XML doors: \(checkedDoors) documents, the direct RawValue parse agrees "
-              + "with projecting the tree")
+        print(
+            "      XML doors: \(checkedDoors) documents, the direct RawValue parse agrees "
+                + "with projecting the tree")
         let xmlGen = runXMLDifferential(generatedXML)
-        report("XML generated (\(generatedXML.count) documents)", "Foundation XMLParser",
-               agreed: xmlGen.agreed, bothRejected: xmlGen.bothRejected,
-               assayOnly: xmlGen.assayOnlyRejected, oracleOnly: xmlGen.foundationOnlyRejected,
-               disagreed: xmlGen.disagreed)
+        report(
+            "XML generated (\(generatedXML.count) documents)", "Foundation XMLParser",
+            agreed: xmlGen.agreed, bothRejected: xmlGen.bothRejected,
+            assayOnly: xmlGen.assayOnlyRejected, oracleOnly: xmlGen.foundationOnlyRejected,
+            disagreed: xmlGen.disagreed)
     },
-    Oracle(name: "toml-numbers", summary: "~4,000 numeric literals vs toml++ — the decimal fast path") {
+    Oracle(
+        name: "toml-numbers", summary: "~4,000 numeric literals vs toml++ — the decimal fast path"
+    ) {
         let r = runTOMLNumberDifferential()
-        report("TOML numbers", "toml++",
-               agreed: r.agreed, bothRejected: r.bothRejected,
-               assayOnly: r.assayOnlyRejected, oracleOnly: r.oracleOnlyRejected,
-               disagreed: r.disagreed)
+        report(
+            "TOML numbers", "toml++",
+            agreed: r.agreed, bothRejected: r.bothRejected,
+            assayOnly: r.assayOnlyRejected, oracleOnly: r.oracleOnlyRejected,
+            disagreed: r.disagreed)
     },
-    Oracle(name: "toml", summary: "TOML vs toml++ (TOMLKit), hand-written and generated; encode round trip") {
+    Oracle(
+        name: "toml",
+        summary: "TOML vs toml++ (TOMLKit), hand-written and generated; encode round trip"
+    ) {
         let hand = runTOMLDifferential(handWrittenTOML)
-        report("TOML hand-written", "toml++",
-               agreed: hand.agreed, bothRejected: hand.bothRejected,
-               assayOnly: hand.assayOnlyRejected, oracleOnly: hand.oracleOnlyRejected,
-               disagreed: hand.disagreed)
+        report(
+            "TOML hand-written", "toml++",
+            agreed: hand.agreed, bothRejected: hand.bothRejected,
+            assayOnly: hand.assayOnlyRejected, oracleOnly: hand.oracleOnlyRejected,
+            disagreed: hand.disagreed)
         var generated: [(name: String, text: String)] = []
         for (name, data) in jsonFiles {
             guard let value = try? JSON.Value.parse([UInt8](data)),
-                  let inline = renderTOML(RawValue(value)),
-                  let sectioned = renderTOML(RawValue(value), sections: true) else { continue }
+                let inline = renderTOML(RawValue(value)),
+                let sectioned = renderTOML(RawValue(value), sections: true)
+            else { continue }
             generated.append((name, inline))
             generated.append((name + " [[sections]]", sectioned))
         }
         let gen = runTOMLDifferential(generated)
-        report("TOML generated (\(generated.count) documents)", "toml++",
-               agreed: gen.agreed, bothRejected: gen.bothRejected,
-               assayOnly: gen.assayOnlyRejected, oracleOnly: gen.oracleOnlyRejected,
-               disagreed: gen.disagreed)
-        print("TOML encode differential: \(runTOMLEncodeDifferential(corpus: corpus)) documents Assay wrote that toml++ reads back")
+        report(
+            "TOML generated (\(generated.count) documents)", "toml++",
+            agreed: gen.agreed, bothRejected: gen.bothRejected,
+            assayOnly: gen.assayOnlyRejected, oracleOnly: gen.oracleOnlyRejected,
+            disagreed: gen.disagreed)
+        print(
+            "TOML encode differential: \(runTOMLEncodeDifferential(corpus: corpus)) documents Assay wrote that toml++ reads back"
+        )
     },
-    Oracle(name: "toml-test", summary: "the official toml-test suite (TOML_TEST_DIR names a checkout)") {
+    Oracle(
+        name: "toml-test", summary: "the official toml-test suite (TOML_TEST_DIR names a checkout)"
+    ) {
         guard let dir = ProcessInfo.processInfo.environment["TOML_TEST_DIR"] else {
-            print("toml-test: skipped — set TOML_TEST_DIR to a checkout of github.com/toml-lang/toml-test")
+            print(
+                "toml-test: skipped — set TOML_TEST_DIR to a checkout of github.com/toml-lang/toml-test"
+            )
             return
         }
         let r = runTOMLTestSuite(dir: URL(fileURLWithPath: dir))
-        print("toml-test: \(r.validOK)/\(r.valid) valid documents parse to the expected value, \(r.invalidOK)/\(r.invalid) invalid documents refused")
+        print(
+            "toml-test: \(r.validOK)/\(r.valid) valid documents parse to the expected value, \(r.invalidOK)/\(r.invalid) invalid documents refused"
+        )
     },
     Oracle(name: "encode", summary: "documents Assay wrote, read back by Foundation and libyaml") {
-        print("encode differential: \(runEncodeDifferential(corpus: corpus)) documents Assay wrote that Foundation accepts")
-        print("YAML encode differential: \(runYAMLEncodeDifferential(corpus: corpus)) documents Assay wrote that libyaml reads back")
-        print("XML encode differential: \(runXMLEncodeDifferential(corpus: corpus)) documents Assay wrote that Foundation accepts")
+        print(
+            "encode differential: \(runEncodeDifferential(corpus: corpus)) documents Assay wrote that Foundation accepts"
+        )
+        print(
+            "YAML encode differential: \(runYAMLEncodeDifferential(corpus: corpus)) documents Assay wrote that libyaml reads back"
+        )
+        print(
+            "XML encode differential: \(runXMLEncodeDifferential(corpus: corpus)) documents Assay wrote that Foundation accepts"
+        )
     },
     Oracle(name: "dates", summary: "date parsers vs Foundation") {
         print("date differential: \(runDateDifferential()) instants agree with Foundation exactly")
     },
     Oracle(name: "reject", summary: "RFC 8259 accept/reject verdicts") {
-        print("reject differential: \(runRejectDifferential()) documents, RFC 8259 accept/reject verdicts")
+        print(
+            "reject differential: \(runRejectDifferential()) documents, RFC 8259 accept/reject verdicts"
+        )
     },
     Oracle(name: "numbers", summary: "number literals bit-exact against the stdlib") {
-        print("number differential: \(runNumberValueDifferential()) literals decode bit-exactly (oracle: the stdlib)")
+        print(
+            "number differential: \(runNumberValueDifferential()) literals decode bit-exactly (oracle: the stdlib)"
+        )
     },
     Oracle(name: "formats", summary: "email/url/uuid/hostname validators vs a naive oracle") {
-        if !runFormatDifferential() { Failures.shared.fail("format validators disagree with the naive oracle") }
+        if !runFormatDifferential() {
+            Failures.shared.fail("format validators disagree with the naive oracle")
+        }
     },
     Oracle(name: "plist", summary: "binary and XML plists vs Foundation") {
         let (plistBinary, plistXML) = try runPlistDifferential()
@@ -451,33 +503,41 @@ let oracles: [Oracle] = [
     // trailer at the END of the file, so one flipped byte redirects every subsequent read
     // rather than producing a parse error nearby. It found an Int(UInt64) trap on its first run.
     Oracle(name: "plist-fuzz", summary: "mutated/truncated/random plists, no crashes or traps") {
-        print("plist fuzz: \(try runPlistFuzz()) mutated/truncated/random documents, no crashes, no traps")
+        print(
+            "plist fuzz: \(try runPlistFuzz()) mutated/truncated/random documents, no crashes, no traps"
+        )
     },
     Oracle(name: "fuzz", summary: "mutated/truncated JSON, YAML, XML, TOML and @Schema decode") {
         let n = try runFuzz(corpus: corpus)
         print("fuzz: \(n) mutated/truncated inputs, no crashes, no hangs")
         // Reported, not just counted: a law that only ever sees rejected documents is a
         // law nothing checks, and `accepted` is how you see that it does.
-        print("      \(schemaChecks) @Schema decodes checked against three laws, "
-              + "\(schemaAccepted) of them accepted")
+        print(
+            "      \(schemaChecks) @Schema decodes checked against three laws, "
+                + "\(schemaAccepted) of them accepted")
         if schemaAccepted == 0 {
             fail("schema fuzz: nothing decoded, so the validate-its-own-output law never ran")
         }
-    },
+    }
 ]
 
 var args = Array(CommandLine.arguments.dropFirst())
 if args.contains("--list") || args.contains("--help") {
     print("usage: DiffFuzz [--list] [oracle ...] | --probe <yaml|xml|toml|json> <input>")
-    for o in oracles { print("  " + o.name.padding(toLength: 12, withPad: " ", startingAt: 0) + o.summary) }
+    for o in oracles {
+        print("  " + o.name.padding(toLength: 12, withPad: " ", startingAt: 0) + o.summary)
+    }
     exit(0)
 }
-let selected: [Oracle] = args.isEmpty ? oracles : args.map { name in
-    guard let o = oracles.first(where: { $0.name == name }) else {
-        print("unknown oracle '\(name)' — DiffFuzz --list names them"); exit(2)
+let selected: [Oracle] =
+    args.isEmpty
+    ? oracles
+    : args.map { name in
+        guard let o = oracles.first(where: { $0.name == name }) else {
+            print("unknown oracle '\(name)' — DiffFuzz --list names them"); exit(2)
+        }
+        return o
     }
-    return o
-}
 for o in selected {
     if selected.count > 1 { print(""); print("== \(o.name) ==") }
     try o.run()

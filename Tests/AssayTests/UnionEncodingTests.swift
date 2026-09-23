@@ -2,7 +2,6 @@
 // Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
 // See LICENSE and NOTICE at the repository root for terms.
 
-
 //===----------------------------------------------------------------------===//
 // Union encoding, both forms. `docs/UNIONS.md` §4 was written as "the settled answer for
 // when it is built"; these are its four claims turned into assertions.
@@ -84,16 +83,20 @@ struct UnionEncodingTests {
 
     @Test("@Key on a case overrides the tag on the way out")
     func keyOverride() throws {
-        #expect(try EncShape.circle(EncClick(x: 0, y: 0)).jsonText()
+        #expect(
+            try EncShape.circle(EncClick(x: 0, y: 0)).jsonText()
                 == #"{"kind":"circular","x":0,"y":0}"#)
-        #expect(try EncShape.square(EncClick(x: 0, y: 0)).jsonText()
+        #expect(
+            try EncShape.square(EncClick(x: 0, y: 0)).jsonText()
                 == #"{"kind":"square","x":0,"y":0}"#)
     }
 
     @Test("round trip: tagged")
     func taggedRoundTrip() throws {
-        for value in [EncEvent.click(EncClick(x: 3, y: 4)),
-                      .pageView(EncPageView(url: "/a", referrer: "/b"))] {
+        for value in [
+            EncEvent.click(EncClick(x: 3, y: 4)),
+            .pageView(EncPageView(url: "/a", referrer: "/b"))
+        ] {
             #expect(try EncEvent.parse(json: Array(value.encodedJSON())) == value)
         }
     }
@@ -104,8 +107,10 @@ struct UnionEncodingTests {
         #expect(try e.jsonText() == #"{"id":"e1","payload":{"type":"click","x":1,"y":2}}"#)
         #expect(try EncEnvelope.parse(json: Array(e.encodedJSON())) == e)
 
-        let b = EncBatch(events: [.click(EncClick(x: 1, y: 2)),
-                                  .pageView(EncPageView(url: "/z", referrer: nil))])
+        let b = EncBatch(events: [
+            .click(EncClick(x: 1, y: 2)),
+            .pageView(EncPageView(url: "/z", referrer: nil))
+        ])
         #expect(try EncBatch.parse(json: Array(b.encodedJSON())) == b)
     }
 
@@ -164,8 +169,10 @@ struct UntaggedEncodingTests {
         for v in [EncStringOrNumber.text("hi"), .number(3.5)] {
             #expect(try EncStringOrNumber.parse(json: Array(v.encodedJSON())) == v)
         }
-        for v in [EncFigure.point(EncPoint(x: 1, y: 2)),
-                  .line(EncLine(from: "a", to: "b"))] {
+        for v in [
+            EncFigure.point(EncPoint(x: 1, y: 2)),
+            .line(EncLine(from: "a", to: "b"))
+        ] {
             #expect(try EncFigure.parse(json: Array(v.encodedJSON())) == v)
         }
     }

@@ -78,8 +78,9 @@ struct UnknownEnumTests {
         let issue = d.issues.first { $0.code == .unknownNotEncodable }
         #expect(issue != nil)
         #expect(issue?.received == "archived")
-        #expect(issue?.message.contains("roundTrips: true") == true,
-                "the error must name the escape hatch")
+        #expect(
+            issue?.message.contains("roundTrips: true") == true,
+            "the error must name the escape hatch")
         #expect(throws: AssayError.self) { _ = try v.encodedJSON() }
     }
 
@@ -119,16 +120,19 @@ struct UnknownEnumDiagnosticTests {
     @Test("@Schema on an enum with no @Unknown points back at the zero-cost path")
     func noUnknownCase() {
         let (_, diags) = expandSchemaForTesting("@Schema enum E { case a, b }")
-        #expect(diags.contains {
-            $0.contains("@Unknown") && $0.contains("closed enum needs no macro")
-        })
+        #expect(
+            diags.contains {
+                $0.contains("@Unknown") && $0.contains("closed enum needs no macro")
+            })
     }
 
     @Test("an @Unknown case must carry exactly one String")
     func badPayload() {
-        for src in ["@Schema enum E { case a; @Unknown case other }",
-                    "@Schema enum E { case a; @Unknown case other(Int) }",
-                    "@Schema enum E { case a; @Unknown case other(String, Int) }"] {
+        for src in [
+            "@Schema enum E { case a; @Unknown case other }",
+            "@Schema enum E { case a; @Unknown case other(Int) }",
+            "@Schema enum E { case a; @Unknown case other(String, Int) }"
+        ] {
             let (_, diags) = expandSchemaForTesting(src)
             #expect(diags.contains { $0.contains("exactly one String") }, "for: \(src)")
         }
@@ -136,17 +140,19 @@ struct UnknownEnumDiagnosticTests {
 
     @Test("only the @Unknown case may carry an associated value")
     func payloadOnKnownCase() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema enum E { case a(Int); @Unknown case other(String) }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema enum E { case a(Int); @Unknown case other(String) }
+            """)
         #expect(diags.contains { $0.contains("only the") && $0.contains("@Unknown") })
     }
 
     @Test("two @Unknown cases are refused")
     func twoUnknowns() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema enum E { case a; @Unknown case x(String); @Unknown case y(String) }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema enum E { case a; @Unknown case x(String); @Unknown case y(String) }
+            """)
         #expect(diags.contains { $0.contains("only one @Unknown") })
     }
 }

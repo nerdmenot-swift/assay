@@ -30,38 +30,38 @@ struct RenderTests {
     @Test("plain render matches the compiler-style format exactly")
     func golden() {
         let json = """
-        {
-        "a": 1,
-        "port": "x",
-        "b": 2
-        }
-        """
+            {
+            "a": 1,
+            "port": "x",
+            "b": 2
+            }
+            """
         let d = RenderTarget.diagnose(json: json, sourceName: "test.json")
         #expect(d.isValid == false)
 
         let expected = """
-        test.json:3:9: error: port must be an integer, found "x"
-          1 │ {
-          2 │ "a": 1,
-          3 │ "port": "x",
-            │         ^
-          4 │ "b": 2
+            test.json:3:9: error: port must be an integer, found "x"
+              1 │ {
+              2 │ "a": 1,
+              3 │ "port": "x",
+                │         ^
+              4 │ "b": 2
 
-        1 error
+            1 error
 
-        """
+            """
         #expect(d.render(.plain) == expected)
     }
 
     @Test("multiple issues render ordered by position with a combined footer")
     func multiple() {
         let json = """
-        {
-        "b": "y",
-        "a": "x",
-        "port": 1
-        }
-        """
+            {
+            "b": "y",
+            "a": "x",
+            "port": 1
+            }
+            """
         let d = RenderTarget.diagnose(json: json, sourceName: "m.json")
         #expect(d.issues.count == 2)
 
@@ -80,18 +80,19 @@ struct RenderTests {
         // item); the renderer must degrade to `name: error: ...` rather than crash or
         // print garbage.
         let d = RenderTarget.diagnose(json: "{}", sourceName: "empty.json")
-        #expect(d.issues.count == 3)                     // three missing required fields
+        #expect(d.issues.count == 3)  // three missing required fields
         let out = d.render(.plain)
         #expect(out.contains("empty.json: error: a is required"))
         #expect(out.contains("empty.json: error: port is required"))
         #expect(out.contains("3 errors"))
-        #expect(!out.contains("│"))                       // no snippet without a span
+        #expect(!out.contains("│"))  // no snippet without a span
     }
 
     @Test("warnings render as warnings, after errors, with did-you-mean inline")
     func warnings() {
-        let d = RenderWarnTarget.diagnose(json: #"{"timeout":5,"tiemout":9}"#,
-                                          sourceName: "w.json")
+        let d = RenderWarnTarget.diagnose(
+            json: #"{"timeout":5,"tiemout":9}"#,
+            sourceName: "w.json")
         #expect(d.isValid)
         let out = d.render(.plain)
         #expect(out.contains("warning:"))
@@ -111,8 +112,9 @@ struct RenderTests {
     @Test("AssayError renders with carets too — the thrown path keeps the source")
     func errorRender() {
         do {
-            _ = try RenderTarget.parse(json: "{\n\"a\": true,\n\"port\": 1,\n\"b\": 2\n}",
-                                       sourceName: "e.json")
+            _ = try RenderTarget.parse(
+                json: "{\n\"a\": true,\n\"port\": 1,\n\"b\": 2\n}",
+                sourceName: "e.json")
             Issue.record("should have thrown")
         } catch let e as AssayError {
             let out = e.render(.plain)
@@ -136,8 +138,9 @@ struct RenderTests {
 
     @Test("json render is valid JSON with codes, params, and line/column — dogfooded")
     func jsonFormat() throws {
-        let d = RenderTarget.diagnose(json: "{\n\"a\": 1,\n\"port\": \"x\",\n\"b\": 2\n}",
-                                      sourceName: "j.json")
+        let d = RenderTarget.diagnose(
+            json: "{\n\"a\": 1,\n\"port\": \"x\",\n\"b\": 2\n}",
+            sourceName: "j.json")
         // Parse it back with Assay's own document parser: the renderer's output must
         // survive the library's own strictness.
         let v = try JSON.Value.parse(d.render(.json))
@@ -172,11 +175,14 @@ struct RenderTests {
     @Test("problemDetails reports 415 for a media type that was never parsed")
     func problemDetails415() throws {
         var sink = IssueSink()
-        sink.add(Issue(code: .unsupportedMediaType,
-                       params: ["received": .string("application/xml")]))
-        let out = Renderer.render(issues: sink.issues, warnings: [],
-                                  source: SourceBytes([]), sourceName: "body",
-                                  style: .problemDetails)
+        sink.add(
+            Issue(
+                code: .unsupportedMediaType,
+                params: ["received": .string("application/xml")]))
+        let out = Renderer.render(
+            issues: sink.issues, warnings: [],
+            source: SourceBytes([]), sourceName: "body",
+            style: .problemDetails)
         let v = try JSON.Value.parse(out)
         #expect(v["status"]?.int == 415)
         #expect(v["title"]?.string == "Unsupported media type")
@@ -187,8 +193,9 @@ struct RenderTests {
         var sink = IssueSink()
         sink.add(Issue(code: .tooManyBytes, params: ["maxBytes": .int(1024)]))
         let v = try JSON.Value.parse(
-            Renderer.render(issues: sink.issues, warnings: [], source: SourceBytes([]),
-                            sourceName: "body", style: .problemDetails))
+            Renderer.render(
+                issues: sink.issues, warnings: [], source: SourceBytes([]),
+                sourceName: "body", style: .problemDetails))
         #expect(v["status"]?.int == 413)
     }
 
@@ -206,16 +213,18 @@ struct RenderTests {
         sink.add(Issue(code: .tooSmall, path: [.key("name")], params: ["minimum": .int(1)]))
         sink.add(Issue(code: .unsupportedMediaType))
         let v = try JSON.Value.parse(
-            Renderer.render(issues: sink.issues, warnings: [], source: SourceBytes([]),
-                            sourceName: "body", style: .problemDetails))
+            Renderer.render(
+                issues: sink.issues, warnings: [], source: SourceBytes([]),
+                sourceName: "body", style: .problemDetails))
         #expect(v["status"]?.int == 415)
     }
 
     @Test("json render escapes what needs escaping")
     func jsonEscaping() throws {
         // A malformed document whose *content* would break naive JSON emission.
-        let d = RenderTarget.diagnose(json: #"{"a": "quote\"and\nnewline"#,
-                                      sourceName: "esc\"name.json")
+        let d = RenderTarget.diagnose(
+            json: #"{"a": "quote\"and\nnewline"#,
+            sourceName: "esc\"name.json")
         let v = try JSON.Value.parse(d.render(.json))
         #expect(v["source"]?.string == "esc\"name.json")
     }
@@ -225,30 +234,47 @@ struct RenderTests {
     @Test("messages are derived from code+params, predicate-shaped")
     func messages() {
         #expect(Issue(code: .missing).message == "is required")
-        #expect(Issue(code: .typeMismatch,
-                      params: ["expected": .string("integer")],
-                      received: "\"many\"").message
+        #expect(
+            Issue(
+                code: .typeMismatch,
+                params: ["expected": .string("integer")],
+                received: "\"many\""
+            ).message
                 == "must be an integer, found \"many\"")
-        #expect(Issue(code: .typeMismatch,
-                      params: ["expected": .string("string")],
-                      received: "42").message
+        #expect(
+            Issue(
+                code: .typeMismatch,
+                params: ["expected": .string("string")],
+                received: "42"
+            ).message
                 == "must be a string, found 42")
-        #expect(Issue(code: .depthExceeded, params: ["maxDepth": .int(64)]).message
+        #expect(
+            Issue(code: .depthExceeded, params: ["maxDepth": .int(64)]).message
                 == "nesting exceeds the maximum depth of 64")
-        #expect(Issue(code: .unknownKey,
-                      params: ["didYouMean": .string("timeout")],
-                      received: "tiemout").message
+        #expect(
+            Issue(
+                code: .unknownKey,
+                params: ["didYouMean": .string("timeout")],
+                received: "tiemout"
+            ).message
                 == "unknown key \"tiemout\"; did you mean \"timeout\"?")
         // The one-off custom check: the string IS the message. EXPERIENCE.md §3.
-        #expect(Issue(code: .custom("must be a company address")).message
+        #expect(
+            Issue(code: .custom("must be a company address")).message
                 == "must be a company address")
         // Internal codes render as sentences, not identifiers.
-        #expect(Issue(code: .yamlUndefinedAlias).message
+        #expect(
+            Issue(code: .yamlUndefinedAlias).message
                 == "alias refers to an undefined anchor")
         // An explicit message param wins over everything.
-        #expect(Issue(code: .tooSmall,
-                      params: ["message": .string("way too short"),
-                               "minimum": .int(12)]).message
+        #expect(
+            Issue(
+                code: .tooSmall,
+                params: [
+                    "message": .string("way too short"),
+                    "minimum": .int(12)
+                ]
+            ).message
                 == "way too short")
     }
 
@@ -284,7 +310,8 @@ struct MessageCoverageTests {
         var out: [String] = []
         for line in text.split(whereSeparator: \.isNewline) {
             guard let open = line.range(of: "IssueCode.custom(\""),
-                  let close = line[open.upperBound...].firstIndex(of: "\"") else { continue }
+                let close = line[open.upperBound...].firstIndex(of: "\"")
+            else { continue }
             out.append(String(line[open.upperBound..<close]))
         }
         return out
@@ -292,12 +319,14 @@ struct MessageCoverageTests {
 
     @Test("the names file was found and is not tiny")
     func namesFileRead() {
-        #expect(MessageCoverageTests.allCustomCodes.count >= 80,
-                "got \(MessageCoverageTests.allCustomCodes.count)")
+        #expect(
+            MessageCoverageTests.allCustomCodes.count >= 80,
+            "got \(MessageCoverageTests.allCustomCodes.count)")
     }
 
-    @Test("every named code derives a human sentence, not its own identifier",
-          arguments: MessageCoverageTests.allCustomCodes)
+    @Test(
+        "every named code derives a human sentence, not its own identifier",
+        arguments: MessageCoverageTests.allCustomCodes)
     func codeHasMessage(_ code: String) {
         let issue = Issue(code: .custom(code), path: [])
         #expect(issue.message != code, "'\(code)' renders as its own identifier")
@@ -321,9 +350,13 @@ struct MessageCoverageTests {
             // The macro target emits SOURCE TEXT; its one `.custom("Instant")` is a
             // `ColumnMetadata` unit, not an issue code.
             if unix.hasSuffix("IssueCode+Names.swift") || unix.hasSuffix("Messages.swift")
-                || unix.hasPrefix("AssayMacros/") { continue }
-            let text = try String(contentsOfFile: sources.appendingPathComponent(rel).path,
-                                  encoding: .utf8)
+                || unix.hasPrefix("AssayMacros/")
+            {
+                continue
+            }
+            let text = try String(
+                contentsOfFile: sources.appendingPathComponent(rel).path,
+                encoding: .utf8)
             var search = text[...]
             while let r = search.range(of: ".custom(\"") {
                 let rest = search[r.upperBound...]
@@ -414,11 +447,13 @@ struct TerminalRenderTests {
     @Test("with colour on, the header is bold and the label is red; with it off, no escapes")
     func colour() {
         let d = RenderTarget.diagnose(json: #"{"a":1,"port":"x","b":2}"#, sourceName: "t.json")
-        let plain = Renderer.render(issues: d.issues, warnings: d.warnings, source: d.source,
-                                    sourceName: d.sourceName, style: .plain)
+        let plain = Renderer.render(
+            issues: d.issues, warnings: d.warnings, source: d.source,
+            sourceName: d.sourceName, style: .plain)
         #expect(!plain.contains("\u{1B}["))
-        let coloured = Renderer.caretRender(d.issues, d.warnings, d.source, d.sourceName,
-                                            color: true)
+        let coloured = Renderer.caretRender(
+            d.issues, d.warnings, d.source, d.sourceName,
+            color: true)
         #expect(coloured.contains("\u{1B}[1m"), "bold header")
         #expect(coloured.contains("\u{1B}[31m"), "red error label")
         #expect(coloured.contains("\u{1B}[0m"), "reset")

@@ -77,38 +77,50 @@ extension SchemaMacro {
             var wireOverride: String?
             for a in attrs where a.attributeName.trimmedDescription == "Key" {
                 if let args = a.arguments?.as(LabeledExprListSyntax.self),
-                   let lit = args.first?.expression.as(StringLiteralExprSyntax.self) {
+                    let lit = args.first?.expression.as(StringLiteralExprSyntax.self)
+                {
                     wireOverride = lit.segments.description
                 }
             }
             if attrs.contains(where: { $0.attributeName.trimmedDescription == "Unknown" }) {
-                context.diagnose(Diagnostic(node: Syntax(caseDecl), message: SimpleDiagnostic(
-                    "@Unknown is for a closed string enum's catch-all, and a union's variants "
-                    + "carry payloads. An unrecognised tag is reported as "
-                    + "`union_unknown_variant` with a did-you-mean; there is nothing for a "
-                    + "catch-all case to hold.")))
+                context.diagnose(
+                    Diagnostic(
+                        node: Syntax(caseDecl),
+                        message: SimpleDiagnostic(
+                            "@Unknown is for a closed string enum's catch-all, and a union's variants "
+                                + "carry payloads. An unrecognised tag is reported as "
+                                + "`union_unknown_variant` with a did-you-mean; there is nothing for a "
+                                + "catch-all case to hold.")))
                 bad = true
             }
             for element in caseDecl.elements {
                 let name = element.name.text
                 guard let params = element.parameterClause?.parameters, params.count == 1 else {
-                    context.diagnose(Diagnostic(node: Syntax(element),
-                        message: SimpleDiagnostic(
-                            "case '\(name)' of a union must carry exactly one associated "
-                            + "value — the type that decodes when the tag names this variant.")))
+                    context.diagnose(
+                        Diagnostic(
+                            node: Syntax(element),
+                            message: SimpleDiagnostic(
+                                "case '\(name)' of a union must carry exactly one associated "
+                                    + "value — the type that decodes when the tag names this variant."
+                            )))
                     bad = true
                     continue
                 }
-                cases.append(UnionCase(identifier: name,
-                                       wireName: wireOverride ?? keyStyle.apply(Self.unbackticked(name)),
-                                       payloadType: params.first!.type.trimmedDescription))
+                cases.append(
+                    UnionCase(
+                        identifier: name,
+                        wireName: wireOverride ?? keyStyle.apply(Self.unbackticked(name)),
+                        payloadType: params.first!.type.trimmedDescription))
             }
         }
 
         guard !bad, !cases.isEmpty else {
             if !bad {
-                context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
-                    "@Schema(discriminator:) needs at least one case.")))
+                context.diagnose(
+                    Diagnostic(
+                        node: Syntax(node),
+                        message: SimpleDiagnostic(
+                            "@Schema(discriminator:) needs at least one case.")))
             }
             return []
         }
@@ -120,20 +132,27 @@ extension SchemaMacro {
             // because the tokens are all it needs.
             var seenPayloads = Set<String>()
             for c in cases where !seenPayloads.insert(c.payloadType ?? "").inserted {
-                context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
-                    "two cases both carry a '\(c.payloadType ?? "")', so the second can never "
-                    + "be chosen — an untagged union picks the first branch that decodes, and "
-                    + "both accept the same documents. Give them a discriminator, or distinct "
-                    + "payload types.")))
+                context.diagnose(
+                    Diagnostic(
+                        node: Syntax(node),
+                        message: SimpleDiagnostic(
+                            "two cases both carry a '\(c.payloadType ?? "")', so the second can never "
+                                + "be chosen — an untagged union picks the first branch that decodes, and "
+                                + "both accept the same documents. Give them a discriminator, or distinct "
+                                + "payload types.")))
                 return []
             }
         } else {
             // Two variants under one tag spelling would make the second unreachable, silently.
             var seen = Set<String>()
             for c in cases where !seen.insert(c.wireName).inserted {
-                context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
-                    "two cases both spell their tag '\(c.wireName)', so the second can never "
-                    + "be chosen. Use @Key on one of them to give it a different tag.")))
+                context.diagnose(
+                    Diagnostic(
+                        node: Syntax(node),
+                        message: SimpleDiagnostic(
+                            "two cases both spell their tag '\(c.wireName)', so the second can never "
+                                + "be chosen. Use @Key on one of them to give it a different tag."))
+                )
                 return []
             }
         }
@@ -144,9 +163,12 @@ extension SchemaMacro {
         // first let `.all` through to emit a JSON-only body — the exact trap the paragraph
         // below says this refusal exists to prevent.
         guard formats.json, !formats.raw else {
-            context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
-                "@Schema(discriminator:) is built for the JSON path. The RawValue path — YAML "
-                + "and XML — is not built for unions; docs/UNIONS.md.")))
+            context.diagnose(
+                Diagnostic(
+                    node: Syntax(node),
+                    message: SimpleDiagnostic(
+                        "@Schema(discriminator:) is built for the JSON path. The RawValue path — YAML "
+                            + "and XML — is not built for unions; docs/UNIONS.md.")))
             return []
         }
 
@@ -163,39 +185,49 @@ extension SchemaMacro {
         // context silently never reaches a check. That is the same shape as the `@XML(root:)`
         // trap: it compiles and checks nothing.
         if config.describes {
-            context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
-                "@Schema(describes: true) is not built for unions — a JSON Schema `oneOf` "
-                + "with a discriminator is its own design question, and describing a union "
-                + "as anything less exact would break the rule that a description says MORE "
-                + "than the type accepts, never less. `jsonSchema(for:)` on the variants "
-                + "works today.")))
+            context.diagnose(
+                Diagnostic(
+                    node: Syntax(node),
+                    message: SimpleDiagnostic(
+                        "@Schema(describes: true) is not built for unions — a JSON Schema `oneOf` "
+                            + "with a discriminator is its own design question, and describing a union "
+                            + "as anything less exact would break the rule that a description says MORE "
+                            + "than the type accepts, never less. `jsonSchema(for:)` on the variants "
+                            + "works today.")))
             return []
         }
         if config.isContextual {
-            context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
-                "@Schema(context:) is not built for unions. Accepting it would leave the type "
-                + "non-contextual with no error anywhere — `parse(json:)` would still resolve "
-                + "and the context would never reach a check. Put the context on the variant "
-                + "types, which is where the checks that read it live.")))
+            context.diagnose(
+                Diagnostic(
+                    node: Syntax(node),
+                    message: SimpleDiagnostic(
+                        "@Schema(context:) is not built for unions. Accepting it would leave the type "
+                            + "non-contextual with no error anywhere — `parse(json:)` would still resolve "
+                            + "and the context would never reach a check. Put the context on the variant "
+                            + "types, which is where the checks that read it live.")))
             return []
         }
 
         let wantsEncoding = config.encodes
 
-        var body = untagged
+        var body =
+            untagged
             ? untaggedBody(typeName: typeName, cases: cases)
             : taggedBody(typeName: typeName, cases: cases, tag: tag!)
 
         var conformances = "Assay.JSONAssayable"
         if wantsEncoding {
             conformances += ", Assay.JSONEncodableSchema"
-            body += "\n\n" + (untagged
-                ? untaggedEncodeBody(cases: cases)
-                : taggedEncodeBody(cases: cases, tag: tag!))
+            body +=
+                "\n\n"
+                + (untagged
+                    ? untaggedEncodeBody(cases: cases)
+                    : taggedEncodeBody(cases: cases, tag: tag!))
         }
 
         let ext = try? ExtensionDeclSyntax(
-            "extension \(raw: typeName): \(raw: conformances)") {
+            "extension \(raw: typeName): \(raw: conformances)"
+        ) {
             DeclSyntax(stringLiteral: body)
         }
         return ext.map { [$0] } ?? []
@@ -206,46 +238,46 @@ extension SchemaMacro {
         var arms = ""
         for c in cases {
             arms += """
-                    if __tag == "\(c.wireName)" {
-                        guard let __v = \(c.payloadType!)._assay(
-                            from: &reader, into: &sink, at: &path) else { return nil }
-                        return .\(c.identifier)(__v)
-                    }
+                        if __tag == "\(c.wireName)" {
+                            guard let __v = \(c.payloadType!)._assay(
+                                from: &reader, into: &sink, at: &path) else { return nil }
+                            return .\(c.identifier)(__v)
+                        }
 
-            """
+                """
         }
 
         return """
-        nonisolated static let __assayVariants: [String] = [\(known)]
+            nonisolated static let __assayVariants: [String] = [\(known)]
 
-        nonisolated public static func _assay(
-            from reader: inout Assay.AssayReader,
-            into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathStep]
-        ) -> \(typeName)? {
-            // The whole reader state, not just the cursor: the scan enters a container and a
-            // malformed document can leave that unbalanced. docs/UNIONS.md §1.
-            let __mark = reader.mark
-            guard let __tag = reader._scanDiscriminator(&sink, "\(tag)", path) else {
-                // RESYNCHRONISE, or the caller reports a second issue this document does not
-                // deserve. A failed pre-scan leaves the cursor part-way through the value; the
-                // top-level entry point then finds bytes remaining and adds `trailingContent`,
-                // and a missing tag is reported as two errors instead of one. Consuming the
-                // value here is what the unknown-variant arm below already does, for the same
-                // reason — found by a test asserting `issues.count == 1`.
+            nonisolated public static func _assay(
+                from reader: inout Assay.AssayReader,
+                into sink: inout Assay.IssueSink,
+                at path: inout [Assay.PathStep]
+            ) -> \(typeName)? {
+                // The whole reader state, not just the cursor: the scan enters a container and a
+                // malformed document can leave that unbalanced. docs/UNIONS.md §1.
+                let __mark = reader.mark
+                guard let __tag = reader._scanDiscriminator(&sink, "\(tag)", path) else {
+                    // RESYNCHRONISE, or the caller reports a second issue this document does not
+                    // deserve. A failed pre-scan leaves the cursor part-way through the value; the
+                    // top-level entry point then finds bytes remaining and adds `trailingContent`,
+                    // and a missing tag is reported as two errors instead of one. Consuming the
+                    // value here is what the unknown-variant arm below already does, for the same
+                    // reason — found by a test asserting `issues.count == 1`.
+                    reader.restore(__mark)
+                    _ = reader.skipValue(&sink)
+                    return nil
+                }
                 reader.restore(__mark)
+
+            \(arms)    // The tag was read and names nothing this enum declares. One issue, with a
+                // did-you-mean — not a branch's issues, because no branch was chosen.
+                reader._unknownVariant(&sink, path, "\(tag)", __tag, Self.__assayVariants)
                 _ = reader.skipValue(&sink)
                 return nil
             }
-            reader.restore(__mark)
-
-        \(arms)    // The tag was read and names nothing this enum declares. One issue, with a
-            // did-you-mean — not a branch's issues, because no branch was chosen.
-            reader._unknownVariant(&sink, path, "\(tag)", __tag, Self.__assayVariants)
-            _ = reader.skipValue(&sink)
-            return nil
-        }
-        """
+            """
     }
 }
 
@@ -288,24 +320,24 @@ extension SchemaMacro {
             }
             if keep {
                 return """
-                \(indent)if __closest == "\(c.identifier)" {
-                \(indent)    _ = \(decode)
-                \(indent)}
-                """
+                    \(indent)if __closest == "\(c.identifier)" {
+                    \(indent)    _ = \(decode)
+                    \(indent)}
+                    """
             }
             return """
-            \(indent)guard reader._chargeUnionAttempt(&sink, path) else { return nil }
-            \(indent)if let __v = \(decode) {
-            \(indent)    return .\(c.identifier)(__v)
-            \(indent)}
-            \(indent)__n = sink.checkpoint() - __ck
-            \(indent)if __n < __best {
-            \(indent)    __best = __n
-            \(indent)    __closest = "\(c.identifier)"
-            \(indent)}
-            \(indent)reader.restore(__mark)
-            \(indent)if !__verbose { sink.rollback(to: __ck) }
-            """
+                \(indent)guard reader._chargeUnionAttempt(&sink, path) else { return nil }
+                \(indent)if let __v = \(decode) {
+                \(indent)    return .\(c.identifier)(__v)
+                \(indent)}
+                \(indent)__n = sink.checkpoint() - __ck
+                \(indent)if __n < __best {
+                \(indent)    __best = __n
+                \(indent)    __closest = "\(c.identifier)"
+                \(indent)}
+                \(indent)reader.restore(__mark)
+                \(indent)if !__verbose { sink.rollback(to: __ck) }
+                """
         }
 
         let measuring = cases.map { attempt($0, indent: "        ", keep: false) }
@@ -314,37 +346,37 @@ extension SchemaMacro {
             .joined(separator: "\n")
 
         return """
-        nonisolated static let __assayVariants: [String] = [\(known)]
+            nonisolated static let __assayVariants: [String] = [\(known)]
 
-        nonisolated public static func _assay(
-            from reader: inout Assay.AssayReader,
-            into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathStep]
-        ) -> \(typeName)? {
-            let __mark = reader.mark
-            let __ck = sink.checkpoint()
-            let __verbose = reader.activeLimits.verboseUnions
-            var __best = Int.max
-            var __n = 0
-            var __closest = ""
+            nonisolated public static func _assay(
+                from reader: inout Assay.AssayReader,
+                into sink: inout Assay.IssueSink,
+                at path: inout [Assay.PathStep]
+            ) -> \(typeName)? {
+                let __mark = reader.mark
+                let __ck = sink.checkpoint()
+                let __verbose = reader.activeLimits.verboseUnions
+                var __best = Int.max
+                var __n = 0
+                var __closest = ""
 
-        \(measuring)
+            \(measuring)
 
-            // Every branch failed. One summary naming the guess as a guess, then the closest
-            // branch replayed so its detail follows it. docs/UNIONS.md §2.2.
-            reader.restore(__mark)
-            if !__verbose { sink.rollback(to: __ck) }
-            reader._noVariantMatched(&sink, path, "\(typeName)", __closest,
-                                    Self.__assayVariants)
-            if !__verbose {
+                // Every branch failed. One summary naming the guess as a guess, then the closest
+                // branch replayed so its detail follows it. docs/UNIONS.md §2.2.
                 reader.restore(__mark)
-        \(replay)
+                if !__verbose { sink.rollback(to: __ck) }
+                reader._noVariantMatched(&sink, path, "\(typeName)", __closest,
+                                        Self.__assayVariants)
+                if !__verbose {
+                    reader.restore(__mark)
+            \(replay)
+                }
+                reader.restore(__mark)
+                _ = reader.skipValue(&sink)
+                return nil
             }
-            reader.restore(__mark)
-            _ = reader.skipValue(&sink)
-            return nil
-        }
-        """
+            """
     }
 }
 
@@ -378,33 +410,33 @@ extension SchemaMacro {
         var arms = ""
         for c in cases {
             arms += """
-                    case .\(c.identifier)(let __v):
-                        \(SchemaMacro.keyStatement(tag))
-                        w.write("\(c.wireName)")
-                        __v._assayEncodeMembers(into: &w, into: &sink, at: &path)
+                        case .\(c.identifier)(let __v):
+                            \(SchemaMacro.keyStatement(tag))
+                            w.write("\(c.wireName)")
+                            __v._assayEncodeMembers(into: &w, into: &sink, at: &path)
 
-            """
+                """
         }
         return """
-        nonisolated public func _assayEncodeMembers(
-            into w: inout Assay.JSONWriter,
-            into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathStep]
-        ) {
-            switch self {
-        \(arms)    }
-        }
+            nonisolated public func _assayEncodeMembers(
+                into w: inout Assay.JSONWriter,
+                into sink: inout Assay.IssueSink,
+                at path: inout [Assay.PathStep]
+            ) {
+                switch self {
+            \(arms)    }
+            }
 
-        nonisolated public func _assayEncode(
-            into w: inout Assay.JSONWriter,
-            into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathStep]
-        ) {
-            w.beginObject()
-            self._assayEncodeMembers(into: &w, into: &sink, at: &path)
-            w.endObject()
-        }
-        """
+            nonisolated public func _assayEncode(
+                into w: inout Assay.JSONWriter,
+                into sink: inout Assay.IssueSink,
+                at path: inout [Assay.PathStep]
+            ) {
+                w.beginObject()
+                self._assayEncodeMembers(into: &w, into: &sink, at: &path)
+                w.endObject()
+            }
+            """
     }
 
     /// The untagged encoder — the payload, and nothing else.
@@ -435,20 +467,20 @@ extension SchemaMacro {
                 write = "w.write(__v)"
             }
             arms += """
-                    case .\(c.identifier)(let __v):
-                        \(write)
+                        case .\(c.identifier)(let __v):
+                            \(write)
 
-            """
+                """
         }
         return """
-        nonisolated public func _assayEncode(
-            into w: inout Assay.JSONWriter,
-            into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathStep]
-        ) {
-            switch self {
-        \(arms)    }
-        }
-        """
+            nonisolated public func _assayEncode(
+                into w: inout Assay.JSONWriter,
+                into sink: inout Assay.IssueSink,
+                at path: inout [Assay.PathStep]
+            ) {
+                switch self {
+            \(arms)    }
+            }
+            """
     }
 }

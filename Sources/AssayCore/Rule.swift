@@ -240,7 +240,9 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
     /// An RFC 1123 hostname: dotted labels of letters, digits and hyphens, none longer
     /// than 63, the whole no longer than 253. Reports `invalid_hostname`.
     public static let hostname = Rule(.hostname)
-    public static func hostname(or message: String? = nil) -> Rule { Rule(.hostname, message: message) }
+    public static func hostname(or message: String? = nil) -> Rule {
+        Rule(.hostname, message: message)
+    }
     /// Every scalar below U+0080. Reports `not_ascii`.
     public static let ascii = Rule(.ascii)
     public static func ascii(or message: String? = nil) -> Rule { Rule(.ascii, message: message) }
@@ -249,12 +251,16 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
     /// is the normalisation. Named `.trimmed` until 2026-09-10, which read as the other
     /// thing — a test caught that once and the rename makes the test unnecessary.
     public static let isTrimmed = Rule(.trimmed)
-    public static func isTrimmed(or message: String? = nil) -> Rule { Rule(.trimmed, message: message) }
+    public static func isTrimmed(or message: String? = nil) -> Rule {
+        Rule(.trimmed, message: message)
+    }
     /// An assertion: the value must already equal its own lowercase form. Full Unicode case
     /// folding, so `"straße".lowercased()` is itself and `"STRASSE"` is not.
     /// `@Preprocess(.lowercase)` is the normalisation.
     public static let isLowercase = Rule(.lowercased)
-    public static func isLowercase(or message: String? = nil) -> Rule { Rule(.lowercased, message: message) }
+    public static func isLowercase(or message: String? = nil) -> Rule {
+        Rule(.lowercased, message: message)
+    }
 
     /// Starts with `s`. Reports `missing_prefix` with `prefix`.
     public static func prefix(_ s: String, or message: String? = nil) -> Rule {
@@ -277,13 +283,19 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
 
     /// Strictly greater than zero. Reports `not_positive`.
     public static let positive = Rule(.positive)
-    public static func positive(or message: String? = nil) -> Rule { Rule(.positive, message: message) }
+    public static func positive(or message: String? = nil) -> Rule {
+        Rule(.positive, message: message)
+    }
     /// Strictly less than zero. Reports `not_negative`.
     public static let negative = Rule(.negative)
-    public static func negative(or message: String? = nil) -> Rule { Rule(.negative, message: message) }
+    public static func negative(or message: String? = nil) -> Rule {
+        Rule(.negative, message: message)
+    }
     /// Zero or more. Reports `negative`.
     public static let nonNegative = Rule(.nonNegative)
-    public static func nonNegative(or message: String? = nil) -> Rule { Rule(.nonNegative, message: message) }
+    public static func nonNegative(or message: String? = nil) -> Rule {
+        Rule(.nonNegative, message: message)
+    }
     /// Divisible by `n`. Reports `not_multiple` with `divisor`.
     public static func multipleOf(_ n: Int, or message: String? = nil) -> Rule {
         Rule(.multipleOf(Double(n)), message: message)

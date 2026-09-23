@@ -62,7 +62,11 @@ import AssayCore
 // only ever be selected by code that has already gone wrong: valid code calls the
 // four-argument form.
 extension ContextualJSONAssayable {
-    @available(*, unavailable, message: "this type declared @Schema(context:), so it can only be decoded with a context — but it is nested inside a type that declared none. Add the same `context:` to the outer @Schema, or drop it from this one. (A macro reads a type's NAME, so it cannot detect this at expansion.)")
+    @available(
+        *, unavailable,
+        message:
+            "this type declared @Schema(context:), so it can only be decoded with a context — but it is nested inside a type that declared none. Add the same `context:` to the outer @Schema, or drop it from this one. (A macro reads a type's NAME, so it cannot detect this at expansion.)"
+    )
     public nonisolated static func _assay(
         from reader: inout AssayReader, into sink: inout IssueSink,
         at path: inout [PathStep]
@@ -70,7 +74,11 @@ extension ContextualJSONAssayable {
 }
 
 extension ContextualRawDecodable {
-    @available(*, unavailable, message: "this type declared @Schema(context:), so it can only be decoded with a context — but it is nested inside a type that declared none. Add the same `context:` to the outer @Schema, or drop it from this one. (A macro reads a type's NAME, so it cannot detect this at expansion.)")
+    @available(
+        *, unavailable,
+        message:
+            "this type declared @Schema(context:), so it can only be decoded with a context — but it is nested inside a type that declared none. Add the same `context:` to the outer @Schema, or drop it from this one. (A macro reads a type's NAME, so it cannot detect this at expansion.)"
+    )
     public nonisolated static func _assay(
         from raw: RawValue, into sink: inout IssueSink, at path: inout [PathStep]
     ) -> Self? { nil }
@@ -90,10 +98,11 @@ extension ContextualJSONAssayable {
         context: AssayContext
     ) -> Self? {
         if let bad = unsafe UTF8Validation.firstInvalid(base, count) {
-            sink.add(Issue(
-                code: .invalidUTF8,
-                params: ["offset": .int(bad)],
-                location: SourceSpan(lo: bad, len: 1)))
+            sink.add(
+                Issue(
+                    code: .invalidUTF8,
+                    params: ["offset": .int(bad)],
+                    location: SourceSpan(lo: bad, len: 1)))
             return nil
         }
 
@@ -110,8 +119,10 @@ extension ContextualJSONAssayable {
         guard v != nil else { return nil }
         reader.skipWhitespace()
         if !reader.atEnd {
-            sink.add(Issue(code: .trailingContent,
-                           location: SourceSpan(lo: reader.byteOffset, len: 1)))
+            sink.add(
+                Issue(
+                    code: .trailingContent,
+                    location: SourceSpan(lo: reader.byteOffset, len: 1)))
             return nil
         }
         return v
@@ -124,8 +135,10 @@ extension ContextualJSONAssayable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) throws -> Self {
-        try diagnose(json: bytes, context: context,
-                     limits: limits, sourceName: sourceName).get()
+        try diagnose(
+            json: bytes, context: context,
+            limits: limits, sourceName: sourceName
+        ).get()
     }
 
     /// Decode and report everything, including the value when one was produced.
@@ -139,16 +152,19 @@ extension ContextualJSONAssayable {
 
         if bytes.count > limits.maxBytes {
             sink.add(Issue(code: .tooManyBytes, params: ["maxBytes": .int(limits.maxBytes)]))
-            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(
+                sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
 
         let value: Self? = bytes.withUnsafeBufferPointer { buf -> Self? in
             guard let base = buf.baseAddress else { return nil }
-            return unsafe Self._decode(base: base, count: buf.count,
-                                       into: &sink, limits: limits, context: context)
+            return unsafe Self._decode(
+                base: base, count: buf.count,
+                into: &sink, limits: limits, context: context)
         }
 
-        return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
+        return Diagnosis(
+            sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
     public static func parse(
@@ -157,8 +173,9 @@ extension ContextualJSONAssayable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) throws -> Self {
-        try parse(json: Array(text.utf8), context: context,
-                  limits: limits, sourceName: sourceName)
+        try parse(
+            json: Array(text.utf8), context: context,
+            limits: limits, sourceName: sourceName)
     }
 
     public static func diagnose(
@@ -167,8 +184,9 @@ extension ContextualJSONAssayable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) -> Diagnosis<Self> {
-        diagnose(json: Array(text.utf8), context: context,
-                 limits: limits, sourceName: sourceName)
+        diagnose(
+            json: Array(text.utf8), context: context,
+            limits: limits, sourceName: sourceName)
     }
 }
 
@@ -186,8 +204,10 @@ extension ContextualJSONAssayable where Self: ContextualAsyncCheckAssayable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) async throws -> Self {
-        try await diagnose(json: bytes, context: context,
-                           limits: limits, sourceName: sourceName).get()
+        try await diagnose(
+            json: bytes, context: context,
+            limits: limits, sourceName: sourceName
+        ).get()
     }
 
     public static func parse(
@@ -196,8 +216,9 @@ extension ContextualJSONAssayable where Self: ContextualAsyncCheckAssayable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) async throws -> Self {
-        try await parse(json: Array(text.utf8), context: context,
-                        limits: limits, sourceName: sourceName)
+        try await parse(
+            json: Array(text.utf8), context: context,
+            limits: limits, sourceName: sourceName)
     }
 
     public static func diagnose(
@@ -215,9 +236,10 @@ extension ContextualJSONAssayable where Self: ContextualAsyncCheckAssayable {
         guard d.isValid, let v = d.value else { return d }
         let extra = await Self._assayAsyncChecks(v, at: [], context: context)
         guard !extra.isEmpty else { return d }
-        return Diagnosis(value: nil, issues: d.issues + extra, warnings: d.warnings,
-                         truncatedIssues: d.truncatedIssues,
-                         source: d.source, sourceName: d.sourceName)
+        return Diagnosis(
+            value: nil, issues: d.issues + extra, warnings: d.warnings,
+            truncatedIssues: d.truncatedIssues,
+            source: d.source, sourceName: d.sourceName)
     }
 
     /// The `String` convenience, and it is not optional sugar. Without it, a call written
@@ -231,8 +253,9 @@ extension ContextualJSONAssayable where Self: ContextualAsyncCheckAssayable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) async -> Diagnosis<Self> {
-        await diagnose(json: Array(text.utf8), context: context,
-                       limits: limits, sourceName: sourceName)
+        await diagnose(
+            json: Array(text.utf8), context: context,
+            limits: limits, sourceName: sourceName)
     }
 }
 
@@ -257,7 +280,8 @@ extension ContextualValidatable {
     ) -> Validation {
         var sink = IssueSink(limits: limits)
         Self._assayCheck(value, into: &sink, at: [], context: context)
-        return Validation(issues: sink.issues, warnings: sink.warnings,
-                          truncatedIssues: sink.truncatedIssues)
+        return Validation(
+            issues: sink.issues, warnings: sink.warnings,
+            truncatedIssues: sink.truncatedIssues)
     }
 }

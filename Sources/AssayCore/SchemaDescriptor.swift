@@ -84,9 +84,11 @@ public struct FieldDescriptor: Sendable {
     /// The rules, pointing at the array the validator already holds.
     public var rules: [Rule]
 
-    public init(wireKey: String, aliases: [String] = [], propertyName: String,
-                type: TypeDescriptor, wireType: TypeDescriptor? = nil,
-                isRequired: Bool, rules: [Rule] = []) {
+    public init(
+        wireKey: String, aliases: [String] = [], propertyName: String,
+        type: TypeDescriptor, wireType: TypeDescriptor? = nil,
+        isRequired: Bool, rules: [Rule] = []
+    ) {
         self.wireKey = wireKey
         self.aliases = aliases
         self.propertyName = propertyName

@@ -12,7 +12,6 @@
 
 public import AssayCore
 
-
 extension JSONAssayable where Self: AsyncCheckAssayable {
 
     /// The async verb pair. Sync first, collecting everything; async checks only on a
@@ -49,11 +48,12 @@ extension JSONAssayable where Self: AsyncCheckAssayable {
 
         let asyncIssues = await Self._assayAsyncChecks(value, at: [])
         guard !asyncIssues.isEmpty else { return d }
-        return Diagnosis(value: nil,
-                         issues: d.issues + asyncIssues,
-                         warnings: d.warnings,
-                         truncatedIssues: d.truncatedIssues,
-                         source: d.source, sourceName: d.sourceName)
+        return Diagnosis(
+            value: nil,
+            issues: d.issues + asyncIssues,
+            warnings: d.warnings,
+            truncatedIssues: d.truncatedIssues,
+            source: d.source, sourceName: d.sourceName)
     }
 
     public static func diagnose(

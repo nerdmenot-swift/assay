@@ -85,11 +85,11 @@ struct EncodingTests {
     @Test("round-trip: parse -> encode -> parse is identity")
     func roundTrip() throws {
         let json = """
-        {"request_id":"r-1","page":2,"ratio":0.25,"active":true,"note":"hi",
-         "tags":["a","b"],"counts":{"x":1,"y":2},"retries":7,
-         "nested":{"id":"n","amount":1.5},
-         "items":[{"id":"i1","amount":2.5},{"id":"i2","amount":-3}]}
-        """
+            {"request_id":"r-1","page":2,"ratio":0.25,"active":true,"note":"hi",
+             "tags":["a","b"],"counts":{"x":1,"y":2},"retries":7,
+             "nested":{"id":"n","amount":1.5},
+             "items":[{"id":"i1","amount":2.5},{"id":"i2","amount":-3}]}
+            """
         let original = try EncPayload.parse(json: Array(json.utf8))
         let encoded = try Array(original.encodedJSON())
         let again = try EncPayload.parse(json: encoded)
@@ -98,7 +98,8 @@ struct EncodingTests {
 
     @Test("round-trip is stable — encoding twice produces identical bytes")
     func stable() throws {
-        let json = #"{"request_id":"r","page":1,"ratio":1.5,"active":false,"note":null,"tags":["z","a"],"counts":{"b":2,"a":1},"nested":{"id":"n","amount":0}}"#
+        let json =
+            #"{"request_id":"r","page":1,"ratio":1.5,"active":false,"note":null,"tags":["z","a"],"counts":{"b":2,"a":1},"nested":{"id":"n","amount":0}}"#
         let v = try EncPayload.parse(json: Array(json.utf8))
         // Dictionaries have no order, so the encoder sorts keys. Without that the law
         // above would be untestable and diffs would be noise.
@@ -121,7 +122,8 @@ struct EncodingTests {
 
     @Test("defaults are always emitted, present or absent in the input")
     func defaultsEmitted() throws {
-        let json = #"{"request_id":"r","page":1,"ratio":0,"active":true,"nested":{"id":"n","amount":0}}"#
+        let json =
+            #"{"request_id":"r","page":1,"ratio":0,"active":true,"nested":{"id":"n","amount":0}}"#
         let v = try EncPayload.parse(json: Array(json.utf8))
         let text = try v.jsonText()
         // `retries` was absent and defaulted to 3; it is written, so a consumer with a
@@ -207,10 +209,12 @@ struct EncodingTests {
     func nestedEncodePaths() {
         // The encode path is `inout` since 2026-09-19 (push, call, pop). A leak would put a
         // later issue under the wrong prefix.
-        let v = EncNestedFloats(inner: EncFloat(value: .nan),
-                                list: [EncFloat(value: 1), EncFloat(value: .infinity)],
-                                b: .nan)
-        #expect(v.diagnoseEncodeJSON().issues.map(\.path.pathDescription)
+        let v = EncNestedFloats(
+            inner: EncFloat(value: .nan),
+            list: [EncFloat(value: 1), EncFloat(value: .infinity)],
+            b: .nan)
+        #expect(
+            v.diagnoseEncodeJSON().issues.map(\.path.pathDescription)
                 == ["inner.value", "list[1].value", "b"])
     }
 
@@ -219,8 +223,10 @@ struct EncodingTests {
         // Until 2026-09-19 a nested-schema array element was encoded at `path + [.key(k)]`
         // with no index, so this reported `items.value`. It also allocated that path once
         // per element; the fix builds one path per array and rewrites its last component.
-        let v = EncFloatList(items: [EncFloat(value: 1), EncFloat(value: 2),
-                                     EncFloat(value: .nan), EncFloat(value: 4)])
+        let v = EncFloatList(items: [
+            EncFloat(value: 1), EncFloat(value: 2),
+            EncFloat(value: .nan), EncFloat(value: 4)
+        ])
         let d = v.diagnoseEncodeJSON()
         #expect(d.issues.map(\.path.pathDescription) == ["items[2].value"])
         // And a clean array reports nothing and round-trips.
@@ -255,7 +261,8 @@ struct EncodingTests {
 
     @Test("optionals write null, and null round-trips to nil")
     func optionals() throws {
-        let json = #"{"request_id":"r","page":1,"ratio":0,"active":true,"note":null,"nested":{"id":"n","amount":0}}"#
+        let json =
+            #"{"request_id":"r","page":1,"ratio":0,"active":true,"note":null,"nested":{"id":"n","amount":0}}"#
         let v = try EncPayload.parse(json: Array(json.utf8))
         #expect(v.note == nil)
         #expect(try v.jsonText().contains(#""note":null"#))
@@ -265,9 +272,10 @@ struct EncodingTests {
     @Test("integers write exactly, including the extremes")
     func integers() throws {
         for n in [0, 1, -1, Int.max, Int.min, 42, -999_999] {
-            let v = EncPayload(requestId: "r", page: n, ratio: 0, active: true, note: nil,
-                               tags: [], counts: [:], retries: 0,
-                               nested: EncItem(id: "n", amount: 0), items: [])
+            let v = EncPayload(
+                requestId: "r", page: n, ratio: 0, active: true, note: nil,
+                tags: [], counts: [:], retries: 0,
+                nested: EncItem(id: "n", amount: 0), items: [])
             let again = try EncPayload.parse(json: Array(v.encodedJSON()))
             #expect(again.page == n, "\(n) did not round-trip")
         }
@@ -275,12 +283,15 @@ struct EncodingTests {
 
     @Test("doubles round-trip bit-exactly")
     func doubles() throws {
-        for d in [0.0, 1.0, -1.5, 0.1, 1e300, 1e-300, .greatestFiniteMagnitude,
-                  .leastNormalMagnitude, 3.141592653589793] {
+        for d in [
+            0.0, 1.0, -1.5, 0.1, 1e300, 1e-300, .greatestFiniteMagnitude,
+            .leastNormalMagnitude, 3.141592653589793
+        ] {
             let v = EncItem(id: "x", amount: d)
             let again = try EncItem.parse(json: Array(v.encodedJSON()))
-            #expect(again.amount.bitPattern == d.bitPattern,
-                    "\(d) round-tripped to \(again.amount)")
+            #expect(
+                again.amount.bitPattern == d.bitPattern,
+                "\(d) round-tripped to \(again.amount)")
         }
     }
 
@@ -292,33 +303,39 @@ struct EncodingTests {
     /// empty, escaped, and nested.
     @Test("compact and pretty output, byte for byte")
     func exactLayouts() throws {
-        let json = #"{"request_id":"r\"q","page":1,"ratio":2.5,"active":true,"tags":["a"],"nested":{"id":"","amount":1}}"#
+        let json =
+            #"{"request_id":"r\"q","page":1,"ratio":2.5,"active":true,"tags":["a"],"nested":{"id":"","amount":1}}"#
         let v = try EncPayload.parse(json: Array(json.utf8))
-        #expect(try v.jsonText() == #"{"request_id":"r\"q","page":1,"ratio":2.5,"active":true,"note":null,"tags":["a"],"counts":{},"retries":3,"nested":{"id":"","amount":1},"items":[]}"#)
-        #expect(try v.jsonText(pretty: true) == """
-        {
-          "request_id": "r\\"q",
-          "page": 1,
-          "ratio": 2.5,
-          "active": true,
-          "note": null,
-          "tags": [
-            "a"
-          ],
-          "counts": {},
-          "retries": 3,
-          "nested": {
-            "id": "",
-            "amount": 1
-          },
-          "items": []
-        }
-        """)
+        #expect(
+            try v.jsonText()
+                == #"{"request_id":"r\"q","page":1,"ratio":2.5,"active":true,"note":null,"tags":["a"],"counts":{},"retries":3,"nested":{"id":"","amount":1},"items":[]}"#
+        )
+        #expect(
+            try v.jsonText(pretty: true) == """
+                {
+                  "request_id": "r\\"q",
+                  "page": 1,
+                  "ratio": 2.5,
+                  "active": true,
+                  "note": null,
+                  "tags": [
+                    "a"
+                  ],
+                  "counts": {},
+                  "retries": 3,
+                  "nested": {
+                    "id": "",
+                    "amount": 1
+                  },
+                  "items": []
+                }
+                """)
     }
 
     @Test("pretty printing is valid JSON that parses back identically")
     func pretty() throws {
-        let json = #"{"request_id":"r","page":1,"ratio":2.5,"active":true,"tags":["a"],"nested":{"id":"n","amount":1}}"#
+        let json =
+            #"{"request_id":"r","page":1,"ratio":2.5,"active":true,"tags":["a"],"nested":{"id":"n","amount":1}}"#
         let v = try EncPayload.parse(json: Array(json.utf8))
         let text = try v.jsonText(pretty: true)
         #expect(text.contains("\n"))
@@ -331,31 +348,34 @@ struct EncodingMacroTests {
 
     @Test("a @Transform without an @Inverse cannot be encoded, and says so")
     func transformWithoutInverse() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema(encodes: true) struct S {
-            @Transform({ (a: [String]) in Set(a) }) var tags: Set<String>
-        }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema(encodes: true) struct S {
+                @Transform({ (a: [String]) in Set(a) }) var tags: Set<String>
+            }
+            """)
         #expect(diags.contains { $0.contains("@Inverse") && $0.contains("'tags'") })
     }
 
     @Test("an @Inverse without a @Transform is refused too")
     func inverseWithoutTransform() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema(encodes: true) struct S {
-            @Inverse({ (s: [String]) in s }) var tags: [String]
-        }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema(encodes: true) struct S {
+                @Inverse({ (s: [String]) in s }) var tags: [String]
+            }
+            """)
         #expect(diags.contains { $0.contains("would never run") })
     }
 
     @Test("a transform without an inverse is fine when the type does not encode")
     func transformFineWithoutEncoding() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema struct S {
-            @Transform({ (a: [String]) in Set(a) }) var tags: Set<String>
-        }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S {
+                @Transform({ (a: [String]) in Set(a) }) var tags: Set<String>
+            }
+            """)
         #expect(diags.isEmpty, "decode-only types must not pay for encode rules")
     }
 

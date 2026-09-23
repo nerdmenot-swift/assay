@@ -114,16 +114,17 @@ extension AssayReader {
         _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         _ formats: [DateFormat], received: String, failure: DateParseFailure, caretAt: Int
     ) {
-        sink.add(Issue(
-            code: .invalidDate,
-            path: path + [.key(String(describing: key))],
-            params: [
-                "expected": .string(formats.map(\.displayName).joined(separator: ", or ")),
-                "reason": .string(failure.reason),
-                "offset": .int(failure.offset),
-            ],
-            received: received.count > 64 ? String(received.prefix(61)) + "..." : received,
-            location: SourceSpan(lo: caretAt, len: 1)))
+        sink.add(
+            Issue(
+                code: .invalidDate,
+                path: path + [.key(String(describing: key))],
+                params: [
+                    "expected": .string(formats.map(\.displayName).joined(separator: ", or ")),
+                    "reason": .string(failure.reason),
+                    "offset": .int(failure.offset)
+                ],
+                received: received.count > 64 ? String(received.prefix(61)) + "..." : received,
+                location: SourceSpan(lo: caretAt, len: 1)))
     }
 
     @inline(never)
@@ -132,13 +133,14 @@ extension AssayReader {
         _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         matched: DateFormat, primary: DateFormat
     ) {
-        sink.add(warning: Warning(
-            code: .dateFormatFallback,
-            path: path + [.key(String(describing: key))],
-            params: [
-                "matched": .string(matched.displayName),
-                "primary": .string(primary.displayName),
-            ]))
+        sink.add(
+            warning: Warning(
+                code: .dateFormatFallback,
+                path: path + [.key(String(describing: key))],
+                params: [
+                    "matched": .string(matched.displayName),
+                    "primary": .string(primary.displayName)
+                ]))
     }
 }
 
@@ -172,8 +174,9 @@ extension RawValue {
                 switch DateParser.parse(text, as: format) {
                 case .success(let seconds):
                     if i > 0 {
-                        Self.warnDateFallback(&sink, path, key,
-                                              matched: format, primary: formats[0])
+                        Self.warnDateFallback(
+                            &sink, path, key,
+                            matched: format, primary: formats[0])
                     }
                     return seconds
                 case .failure(let failure):
@@ -206,8 +209,9 @@ extension RawValue {
             switch DateParser.parse(seconds: value, as: format) {
             case .success(let seconds):
                 if i > 0 {
-                    Self.warnDateFallback(&sink, path, key,
-                                          matched: format, primary: formats[0])
+                    Self.warnDateFallback(
+                        &sink, path, key,
+                        matched: format, primary: formats[0])
                 }
                 return seconds
             case .failure(let failure):
@@ -229,15 +233,16 @@ extension RawValue {
         _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         _ formats: [DateFormat], received: String, failure: DateParseFailure
     ) {
-        sink.add(Issue(
-            code: .invalidDate,
-            path: keyed(path, key),
-            params: [
-                "expected": .string(formats.map(\.displayName).joined(separator: ", or ")),
-                "reason": .string(failure.reason),
-                "offset": .int(failure.offset),
-            ],
-            received: received.count > 64 ? String(received.prefix(61)) + "..." : received))
+        sink.add(
+            Issue(
+                code: .invalidDate,
+                path: keyed(path, key),
+                params: [
+                    "expected": .string(formats.map(\.displayName).joined(separator: ", or ")),
+                    "reason": .string(failure.reason),
+                    "offset": .int(failure.offset)
+                ],
+                received: received.count > 64 ? String(received.prefix(61)) + "..." : received))
     }
 
     @inline(never)
@@ -246,12 +251,13 @@ extension RawValue {
         _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         matched: DateFormat, primary: DateFormat
     ) {
-        sink.add(warning: Warning(
-            code: .dateFormatFallback,
-            path: keyed(path, key),
-            params: [
-                "matched": .string(matched.displayName),
-                "primary": .string(primary.displayName),
-            ]))
+        sink.add(
+            warning: Warning(
+                code: .dateFormatFallback,
+                path: keyed(path, key),
+                params: [
+                    "matched": .string(matched.displayName),
+                    "primary": .string(primary.displayName)
+                ]))
     }
 }

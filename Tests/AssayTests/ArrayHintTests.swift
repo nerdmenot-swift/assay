@@ -62,13 +62,15 @@ struct ArrayHintTests {
         return Array(json.utf8)
     }
 
-    @Test("arrays that shrink, grow and empty out all decode exactly", arguments: [
-        [(10, 10), (1, 1), (0, 0), (3, 7)],          // large, small, empty, mixed
-        [(0, 0), (0, 0), (25, 4)],                   // empty teaches nothing, then a big one
-        [(1, 40), (40, 1), (1, 40)],                 // the two sites disagree, every record
-        [(64, 0), (0, 64)],                          // one site full while the other is empty
-        [(2, 2)],                                    // a single record: the hint is unused
-    ])
+    @Test(
+        "arrays that shrink, grow and empty out all decode exactly",
+        arguments: [
+            [(10, 10), (1, 1), (0, 0), (3, 7)],  // large, small, empty, mixed
+            [(0, 0), (0, 0), (25, 4)],  // empty teaches nothing, then a big one
+            [(1, 40), (40, 1), (1, 40)],  // the two sites disagree, every record
+            [(64, 0), (0, 64)],  // one site full while the other is empty
+            [(2, 2)]  // a single record: the hint is unused
+        ])
     func lengths(_ shape: [(Int, Int)]) throws {
         let decoded = try HintDoc.parse(json: Self.doc(shape))
         #expect(decoded.items.count == shape.count)
@@ -81,8 +83,8 @@ struct ArrayHintTests {
     @Test("a nested array's site is its depth, so inner and outer never share a hint")
     func nested() throws {
         let json = """
-        {"grid":[[1,2,3,4,5],[],[9],[7,7]],"tally":{"a":1,"b":2,"c":3}}
-        """
+            {"grid":[[1,2,3,4,5],[],[9],[7,7]],"tally":{"a":1,"b":2,"c":3}}
+            """
         let v = try HintNested.parse(json: Array(json.utf8))
         #expect(v.grid == [[1, 2, 3, 4, 5], [], [9], [7, 7]])
         #expect(v.tally == ["a": 1, "b": 2, "c": 3])

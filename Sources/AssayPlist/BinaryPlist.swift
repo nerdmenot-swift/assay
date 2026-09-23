@@ -94,7 +94,9 @@ enum BinaryPlist {
             self.budget = max(4_096, min(limits.maxBytes, bytes.count) * 4)
         }
 
-        mutating func fail(_ sink: inout IssueSink, _ reason: String, _ code: IssueCode) -> RawValue? {
+        mutating func fail(
+            _ sink: inout IssueSink, _ reason: String, _ code: IssueCode
+        ) -> RawValue? {
             sink.add(Issue(code: code, params: ["reason": .string(reason)]))
             return nil
         }
@@ -122,31 +124,38 @@ enum BinaryPlist {
             let offsetTableOffset64 = readBE(t + 24, 8)
             let ceiling = UInt64(bytes.count)
             guard numObjects64 <= ceiling, topObject64 <= ceiling,
-                  offsetTableOffset64 <= ceiling else {
-                return fail(&sink,
-                            "the trailer describes more objects than the file has bytes",
-                            .plistBadTrailer)
+                offsetTableOffset64 <= ceiling
+            else {
+                return fail(
+                    &sink,
+                    "the trailer describes more objects than the file has bytes",
+                    .plistBadTrailer)
             }
             let numObjects = Int(numObjects64)
             topObject = Int(topObject64)
             let offsetTableOffset = Int(offsetTableOffset64)
 
             guard offsetIntSize >= 1, offsetIntSize <= 8,
-                  objectRefSize >= 1, objectRefSize <= 8 else {
-                return fail(&sink, "offset or reference width outside 1...8",
-                            .plistBadTrailer)
+                objectRefSize >= 1, objectRefSize <= 8
+            else {
+                return fail(
+                    &sink, "offset or reference width outside 1...8",
+                    .plistBadTrailer)
             }
             guard numObjects > 0, topObject < numObjects else {
-                return fail(&sink, "top object is outside the object table",
-                            .plistBadTrailer)
+                return fail(
+                    &sink, "top object is outside the object table",
+                    .plistBadTrailer)
             }
             // The multiplication is checked: numObjects comes from the file and an
             // attacker-chosen 2^63 would otherwise overflow into a small, passing product.
             let (tableBytes, overflow) = numObjects.multipliedReportingOverflow(by: offsetIntSize)
             guard !overflow, offsetTableOffset >= magic.count,
-                  offsetTableOffset <= t, tableBytes <= t - offsetTableOffset else {
-                return fail(&sink, "offset table does not fit in the file",
-                            .plistBadTrailer)
+                offsetTableOffset <= t, tableBytes <= t - offsetTableOffset
+            else {
+                return fail(
+                    &sink, "offset table does not fit in the file",
+                    .plistBadTrailer)
             }
 
             offsets.reserveCapacity(numObjects)
@@ -154,13 +163,15 @@ enum BinaryPlist {
                 let at = offsetTableOffset + i * offsetIntSize
                 let off64 = readBE(at, offsetIntSize)
                 guard off64 <= ceiling else {
-                    return fail(&sink, "an object offset points outside the file",
-                                .plistBadOffset)
+                    return fail(
+                        &sink, "an object offset points outside the file",
+                        .plistBadOffset)
                 }
                 let off = Int(off64)
                 guard off >= magic.count, off < t else {
-                    return fail(&sink, "an object offset points outside the file",
-                                .plistBadOffset)
+                    return fail(
+                        &sink, "an object offset points outside the file",
+                        .plistBadOffset)
                 }
                 offsets.append(off)
             }
@@ -219,15 +230,17 @@ enum BinaryPlist {
                 return fail(&sink, "nesting deeper than \(limits.maxDepth)", .plistTooDeep)
             }
             guard budget > 0 else {
-                return fail(&sink,
-                            "materialises more nodes than the document has bytes to describe "
-                            + "— shared references can expand without nesting deeply",
-                            .plistAmplification)
+                return fail(
+                    &sink,
+                    "materialises more nodes than the document has bytes to describe "
+                        + "— shared references can expand without nesting deeply",
+                    .plistAmplification)
             }
             budget -= 1
             guard index >= 0, index < offsets.count else {
-                return fail(&sink, "reference to object \(index), which does not exist",
-                            .plistBadReference)
+                return fail(
+                    &sink, "reference to object \(index), which does not exist",
+                    .plistBadReference)
             }
             let p = offsets[index]
             let limit = bytes.count - 32
@@ -248,8 +261,9 @@ enum BinaryPlist {
                 // 0xF is a padding "fill" byte, which is not a value. It appears only in
                 // malformed or hand-built files; treating it as null would invent data.
                 default:
-                    return fail(&sink, "unsupported singleton marker 0x0\(String(low, radix: 16))",
-                                .plistBadMarker)
+                    return fail(
+                        &sink, "unsupported singleton marker 0x0\(String(low, radix: 16))",
+                        .plistBadMarker)
                 }
 
             case 0x1:
@@ -261,8 +275,9 @@ enum BinaryPlist {
                 // wider case, so this refuses rather than silently truncating — a number
                 // read as a different number is the one failure a decoder must never have.
                 guard width <= 8 else {
-                    return fail(&sink, "128-bit integer has no RawValue representation",
-                                .plistIntTooWide)
+                    return fail(
+                        &sink, "128-bit integer has no RawValue representation",
+                        .plistIntTooWide)
                 }
                 let raw = readBE(p + 1, width)
                 // 1, 2 and 4-byte integers are unsigned; 8-byte ones are signed. That is the
@@ -275,9 +290,10 @@ enum BinaryPlist {
                     return fail(&sink, "real is not 4 or 8 bytes", .plistBadReal)
                 }
                 let raw = readBE(p + 1, width)
-                return .double(width == 4
-                    ? Double(Float(bitPattern: UInt32(truncatingIfNeeded: raw)))
-                    : Double(bitPattern: raw))
+                return .double(
+                    width == 4
+                        ? Double(Float(bitPattern: UInt32(truncatingIfNeeded: raw)))
+                        : Double(bitPattern: raw))
 
             case 0x3:
                 guard low == 0x3, p + 9 <= limit else {
@@ -288,14 +304,16 @@ enum BinaryPlist {
 
             case 0x4:
                 guard let (n, start) = count(at: p, low: low, &sink),
-                      n >= 0, start + n <= limit else {
+                    n >= 0, start + n <= limit
+                else {
                     return fail(&sink, "data runs past the end", .plistTruncated)
                 }
                 return .string(Base64.encode(bytes, start, n))
 
             case 0x5:
                 guard let (n, start) = count(at: p, low: low, &sink),
-                      n >= 0, start + n <= limit else {
+                    n >= 0, start + n <= limit
+                else {
                     return fail(&sink, "ASCII string runs past the end", .plistTruncated)
                 }
                 var s = ""
@@ -303,8 +321,9 @@ enum BinaryPlist {
                 for i in 0..<n {
                     let b = bytes[start + i]
                     guard b < 0x80 else {
-                        return fail(&sink, "byte 0x\(String(b, radix: 16)) in an ASCII string",
-                                    .plistBadString)
+                        return fail(
+                            &sink, "byte 0x\(String(b, radix: 16)) in an ASCII string",
+                            .plistBadString)
                     }
                     s.unicodeScalars.append(Unicode.Scalar(b))
                 }
@@ -312,7 +331,8 @@ enum BinaryPlist {
 
             case 0x6:
                 guard let (n, start) = count(at: p, low: low, &sink),
-                      n >= 0, start + n * 2 <= limit else {
+                    n >= 0, start + n * 2 <= limit
+                else {
                     return fail(&sink, "UTF-16 string runs past the end", .plistTruncated)
                 }
                 var units: [UInt16] = []
@@ -321,8 +341,9 @@ enum BinaryPlist {
                     units.append(UInt16(readBE(start + i * 2, 2)))
                 }
                 guard let s = decodeUTF16(units) else {
-                    return fail(&sink, "unpaired surrogate in a UTF-16 string",
-                                .plistBadString)
+                    return fail(
+                        &sink, "unpaired surrogate in a UTF-16 string",
+                        .plistBadString)
                 }
                 return .string(s)
 
@@ -347,14 +368,16 @@ enum BinaryPlist {
                 // UID into a negative one.
                 let raw = readBE(p + 1, width)
                 guard raw <= UInt64(Int64.max) else {
-                    return fail(&sink, "UID exceeds the representable range",
-                                .plistIntOutOfRange)
+                    return fail(
+                        &sink, "UID exceeds the representable range",
+                        .plistIntOutOfRange)
                 }
                 return .int(Int64(raw))
 
             case 0xA, 0xC:
                 guard let (n, start) = count(at: p, low: low, &sink),
-                      n >= 0, start + n * objectRefSize <= limit else {
+                    n >= 0, start + n * objectRefSize <= limit
+                else {
                     return fail(&sink, "array runs past the end", .plistTruncated)
                 }
                 guard visiting.insert(index).inserted else {
@@ -374,7 +397,8 @@ enum BinaryPlist {
 
             case 0xD:
                 guard let (n, start) = count(at: p, low: low, &sink),
-                      n >= 0, start + n * objectRefSize * 2 <= limit else {
+                    n >= 0, start + n * objectRefSize * 2 <= limit
+                else {
                     return fail(&sink, "dictionary runs past the end", .plistTruncated)
                 }
                 guard visiting.insert(index).inserted else {
@@ -391,10 +415,11 @@ enum BinaryPlist {
                     // a non-string key has nowhere to go — the same refusal the YAML entry
                     // point already makes, with the same reasoning and its own code.
                     guard case .string(let key) = k else {
-                        return fail(&sink,
-                                    "a dictionary key is not a string; plists allow it, "
-                                    + "RawValue does not",
-                                    .plistUnrepresentableKey)
+                        return fail(
+                            &sink,
+                            "a dictionary key is not a string; plists allow it, "
+                                + "RawValue does not",
+                            .plistUnrepresentableKey)
                     }
                     guard let v = object(vRef, depth: depth + 1, &sink) else { return nil }
                     members.append(.init(key: key, value: v))
@@ -402,8 +427,9 @@ enum BinaryPlist {
                 return .mapping(members)
 
             default:
-                return fail(&sink, "unknown object marker 0x\(String(marker, radix: 16))",
-                            .plistBadMarker)
+                return fail(
+                    &sink, "unknown object marker 0x\(String(marker, radix: 16))",
+                    .plistBadMarker)
             }
         }
 
@@ -448,7 +474,8 @@ enum Base64 {
         out.reserveCapacity((count + 2) / 3 * 4)
         var i = 0
         while i + 3 <= count {
-            let n = (UInt32(bytes[start + i]) << 16)
+            let n =
+                (UInt32(bytes[start + i]) << 16)
                 | (UInt32(bytes[start + i + 1]) << 8)
                 | UInt32(bytes[start + i + 2])
             out.append(alphabet[Int((n >> 18) & 63)])

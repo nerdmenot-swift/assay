@@ -12,9 +12,10 @@ struct XMLParserTests {
 
     @Test("elements, attributes, text")
     func basics() throws {
-        let doc = try XML.parse("""
-        <book isbn="123" lang="en"><title>Swift</title><year>2026</year></book>
-        """)
+        let doc = try XML.parse(
+            """
+            <book isbn="123" lang="en"><title>Swift</title><year>2026</year></book>
+            """)
         #expect(doc.root.name.local == "book")
         #expect(doc.root[attribute: "isbn"] == "123")
         #expect(doc.root["title"]?.text == "Swift")
@@ -63,26 +64,32 @@ struct XMLParserTests {
     @Test("comments and processing instructions are retained as nodes")
     func commentsAndPIs() throws {
         let doc = try XML.parse("<?xml version='1.0'?><!--hi--><r><?go now?></r>")
-        #expect(doc.prolog.contains { if case .comment(let c) = $0 { return c == "hi" }; return false })
-        #expect(doc.root.children.contains {
-            if case .processingInstruction(let t, _) = $0 { return t == "go" }
-            return false
-        })
+        #expect(
+            doc.prolog.contains {
+                if case .comment(let c) = $0 { return c == "hi" }; return false
+            })
+        #expect(
+            doc.root.children.contains {
+                if case .processingInstruction(let t, _) = $0 { return t == "go" }
+                return false
+            })
     }
 
     @Test("namespaces resolve to URIs and prefixes are discarded")
     func namespaces() throws {
-        let doc = try XML.parse("""
-        <r xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:creator>Ada</dc:creator></r>
-        """)
+        let doc = try XML.parse(
+            """
+            <r xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:creator>Ada</dc:creator></r>
+            """)
         let creator = doc.root.childElements[0]
         #expect(creator.name.local == "creator")
         #expect(creator.name.namespaceURI == "http://purl.org/dc/elements/1.1/")
 
         // Same URI, different prefix — must compare equal.
-        let other = try XML.parse("""
-        <r xmlns:x="http://purl.org/dc/elements/1.1/"><x:creator>Ada</x:creator></r>
-        """)
+        let other = try XML.parse(
+            """
+            <r xmlns:x="http://purl.org/dc/elements/1.1/"><x:creator>Ada</x:creator></r>
+            """)
         #expect(other.root.childElements[0].name == creator.name)
     }
 
@@ -108,38 +115,41 @@ struct XMLParserTests {
     func xxe() {
         // The classic XXE payload. It must not resolve, and must not reach the filesystem.
         let payload = """
-        <!DOCTYPE r [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><r>&xxe;</r>
-        """
+            <!DOCTYPE r [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><r>&xxe;</r>
+            """
         var sink = IssueSink()
         let doc = XML.decode(Array(payload.utf8), into: &sink)
         // The entity is undeclared as far as expansion is concerned, so it errors rather
         // than silently passing raw text through.
         #expect(doc == nil || !sink.isValid)
-        #expect(sink.warnings.contains { $0.code == .xmlExternalEntityIgnored }
+        #expect(
+            sink.warnings.contains { $0.code == .xmlExternalEntityIgnored }
                 || sink.issues.contains { $0.code == .xmlUndeclaredEntity })
     }
 
     @Test("SECURITY: billion laughs is capped")
     func billionLaughs() {
         let payload = """
-        <!DOCTYPE lolz [
-         <!ENTITY lol "lol">
-         <!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
-         <!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">
-        ]><lolz>&lol3;&lol3;&lol3;&lol3;&lol3;</lolz>
-        """
+            <!DOCTYPE lolz [
+             <!ENTITY lol "lol">
+             <!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
+             <!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">
+            ]><lolz>&lol3;&lol3;&lol3;&lol3;&lol3;</lolz>
+            """
         var sink = IssueSink()
         // Must terminate — the assertion is that this returns at all.
-        _ = XML.decode(Array(payload.utf8), into: &sink,
-                       limits: Limits(maxIssues: 10, maxDepth: 64, maxBytes: 4096))
+        _ = XML.decode(
+            Array(payload.utf8), into: &sink,
+            limits: Limits(maxIssues: 10, maxDepth: 64, maxBytes: 4096))
         #expect(true)
     }
 
     @Test("internal entities declared in the subset DO resolve")
     func internalEntities() throws {
-        let doc = try XML.parse("""
-        <!DOCTYPE r [<!ENTITY name "Assay">]><r>&name;</r>
-        """)
+        let doc = try XML.parse(
+            """
+            <!DOCTYPE r [<!ENTITY name "Assay">]><r>&name;</r>
+            """)
         #expect(doc.root.text == "Assay")
     }
 
@@ -165,11 +175,12 @@ struct YAMLParserTests {
 
     @Test("block mapping and scalars")
     func blockMapping() throws {
-        let n = try YAML.parse("""
-        name: api
-        port: 8080
-        debug: true
-        """)
+        let n = try YAML.parse(
+            """
+            name: api
+            port: 8080
+            debug: true
+            """)
         #expect(n["name"]?.content == "api")
         #expect(n["port"]?.resolvedInt == 8080)
         #expect(n["debug"]?.resolvedBool == true)
@@ -177,11 +188,12 @@ struct YAMLParserTests {
 
     @Test("block sequences")
     func blockSequence() throws {
-        let n = try YAML.parse("""
-        - a
-        - b
-        - c
-        """)
+        let n = try YAML.parse(
+            """
+            - a
+            - b
+            - c
+            """)
         #expect(n.sequence?.count == 3)
         #expect(n[0]?.content == "a")
         #expect(n[2]?.content == "c")
@@ -189,13 +201,14 @@ struct YAMLParserTests {
 
     @Test("nested block structures")
     func nested() throws {
-        let n = try YAML.parse("""
-        database:
-          host: localhost
-          ports:
-            - 5432
-            - 5433
-        """)
+        let n = try YAML.parse(
+            """
+            database:
+              host: localhost
+              ports:
+                - 5432
+                - 5433
+            """)
         #expect(n["database"]?["host"]?.content == "localhost")
         #expect(n["database"]?["ports"]?.sequence?.count == 2)
         #expect(n["database"]?["ports"]?[1]?.resolvedInt == 5433)
@@ -210,12 +223,13 @@ struct YAMLParserTests {
 
     @Test("quoted scalars, with escapes")
     func quoted() throws {
-        let n = try YAML.parse("""
-        a: "line\\nbreak"
-        b: 'it''s'
-        c: "tab\\there"
-        d: "\\u0041"
-        """)
+        let n = try YAML.parse(
+            """
+            a: "line\\nbreak"
+            b: 'it''s'
+            c: "tab\\there"
+            d: "\\u0041"
+            """)
         #expect(n["a"]?.content == "line\nbreak")
         #expect(n["b"]?.content == "it's")
         #expect(n["c"]?.content == "tab\there")
@@ -226,20 +240,21 @@ struct YAMLParserTests {
     func quotedIsString() throws {
         let n = try YAML.parse("a: \"42\"\nb: 42")
         #expect(n["a"]?.scalar?.style == .doubleQuoted)
-        #expect(n["a"]?.resolvedInt == nil)        // quoted -> not a number
+        #expect(n["a"]?.resolvedInt == nil)  // quoted -> not a number
         #expect(n["b"]?.resolvedInt == 42)
     }
 
     @Test("literal and folded block scalars")
     func blockScalars() throws {
-        let n = try YAML.parse("""
-        lit: |
-          line one
-          line two
-        fold: >
-          line one
-          line two
-        """)
+        let n = try YAML.parse(
+            """
+            lit: |
+              line one
+              line two
+            fold: >
+              line one
+              line two
+            """)
         #expect(n["lit"]?.content == "line one\nline two\n")
         #expect(n["lit"]?.scalar?.style == .literal)
         #expect(n["fold"]?.content == "line one line two\n")
@@ -248,35 +263,38 @@ struct YAMLParserTests {
 
     @Test("strip chomping removes the trailing newline")
     func chomping() throws {
-        let n = try YAML.parse("""
-        a: |-
-          text
-        b: |
-          text
-        """)
+        let n = try YAML.parse(
+            """
+            a: |-
+              text
+            b: |
+              text
+            """)
         #expect(n["a"]?.content == "text")
         #expect(n["b"]?.content == "text\n")
     }
 
     @Test("comments are ignored, but # inside a scalar is not a comment")
     func comments() throws {
-        let n = try YAML.parse("""
-        # leading comment
-        a: 1   # trailing comment
-        b: has#hash
-        """)
+        let n = try YAML.parse(
+            """
+            # leading comment
+            a: 1   # trailing comment
+            b: has#hash
+            """)
         #expect(n["a"]?.resolvedInt == 1)
         #expect(n["b"]?.content == "has#hash")
     }
 
     @Test("anchors and aliases")
     func anchors() throws {
-        let n = try YAML.parse("""
-        base: &b
-          x: 1
-          y: 2
-        copy: *b
-        """)
+        let n = try YAML.parse(
+            """
+            base: &b
+              x: 1
+              y: 2
+            copy: *b
+            """)
         #expect(n["copy"]?["x"]?.resolvedInt == 1)
         #expect(n["copy"]?["y"]?.resolvedInt == 2)
     }
@@ -308,10 +326,11 @@ struct YAMLParserTests {
     /// so this is the test that proves the two paths write to the same place.
     @Test("a flow-defined anchor is visible to a later block alias")
     func flowAnchorSeenFromBlock() throws {
-        let n = try YAML.parse("""
-        first: [&shared 42]
-        second: *shared
-        """)
+        let n = try YAML.parse(
+            """
+            first: [&shared 42]
+            second: *shared
+            """)
         #expect(n["second"]?.resolvedInt == 42)
     }
 
@@ -327,8 +346,9 @@ struct YAMLParserTests {
         for text in ["[&p 1, &q *p]", "p: &p 1\nq: &q *p\n"] {
             var sink = IssueSink()
             _ = YAML.decodeAll(Array(text.utf8), into: &sink, limits: .default)
-            #expect(sink.issues.contains { $0.code == .yamlAnchorOnAlias },
-                    "for: \(text) — got \(sink.issues.map(\.code))")
+            #expect(
+                sink.issues.contains { $0.code == .yamlAnchorOnAlias },
+                "for: \(text) — got \(sink.issues.map(\.code))")
         }
     }
 
@@ -341,16 +361,17 @@ struct YAMLParserTests {
 
     @Test("merge keys are applied, and explicit keys win")
     func mergeKeys() throws {
-        let n = try YAML.parse("""
-        base: &b
-          x: 1
-          y: 2
-        derived:
-          <<: *b
-          y: 99
-        """)
+        let n = try YAML.parse(
+            """
+            base: &b
+              x: 1
+              y: 2
+            derived:
+              <<: *b
+              y: 99
+            """)
         #expect(n["derived"]?["x"]?.resolvedInt == 1)
-        #expect(n["derived"]?["y"]?.resolvedInt == 99)   // explicit beats merged
+        #expect(n["derived"]?["y"]?.resolvedInt == 99)  // explicit beats merged
         // The literal "<<" key must not survive into the tree.
         #expect(n["derived"]?["<<"] == nil)
     }
@@ -359,18 +380,19 @@ struct YAMLParserTests {
     func tags() throws {
         let n = try YAML.parse("a: !!str 42")
         #expect(n["a"]?.scalar?.tag == "!!str")
-        #expect(n["a"]?.resolvedInt == nil)     // tagged as a string, so not an int
+        #expect(n["a"]?.resolvedInt == nil)  // tagged as a string, so not an int
     }
 
     @Test("multiple documents")
     func multiDoc() throws {
-        let docs = try YAML.parseAll("""
-        ---
-        a: 1
-        ---
-        a: 2
-        ...
-        """)
+        let docs = try YAML.parseAll(
+            """
+            ---
+            a: 1
+            ---
+            a: 2
+            ...
+            """)
         #expect(docs.count == 2)
         #expect(docs[0]["a"]?.resolvedInt == 1)
         #expect(docs[1]["a"]?.resolvedInt == 2)
@@ -391,8 +413,8 @@ struct YAMLParserTests {
     func norway() throws {
         let n = try YAML.parse("country: NO\nenabled: yes")
         #expect(n["country"]?.content == "NO")
-        #expect(n["country"]?.resolvedBool == nil)     // NOT false
-        #expect(n["enabled"]?.resolvedBool == nil)     // NOT true — that is YAML 1.1
+        #expect(n["country"]?.resolvedBool == nil)  // NOT false
+        #expect(n["enabled"]?.resolvedBool == nil)  // NOT true — that is YAML 1.1
         #expect(RawValue(n)?["country"] == .string("NO"))
     }
 
@@ -407,25 +429,27 @@ struct YAMLParserTests {
     @Test("SECURITY: alias expansion is bounded")
     func aliasBomb() {
         let payload = """
-        a: &a [x, x, x, x, x, x, x, x, x, x]
-        b: &b [*a, *a, *a, *a, *a, *a, *a, *a, *a, *a]
-        c: &c [*b, *b, *b, *b, *b, *b, *b, *b, *b, *b]
-        d: [*c, *c, *c, *c, *c, *c, *c, *c, *c, *c]
-        """
+            a: &a [x, x, x, x, x, x, x, x, x, x]
+            b: &b [*a, *a, *a, *a, *a, *a, *a, *a, *a, *a]
+            c: &c [*b, *b, *b, *b, *b, *b, *b, *b, *b, *b]
+            d: [*c, *c, *c, *c, *c, *c, *c, *c, *c, *c]
+            """
         var sink = IssueSink()
         // Must terminate.
-        _ = YAML.decodeAll(Array(payload.utf8), into: &sink,
-                           limits: Limits(maxIssues: 10, maxDepth: 64, maxBytes: 4096))
+        _ = YAML.decodeAll(
+            Array(payload.utf8), into: &sink,
+            limits: Limits(maxIssues: 10, maxDepth: 64, maxBytes: 4096))
         #expect(true)
     }
 
     @Test("projection to RawValue works on parsed documents")
     func projection() throws {
-        let n = try YAML.parse("""
-        name: api
-        port: 8080
-        tags: [a, b]
-        """)
+        let n = try YAML.parse(
+            """
+            name: api
+            port: 8080
+            tags: [a, b]
+            """)
         let raw = RawValue(n)
         #expect(raw?["name"] == .string("api"))
         #expect(raw?["port"] == .int(8080))
@@ -434,20 +458,21 @@ struct YAMLParserTests {
 
     @Test("a realistic config file")
     func realistic() throws {
-        let n = try YAML.parse("""
-        # app config
-        service_name: api
-        port: 8080
-        workers: 4
-        database:
-          url: "postgres://localhost/app"
-          pool_size: 10
-          ssl_required: true
-        features:
-          - metrics
-          - tracing
-        log_level: info
-        """)
+        let n = try YAML.parse(
+            """
+            # app config
+            service_name: api
+            port: 8080
+            workers: 4
+            database:
+              url: "postgres://localhost/app"
+              pool_size: 10
+              ssl_required: true
+            features:
+              - metrics
+              - tracing
+            log_level: info
+            """)
         #expect(n["service_name"]?.content == "api")
         #expect(n["port"]?.resolvedInt == 8080)
         #expect(n["database"]?["url"]?.content == "postgres://localhost/app")
@@ -464,9 +489,11 @@ struct FuzzRegressionTests {
     /// consuming it, so `[}]` produced an empty scalar, advanced nothing, and looped
     /// forever appending — a hang that ended in the OOM killer. Every one of these must
     /// terminate with an issue, not a value and not a wait.
-    @Test("flow collections terminate on a stray closer", arguments: [
-        "[}]", "[1,2}3]", "{\"a\":[1,2}3]}", "[1}2]", "[1,2}]", "{a: 1]}", "[[}]]",
-    ])
+    @Test(
+        "flow collections terminate on a stray closer",
+        arguments: [
+            "[}]", "[1,2}3]", "{\"a\":[1,2}3]}", "[1}2]", "[1,2}]", "{a: 1]}", "[[}]]"
+        ])
     func flowCollectionsTerminate(_ input: String) {
         var sink = IssueSink()
         let docs = YAML.decodeAll(Array(input.utf8), into: &sink, limits: .default)
@@ -477,8 +504,9 @@ struct FuzzRegressionTests {
     @Test("valid flow collections still parse")
     func validFlowStillWorks() throws {
         var sink = IssueSink()
-        let docs = YAML.decodeAll(Array("[1, 2, {a: b, c: [3]}]".utf8),
-                                  into: &sink, limits: .default)
+        let docs = YAML.decodeAll(
+            Array("[1, 2, {a: b, c: [3]}]".utf8),
+            into: &sink, limits: .default)
         #expect(sink.issues.isEmpty)
         #expect(docs.count == 1)
         guard case .sequence(let items) = docs[0] else {

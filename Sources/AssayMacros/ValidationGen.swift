@@ -49,10 +49,10 @@ enum RuleTypeCheck {
     /// Which declared types each named rule applies to.
     static let stringOnly: Set<String> = [
         "length", "regex", "email", "url", "uuid", "hostname", "ascii",
-        "isTrimmed", "isLowercase", "prefix", "suffix", "contains", "oneOf",
+        "isTrimmed", "isLowercase", "prefix", "suffix", "contains", "oneOf"
     ]
     static let numberOnly: Set<String> = [
-        "range", "positive", "negative", "nonNegative", "multipleOf", "finite",
+        "range", "positive", "negative", "nonNegative", "multipleOf", "finite"
     ]
     static let arrayOnly: Set<String> = ["count", "unique", "each"]
     /// Length on String, count on Array, magnitude on a number.
@@ -69,14 +69,15 @@ enum RuleTypeCheck {
             switch baseType {
             case "String": self = .string
             case "Int", "Int64", "Int32", "UInt",
-                 "Int8", "Int16", "UInt8", "UInt16", "UInt32", "UInt64":
+                "Int8", "Int16", "UInt8", "UInt16", "UInt32", "UInt64":
                 self = .integer
             case "Double", "Float": self = .floating
             case "Bool": self = .bool
             case "Date", "Foundation.Date": self = .date
             default:
                 if baseType.hasPrefix("["), baseType.hasSuffix("]"),
-                   !baseType.contains(":") {
+                    !baseType.contains(":")
+                {
                     self = .array(element: String(baseType.dropFirst().dropLast()))
                 } else {
                     self = .other(baseType)
@@ -103,7 +104,10 @@ enum RuleTypeCheck {
         switch category {
         case .string:
             if stringOnly.contains(rule) || polymorphic.contains(rule)
-                || emptiness.contains(rule) { return nil }
+                || emptiness.contains(rule)
+            {
+                return nil
+            }
             if numberOnly.contains(rule) { return "a number" }
             if arrayOnly.contains(rule) { return "an Array" }
         case .integer, .floating:
@@ -112,7 +116,10 @@ enum RuleTypeCheck {
             if arrayOnly.contains(rule) || emptiness.contains(rule) { return "an Array" }
         case .array:
             if arrayOnly.contains(rule) || polymorphic.contains(rule)
-                || emptiness.contains(rule) { return nil }
+                || emptiness.contains(rule)
+            {
+                return nil
+            }
             if stringOnly.contains(rule) { return "String" }
             if numberOnly.contains(rule) { return "a number" }
         case .date:
@@ -125,9 +132,12 @@ enum RuleTypeCheck {
             if stringOnly.contains(rule) { return "String" }
             if numberOnly.contains(rule) { return "a number" }
             if arrayOnly.contains(rule) || emptiness.contains(rule)
-                || polymorphic.contains(rule) { return "String, a number, or an Array" }
+                || polymorphic.contains(rule)
+            {
+                return "String, a number, or an Array"
+            }
         }
-        return nil    // unknown name: an opaque composed rule — checked at runtime shape
+        return nil  // unknown name: an opaque composed rule — checked at runtime shape
     }
 }
 
@@ -140,8 +150,9 @@ extension SchemaMacro {
         var out: [ValidationAttr] = []
         for attr in attributes where attr.attributeName.trimmedDescription == "Validate" {
             guard let args = attr.arguments?.as(LabeledExprListSyntax.self) else { continue }
-            var parsed = ValidationAttr(ruleExprs: [], ruleNames: [], override: nil,
-                                        attribute: attr)
+            var parsed = ValidationAttr(
+                ruleExprs: [], ruleNames: [], override: nil,
+                attribute: attr)
             for arg in args where arg.label == nil {
                 if let literal = arg.expression.as(StringLiteralExprSyntax.self) {
                     // The message-as-a-rule trick: a bare literal overrides the message
@@ -181,22 +192,35 @@ extension SchemaMacro {
                 // The attribute when we have it, the `@Schema` node when we do not.
                 let at = attr.attribute.map(Syntax.init) ?? Syntax(node)
                 if attr.ruleExprs.isEmpty, attr.override != nil {
-                    context.diagnose(Diagnostic(node: at, message: SimpleDiagnostic(
-                        "@Validate(\"\(attr.override!)\") has a message but no rule; a lone message does nothing")))
+                    context.diagnose(
+                        Diagnostic(
+                            node: at,
+                            message: SimpleDiagnostic(
+                                "@Validate(\"\(attr.override!)\") has a message but no rule; a lone message does nothing"
+                            )))
                     ok = false
                 }
                 for name in attr.ruleNames {
                     if let wanted = RuleTypeCheck.expectedCategory(rule: name, on: category) {
-                        context.diagnose(Diagnostic(node: at, message: SimpleDiagnostic(
-                            "rule '.\(name)' applies to \(wanted), but '\(f.identifier)' is declared \(f.typeName)")))
+                        context.diagnose(
+                            Diagnostic(
+                                node: at,
+                                message: SimpleDiagnostic(
+                                    "rule '.\(name)' applies to \(wanted), but '\(f.identifier)' is declared \(f.typeName)"
+                                )))
                         ok = false
                     }
                     // `.unique`/`.each` need a typed overload for the element.
                     if name == "unique" || name == "each",
-                       case .array(let element) = category,
-                       !["String", "Int", "Double"].contains(element) {
-                        context.diagnose(Diagnostic(node: at, message: SimpleDiagnostic(
-                            "rule '.\(name)' supports elements of String, Int or Double, but '\(f.identifier)' is declared \(f.typeName)")))
+                        case .array(let element) = category,
+                        !["String", "Int", "Double"].contains(element)
+                    {
+                        context.diagnose(
+                            Diagnostic(
+                                node: at,
+                                message: SimpleDiagnostic(
+                                    "rule '.\(name)' supports elements of String, Int or Double, but '\(f.identifier)' is declared \(f.typeName)"
+                                )))
                         ok = false
                     }
                 }
@@ -211,9 +235,9 @@ extension SchemaMacro {
         for (i, f) in fields.enumerated() {
             for (j, attr) in f.validations.enumerated() where !attr.ruleExprs.isEmpty {
                 out += """
-                nonisolated static let __assayRules_\(i)_\(j): [Assay.Rule] = [\(attr.ruleExprs.joined(separator: ", "))]
+                    nonisolated static let __assayRules_\(i)_\(j): [Assay.Rule] = [\(attr.ruleExprs.joined(separator: ", "))]
 
-                """
+                    """
             }
         }
         return out
@@ -227,11 +251,11 @@ extension SchemaMacro {
         // Preprocess: normalise wire values before any rule sees them.
         for (i, f) in fields.enumerated() where !f.preprocess.isEmpty {
             out += """
-                if let __pp\(i) = __f\(i) {
-                    __f\(i) = Assay._assayPreprocess(__pp\(i), Self.__assayPre_\(i))
-                }
+                    if let __pp\(i) = __f\(i) {
+                        __f\(i) = Assay._assayPreprocess(__pp\(i), Self.__assayPre_\(i))
+                    }
 
-            """
+                """
         }
 
         // Field rules. A @Fallback field's violations roll back and clear the value, so
@@ -244,42 +268,42 @@ extension SchemaMacro {
                 let override = attr.override.map { "\"\($0)\"" } ?? "nil"
                 let span = spans ? "__sp\(i)" : "nil"
                 calls += """
-                        Assay._assayValidate(\(validationArgument(base, "__vv\(i)")), Self.__assayRules_\(i)_\(j), override: \(override), field: "\(f.wireKey)", at: \(span), path: path, &sink)
+                            Assay._assayValidate(\(validationArgument(base, "__vv\(i)")), Self.__assayRules_\(i)_\(j), override: \(override), field: "\(f.wireKey)", at: \(span), path: path, &sink)
 
-                """
+                    """
             }
             guard !calls.isEmpty else { continue }
             if f.fallback != nil {
                 out += """
-                    if let __vv\(i) = __f\(i) {
-                        let __vck\(i) = sink.checkpoint()
-                \(calls)        if sink.checkpoint() > __vck\(i) {
-                            sink.rollback(to: __vck\(i))
-                            __f\(i) = nil
+                        if let __vv\(i) = __f\(i) {
+                            let __vck\(i) = sink.checkpoint()
+                    \(calls)        if sink.checkpoint() > __vck\(i) {
+                                sink.rollback(to: __vck\(i))
+                                __f\(i) = nil
+                            }
                         }
-                    }
 
-                """
+                    """
             } else {
                 out += """
-                    if let __vv\(i) = __f\(i) {
-                \(calls)    }
+                        if let __vv\(i) = __f\(i) {
+                    \(calls)    }
 
-                """
+                    """
             }
         }
 
         // Fallback application, with the warning that is how you find out it happened.
         for (i, f) in fields.enumerated() where f.fallback != nil {
             out += """
-                if __f\(i) == nil {
-                    __f\(i) = \(f.fallback!)
-                    sink.add(warning: Assay.Warning(
-                        code: .fallbackApplied,
-                        path: path + [.key("\(f.wireKey)")]))
-                }
+                    if __f\(i) == nil {
+                        __f\(i) = \(f.fallback!)
+                        sink.add(warning: Assay.Warning(
+                            code: .fallbackApplied,
+                            path: path + [.key("\(f.wireKey)")]))
+                    }
 
-            """
+                """
         }
         return out
     }
@@ -289,9 +313,9 @@ extension SchemaMacro {
         var out = ""
         for (i, f) in fields.enumerated() where !f.preprocess.isEmpty {
             out += """
-            nonisolated static let __assayPre_\(i): [Assay.PreprocessOp] = [\(f.preprocess.joined(separator: ", "))]
+                nonisolated static let __assayPre_\(i): [Assay.PreprocessOp] = [\(f.preprocess.joined(separator: ", "))]
 
-            """
+                """
         }
         return out
     }
@@ -304,9 +328,9 @@ extension SchemaMacro {
             // @Sendable so the static let is concurrency-safe; transform closures must be
             // capture-free, which a pure value transformation is by nature.
             out += """
-            nonisolated static let __assayTransform_\(i): @Sendable (\(t.wireType)) -> \(output) = \(t.closure)
+                nonisolated static let __assayTransform_\(i): @Sendable (\(t.wireType)) -> \(output) = \(t.closure)
 
-            """
+                """
         }
         return out
     }

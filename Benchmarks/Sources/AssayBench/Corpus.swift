@@ -165,49 +165,63 @@ struct ShapeRunner: Sendable {
 }
 
 let structShapes: [ShapeRunner] = [
-    ShapeRunner(name: "apimodel",
-                assay: { Payload.diagnose(json: $0).value != nil },
-                foundation: { (try? JSONDecoder().decode(CodablePayload.self, from: $0)) != nil }),
-    ShapeRunner(name: "arrays-of-scalars",
-                assay: { ScalarArray.diagnose(json: $0).value != nil },
-                foundation: { (try? JSONDecoder().decode(CodableScalarArray.self, from: $0)) != nil }),
-    ShapeRunner(name: "arrays-of-structs",
-                assay: { StructArray.diagnose(json: $0).value != nil },
-                foundation: { (try? JSONDecoder().decode(CodableStructArray.self, from: $0)) != nil }),
-    ShapeRunner(name: "nested-3-deep",
-                assay: { NestedDoc.diagnose(json: $0).value != nil },
-                foundation: { (try? JSONDecoder().decode(CodableNestedDoc.self, from: $0)) != nil }),
-    ShapeRunner(name: "floats-dense",
-                assay: { Polygon.diagnose(json: $0).value != nil },
-                foundation: { (try? JSONDecoder().decode(CodablePolygon.self, from: $0)) != nil }),
+    ShapeRunner(
+        name: "apimodel",
+        assay: { Payload.diagnose(json: $0).value != nil },
+        foundation: { (try? JSONDecoder().decode(CodablePayload.self, from: $0)) != nil }),
+    ShapeRunner(
+        name: "arrays-of-scalars",
+        assay: { ScalarArray.diagnose(json: $0).value != nil },
+        foundation: { (try? JSONDecoder().decode(CodableScalarArray.self, from: $0)) != nil }),
+    ShapeRunner(
+        name: "arrays-of-structs",
+        assay: { StructArray.diagnose(json: $0).value != nil },
+        foundation: { (try? JSONDecoder().decode(CodableStructArray.self, from: $0)) != nil }),
+    ShapeRunner(
+        name: "nested-3-deep",
+        assay: { NestedDoc.diagnose(json: $0).value != nil },
+        foundation: { (try? JSONDecoder().decode(CodableNestedDoc.self, from: $0)) != nil }),
+    ShapeRunner(
+        name: "floats-dense",
+        assay: { Polygon.diagnose(json: $0).value != nil },
+        foundation: { (try? JSONDecoder().decode(CodablePolygon.self, from: $0)) != nil })
 ]
 
 let prefixShapes: [ShapeRunner] = [
-    ShapeRunner(name: "bigints",
-                assay: { IntPrefix.diagnose(json: $0).value != nil },
-                foundation: { (try? JSONDecoder().decode(CodableIntPrefix.self, from: $0)) != nil }),
-    ShapeRunner(name: "escaped",
-                assay: { StringPrefix.diagnose(json: $0).value != nil },
-                foundation: { (try? JSONDecoder().decode(CodableStringPrefix.self, from: $0)) != nil }),
-    ShapeRunner(name: "long-strings",
-                assay: { StringPrefix.diagnose(json: $0).value != nil },
-                foundation: { (try? JSONDecoder().decode(CodableStringPrefix.self, from: $0)) != nil }),
-    ShapeRunner(name: "short-strings",
-                assay: { StringPrefix.diagnose(json: $0).value != nil },
-                foundation: { (try? JSONDecoder().decode(CodableStringPrefix.self, from: $0)) != nil }),
-    ShapeRunner(name: "uuids-and-dates",
-                assay: { StringPrefix.diagnose(json: $0).value != nil },
-                foundation: { (try? JSONDecoder().decode(CodableStringPrefix.self, from: $0)) != nil }),
-    ShapeRunner(name: "mixed",
-                assay: { MixedPrefix.diagnose(json: $0).value != nil },
-                foundation: { (try? JSONDecoder().decode(CodableMixedPrefix.self, from: $0)) != nil }),
-    ShapeRunner(name: "optionals-present",
-                assay: { OptionalPrefix.diagnose(json: $0).value != nil },
-                foundation: { (try? JSONDecoder().decode(CodableOptionalPrefix.self, from: $0)) != nil }),
-    ShapeRunner(name: "scalars",
-                assay: { FloatPrefix.diagnose(json: $0).value != nil },
-                foundation: { (try? JSONDecoder().decode(CodableFloatPrefix.self, from: $0)) != nil }),
-    ShapeRunner(name: "unknown-keys",
-                assay: { MixedPrefix.diagnose(json: $0).value != nil },
-                foundation: { (try? JSONDecoder().decode(CodableMixedPrefix.self, from: $0)) != nil }),
+    ShapeRunner(
+        name: "bigints",
+        assay: { IntPrefix.diagnose(json: $0).value != nil },
+        foundation: { (try? JSONDecoder().decode(CodableIntPrefix.self, from: $0)) != nil }),
+    ShapeRunner(
+        name: "escaped",
+        assay: { StringPrefix.diagnose(json: $0).value != nil },
+        foundation: { (try? JSONDecoder().decode(CodableStringPrefix.self, from: $0)) != nil }),
+    ShapeRunner(
+        name: "long-strings",
+        assay: { StringPrefix.diagnose(json: $0).value != nil },
+        foundation: { (try? JSONDecoder().decode(CodableStringPrefix.self, from: $0)) != nil }),
+    ShapeRunner(
+        name: "short-strings",
+        assay: { StringPrefix.diagnose(json: $0).value != nil },
+        foundation: { (try? JSONDecoder().decode(CodableStringPrefix.self, from: $0)) != nil }),
+    ShapeRunner(
+        name: "uuids-and-dates",
+        assay: { StringPrefix.diagnose(json: $0).value != nil },
+        foundation: { (try? JSONDecoder().decode(CodableStringPrefix.self, from: $0)) != nil }),
+    ShapeRunner(
+        name: "mixed",
+        assay: { MixedPrefix.diagnose(json: $0).value != nil },
+        foundation: { (try? JSONDecoder().decode(CodableMixedPrefix.self, from: $0)) != nil }),
+    ShapeRunner(
+        name: "optionals-present",
+        assay: { OptionalPrefix.diagnose(json: $0).value != nil },
+        foundation: { (try? JSONDecoder().decode(CodableOptionalPrefix.self, from: $0)) != nil }),
+    ShapeRunner(
+        name: "scalars",
+        assay: { FloatPrefix.diagnose(json: $0).value != nil },
+        foundation: { (try? JSONDecoder().decode(CodableFloatPrefix.self, from: $0)) != nil }),
+    ShapeRunner(
+        name: "unknown-keys",
+        assay: { MixedPrefix.diagnose(json: $0).value != nil },
+        foundation: { (try? JSONDecoder().decode(CodableMixedPrefix.self, from: $0)) != nil })
 ]

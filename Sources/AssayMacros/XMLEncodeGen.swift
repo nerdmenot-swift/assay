@@ -33,7 +33,8 @@ extension SchemaMacro {
         var content = ""
 
         for (i, f) in fields.enumerated() {
-            let value = f.transform != nil
+            let value =
+                f.transform != nil
                 ? "Self.__assayInverse_\(i)(self.\(f.identifier))"
                 : "self.\(f.identifier)"
             switch f.xmlPlacement {
@@ -48,54 +49,56 @@ extension SchemaMacro {
 
         if let e = extras {
             content += """
-                    for __x in self.\(e.identifier).sorted(by: { $0.key < $1.key }) {
-                        if Self.__assayDeclaredKeys.contains(__x.key) {
-                            sink.add(Assay.Issue(
-                                code: .extrasKeyCollision,
-                                path: path + [.key(__x.key)],
-                                params: ["key": .string(__x.key)]))
-                            continue
+                        for __x in self.\(e.identifier).sorted(by: { $0.key < $1.key }) {
+                            if Self.__assayDeclaredKeys.contains(__x.key) {
+                                sink.add(Assay.Issue(
+                                    code: .extrasKeyCollision,
+                                    path: path + [.key(__x.key)],
+                                    params: ["key": .string(__x.key)]))
+                                continue
+                            }
+                            Assay._assayEncodeRawXML(__x.value, named: __x.key, into: &w,
+                                                     into: &sink, at: path)
                         }
-                        Assay._assayEncodeRawXML(__x.value, named: __x.key, into: &w,
-                                                 into: &sink, at: path)
-                    }
 
-            """
+                """
         }
 
         return """
-        nonisolated public static var _assayXMLRoot: String { "\(root ?? typeName)" }
+            nonisolated public static var _assayXMLRoot: String { "\(root ?? typeName)" }
 
-        nonisolated public func _assayEncodeXML(
-            into w: inout Assay.XMLWriter,
-            into sink: inout Assay.IssueSink,
-            at path: [Assay.PathStep],
-            element __name: String
-        ) {
-            w.beginElement(__name)
-        \(attrs)\(content)    w.endElement(__name)
-        }
-        """
+            nonisolated public func _assayEncodeXML(
+                into w: inout Assay.XMLWriter,
+                into sink: inout Assay.IssueSink,
+                at path: [Assay.PathStep],
+                element __name: String
+            ) {
+                w.beginElement(__name)
+            \(attrs)\(content)    w.endElement(__name)
+            }
+            """
     }
 
     static func attributeLine(_ f: SchemaField, index i: Int, value: String) -> String {
         let key = f.wireKey
-        let expr = scalarText(f.decodedType, f.isOptional ? "__a\(i)" : value,
-                              key: key, index: i)
+        let expr = scalarText(
+            f.decodedType, f.isOptional ? "__a\(i)" : value,
+            key: key, index: i)
         if f.isOptional {
             // An absent attribute is simply not written — XML has no null, and an empty
             // attribute would decode as the empty string rather than as nil.
             return """
-                    if let __a\(i) = \(value) { w.attribute("\(key)", \(expr)) }
+                        if let __a\(i) = \(value) { w.attribute("\(key)", \(expr)) }
 
-            """
+                """
         }
         return "        w.attribute(\"\(key)\", \(expr))\n"
     }
 
     static func textLine(_ f: SchemaField, index i: Int, value: String) -> String {
-        let expr = scalarText(f.decodedType, f.isOptional ? "__t\(i)" : value,
-                              key: f.wireKey, index: i)
+        let expr = scalarText(
+            f.decodedType, f.isOptional ? "__t\(i)" : value,
+            key: f.wireKey, index: i)
         if f.isOptional {
             return "        if let __t\(i) = \(value) { w.text(\(expr)) }\n"
         }
@@ -107,37 +110,38 @@ extension SchemaMacro {
         let base = f.decodedType
 
         if let element = arrayElement(base) {
-            let inner = elementWrite(element, "__e\(i)", name: "\"\(key)\"",
-                                     key: key, index: i, indent: 12)
+            let inner = elementWrite(
+                element, "__e\(i)", name: "\"\(key)\"",
+                key: key, index: i, indent: 12)
             if f.xmlPlacement == "wrapped" {
                 // The wrapper is always written, even when empty — which is the entire
                 // point of asking for it: `<tags/>` is empty, nothing at all is absent.
                 return """
-                        w.beginElement("\(key)")
+                            w.beginElement("\(key)")
+                            for __e\(i) in \(f.isOptional ? "(\(value) ?? [])" : value) {
+                    \(inner)
+                            }
+                            w.endElement("\(key)")
+
+                    """
+            }
+            return """
                         for __e\(i) in \(f.isOptional ? "(\(value) ?? [])" : value) {
                 \(inner)
                         }
-                        w.endElement("\(key)")
 
                 """
-            }
-            return """
-                    for __e\(i) in \(f.isOptional ? "(\(value) ?? [])" : value) {
-            \(inner)
-                    }
-
-            """
         }
 
         if f.isOptional {
             // Absent writes nothing at all rather than an empty element, so absent and
             // present-but-empty stay distinguishable on the way back in.
             return """
-                    if let __o\(i) = \(value) {
-            \(elementWrite(base, "__o\(i)", name: "\"\(key)\"", key: key, index: i, indent: 12))
-                    }
+                        if let __o\(i) = \(value) {
+                \(elementWrite(base, "__o\(i)", name: "\"\(key)\"", key: key, index: i, indent: 12))
+                        }
 
-            """
+                """
         }
         return elementWrite(base, value, name: "\"\(key)\"", key: key, index: i, indent: 8) + "\n"
     }
@@ -148,47 +152,52 @@ extension SchemaMacro {
     ) -> String {
         let pad = String(repeating: " ", count: indent)
         if isDateType(type) {
-            return "\(pad)w.element(\(name), Assay._assayXMLDate(\(expr).timeIntervalSince1970, Self.__assayDateFormats_\(i)))"
+            return
+                "\(pad)w.element(\(name), Assay._assayXMLDate(\(expr).timeIntervalSince1970, Self.__assayDateFormats_\(i)))"
         }
         if isUUIDType(type) {
             return "\(pad)w.element(\(name), \(expr).uuidString)"
         }
         if let value = dictionaryValue(type) {
             return """
-            \(pad)w.beginElement(\(name))
-            \(pad)for __dk\(i) in \(expr).keys.sorted() {
-            \(elementWrite(value, "\(expr)[__dk\(i)]!", name: "__dk\(i)", key: key, index: i, indent: indent + 4))
-            \(pad)}
-            \(pad)w.endElement(\(name))
-            """
+                \(pad)w.beginElement(\(name))
+                \(pad)for __dk\(i) in \(expr).keys.sorted() {
+                \(elementWrite(value, "\(expr)[__dk\(i)]!", name: "__dk\(i)", key: key, index: i, indent: indent + 4))
+                \(pad)}
+                \(pad)w.endElement(\(name))
+                """
         }
         switch type {
         case "String", "Int", "Int64", "Int32", "UInt", "Bool",
-             "Int8", "Int16", "UInt8", "UInt16", "UInt32", "UInt64":
+            "Int8", "Int16", "UInt8", "UInt16", "UInt32", "UInt64":
             return "\(pad)w.element(\(name), \(expr))"
         case "Double", "Float":
-            return "\(pad)w.element(\(name), w.doubleText(Double(\(expr)), &sink, path, \"\(key)\"))"
+            return
+                "\(pad)w.element(\(name), w.doubleText(Double(\(expr)), &sink, path, \"\(key)\"))"
         case "RawValue", "Assay.RawValue":
-            return "\(pad)Assay._assayEncodeRawXML(\(expr), named: \(name), into: &w, into: &sink, at: path)"
+            return
+                "\(pad)Assay._assayEncodeRawXML(\(expr), named: \(name), into: &w, into: &sink, at: path)"
         default:
-            return "\(pad)\(expr)._assayEncodeXML(into: &w, into: &sink, at: path + [.key(\"\(key)\")], element: \(name))"
+            return
+                "\(pad)\(expr)._assayEncodeXML(into: &w, into: &sink, at: path + [.key(\"\(key)\")], element: \(name))"
         }
     }
 
     /// A scalar rendered as text, for attribute and `.text` placement.
     static func scalarText(_ type: String, _ expr: String, key: String, index i: Int) -> String {
         if isDateType(type) {
-            return "Assay._assayXMLDate(\(expr).timeIntervalSince1970, Self.__assayDateFormats_\(i))"
+            return
+                "Assay._assayXMLDate(\(expr).timeIntervalSince1970, Self.__assayDateFormats_\(i))"
         }
         if isUUIDType(type) {
             return "\(expr).uuidString"
         }
         switch type {
-        case "String":  return expr
-        case "Bool":    return "(\(expr) ? \"true\" : \"false\")"
+        case "String": return expr
+        case "Bool": return "(\(expr) ? \"true\" : \"false\")"
         case "Double", "Float":
             return "w.doubleText(Double(\(expr)), &sink, path, \"\(key)\")"
-        default:        return "String(\(expr))"
+        default: return "String(\(expr))"
         }
     }
 
@@ -202,14 +211,17 @@ extension SchemaMacro {
             switch f.xmlPlacement {
             case "attribute", "text":
                 if isArray || dictionaryValue(base) != nil {
-                    out.append("@XML(.\(f.xmlPlacement!)) applies to scalar fields; "
-                        + "'\(f.identifier)' is declared \(f.typeName), which cannot be "
-                        + "flattened into \(f.xmlPlacement == "attribute" ? "an attribute" : "character data")")
+                    out.append(
+                        "@XML(.\(f.xmlPlacement!)) applies to scalar fields; "
+                            + "'\(f.identifier)' is declared \(f.typeName), which cannot be "
+                            + "flattened into \(f.xmlPlacement == "attribute" ? "an attribute" : "character data")"
+                    )
                 }
             case "wrapped":
                 if !isArray {
-                    out.append("@XML(.wrapped) applies to array fields; "
-                        + "'\(f.identifier)' is declared \(f.typeName)")
+                    out.append(
+                        "@XML(.wrapped) applies to array fields; "
+                            + "'\(f.identifier)' is declared \(f.typeName)")
                 }
             default: break
             }

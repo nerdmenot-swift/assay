@@ -88,8 +88,10 @@ extension AssayerPlan {
         _ limits: Limits, _ depth: Int = 0
     ) -> RawValue? {
         guard depth < limits.maxDepth else {
-            sink.add(Issue(code: .depthExceeded, path: path,
-                           params: ["maxDepth": .int(limits.maxDepth)]))
+            sink.add(
+                Issue(
+                    code: .depthExceeded, path: path,
+                    params: ["maxDepth": .int(limits.maxDepth)]))
             return nil
         }
 
@@ -115,7 +117,7 @@ extension AssayerPlan {
             let d: Double
             switch raw {
             case .double(let x): d = x
-            case .int(let i): d = Double(i)          // an integer is a valid double
+            case .int(let i): d = Double(i)  // an integer is a valid double
             default: return Self.mismatch(&sink, path, "number", raw)
             }
             _assayValidate(d, rules, override: nil, field: "", at: nil, path: path, &sink)

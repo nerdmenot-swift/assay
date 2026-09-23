@@ -27,13 +27,15 @@ private func check(_ s: String, sourceLocation: SourceLocation = #_sourceLocatio
     let mine = assayParse(s)
     let theirs = Double(s)
     guard let m = mine, let t = theirs else {
-        #expect(mine == nil && theirs == nil,
-                "disagreed on whether \"\(s)\" parses", sourceLocation: sourceLocation)
+        #expect(
+            mine == nil && theirs == nil,
+            "disagreed on whether \"\(s)\" parses", sourceLocation: sourceLocation)
         return
     }
-    #expect(m.bitPattern == t.bitPattern,
-            "\"\(s)\": Assay \(m) (0x\(String(m.bitPattern, radix: 16))) != stdlib \(t) (0x\(String(t.bitPattern, radix: 16)))",
-            sourceLocation: sourceLocation)
+    #expect(
+        m.bitPattern == t.bitPattern,
+        "\"\(s)\": Assay \(m) (0x\(String(m.bitPattern, radix: 16))) != stdlib \(t) (0x\(String(t.bitPattern, radix: 16)))",
+        sourceLocation: sourceLocation)
 }
 
 @Suite("Double parsing")
@@ -41,10 +43,12 @@ struct DoubleTests {
 
     @Test("the Clinger fast path is bit-exact against the stdlib")
     func fastPathExact() {
-        for s in ["0", "1", "-1", "3.5", "0.1", "-0.1", "1.5e3", "1e10", "1e22", "1e-22",
-                  "123.456", "-123.456", "0.000001", "9007199254740992",
-                  "1394.97", "-65.613473", "45.283329", "100.0", "0.0", "-0.0",
-                  "2.2250738585072014e-308", "1.7976931348623157e308"] {
+        for s in [
+            "0", "1", "-1", "3.5", "0.1", "-0.1", "1.5e3", "1e10", "1e22", "1e-22",
+            "123.456", "-123.456", "0.000001", "9007199254740992",
+            "1394.97", "-65.613473", "45.283329", "100.0", "0.0", "-0.0",
+            "2.2250738585072014e-308", "1.7976931348623157e308"
+        ] {
             check(s)
         }
     }
@@ -52,14 +56,14 @@ struct DoubleTests {
     @Test("values that must NOT take the fast path still round correctly")
     func slowPathExact() {
         for s in [
-            "1e23",                                  // 10^23 not exactly representable
+            "1e23",  // 10^23 not exactly representable
             "1e-23",
-            "123456789012345678901234567890",        // >19 significant digits
+            "123456789012345678901234567890",  // >19 significant digits
             "0.1000000000000000055511151231257827",  // exactly 0.1's neighbour
-            "5e-324",                                // smallest subnormal
-            "9007199254740993",                      // 2^53 + 1, not representable
-            "1.0000000000000002",                    // 1 + 1ulp
-            "4.9406564584124654e-324",
+            "5e-324",  // smallest subnormal
+            "9007199254740993",  // 2^53 + 1, not representable
+            "1.0000000000000002",  // 1 + 1ulp
+            "4.9406564584124654e-324"
         ] {
             check(s)
         }
@@ -77,12 +81,14 @@ struct DoubleTests {
     // one in the second; so does toml++ on the TOML side. Assay was the outlier.
     @Test("a literal that cannot be represented is refused, not rounded to infinity or zero")
     func outOfRangeRefused() {
-        for s in ["1e309", "-1e309", "1e400", "1.8e308", "1.7976931348623159e308",
-                  "1e-400", "1e-999", "2e-324",
-                  // Exactly half the least subnormal, so it rounds to 0. It lived in
-                  // `slowPathExact` as a "subnormal rounding edge"; it is not an edge of
-                  // the representable range, it is just outside it.
-                  "2.4703282292062327e-324"] {
+        for s in [
+            "1e309", "-1e309", "1e400", "1.8e308", "1.7976931348623159e308",
+            "1e-400", "1e-999", "2e-324",
+            // Exactly half the least subnormal, so it rounds to 0. It lived in
+            // `slowPathExact` as a "subnormal rounding edge"; it is not an edge of
+            // the representable range, it is just outside it.
+            "2.4703282292062327e-324"
+        ] {
             #expect(assayParse(s) == nil, "\"\(s)\" should be refused")
         }
     }
@@ -91,11 +97,13 @@ struct DoubleTests {
     /// would be the same mistake pointing the other way.
     @Test("the representable edges still decode")
     func edgesStillDecode() {
-        for s in ["1.7976931348623157e308",   // greatest finite Double
-                  "5e-324",                   // least positive subnormal
-                  "4.9406564584124654e-324",  // the same value spelled exactly
-                  "2.2250738585072014e-308",  // least positive normal
-                  "0.0", "-0.0", "0e999", "0.0e-400"] {   // honestly zero, at any exponent
+        for s in [
+            "1.7976931348623157e308",  // greatest finite Double
+            "5e-324",  // least positive subnormal
+            "4.9406564584124654e-324",  // the same value spelled exactly
+            "2.2250738585072014e-308",  // least positive normal
+            "0.0", "-0.0", "0e999", "0.0e-400"
+        ] {  // honestly zero, at any exponent
             #expect(assayParse(s) != nil, "\"\(s)\" should decode")
         }
     }
@@ -139,14 +147,14 @@ struct DoubleTests {
         #expect(assayParse("abc") == nil)
         #expect(assayParse(".") == nil)
         #expect(assayParse("-") == nil)
-        #expect(assayParse("1e") == nil)     // exponent marker with no digits
+        #expect(assayParse("1e") == nil)  // exponent marker with no digits
         #expect(assayParse("1e+") == nil)
     }
 
     @Test("integers do not silently truncate through the Double path")
     func integerShaped() {
         // Integer-shaped input takes tier (b); it must still be exact.
-        check("9007199254740992")     // 2^53
+        check("9007199254740992")  // 2^53
         check("123456789")
         check("-987654321")
     }

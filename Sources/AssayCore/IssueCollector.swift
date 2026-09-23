@@ -32,9 +32,10 @@ public struct Issues<Root>: @unchecked Sendable {
     /// Add an issue with a plain message. The message is the code — the one-off custom
     /// check case where forcing an invented code would be obnoxious.
     public mutating func add(_ message: String, at keyPath: PartialKeyPath<Root>? = nil) {
-        collected.append(Issue(
-            code: .custom(message),
-            path: fieldPath(keyPath)))
+        collected.append(
+            Issue(
+                code: .custom(message),
+                path: fieldPath(keyPath)))
     }
 
     /// Add an issue with a machine code, for checks whose failures clients branch on or
@@ -47,10 +48,11 @@ public struct Issues<Root>: @unchecked Sendable {
     ) {
         var params = params
         params["message"] = .string(message)
-        collected.append(Issue(
-            code: .custom(code),
-            path: fieldPath(keyPath),
-            params: params))
+        collected.append(
+            Issue(
+                code: .custom(code),
+                path: fieldPath(keyPath),
+                params: params))
     }
 
     func fieldPath(_ keyPath: PartialKeyPath<Root>?) -> [PathStep] {

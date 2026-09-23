@@ -70,7 +70,8 @@ extension SchemaMacro {
             var wireOverride: String?
             for a in attrs where a.attributeName.trimmedDescription == "Key" {
                 if let args = a.arguments?.as(LabeledExprListSyntax.self),
-                   let lit = args.first?.expression.as(StringLiteralExprSyntax.self) {
+                    let lit = args.first?.expression.as(StringLiteralExprSyntax.self)
+                {
                     wireOverride = lit.segments.description
                 }
             }
@@ -82,45 +83,60 @@ extension SchemaMacro {
                     // The catch-all must carry exactly one String, or it has nowhere to
                     // put the value it exists to preserve.
                     let params = element.parameterClause?.parameters
-                    let ok = params?.count == 1
+                    let ok =
+                        params?.count == 1
                         && params?.first?.type.trimmedDescription == "String"
                     if !ok {
-                        context.diagnose(Diagnostic(node: Syntax(element),
-                            message: SimpleDiagnostic(
-                                "@Unknown case '\(name)' must carry exactly one String — "
-                                + "that is where the unrecognised value is kept")))
+                        context.diagnose(
+                            Diagnostic(
+                                node: Syntax(element),
+                                message: SimpleDiagnostic(
+                                    "@Unknown case '\(name)' must carry exactly one String — "
+                                        + "that is where the unrecognised value is kept")))
                         bad = true
                     }
-                    cases.append(EnumCaseInfo(identifier: name, wireName: name,
-                                              isUnknown: true, roundTrips: roundTrips))
+                    cases.append(
+                        EnumCaseInfo(
+                            identifier: name, wireName: name,
+                            isUnknown: true, roundTrips: roundTrips))
                 } else {
                     if hasPayload {
-                        context.diagnose(Diagnostic(node: Syntax(element),
-                            message: SimpleDiagnostic(
-                                "case '\(name)' has an associated value; only the "
-                                + "@Unknown case may carry one")))
+                        context.diagnose(
+                            Diagnostic(
+                                node: Syntax(element),
+                                message: SimpleDiagnostic(
+                                    "case '\(name)' has an associated value; only the "
+                                        + "@Unknown case may carry one")))
                         bad = true
                     }
-                    cases.append(EnumCaseInfo(
-                        identifier: name,
-                        wireName: wireOverride ?? keyStyle.apply(Self.unbackticked(name)),
-                        isUnknown: false, roundTrips: false))
+                    cases.append(
+                        EnumCaseInfo(
+                            identifier: name,
+                            wireName: wireOverride ?? keyStyle.apply(Self.unbackticked(name)),
+                            isUnknown: false, roundTrips: false))
                 }
             }
         }
 
         let unknowns = cases.filter(\.isUnknown)
         if unknowns.count > 1 {
-            context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
-                "only one @Unknown case is allowed; found \(unknowns.count)")))
+            context.diagnose(
+                Diagnostic(
+                    node: Syntax(node),
+                    message: SimpleDiagnostic(
+                        "only one @Unknown case is allowed; found \(unknowns.count)")))
             bad = true
         }
         if unknowns.isEmpty {
-            context.diagnose(Diagnostic(node: Syntax(node), message: SimpleDiagnostic(
-                "@Schema on an enum is for FORWARD COMPATIBILITY and needs an @Unknown "
-                + "case. A closed enum needs no macro at all — write "
-                + "`enum \(typeName): String, Assay.JSONAssayable { … }`, which already "
-                + "decodes, reports the case list on a bad value, and generates nothing")))
+            context.diagnose(
+                Diagnostic(
+                    node: Syntax(node),
+                    message: SimpleDiagnostic(
+                        "@Schema on an enum is for FORWARD COMPATIBILITY and needs an @Unknown "
+                            + "case. A closed enum needs no macro at all — write "
+                            + "`enum \(typeName): String, Assay.JSONAssayable { … }`, which already "
+                            + "decodes, reports the case list on a bad value, and generates nothing"
+                    )))
             bad = true
         }
         guard !bad, let unknown = unknowns.first else { return [] }
@@ -136,74 +152,75 @@ extension SchemaMacro {
             var checks = ""
             var first = true
             for c in byLength[len]! {
-                checks += "\(first ? "" : " else ")if __s == \"\(c.wireName)\" { return .\(c.identifier) }"
+                checks +=
+                    "\(first ? "" : " else ")if __s == \"\(c.wireName)\" { return .\(c.identifier) }"
                 first = false
             }
             arms += "        case \(len): \(checks)\n"
         }
 
         body += """
-        /// The wire string to a case, with the catch-all keeping anything unrecognised —
-        /// which is the entire point: a v1 client must survive a v2 server.
-        nonisolated public static func _assayFromWire(_ __s: String) -> \(typeName) {
-            switch __s.utf8.count {
-        \(arms)    default: break
+            /// The wire string to a case, with the catch-all keeping anything unrecognised —
+            /// which is the entire point: a v1 client must survive a v2 server.
+            nonisolated public static func _assayFromWire(_ __s: String) -> \(typeName) {
+                switch __s.utf8.count {
+            \(arms)    default: break
+                }
+                return .\(unknown.identifier)(__s)
             }
-            return .\(unknown.identifier)(__s)
-        }
 
-        /// The case back to its wire string. `nil` for an unrecognised value that did not
-        /// opt into round-tripping — see `_assayEncodeWire`.
-        nonisolated public var _assayWire: String {
-            switch self {
-        \(known.map { "        case .\($0.identifier): return \"\($0.wireName)\"" }.joined(separator: "\n"))
-            case .\(unknown.identifier)(let __v): return __v
+            /// The case back to its wire string. `nil` for an unrecognised value that did not
+            /// opt into round-tripping — see `_assayEncodeWire`.
+            nonisolated public var _assayWire: String {
+                switch self {
+            \(known.map { "        case .\($0.identifier): return \"\($0.wireName)\"" }.joined(separator: "\n"))
+                case .\(unknown.identifier)(let __v): return __v
+                }
             }
-        }
 
-        nonisolated public var _assayIsUnknown: Bool {
-            if case .\(unknown.identifier) = self { return true }
-            return false
-        }
+            nonisolated public var _assayIsUnknown: Bool {
+                if case .\(unknown.identifier) = self { return true }
+                return false
+            }
 
 
-        """
+            """
 
         if formats.json {
             body += """
-            nonisolated public static func _assay(
-                from reader: inout Assay.AssayReader,
-                into sink: inout Assay.IssueSink,
-                at path: inout [Assay.PathStep]
-            ) -> \(typeName)? {
-                reader.beginValue()
-                let __start = reader.byteOffset
-                guard let __s = reader.scanString() else {
-                    reader._mismatch(&sink, path, from: __start, expected: "string")
-                    return nil
+                nonisolated public static func _assay(
+                    from reader: inout Assay.AssayReader,
+                    into sink: inout Assay.IssueSink,
+                    at path: inout [Assay.PathStep]
+                ) -> \(typeName)? {
+                    reader.beginValue()
+                    let __start = reader.byteOffset
+                    guard let __s = reader.scanString() else {
+                        reader._mismatch(&sink, path, from: __start, expected: "string")
+                        return nil
+                    }
+                    return _assayFromWire(__s)
                 }
-                return _assayFromWire(__s)
-            }
 
 
-            """
+                """
         }
         if formats.raw {
             body += """
-            nonisolated public static func _assay(
-                from raw: Assay.RawValue,
-                into sink: inout Assay.IssueSink,
-                at path: inout [Assay.PathStep]
-            ) -> \(typeName)? {
-                guard case .string(let __s) = raw else {
-                    Assay.RawValue.mismatchAt(&sink, path, "string", raw)
-                    return nil
+                nonisolated public static func _assay(
+                    from raw: Assay.RawValue,
+                    into sink: inout Assay.IssueSink,
+                    at path: inout [Assay.PathStep]
+                ) -> \(typeName)? {
+                    guard case .string(let __s) = raw else {
+                        Assay.RawValue.mismatchAt(&sink, path, "string", raw)
+                        return nil
+                    }
+                    return _assayFromWire(__s)
                 }
-                return _assayFromWire(__s)
-            }
 
 
-            """
+                """
         }
 
         if wantsEncoding {
@@ -220,44 +237,44 @@ extension SchemaMacro {
             let guardExprValue = guardLines(" .null")
             if formats.json {
                 body += """
-                nonisolated public func _assayEncode(
-                    into w: inout Assay.JSONWriter,
-                    into sink: inout Assay.IssueSink,
-                    at path: inout [Assay.PathStep]
-                ) {
-                \(guardExpr)    w.write(_assayWire)
-                }
+                    nonisolated public func _assayEncode(
+                        into w: inout Assay.JSONWriter,
+                        into sink: inout Assay.IssueSink,
+                        at path: inout [Assay.PathStep]
+                    ) {
+                    \(guardExpr)    w.write(_assayWire)
+                    }
 
 
-                """
+                    """
             }
             if formats.raw {
                 body += """
-                nonisolated public func _assayEncodeRaw(
-                    into sink: inout Assay.IssueSink,
-                    at path: [Assay.PathStep]
-                ) -> Assay.RawValue {
-                \(guardExprValue)    return .string(_assayWire)
-                }
+                    nonisolated public func _assayEncodeRaw(
+                        into sink: inout Assay.IssueSink,
+                        at path: [Assay.PathStep]
+                    ) -> Assay.RawValue {
+                    \(guardExprValue)    return .string(_assayWire)
+                    }
 
 
-                """
+                    """
             }
             if formats.xml {
                 body += """
-                nonisolated public static var _assayXMLRoot: String { "\(typeName)" }
+                    nonisolated public static var _assayXMLRoot: String { "\(typeName)" }
 
-                nonisolated public func _assayEncodeXML(
-                    into w: inout Assay.XMLWriter,
-                    into sink: inout Assay.IssueSink,
-                    at path: [Assay.PathStep],
-                    element __name: String
-                ) {
-                \(guardExpr)    w.element(__name, _assayWire)
-                }
+                    nonisolated public func _assayEncodeXML(
+                        into w: inout Assay.XMLWriter,
+                        into sink: inout Assay.IssueSink,
+                        at path: [Assay.PathStep],
+                        element __name: String
+                    ) {
+                    \(guardExpr)    w.element(__name, _assayWire)
+                    }
 
 
-                """
+                    """
             }
         }
 
@@ -269,7 +286,8 @@ extension SchemaMacro {
         if wantsEncoding && formats.xml { conformances.append("Assay.XMLEncodableSchema") }
 
         let ext = try? ExtensionDeclSyntax(
-            "extension \(raw: typeName): \(raw: conformances.joined(separator: ", "))") {
+            "extension \(raw: typeName): \(raw: conformances.joined(separator: ", "))"
+        ) {
             DeclSyntax(stringLiteral: body)
         }
         return ext.map { [$0] } ?? []

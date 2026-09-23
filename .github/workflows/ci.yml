@@ -194,19 +194,27 @@ jobs:
   # minimum of three builds rather than a single one. CI enforces only the hardware-independent
   # `schema / codable` ratio, and that is precisely the reading sampling helps most — it went
   # from the noisiest number here to stable within 1%. Roughly 10 minutes against a 60 minute
-  # The mechanical checks: licence headers, tabs, trailing whitespace, final newlines, and
-  # no `.unsafeFlags`. Seconds, no toolchain needed beyond a shell.
+  # Formatting, and the mechanical checks the formatter does not make.
   #
-  # This is where a `swift-format` gate would go, and the decision not to have one is
-  # recorded in `Scripts/soundness.sh` with the measurement behind it: the formatter reports
-  # 3,081 warnings on this tree, 2,648 of them one disagreement about wrapped argument lists.
+  # `swift-format lint --strict` against `.swift-format`, which the whole tree was
+  # reformatted to on 2026-09-23. One file is exempt with `// swift-format-ignore-file` and
+  # says why in its header. `soundness.sh` covers what formatting cannot: licence headers,
+  # tabs, final newlines, `.unsafeFlags`.
   soundness:
-    timeout-minutes: 10
-    name: Soundness
+    timeout-minutes: 15
+    name: Format and soundness
     runs-on: ubuntu-latest
+    container: swift:6.3.3
     steps:
       - uses: actions/checkout@v4
-      - run: bash Scripts/soundness.sh
+      - name: Mechanical checks
+        run: bash Scripts/soundness.sh
+      # `--strict` makes a warning an error. Without it, a lint finding is advice nobody
+      # reads in a passing job.
+      - name: swift-format lint
+        run: |
+          swift-format lint --strict --recursive --configuration .swift-format \
+            Sources Tests Benchmarks/Sources Scripts Package.swift
 
   # Zero warnings, and it is a gate. Until 2026-09-10 the library built with 56 warnings
   # (49 of them StrictMemorySafety), which made `.strictMemorySafety()` decorative: the next

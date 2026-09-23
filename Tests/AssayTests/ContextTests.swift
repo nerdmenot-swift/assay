@@ -41,8 +41,10 @@ struct Invitation: Equatable {
     var role: String
 
     @Check
-    static func roleIsAllowed(_ i: Invitation, _ ctx: TenantContext,
-                              _ issues: inout Issues<Invitation>) {
+    static func roleIsAllowed(
+        _ i: Invitation, _ ctx: TenantContext,
+        _ issues: inout Issues<Invitation>
+    ) {
         if !ctx.availableRoles.contains(i.role) {
             issues.add("is not available on your plan", at: \.role)
         }
@@ -75,8 +77,10 @@ struct Assignment: Equatable {
     var role: String
 
     @Check
-    static func known(_ a: Assignment, _ ctx: TenantContext,
-                      _ issues: inout Issues<Assignment>) {
+    static func known(
+        _ a: Assignment, _ ctx: TenantContext,
+        _ issues: inout Issues<Assignment>
+    ) {
         if !ctx.availableRoles.contains(a.role) { issues.add("unknown role", at: \.role) }
     }
 }
@@ -106,12 +110,14 @@ struct ContextTests {
 
     @Test("a context reaches a cross-field check")
     func reachesTheCheck() throws {
-        let ok = try Invitation.parse(json: #"{"email":"a@b.com","role":"admin"}"#,
-                                      context: Self.ctx)
+        let ok = try Invitation.parse(
+            json: #"{"email":"a@b.com","role":"admin"}"#,
+            context: Self.ctx)
         #expect(ok.role == "admin")
 
-        let bad = Invitation.diagnose(json: #"{"email":"a@b.com","role":"owner"}"#,
-                                      context: Self.ctx)
+        let bad = Invitation.diagnose(
+            json: #"{"email":"a@b.com","role":"owner"}"#,
+            context: Self.ctx)
         #expect(!bad.isValid)
         #expect(bad.issues.first?.path.description.contains("role") == true)
         #expect(bad.issues.first?.message.contains("not available") == true)
@@ -149,8 +155,9 @@ struct ContextTests {
     /// never run.
     @Test("a nested contextual type receives the context")
     func nestedContextualTypeReceivesTheContext() {
-        let d = Grant.diagnose(json: #"{"user":"ada","assignment":{"role":"ghost"}}"#,
-                               context: Self.ctx)
+        let d = Grant.diagnose(
+            json: #"{"user":"ada","assignment":{"role":"ghost"}}"#,
+            context: Self.ctx)
         #expect(!d.isValid, "the nested check did not run — the context was dropped")
         #expect(d.issues.first?.message.contains("unknown role") == true)
         #expect(d.issues.first?.path.description.contains("assignment") == true)
@@ -163,14 +170,16 @@ struct ContextTests {
             context: Self.ctx)
         #expect(!d.isValid)
         #expect(d.issues.contains { $0.path.description.contains("assignments") })
-        #expect(d.issues.contains { $0.path.description.contains("1") },
-                "the bad element is at index 1: \(d.issues.map(\.path.description))")
+        #expect(
+            d.issues.contains { $0.path.description.contains("1") },
+            "the bad element is at index 1: \(d.issues.map(\.path.description))")
     }
 
     @Test("the field form of @Check takes the context too")
     func fieldFormCheck() {
-        let d = Roster.diagnose(json: #"{"name":"admin","assignments":[]}"#,
-                                context: Self.ctx)
+        let d = Roster.diagnose(
+            json: #"{"name":"admin","assignments":[]}"#,
+            context: Self.ctx)
         #expect(!d.isValid)
         #expect(d.issues.first?.message.contains("collides") == true)
     }
@@ -178,8 +187,9 @@ struct ContextTests {
     /// `docs/VALIDATE.md`'s law, restated for contextual types.
     @Test("validate takes the context, and agrees with parse")
     func validateTakesTheContextToo() throws {
-        let v = try Invitation.parse(json: #"{"email":"a@b.com","role":"admin"}"#,
-                                     context: Self.ctx)
+        let v = try Invitation.parse(
+            json: #"{"email":"a@b.com","role":"admin"}"#,
+            context: Self.ctx)
         #expect(throws: Never.self) { try Invitation.validate(v, context: Self.ctx) }
 
         // A value the context rejects — constructed directly, which is the seam
@@ -193,8 +203,11 @@ struct ContextTests {
     func otherFormats() throws {
         let y = try Invitation.parse(yaml: "email: a@b.com\nrole: admin\n", context: Self.ctx)
         #expect(y.role == "admin")
-        #expect(!Invitation.diagnose(yaml: "email: a@b.com\nrole: ghost\n",
-                                     context: Self.ctx).isValid)
+        #expect(
+            !Invitation.diagnose(
+                yaml: "email: a@b.com\nrole: ghost\n",
+                context: Self.ctx
+            ).isValid)
 
         let x = try Invitation.parse(
             xml: "<invitation><email>a@b.com</email><role>admin</role></invitation>",
@@ -220,8 +233,9 @@ struct ContextTests {
             context: Self.ctx)
         #expect(s.seatCount == 1, "snake_case key mapping still applies")
 
-        let d = Seat.diagnose(json: #"{"owner":"ada","membership":{"team":"core"}}"#,
-                              context: Self.ctx)
+        let d = Seat.diagnose(
+            json: #"{"owner":"ada","membership":{"team":"core"}}"#,
+            context: Self.ctx)
         #expect(!d.isValid, "a missing required field is still missing")
     }
 }
@@ -241,8 +255,10 @@ struct Registration: Equatable {
     var email: String
 
     @AsyncCheck
-    static func emailIsFree(_ r: Registration, _ ctx: DirectoryContext,
-                            _ issues: inout Issues<Registration>) async {
+    static func emailIsFree(
+        _ r: Registration, _ ctx: DirectoryContext,
+        _ issues: inout Issues<Registration>
+    ) async {
         if ctx.taken.contains(r.email) { issues.add("is already registered", at: \.email) }
     }
 }

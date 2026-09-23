@@ -50,55 +50,64 @@ struct YAMLEncodingTests {
     @Test("round-trip: parse -> encode -> parse is identity")
     func roundTrip() throws {
         let yaml = """
-        name: hello
-        count: 42
-        ratio: 0.25
-        active: true
-        note: something
-        tags:
-          - a
-          - b
-        counts:
-          x: 1
-          y: 2
-        nested:
-          id: n
-          amount: 1.5
-        items:
-          - id: i1
-            amount: 2.5
-          - id: i2
-            amount: -3
-        """
+            name: hello
+            count: 42
+            ratio: 0.25
+            active: true
+            note: something
+            tags:
+              - a
+              - b
+            counts:
+              x: 1
+              y: 2
+            nested:
+              id: n
+              amount: 1.5
+            items:
+              - id: i1
+                amount: 2.5
+              - id: i2
+                amount: -3
+            """
         let original = try YEnc.parse(yaml: yaml)
         let encoded = try Array(original.encodedYAML())
         let again = try YEnc.parse(yaml: encoded)
-        #expect(again == original, "round-trip must be identity; got:\n\(String(decoding: encoded, as: UTF8.self))")
+        #expect(
+            again == original,
+            "round-trip must be identity; got:\n\(String(decoding: encoded, as: UTF8.self))")
     }
 
     /// The heart of it. Every one of these strings, written bare, reads back as a
     /// different type — so every one must come out quoted.
-    @Test("strings that look like other types survive", arguments: [
-        "123", "-7", "0", "3.14", "1e3", "0x1F", "0o17",
-        "true", "True", "TRUE", "false", "False",
-        "null", "Null", "NULL", "~", "",
-        ".inf", "-.inf", ".nan",
-        "yes", "no", "on", "off", "NO", "Y",
-        "2026-08-09", "1.2.3", "01234",
-    ])
+    @Test(
+        "strings that look like other types survive",
+        arguments: [
+            "123", "-7", "0", "3.14", "1e3", "0x1F", "0o17",
+            "true", "True", "TRUE", "false", "False",
+            "null", "Null", "NULL", "~", "",
+            ".inf", "-.inf", ".nan",
+            "yes", "no", "on", "off", "NO", "Y",
+            "2026-08-09", "1.2.3", "01234"
+        ])
     func scalarsSurvive(_ s: String) throws {
         let v = YScalar(s: s)
         let text = try v.yamlText()
         let again = try YScalar.parse(yaml: text)
-        #expect(again.s == s, "\"\(s)\" encoded as `\(text.trimmingCharacters(in: .whitespacesAndNewlines))` and came back as \"\(again.s)\"")
+        #expect(
+            again.s == s,
+            "\"\(s)\" encoded as `\(text.trimmingCharacters(in: .whitespacesAndNewlines))` and came back as \"\(again.s)\""
+        )
     }
 
-    @Test("structural and whitespace hazards survive", arguments: [
-        "a: b", "- item", "# comment", "key:", "[1,2]", "{a: 1}", "*alias", "&anchor",
-        "|literal", ">folded", "%directive", "@at", "`tick", "!tag", "?question",
-        " leading", "trailing ", "  ", "line\nbreak", "tab\there", "quote\"inside",
-        "back\\slash", "'single'", "---", "...", "a #comment", "café", "😀",
-    ])
+    @Test(
+        "structural and whitespace hazards survive",
+        arguments: [
+            "a: b", "- item", "# comment", "key:", "[1,2]", "{a: 1}", "*alias", "&anchor",
+            "|literal", ">folded", "%directive", "@at", "`tick", "!tag", "?question",
+            " leading", "trailing ", "  ", "line\nbreak", "tab\there", "quote\"inside",
+            "back\\slash", "'single'", "---", "...", "a #comment", "café", "😀"
+        ])
     func hazardsSurvive(_ s: String) throws {
         let v = YScalar(s: s)
         let text = try v.yamlText()
@@ -108,17 +117,19 @@ struct YAMLEncodingTests {
 
     @Test("keys are quoted when they need to be")
     func keyQuoting() throws {
-        let v = YEnc(name: "n", count: 0, ratio: 0, active: false, note: nil,
-                     tags: [], counts: ["true": 1, "123": 2, "a: b": 3, "ok": 4],
-                     nested: YEncInner(id: "i", amount: 0), items: [])
+        let v = YEnc(
+            name: "n", count: 0, ratio: 0, active: false, note: nil,
+            tags: [], counts: ["true": 1, "123": 2, "a: b": 3, "ok": 4],
+            nested: YEncInner(id: "i", amount: 0), items: [])
         let again = try YEnc.parse(yaml: Array(v.encodedYAML()))
         #expect(again.counts == v.counts, "dangerous keys must survive")
     }
 
     @Test("empty collections use flow style, since block has no spelling for them")
     func emptyCollections() throws {
-        let v = YEnc(name: "n", count: 0, ratio: 0, active: false, note: nil,
-                     tags: [], counts: [:], nested: YEncInner(id: "i", amount: 0), items: [])
+        let v = YEnc(
+            name: "n", count: 0, ratio: 0, active: false, note: nil,
+            tags: [], counts: [:], nested: YEncInner(id: "i", amount: 0), items: [])
         let text = try v.yamlText()
         #expect(text.contains("tags: []"))
         #expect(text.contains("counts: {}"))
@@ -141,25 +152,28 @@ struct YAMLEncodingTests {
 
     @Test("encoding is stable — twice gives identical bytes")
     func stable() throws {
-        let v = YEnc(name: "n", count: 1, ratio: 2, active: true, note: "x",
-                     tags: ["b", "a"], counts: ["z": 1, "a": 2],
-                     nested: YEncInner(id: "i", amount: 3), items: [])
+        let v = YEnc(
+            name: "n", count: 1, ratio: 2, active: true, note: "x",
+            tags: ["b", "a"], counts: ["z": 1, "a": 2],
+            nested: YEncInner(id: "i", amount: 3), items: [])
         #expect(try Array(v.encodedYAML()) == Array(v.encodedYAML()))
     }
 
     @Test("optionals write null and round-trip to nil")
     func optionals() throws {
-        let v = YEnc(name: "n", count: 0, ratio: 0, active: false, note: nil,
-                     tags: [], counts: [:], nested: YEncInner(id: "i", amount: 0), items: [])
+        let v = YEnc(
+            name: "n", count: 0, ratio: 0, active: false, note: nil,
+            tags: [], counts: [:], nested: YEncInner(id: "i", amount: 0), items: [])
         #expect(try v.yamlText().contains("note: null"))
         #expect(try YEnc.parse(yaml: Array(v.encodedYAML())) == v)
     }
 
     @Test("the output is block style — the reason to choose YAML at all")
     func blockStyle() throws {
-        let v = YEnc(name: "n", count: 1, ratio: 0, active: true, note: nil,
-                     tags: ["a", "b"], counts: ["k": 1],
-                     nested: YEncInner(id: "i", amount: 0), items: [])
+        let v = YEnc(
+            name: "n", count: 1, ratio: 0, active: true, note: nil,
+            tags: ["a", "b"], counts: ["k": 1],
+            nested: YEncInner(id: "i", amount: 0), items: [])
         let text = try v.yamlText()
         #expect(text.contains("tags:\n  - a\n  - b"), "got:\n\(text)")
         #expect(text.contains("nested:\n  id: i"), "got:\n\(text)")

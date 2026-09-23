@@ -42,8 +42,10 @@ public struct Limits: Sendable, Equatable {
     /// summary's one-branch guess is not enough.
     public var verboseUnions: Bool
 
-    public init(maxIssues: Int = 100, maxDepth: Int = 64, maxBytes: Int = 64 << 20,
-                maxUnionAttempts: Int = 10_000, verboseUnions: Bool = false) {
+    public init(
+        maxIssues: Int = 100, maxDepth: Int = 64, maxBytes: Int = 64 << 20,
+        maxUnionAttempts: Int = 10_000, verboseUnions: Bool = false
+    ) {
         self.maxIssues = maxIssues
         self.maxDepth = maxDepth
         self.maxBytes = maxBytes

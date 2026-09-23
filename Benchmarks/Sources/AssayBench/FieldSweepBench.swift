@@ -386,7 +386,7 @@ func fieldSweepTable() -> [(count: Int, decode: ([UInt8]) -> Int?)] {
         (24, { b in (try? DF24.parse(json: b)).map { $0.items.count } }),
         (32, { b in (try? DF32.parse(json: b)).map { $0.items.count } }),
         (48, { b in (try? DF48.parse(json: b)).map { $0.items.count } }),
-        (64, { b in (try? DF64.parse(json: b)).map { $0.items.count } }),
+        (64, { b in (try? DF64.parse(json: b)).map { $0.items.count } })
     ]
 }
 
@@ -395,8 +395,10 @@ func fieldSweepDocument(_ count: Int, elements: Int) -> [UInt8] {
     var keys: [String] = []
     for i in 0..<count { keys.append("\"k" + (i < 10 ? "0" : "") + String(i) + "\":\"v\"") }
     let element = "{" + keys.joined(separator: ",") + "}"
-    return Array(("{\"items\":[" + Array(repeating: element, count: elements)
-        .joined(separator: ",") + "]}").utf8)
+    return Array(
+        ("{\"items\":["
+            + Array(repeating: element, count: elements)
+            .joined(separator: ",") + "]}").utf8)
 }
 
 //===----------------------------------------------------------------------===//
@@ -408,7 +410,14 @@ func fieldSweepDocument(_ count: Int, elements: Int) -> [UInt8] {
 // was sized against. The global window gives out on this list at 13 fields.
 //===----------------------------------------------------------------------===//
 
-let realisticSweepKeys: [String] = ["id", "name", "email", "created_at", "updated_at", "status", "type", "description", "url", "avatar_url", "user_id", "owner_id", "title", "body", "tags", "count", "score", "is_active", "is_admin", "locale", "timezone", "phone", "address", "city", "country", "zip", "latitude", "longitude", "verified", "role", "team_id", "org_id", "parent_id", "slug", "version", "deleted_at", "expires_at", "last_login", "first_name", "last_name", "display_name", "bio", "website", "company", "department", "manager_id", "hire_date", "salary"]
+let realisticSweepKeys: [String] = [
+    "id", "name", "email", "created_at", "updated_at", "status", "type", "description", "url",
+    "avatar_url", "user_id", "owner_id", "title", "body", "tags", "count", "score", "is_active",
+    "is_admin", "locale", "timezone", "phone", "address", "city", "country", "zip", "latitude",
+    "longitude", "verified", "role", "team_id", "org_id", "parent_id", "slug", "version",
+    "deleted_at", "expires_at", "last_login", "first_name", "last_name", "display_name", "bio",
+    "website", "company", "department", "manager_id", "hire_date", "salary"
+]
 
 @Schema struct R12: Equatable {
     var id: String
@@ -586,16 +595,20 @@ func realisticSweepTable() -> [(count: Int, decode: ([UInt8]) -> Int?)] {
         (16, { b in (try? DR16.parse(json: b)).map { $0.items.count } }),
         (24, { b in (try? DR24.parse(json: b)).map { $0.items.count } }),
         (32, { b in (try? DR32.parse(json: b)).map { $0.items.count } }),
-        (48, { b in (try? DR48.parse(json: b)).map { $0.items.count } }),
+        (48, { b in (try? DR48.parse(json: b)).map { $0.items.count } })
     ]
 }
 
 /// `{"items":[{"id":"v","name":"v",...}, ...]}` with the first `count` realistic keys.
 func realisticSweepDocument(_ count: Int, elements: Int) -> [UInt8] {
-    let element = "{" + realisticSweepKeys.prefix(count).map { "\"" + $0 + "\":\"v\"" }
+    let element =
+        "{"
+        + realisticSweepKeys.prefix(count).map { "\"" + $0 + "\":\"v\"" }
         .joined(separator: ",") + "}"
-    return Array(("{\"items\":[" + Array(repeating: element, count: elements)
-        .joined(separator: ",") + "]}").utf8)
+    return Array(
+        ("{\"items\":["
+            + Array(repeating: element, count: elements)
+            .joined(separator: ",") + "]}").utf8)
 }
 
 func runFieldSweepBenchmarks() -> Bool {
@@ -605,8 +618,9 @@ func runFieldSweepBenchmarks() -> Bool {
     print("Key width (3 bytes) and value width (1 byte) are held constant, so ns/field is")
     print("the cost of FINDING a field. Experiment #1 predicts a balanced search tree below")
     print("10 fields and a real arm64 jump table at 10 and above.")
-    print(pad("fields", 8, right: true) + pad("bytes", 9) + pad("ns/elem", 11)
-          + pad("ns/field", 11) + pad("MB/s", 9) + "   lowering")
+    print(
+        pad("fields", 8, right: true) + pad("bytes", 9) + pad("ns/elem", 11)
+            + pad("ns/field", 11) + pad("MB/s", 9) + "   lowering")
     print(String(repeating: "-", count: 62))
 
     var ok = true
@@ -620,18 +634,20 @@ func runFieldSweepBenchmarks() -> Bool {
         let ns = measure(iterations: iters) { _ = decode(bytes) }
         let perElement = ns / Double(elements)
         perField.append((count, perElement / Double(count)))
-        print(pad(String(count), 8, right: true)
-              + pad(String(bytes.count), 9)
-              + pad(fmt(perElement, 1), 11)
-              + pad(fmt(perElement / Double(count), 2), 11)
-              + pad(fmt((Double(bytes.count) / 1e6) / (ns / 1e9), 0), 9)
-              + "   " + (count >= 10 ? "jump table" : "search tree"))
+        print(
+            pad(String(count), 8, right: true)
+                + pad(String(bytes.count), 9)
+                + pad(fmt(perElement, 1), 11)
+                + pad(fmt(perElement / Double(count), 2), 11)
+                + pad(fmt((Double(bytes.count) / 1e6) / (ns / 1e9), 0), 9)
+                + "   " + (count >= 10 ? "jump table" : "search tree"))
     }
 
     print("")
     print("Realistic names (lengths 2-12). The global window gives out at 13 fields here.")
-    print(pad("fields", 8, right: true) + pad("bytes", 9) + pad("ns/elem", 11)
-          + pad("ns/field", 11) + pad("MB/s", 9))
+    print(
+        pad("fields", 8, right: true) + pad("bytes", 9) + pad("ns/elem", 11)
+            + pad("ns/field", 11) + pad("MB/s", 9))
     print(String(repeating: "-", count: 48))
     for (count, decode) in realisticSweepTable() {
         let bytes = realisticSweepDocument(count, elements: elements)
@@ -641,19 +657,22 @@ func runFieldSweepBenchmarks() -> Bool {
         let iters = max(50, 4_000_000 / bytes.count)
         let ns = measure(iterations: iters) { _ = decode(bytes) }
         let perElement = ns / Double(elements)
-        print(pad(String(count), 8, right: true)
-              + pad(String(bytes.count), 9)
-              + pad(fmt(perElement, 1), 11)
-              + pad(fmt(perElement / Double(count), 2), 11)
-              + pad(fmt((Double(bytes.count) / 1e6) / (ns / 1e9), 0), 9))
+        print(
+            pad(String(count), 8, right: true)
+                + pad(String(bytes.count), 9)
+                + pad(fmt(perElement, 1), 11)
+                + pad(fmt(perElement / Double(count), 2), 11)
+                + pad(fmt((Double(bytes.count) / 1e6) / (ns / 1e9), 0), 9))
     }
 
     // The prediction under test, stated as a comparison rather than left to the reader.
     if let below = perField.first(where: { $0.0 == 9 })?.1,
-       let above = perField.first(where: { $0.0 == 10 })?.1 {
+        let above = perField.first(where: { $0.0 == 10 })?.1
+    {
         print("")
-        print("9 fields " + fmt(below, 2) + " ns/field -> 10 fields " + fmt(above, 2)
-              + " ns/field: " + fmt((above - below) / below * 100, 0) + "%")
+        print(
+            "9 fields " + fmt(below, 2) + " ns/field -> 10 fields " + fmt(above, 2)
+                + " ns/field: " + fmt((above - below) / below * 100, 0) + "%")
         print("Experiment #1's threshold lies between those two rows.")
     }
     return ok

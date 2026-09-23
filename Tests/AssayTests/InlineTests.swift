@@ -49,8 +49,9 @@ struct InlineTests {
 
     @Test("the nested type's keys are read from this level")
     func flattens() throws {
-        let r = try Response.parse(json: Array(
-            #"{"page":2,"per_page":50,"items":["a","b"]}"#.utf8))
+        let r = try Response.parse(
+            json: Array(
+                #"{"page":2,"per_page":50,"items":["a","b"]}"#.utf8))
         #expect(r.pagination.page == 2)
         #expect(r.pagination.perPage == 50)
         #expect(r.items == ["a", "b"])
@@ -73,8 +74,9 @@ struct InlineTests {
         _ = try Response.parse(json: Array(#"{"page":1,"per_page":10,"items":[]}"#.utf8))
 
         // A genuinely unknown key is still rejected.
-        let d = Response.diagnose(json: Array(
-            #"{"page":1,"per_page":10,"items":[],"nope":1}"#.utf8))
+        let d = Response.diagnose(
+            json: Array(
+                #"{"page":1,"per_page":10,"items":[],"nope":1}"#.utf8))
         #expect(!d.isValid)
         #expect(d.issues.contains { $0.code == .unknownKey })
     }
@@ -83,7 +85,7 @@ struct InlineTests {
     /// that is the whole point, and a missing key is where a difference would show.
     @Test("an inlined type decodes identically to the flat equivalent")
     func identicalToFlat() {
-        let json = Array(#"{"page":1,"items":[]}"#.utf8)     // per_page missing
+        let json = Array(#"{"page":1,"items":[]}"#.utf8)  // per_page missing
         let inlined = Response.diagnose(json: json)
         let flat = FlatResponse.diagnose(json: json)
         #expect(inlined.isValid == flat.isValid)
@@ -103,37 +105,41 @@ struct InlineTests {
     /// at expansion rather than becoming a last-writer-wins surprise at runtime.
     @Test("a key collision is a compile-time error")
     func collisionIsCompileTimeError() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema struct S {
-            struct Inner { var page: Int }
-            @Inline var inner: Inner
-            var page: Int
-        }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S {
+                struct Inner { var page: Int }
+                @Inline var inner: Inner
+                var page: Int
+            }
+            """)
         #expect(!diags.isEmpty, "a duplicate key must be diagnosed")
     }
 
     @Test("a non-nested type is refused, and the message says why")
     func nonNestedRefused() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema struct S { @Inline var p: Elsewhere; var x: Int }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S { @Inline var p: Elsewhere; var x: Int }
+            """)
         #expect(diags.contains { $0.contains("declared inside") }, "got \(diags)")
-        #expect(diags.contains { $0.contains("cannot see another type's members") },
-                "the message should say WHY, not just what: \(diags)")
+        #expect(
+            diags.contains { $0.contains("cannot see another type's members") },
+            "the message should say WHY, not just what: \(diags)")
     }
 
     /// `all absent` and `some absent` are indistinguishable when the keys live at this
     /// level, so there is no honest answer for which one means nil.
     @Test("an optional inline is refused")
     func optionalRefused() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema struct S {
-            struct Inner { var a: Int }
-            @Inline var inner: Inner?
-            var x: Int
-        }
-        """)
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S {
+                struct Inner { var a: Int }
+                @Inline var inner: Inner?
+                var x: Int
+            }
+            """)
         #expect(diags.contains { $0.contains("cannot be optional") }, "got \(diags)")
     }
 }

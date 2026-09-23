@@ -22,10 +22,12 @@ struct ConcDoc {
 struct ConcurrencyStress {
     @Test("the same schema decoded from many tasks at once")
     func parallelDecode() async {
-        let good = Array(#"{"name":"a","count":5,"kind":"x","tags":["p","q"],"meta":{"m":1},"score":3,"extra":9}"#.utf8)
-        let bad  = Array(#"{"name":"","count":9999,"type":"y","score":"nope","zz":1}"#.utf8)
+        let good = Array(
+            #"{"name":"a","count":5,"kind":"x","tags":["p","q"],"meta":{"m":1},"score":3,"extra":9}"#
+                .utf8)
+        let bad = Array(#"{"name":"","count":9999,"type":"y","score":"nope","zz":1}"#.utf8)
         let yaml = "name: a\ncount: 5\nkind: x\n"
-        let xml  = "<r><name>a</name><count>5</count><kind>x</kind></r>"
+        let xml = "<r><name>a</name><count>5</count><kind>x</kind></r>"
 
         await withTaskGroup(of: Bool.self) { group in
             for i in 0..<400 {
@@ -92,8 +94,9 @@ struct ConcurrencyStress {
                     // Half match, half do not, so both branches of the matcher run
                     // concurrently against the same shared program.
                     let v = i % 2 == 0 ? "abc123" : "!!!"
-                    _assayValidate(v, Self.sharedRules, override: nil,
-                                   field: "s", at: nil, path: [], &sink)
+                    _assayValidate(
+                        v, Self.sharedRules, override: nil,
+                        field: "s", at: nil, path: [], &sink)
                     return sink.issues.count
                 }
             }

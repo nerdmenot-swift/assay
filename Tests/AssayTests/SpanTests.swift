@@ -46,18 +46,20 @@ private func underlined(_ d: Diagnosis<Deploy>, _ source: String) -> String? {
 @Suite("YAML carets")
 struct YAMLSpanTests {
 
-    @Test("a rule violation underlines the value, and nothing else", arguments: [
-        "name: api\nreplica_count: 0\nimage: web:1.4\n",
-        // A trailing comment is not part of the value.
-        "name: api\nreplica_count: 0   # why though\nimage: web:1.4\n",
-        // Nor are blank lines or a comment on the following line.
-        "name: api\nreplica_count: 0\n\n\nimage: web:1.4\n",
-        "name: api\nreplica_count: 0\n# a note\nimage: web:1.4\n",
-        // Nor the absence of a trailing newline.
-        "name: api\nimage: web:1.4\nreplica_count: 0",
-        // Flow style ends at the `,` rather than a newline.
-        "{name: api, replica_count: 0, image: web:1.4}\n",
-    ])
+    @Test(
+        "a rule violation underlines the value, and nothing else",
+        arguments: [
+            "name: api\nreplica_count: 0\nimage: web:1.4\n",
+            // A trailing comment is not part of the value.
+            "name: api\nreplica_count: 0   # why though\nimage: web:1.4\n",
+            // Nor are blank lines or a comment on the following line.
+            "name: api\nreplica_count: 0\n\n\nimage: web:1.4\n",
+            "name: api\nreplica_count: 0\n# a note\nimage: web:1.4\n",
+            // Nor the absence of a trailing newline.
+            "name: api\nimage: web:1.4\nreplica_count: 0",
+            // Flow style ends at the `,` rather than a newline.
+            "{name: api, replica_count: 0, image: web:1.4}\n"
+        ])
     func ruleViolationUnderlinesTheValue(_ yaml: String) {
         let d = Deploy.diagnose(yaml: yaml)
         #expect(!d.isValid)
@@ -111,7 +113,8 @@ struct XMLSpanTests {
 
     @Test("element text is underlined, not the markup around it")
     func elementText() {
-        let xml = "<deploy><name>api</name><replica_count>0</replica_count>"
+        let xml =
+            "<deploy><name>api</name><replica_count>0</replica_count>"
             + "<image>web:1.4</image></deploy>"
         let d = Deploy.diagnose(xml: xml)
         #expect(underlined(d, xml) == "0")
@@ -119,7 +122,8 @@ struct XMLSpanTests {
 
     @Test("a type mismatch underlines the whole text run")
     func typeMismatch() {
-        let xml = "<deploy><name>api</name><replica_count>nope</replica_count>"
+        let xml =
+            "<deploy><name>api</name><replica_count>nope</replica_count>"
             + "<image>web:1.4</image></deploy>"
         let d = Deploy.diagnose(xml: xml)
         #expect(underlined(d, xml) == "nope")
@@ -128,12 +132,12 @@ struct XMLSpanTests {
     @Test("text spanning lines keeps its own extent")
     func multiline() {
         let xml = """
-        <deploy>
-          <name>api</name>
-          <replica_count>0</replica_count>
-          <image>web:1.4</image>
-        </deploy>
-        """
+            <deploy>
+              <name>api</name>
+              <replica_count>0</replica_count>
+              <image>web:1.4</image>
+            </deploy>
+            """
         let d = Deploy.diagnose(xml: xml)
         #expect(underlined(d, xml) == "0")
     }
@@ -159,8 +163,9 @@ struct XMLAttributeSpanTests {
             Issue.record("no span on an attribute issue"); return
         }
         let bytes = Array(xml.utf8)
-        let text = String(decoding: Array(bytes[Int(span.lo)..<Int(span.lo) + Int(span.len)]),
-                          as: UTF8.self)
+        let text = String(
+            decoding: Array(bytes[Int(span.lo)..<Int(span.lo) + Int(span.len)]),
+            as: UTF8.self)
         #expect(text == "x")
     }
 
@@ -172,8 +177,9 @@ struct XMLAttributeSpanTests {
             Issue.record("no span"); return
         }
         let bytes = Array(xml.utf8)
-        let text = String(decoding: Array(bytes[Int(span.lo)..<Int(span.lo) + Int(span.len)]),
-                          as: UTF8.self)
+        let text = String(
+            decoding: Array(bytes[Int(span.lo)..<Int(span.lo) + Int(span.len)]),
+            as: UTF8.self)
         #expect(text == "99")
     }
 }

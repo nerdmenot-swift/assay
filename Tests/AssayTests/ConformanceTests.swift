@@ -38,7 +38,8 @@ private func accepts(_ doc: String) -> Bool {
 private func number(_ literal: String) -> JSON.Value? {
     var sink = IssueSink()
     guard let v = JSON.Value.decode(Array("[\(literal)]".utf8), into: &sink), sink.isValid,
-          case .array(let items) = v else { return nil }
+        case .array(let items) = v
+    else { return nil }
     return items.first
 }
 
@@ -47,12 +48,16 @@ struct StringConformanceTests {
 
     /// The single most common laxity in a hand-written JSON parser, and one comparison to
     /// refuse. A raw newline inside a string means the document is not JSON.
-    @Test("a raw control character below 0x20 is refused", arguments: [
-        "\u{00}", "\u{01}", "\u{08}", "\u{09}", "\u{0A}", "\u{0B}", "\u{0C}", "\u{0D}",
-        "\u{1E}", "\u{1F}",
-    ])
+    @Test(
+        "a raw control character below 0x20 is refused",
+        arguments: [
+            "\u{00}", "\u{01}", "\u{08}", "\u{09}", "\u{0A}", "\u{0B}", "\u{0C}", "\u{0D}",
+            "\u{1E}", "\u{1F}"
+        ])
     func rawControlsRefused(_ c: String) {
-        #expect(!accepts("[\"a\(c)b\"]"), "raw U+\(String(c.unicodeScalars.first!.value, radix: 16)) must be escaped")
+        #expect(
+            !accepts("[\"a\(c)b\"]"),
+            "raw U+\(String(c.unicodeScalars.first!.value, radix: 16)) must be escaped")
         #expect(!accepts("{\"a\(c)b\": 1}"), "and in a key too")
     }
 
@@ -98,21 +103,25 @@ struct NumberConformanceTests {
     }
 
     /// `frac = "." 1*DIGIT` and the integer part is mandatory.
-    @Test("a missing integer part or missing fraction digits is refused",
-          arguments: [".5", "-.5", "1.", "-1.", "1.e5", "1.E5", "."])
+    @Test(
+        "a missing integer part or missing fraction digits is refused",
+        arguments: [".5", "-.5", "1.", "-1.", "1.e5", "1.E5", "."])
     func fractionGrammar(_ literal: String) {
         #expect(!accepts("[\(literal)]"))
     }
 
-    @Test("exponent must carry at least one digit",
-          arguments: ["1e", "1E", "1e+", "1e-", "1e2e3", "-", "+1"])
+    @Test(
+        "exponent must carry at least one digit",
+        arguments: ["1e", "1E", "1e+", "1e-", "1e2e3", "-", "+1"])
     func exponentGrammar(_ literal: String) {
         #expect(!accepts("[\(literal)]"))
     }
 
-    @Test("what is not JSON at all", arguments: [
-        "0x1", "0o7", "Infinity", "-Infinity", "NaN", "1abc", "1_000",
-    ])
+    @Test(
+        "what is not JSON at all",
+        arguments: [
+            "0x1", "0o7", "Infinity", "-Infinity", "NaN", "1abc", "1_000"
+        ])
     func notNumbers(_ literal: String) {
         #expect(!accepts("[\(literal)]"))
     }
@@ -132,7 +141,7 @@ struct OverflowRewindTests {
             ("9223372036854775808", 9.223372036854776e18),
             ("-9223372036854775809", -9.223372036854776e18),
             ("18446744073709551616", 1.8446744073709552e19),
-            ("1234567890123456789012345678901234567890", 1.2345678901234568e39),
+            ("1234567890123456789012345678901234567890", 1.2345678901234568e39)
         ]
         for (literal, expected) in cases {
             let v = try #require(number(literal), "\(literal) must decode")
@@ -149,8 +158,10 @@ struct OverflowRewindTests {
 
     @Test("the Int64 boundary itself still decodes as an integer")
     func boundary() throws {
-        for (literal, expected) in [("9223372036854775807", Int64.max),
-                                    ("-9223372036854775808", Int64.min)] {
+        for (literal, expected) in [
+            ("9223372036854775807", Int64.max),
+            ("-9223372036854775808", Int64.min)
+        ] {
             let v = try #require(number(literal))
             guard case .int(let i) = v else {
                 Issue.record("\(literal) decoded as \(v), expected an int")
@@ -182,23 +193,29 @@ struct SkipContractTests {
     /// Pinned as a DECISION, not an accident. The skip validates a value's extent and not
     /// its contents, which is what makes the prefix path fast; the cost is that
     /// `T.parse(json:)` is not a whole-document validator. `JSON.Value.parse` is.
-    @Test("a skipped value's contents are not validated", arguments: [
-        "01", ".5", "1.", "1e", "NaN", "'x'", "undefined",
-    ])
+    @Test(
+        "a skipped value's contents are not validated",
+        arguments: [
+            "01", ".5", "1.", "1e", "NaN", "'x'", "undefined"
+        ])
     func skippedContentsAreNotChecked(_ bad: String) {
         let doc = "{\"known\": 1, \"unknown\": \(bad)}"
-        #expect(Skipper.diagnose(json: doc).isValid,
-                "the schema path skips this value without reading it")
-        #expect(!accepts(doc),
-                "and JSON.Value, which reads everything, refuses it")
+        #expect(
+            Skipper.diagnose(json: doc).isValid,
+            "the schema path skips this value without reading it")
+        #expect(
+            !accepts(doc),
+            "and JSON.Value, which reads everything, refuses it")
     }
 
     /// The extent IS checked, which is what keeps the document structurally sound.
-    @Test("a skipped value's extent is validated", arguments: [
-        "{\"known\": 1, \"unknown\": [1, 2",
-        "{\"known\": 1, \"unknown\": \"unterminated}",
-        "{\"known\": 1, \"unknown\": {\"a\": }",
-    ])
+    @Test(
+        "a skipped value's extent is validated",
+        arguments: [
+            "{\"known\": 1, \"unknown\": [1, 2",
+            "{\"known\": 1, \"unknown\": \"unterminated}",
+            "{\"known\": 1, \"unknown\": {\"a\": }"
+        ])
     func extentIsChecked(_ doc: String) {
         #expect(!Skipper.diagnose(json: doc).isValid)
     }

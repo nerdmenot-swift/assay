@@ -74,15 +74,17 @@ private func _assayWithData<T>(
             // pin moves.
             return unsafe withUnsafeTemporaryAllocation(of: UInt8.self, capacity: 1) { tmp in
                 let value = unsafe body(tmp.baseAddress!, 0, &sink)
-                return Diagnosis(sink: sink, value: value,
-                                 source: unsafe _assaySource(sink, tmp.baseAddress!, 0),
-                                 sourceName: sourceName)
+                return Diagnosis(
+                    sink: sink, value: value,
+                    source: unsafe _assaySource(sink, tmp.baseAddress!, 0),
+                    sourceName: sourceName)
             }
         }
         let value = unsafe body(base, raw.count, &sink)
-        return Diagnosis(sink: sink, value: value,
-                         source: unsafe _assaySource(sink, base, raw.count),
-                         sourceName: sourceName)
+        return Diagnosis(
+            sink: sink, value: value,
+            source: unsafe _assaySource(sink, base, raw.count),
+            sourceName: sourceName)
     }
 }
 
@@ -147,9 +149,10 @@ extension JSONAssayable where Self: AsyncCheckAssayable {
         // An async check failed, so there IS something to render now — and the sync pass,
         // having been clean, kept no bytes. Copy them here, where the cost is paid by a
         // failure rather than by every request.
-        return Diagnosis(value: nil, issues: d.issues + asyncIssues, warnings: d.warnings,
-                         truncatedIssues: d.truncatedIssues,
-                         source: SourceBytes(Array(data)), sourceName: sourceName)
+        return Diagnosis(
+            value: nil, issues: d.issues + asyncIssues, warnings: d.warnings,
+            truncatedIssues: d.truncatedIssues,
+            source: SourceBytes(Array(data)), sourceName: sourceName)
     }
 
     public static func parse(
@@ -172,8 +175,9 @@ extension ContextualJSONAssayable {
         sourceName: String = "<input>"
     ) -> Diagnosis<Self> {
         unsafe _assayWithData(data, limits: limits, sourceName: sourceName) { base, count, sink in
-            unsafe Self._decode(base: base, count: count, into: &sink,
-                                limits: limits, context: context)
+            unsafe Self._decode(
+                base: base, count: count, into: &sink,
+                limits: limits, context: context)
         }
     }
 
@@ -183,8 +187,10 @@ extension ContextualJSONAssayable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) throws -> Self {
-        try diagnose(json: data, context: context,
-                     limits: limits, sourceName: sourceName).get()
+        try diagnose(
+            json: data, context: context,
+            limits: limits, sourceName: sourceName
+        ).get()
     }
 }
 
@@ -203,19 +209,21 @@ extension Assayer {
             unsafe JSON.Value._decode(base: base, count: count, into: &sink, limits: limits)
         }
         guard let tree = d.value, d.isValid else {
-            return Diagnosis(value: nil, issues: d.issues, warnings: d.warnings,
-                             truncatedIssues: d.truncatedIssues,
-                             source: d.source, sourceName: sourceName)
+            return Diagnosis(
+                value: nil, issues: d.issues, warnings: d.warnings,
+                truncatedIssues: d.truncatedIssues,
+                source: d.source, sourceName: sourceName)
         }
         let inner = diagnose(RawValue(tree), limits: limits, sourceName: sourceName)
-        return Diagnosis(value: inner.value, issues: d.issues + inner.issues,
-                         warnings: d.warnings + inner.warnings,
-                         truncatedIssues: inner.truncatedIssues,
-                         // The plan's own issues carry spans into this document, so they
-                         // need the bytes even though the scan itself was clean.
-                         source: inner.isValid && inner.warnings.isEmpty
-                             ? d.source : SourceBytes(Array(data)),
-                         sourceName: sourceName)
+        return Diagnosis(
+            value: inner.value, issues: d.issues + inner.issues,
+            warnings: d.warnings + inner.warnings,
+            truncatedIssues: inner.truncatedIssues,
+            // The plan's own issues carry spans into this document, so they
+            // need the bytes even though the scan itself was clean.
+            source: inner.isValid && inner.warnings.isEmpty
+                ? d.source : SourceBytes(Array(data)),
+            sourceName: sourceName)
     }
 
     public func parse(
@@ -266,14 +274,17 @@ extension RawDecodable {
         limits: Limits = .default,
         sourceName: String = "<body>"
     ) -> Diagnosis<Self> {
-        if case .failure(let why) = _assayNegotiate(contentType: contentType,
-                                                    accepting: accepting) {
+        if case .failure(let why) = _assayNegotiate(
+            contentType: contentType,
+            accepting: accepting)
+        {
             var sink = IssueSink(limits: limits)
             sink.add(why.issue)
             return Diagnosis(sink: sink, value: nil, source: .empty, sourceName: sourceName)
         }
-        return diagnose(body: Array(data), contentType: contentType, accepting: accepting,
-                        limits: limits, sourceName: sourceName)
+        return diagnose(
+            body: Array(data), contentType: contentType, accepting: accepting,
+            limits: limits, sourceName: sourceName)
     }
 
     public static func parse(
@@ -283,8 +294,10 @@ extension RawDecodable {
         limits: Limits = .default,
         sourceName: String = "<body>"
     ) throws -> Self {
-        try diagnose(body: data, contentType: contentType, accepting: accepting,
-                     limits: limits, sourceName: sourceName).get()
+        try diagnose(
+            body: data, contentType: contentType, accepting: accepting,
+            limits: limits, sourceName: sourceName
+        ).get()
     }
 }
 
@@ -312,8 +325,9 @@ extension RawDecodable where Self: JSONAssayable {
         case .success(let format) where format.name == "json":
             return diagnose(json: data, limits: limits, sourceName: sourceName)
         case .success:
-            return diagnose(body: Array(data), contentType: contentType,
-                            accepting: accepting, limits: limits, sourceName: sourceName)
+            return diagnose(
+                body: Array(data), contentType: contentType,
+                accepting: accepting, limits: limits, sourceName: sourceName)
         }
     }
 
@@ -324,8 +338,10 @@ extension RawDecodable where Self: JSONAssayable {
         limits: Limits = .default,
         sourceName: String = "<body>"
     ) throws -> Self {
-        try diagnose(body: data, contentType: contentType, accepting: accepting,
-                     limits: limits, sourceName: sourceName).get()
+        try diagnose(
+            body: data, contentType: contentType, accepting: accepting,
+            limits: limits, sourceName: sourceName
+        ).get()
     }
 }
 
@@ -339,17 +355,29 @@ extension RawDecodable where Self: JSONAssayable {
 // type that HAS the projection resolves to them; these catch everything else.
 extension Assayable {
 
-    @available(*, unavailable, message: "content negotiation chooses a parser at run time, so this door needs the RawValue projection even for `accepting: [.json]`. Add a non-JSON format to its @Schema — `formats: .all` is the usual answer.")
-    public static func parse(body data: Data, contentType: String?,
-                             accepting: [WireFormat], limits: Limits = .default,
-                             sourceName: String = "<body>") throws -> Self {
+    @available(
+        *, unavailable,
+        message:
+            "content negotiation chooses a parser at run time, so this door needs the RawValue projection even for `accepting: [.json]`. Add a non-JSON format to its @Schema — `formats: .all` is the usual answer."
+    )
+    public static func parse(
+        body data: Data, contentType: String?,
+        accepting: [WireFormat], limits: Limits = .default,
+        sourceName: String = "<body>"
+    ) throws -> Self {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "content negotiation chooses a parser at run time, so this door needs the RawValue projection even for `accepting: [.json]`. Add a non-JSON format to its @Schema — `formats: .all` is the usual answer.")
-    public static func diagnose(body data: Data, contentType: String?,
-                                accepting: [WireFormat], limits: Limits = .default,
-                                sourceName: String = "<body>") -> Diagnosis<Self> {
+    @available(
+        *, unavailable,
+        message:
+            "content negotiation chooses a parser at run time, so this door needs the RawValue projection even for `accepting: [.json]`. Add a non-JSON format to its @Schema — `formats: .all` is the usual answer."
+    )
+    public static func diagnose(
+        body data: Data, contentType: String?,
+        accepting: [WireFormat], limits: Limits = .default,
+        sourceName: String = "<body>"
+    ) -> Diagnosis<Self> {
         fatalError("unavailable")
     }
 }

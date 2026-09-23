@@ -109,9 +109,10 @@ func runZippyBenchmarks() {
     print("Foundation decoder; this is the same comparison on this one, against the")
     print("swift-foundation rewrite. A ratio belongs to the harness that produced it.")
     print("")
-    print(pad("items", 8, right: true) + pad("bytes", 9) + pad("Foundation", 12)
-          + pad("Zippy", 10) + pad("Assay", 10)
-          + pad("Zippy/F", 10) + pad("Assay/F", 10) + pad("Assay/Z", 10))
+    print(
+        pad("items", 8, right: true) + pad("bytes", 9) + pad("Foundation", 12)
+            + pad("Zippy", 10) + pad("Assay", 10)
+            + pad("Zippy/F", 10) + pad("Assay/F", 10) + pad("Assay/Z", 10))
     print(String(repeating: "-", count: 79))
 
     let item = #"""
@@ -137,14 +138,16 @@ func runZippyBenchmarks() {
 
         // All three must agree before any of them is timed.
         guard let mine = try? ZPayload.parse(json: bytes),
-              let f = try? foundationDecoder.decode(CodableZPayload.self, from: data),
-              let z = try? zippyDecoder.decode(CodableZPayload.self, from: data),
-              mine.items.count == f.items.count, f.items.count == z.items.count,
-              mine.items.first?.name == z.items.first?.name,
-              mine.items.first?.amount == z.items.first?.amount,
-              mine.items.first?.retryCount == z.items.first?.retryCount else {
-            print(pad("\(count)", 8, right: true)
-                  + "  SKIPPED — the three decoders do not agree, so no ratio is meaningful")
+            let f = try? foundationDecoder.decode(CodableZPayload.self, from: data),
+            let z = try? zippyDecoder.decode(CodableZPayload.self, from: data),
+            mine.items.count == f.items.count, f.items.count == z.items.count,
+            mine.items.first?.name == z.items.first?.name,
+            mine.items.first?.amount == z.items.first?.amount,
+            mine.items.first?.retryCount == z.items.first?.retryCount
+        else {
+            print(
+                pad("\(count)", 8, right: true)
+                    + "  SKIPPED — the three decoders do not agree, so no ratio is meaningful")
             continue
         }
 
@@ -157,14 +160,15 @@ func runZippyBenchmarks() {
         }
         let aNs = measure(iterations: reps) { _ = try? ZPayload.parse(json: bytes) }
 
-        print(pad("\(count)", 8, right: true)
-              + pad("\(bytes.count)", 9)
-              + pad(String(format: "%.0f", fNs), 12)
-              + pad(String(format: "%.0f", zNs), 10)
-              + pad(String(format: "%.0f", aNs), 10)
-              + pad(String(format: "%.2fx", fNs / zNs), 10)
-              + pad(String(format: "%.2fx", fNs / aNs), 10)
-              + pad(String(format: "%.2fx", zNs / aNs), 10))
+        print(
+            pad("\(count)", 8, right: true)
+                + pad("\(bytes.count)", 9)
+                + pad(String(format: "%.0f", fNs), 12)
+                + pad(String(format: "%.0f", zNs), 10)
+                + pad(String(format: "%.0f", aNs), 10)
+                + pad(String(format: "%.2fx", fNs / zNs), 10)
+                + pad(String(format: "%.2fx", fNs / aNs), 10)
+                + pad(String(format: "%.2fx", zNs / aNs), 10))
     }
 
     print("")

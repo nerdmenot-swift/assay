@@ -24,9 +24,11 @@ struct KeyAliasTests {
 
     @Test("JSON")
     func json() throws {
-        let v = try Spaced.parse(json: #"{"first name":"Ada","e-mail":"a@x.io","ünïcödé key":3,"count (items)":2}"#)
+        let v = try Spaced.parse(
+            json: #"{"first name":"Ada","e-mail":"a@x.io","ünïcödé key":3,"count (items)":2}"#)
         #expect(v == Spaced(firstName: "Ada", email: "a@x.io", unicode: 3, count: 2))
-        let d = Spaced.diagnose(json: #"{"first name":"Ada","email address":"a@x.io","ünïcödé key":3}"#)
+        let d = Spaced.diagnose(
+            json: #"{"first name":"Ada","email address":"a@x.io","ünïcödé key":3}"#)
         #expect(d.value?.email == "a@x.io")
         #expect(d.isValid)
         #expect(d.warnings.map(\.code.codeString) == ["alias_matched"], "\(d.warnings)")
@@ -38,7 +40,8 @@ struct KeyAliasTests {
     func yamlAndToml() throws {
         let y = try Spaced.parse(yaml: "\"first name\": Ada\nE-Mail: a@x.io\n\"ünïcödé key\": 3\n")
         #expect(y.email == "a@x.io")
-        let t = Spaced.diagnose(toml: "\"first name\" = \"Ada\"\n\"email address\" = \"a@x.io\"\n\"ünïcödé key\" = 3\n")
+        let t = Spaced.diagnose(
+            toml: "\"first name\" = \"Ada\"\n\"email address\" = \"a@x.io\"\n\"ünïcödé key\" = 3\n")
         #expect(t.value?.email == "a@x.io")
         #expect(t.warnings.map(\.code.codeString) == ["alias_matched"])
     }
@@ -48,7 +51,9 @@ struct KeyAliasTests {
         let v = Spaced(firstName: "Ada", email: "a@x.io", unicode: 3, count: 1)
         #expect(try v.jsonText().contains(#""first name":"Ada""#))
         #expect(try v.tomlText().contains(#""first name" = "Ada""#))
-        #expect(try v.tomlText().contains(#"e-mail = "a@x.io""#), "a bare key: `-` is a bare-key character")
+        #expect(
+            try v.tomlText().contains(#"e-mail = "a@x.io""#),
+            "a bare key: `-` is a bare-key character")
         #expect(try Spaced.parse(toml: try v.tomlText()) == v)
         #expect(try Spaced.parse(json: try Array(v.encodedJSON())) == v)
     }

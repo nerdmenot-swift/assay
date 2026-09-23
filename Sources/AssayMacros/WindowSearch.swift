@@ -145,7 +145,8 @@ enum WindowSearch {
     static func bucketSearch(_ keys: [String]) -> BucketPlan? {
         let bytes = keys.map { Array($0.utf8) }
         guard bytes.count > 1, let len = bytes.first?.count,
-              bytes.allSatisfy({ $0.count == len }) else { return nil }
+            bytes.allSatisfy({ $0.count == len })
+        else { return nil }
 
         var best: (maxGroup: Int, cost: Int, offset: Int, shift: UInt8)?
         for offset in 0...len {

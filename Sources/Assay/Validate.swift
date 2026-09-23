@@ -102,8 +102,9 @@ public struct Validation: Sendable {
     /// Paths and messages, in the same styles the decode paths render. No carets: see this
     /// file's header.
     public func render(_ style: RenderStyle) -> String {
-        Renderer.render(issues: issues, warnings: warnings,
-                        source: SourceBytes([]), sourceName: "<value>", style: style)
+        Renderer.render(
+            issues: issues, warnings: warnings,
+            source: SourceBytes([]), sourceName: "<value>", style: style)
     }
 }
 
@@ -146,8 +147,9 @@ extension Validatable {
     ) -> Validation {
         var sink = IssueSink(limits: limits)
         Self._assayCheck(value, into: &sink, at: path)
-        return Validation(issues: sink.issues, warnings: sink.warnings,
-                          truncatedIssues: sink.truncatedIssues)
+        return Validation(
+            issues: sink.issues, warnings: sink.warnings,
+            truncatedIssues: sink.truncatedIssues)
     }
 
     /// Run the schema's rules against one value, throwing every issue at once.
@@ -185,8 +187,9 @@ extension Validatable {
             path[0] = .index(i)
             Self._assayCheck(v, into: &sink, at: path)
         }
-        return Validation(issues: sink.issues, warnings: sink.warnings,
-                          truncatedIssues: sink.truncatedIssues)
+        return Validation(
+            issues: sink.issues, warnings: sink.warnings,
+            truncatedIssues: sink.truncatedIssues)
     }
 
     /// Run the schema's rules over a batch, throwing if any element failed.

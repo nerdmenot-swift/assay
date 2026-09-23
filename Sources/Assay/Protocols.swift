@@ -13,7 +13,6 @@
 
 public import AssayCore
 
-
 /// The capability. A marker protocol refining `Sendable`, which costs *exactly* zero at
 /// runtime — no witness table, no calling-convention change, no generic requirement
 /// recorded — and buys two things:
@@ -33,7 +32,6 @@ public protocol JSONEncodableSchema: Assayable {
     )
 }
 
-
 /// A type that can project itself into `RawValue` — the seam every non-JSON encoder
 /// writes through, emitted by `@Schema(encodes: true)` when `formats:` includes a
 /// RawValue-based format.
@@ -47,7 +45,6 @@ public protocol RawEncodableSchema: Assayable {
         at path: [PathStep]
     ) -> RawValue
 }
-
 
 /// A type that can write itself as XML — emitted by `@Schema(encodes: true)` when
 /// `formats:` includes `.xml`.
@@ -66,7 +63,6 @@ public protocol XMLRooted {
     nonisolated static var _assayXMLExpectedRoot: String? { get }
 }
 
-
 public protocol XMLEncodableSchema: Assayable {
     nonisolated func _assayEncodeXML(
         into w: inout XMLWriter,
@@ -77,7 +73,6 @@ public protocol XMLEncodableSchema: Assayable {
     /// The default root element name — the type's own name.
     nonisolated static var _assayXMLRoot: String { get }
 }
-
 
 /// The root of the contextual protocols, declaring `AssayContext` exactly once.
 ///
@@ -92,7 +87,6 @@ public protocol ContextualAssayable: Assayable {
     /// overload's documentation for why not even `Sendable`.
     associatedtype AssayContext
 }
-
 
 /// A type whose decode and checks need something from outside — a database handle, a
 /// feature flag, the current tenant. `EXPERIENCE.md` §10, `@Schema(context: AppContext.self)`.
@@ -124,7 +118,6 @@ public protocol ContextualJSONAssayable: ContextualAssayable {
     ) -> Self?
 }
 
-
 /// The `RawValue` counterpart, so a contextual type decodes from YAML and XML too.
 public protocol ContextualRawDecodable: ContextualAssayable {
     nonisolated static func _assay(
@@ -134,7 +127,6 @@ public protocol ContextualRawDecodable: ContextualAssayable {
         context: AssayContext
     ) -> Self?
 }
-
 
 // A CONTEXTUAL TYPE CONTAINING A PLAIN NESTED ONE.
 //
@@ -163,7 +155,6 @@ extension JSONAssayable {
     }
 }
 
-
 extension RawDecodable {
     @inlinable
     public nonisolated static func _assay<C>(
@@ -173,7 +164,6 @@ extension RawDecodable {
         _assay(from: raw, into: &sink, at: &path)
     }
 }
-
 
 /// A type with a JSON decode body — emitted when `@Schema(formats:)` includes `.json`,
 /// which is the default.
@@ -197,18 +187,17 @@ public protocol JSONAssayable: Assayable {
     ) -> Self?
 }
 
-
 /// Conformance generated when a schema declares any `@AsyncCheck`.
 public protocol AsyncCheckAssayable: Assayable {
     static func _assayAsyncChecks(_ value: Self, at path: [PathStep]) async -> [Issue]
 }
 
-
 /// The contextual counterpart. `@AsyncCheck`'s own motivating example in `EXPERIENCE.md`
 /// §10 — `await ctx.users.exists(email:)` — cannot be written without this.
 public protocol ContextualAsyncCheckAssayable: ContextualAssayable {
     static func _assayAsyncChecks(
-        _ value: Self, at path: [PathStep], context: AssayContext) async -> [Issue]
+        _ value: Self, at path: [PathStep], context: AssayContext
+    ) async -> [Issue]
 }
 
 // MARK: - The nominal-type assertion

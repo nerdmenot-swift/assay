@@ -42,15 +42,16 @@ extension SchemaMacro {
 
         var prefix = ""
         if emitKnownKeys, policy == "warn" || policy == "reject" {
-            let names = (fields.filter { $0.pathSegments == nil }
-                               .flatMap { [$0.wireKey] + $0.aliases }
-                         + groups.map(\.segment))
+            let names =
+                (fields.filter { $0.pathSegments == nil }
+                .flatMap { [$0.wireKey] + $0.aliases }
+                + groups.map(\.segment))
                 .map { "\"\($0)\"" }.joined(separator: ", ")
             prefix = """
-            nonisolated static let __assayKnownKeys: [String] = [\(names)]
+                nonisolated static let __assayKnownKeys: [String] = [\(names)]
 
 
-            """
+                """
         }
 
         var locals = ""
@@ -73,7 +74,8 @@ extension SchemaMacro {
             }
         }
         if let e = extras {
-            locals += "    \(policy == "collect" ? "var" : "let") __extras: \(stripOptional(e.typeName)) = [:]\n"
+            locals +=
+                "    \(policy == "collect" ? "var" : "let") __extras: \(stripOptional(e.typeName)) = [:]\n"
         }
 
         // Bucket by key length, then compare within the bucket.
@@ -98,32 +100,35 @@ extension SchemaMacro {
                 checks += "\(first ? "" : " else ")if __k == \"\(key)\" {\n"
                 checks += "                    __presence |= \(presenceBit(i))\n"
                 if key != f.wireKey, !key.isEmpty {
-                    checks += "                    Assay._assayAliasMatched(&sink, path, \"\(f.wireKey)\", \"\(key)\")\n"
+                    checks +=
+                        "                    Assay._assayAliasMatched(&sink, path, \"\(f.wireKey)\", \"\(key)\")\n"
                 }
                 if rawNeedsSpan(f) {
                     checks += "                    __sp\(i) = __m.span\n"
                 }
-                checks += "                    \(rawDecodeStatement(field: f, index: i, ctx: ctx))\n"
+                checks +=
+                    "                    \(rawDecodeStatement(field: f, index: i, ctx: ctx))\n"
                 checks += "                }"
                 first = false
             }
-            checks += " else {\n                    \(rawUnknownArm(policy: policy, extras: extras, segments: groups.map(\.segment)))\n                }"
+            checks +=
+                " else {\n                    \(rawUnknownArm(policy: policy, extras: extras, segments: groups.map(\.segment)))\n                }"
             arms += """
-                        case \(len):
-                            \(checks)
+                            case \(len):
+                                \(checks)
 
-            """
+                """
         }
 
         var missing = ""
         for (i, f) in fields.enumerated()
         where f.pathSegments == nil && (requiredMask & (1 << UInt64(i))) != 0 {
             missing += """
-                    if __presence & \(presenceBit(i)) == 0 {
-                        Assay.RawValue._missing(&sink, path, "\(f.wireKey)")
-                    }
+                        if __presence & \(presenceBit(i)) == 0 {
+                            Assay.RawValue._missing(&sink, path, "\(f.wireKey)")
+                        }
 
-            """
+                """
         }
         missing = rawPathPresence(groups, fields: fields, indent: 8) + missing
 
@@ -135,41 +140,42 @@ extension SchemaMacro {
             unwraps += "        guard let __v\(i) = __f\(i) else { return nil }\n"
         }
 
-        let requires = ctx.isEmpty
+        let requires =
+            ctx.isEmpty
             ? nestedNominalTypes(fields).map { "    Assay._assayRequireRaw(\($0).self)\n" }.joined()
             : ""
         return prefix + """
-        nonisolated public static func _assay(
-            from raw: Assay.RawValue,
-            into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathStep]\(ctxParam)
-        ) -> \(typeName)? {
-        \(requires)    guard case .mapping(let __members) = raw else {
-                Assay.RawValue._notAnObject(&sink, path, raw)
-                return nil
-            }
-            // See the note in the JSON body: local validity, not global.
-            let __ck0 = sink.checkpoint()
-
-        \(locals)    var __presence: UInt64 = 0\(groups.isEmpty ? "" : "\n    var __gpresence: UInt64 = 0")
-
-        \(rawPathDescent(groups, fields: fields, ctx: ctx))    for __m in __members {
-                let __k = __m.key
-                let __v = __m.value
-                switch __k.utf8.count {
-        \(arms)            default:
-                    \(rawUnknownArm(policy: policy, extras: extras, segments: groups.map(\.segment)))
+            nonisolated public static func _assay(
+                from raw: Assay.RawValue,
+                into sink: inout Assay.IssueSink,
+                at path: inout [Assay.PathStep]\(ctxParam)
+            ) -> \(typeName)? {
+            \(requires)    guard case .mapping(let __members) = raw else {
+                    Assay.RawValue._notAnObject(&sink, path, raw)
+                    return nil
                 }
-            }
+                // See the note in the JSON body: local validity, not global.
+                let __ck0 = sink.checkpoint()
 
-        \(missing)
-        \(validation)
-        \(unwraps)    let __result = \(typeName)(\(args.joined(separator: ", ")))
-        \(checks)
-            guard sink.checkpoint() == __ck0 else { return nil }
-            return __result
-        }
-        """
+            \(locals)    var __presence: UInt64 = 0\(groups.isEmpty ? "" : "\n    var __gpresence: UInt64 = 0")
+
+            \(rawPathDescent(groups, fields: fields, ctx: ctx))    for __m in __members {
+                    let __k = __m.key
+                    let __v = __m.value
+                    switch __k.utf8.count {
+            \(arms)            default:
+                        \(rawUnknownArm(policy: policy, extras: extras, segments: groups.map(\.segment)))
+                    }
+                }
+
+            \(missing)
+            \(validation)
+            \(unwraps)    let __result = \(typeName)(\(args.joined(separator: ", ")))
+            \(checks)
+                guard sink.checkpoint() == __ck0 else { return nil }
+                return __result
+            }
+            """
     }
 
     /// `segments` are the first components of every `@Key(path:)` group. A key the
@@ -178,8 +184,10 @@ extension SchemaMacro {
     /// the unknown handler sees it. This body descends into paths separately, so without
     /// this the same document put `profile` into `@Extras` on YAML/XML/TOML and not on
     /// JSON. Found 2026-09-11 by showing the same example in TOML.
-    static func rawUnknownArm(policy: String, extras: SchemaField?,
-                              segments: [String] = []) -> String {
+    static func rawUnknownArm(
+        policy: String, extras: SchemaField?,
+        segments: [String] = []
+    ) -> String {
         switch policy {
         case "collect":
             guard let e = extras else { return "break" }
@@ -191,17 +199,21 @@ extension SchemaMacro {
             let list = segments.map { "\"\($0)\"" }.joined(separator: ", ")
             return "if ![\(list)].contains(__k) { __extras[__k] = __v }"
         case "warn":
-            return "Assay.RawValue._unknownKey(&sink, path, __k, known: Self.__assayKnownKeys, reject: false, span: __m.span)"
+            return
+                "Assay.RawValue._unknownKey(&sink, path, __k, known: Self.__assayKnownKeys, reject: false, span: __m.span)"
         case "reject":
-            return "Assay.RawValue._unknownKey(&sink, path, __k, known: Self.__assayKnownKeys, reject: true, span: __m.span)"
+            return
+                "Assay.RawValue._unknownKey(&sink, path, __k, known: Self.__assayKnownKeys, reject: true, span: __m.span)"
         default:
             return "break"
         }
     }
 
     /// One line per field, mirroring the JSON body's discipline.
-    static func rawDecodeStatement(field f: SchemaField, index i: Int,
-                                   ctx: String = "") -> String {
+    static func rawDecodeStatement(
+        field f: SchemaField, index i: Int,
+        ctx: String = ""
+    ) -> String {
         let ctxArg = ctx.isEmpty ? "" : ", context: context"
         let base = f.decodedType
         let key = f.wireKey
@@ -214,25 +226,27 @@ extension SchemaMacro {
             let wrap = ".map { \(base)(timeIntervalSince1970: $0) }"
             if f.fallback != nil {
                 return """
-                let __fck\(i) = sink.checkpoint()
-                                if !__v.isNull { __f\(i) = __v._assayDate(&sink, path, "\(key)", \(formats))\(wrap) }
-                                if __f\(i) == nil { sink.rollback(to: __fck\(i)) }
-                """
+                    let __fck\(i) = sink.checkpoint()
+                                    if !__v.isNull { __f\(i) = __v._assayDate(&sink, path, "\(key)", \(formats))\(wrap) }
+                                    if __f\(i) == nil { sink.rollback(to: __fck\(i)) }
+                    """
             }
             if f.isOptional {
-                return "if !__v.isNull { __f\(i) = __v._assayDate(&sink, path, \"\(key)\", \(formats))\(wrap) }"
+                return
+                    "if !__v.isNull { __f\(i) = __v._assayDate(&sink, path, \"\(key)\", \(formats))\(wrap) }"
             }
             return "__f\(i) = __v._assayDate(&sink, path, \"\(key)\", \(formats))\(wrap)"
         }
 
         let spanRef = rawNeedsSpan(f) ? "__sp\(i)" : nil
         if f.fallback != nil,
-           let call = rawScalarCall(base, key: key, coerce: f.coerce, span: spanRef) {
+            let call = rawScalarCall(base, key: key, coerce: f.coerce, span: spanRef)
+        {
             return """
-            let __fck\(i) = sink.checkpoint()
-                            if !__v.isNull { __f\(i) = __v.\(call) }
-                            if __f\(i) == nil { sink.rollback(to: __fck\(i)) }
-            """
+                let __fck\(i) = sink.checkpoint()
+                                if !__v.isNull { __f\(i) = __v.\(call) }
+                                if __f\(i) == nil { sink.rollback(to: __fck\(i)) }
+                """
         }
 
         // Arrays. Three wire shapes reach this path and they are NOT interchangeable, so
@@ -248,63 +262,65 @@ extension SchemaMacro {
         //                          one struct, not two values, and nothing in the document
         //                          distinguishes that from a wrapper.
         if let element = arrayElement(base) {
-            let seqExpr = rawFieldExpr(base, "__v", key: key, coerce: f.coerce,
-                                       dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)
+            let seqExpr = rawFieldExpr(
+                base, "__v", key: key, coerce: f.coerce,
+                dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)
             if f.xmlPlacement == "wrapped" {
-                let wrappedExpr = rawIndexedExpr(element, "__wmm\(i).value", key: key,
-                                                 index: "__wi\(i)", coerce: f.coerce,
-                                                 dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)
+                let wrappedExpr = rawIndexedExpr(
+                    element, "__wmm\(i).value", key: key,
+                    index: "__wi\(i)", coerce: f.coerce,
+                    dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)
                 return """
-                if let __r = \(seqExpr) {
-                                    __f\(i) = __r
-                                } else if case .mapping(let __wm\(i)) = __v {
-                                    __f\(i) = __wm\(i).enumerated().compactMap { (__wi\(i), __wmm\(i)) in
-                                        \(wrappedExpr)
+                    if let __r = \(seqExpr) {
+                                        __f\(i) = __r
+                                    } else if case .mapping(let __wm\(i)) = __v {
+                                        __f\(i) = __wm\(i).enumerated().compactMap { (__wi\(i), __wmm\(i)) in
+                                            \(wrappedExpr)
+                                        }
+                                    } else if __v.isNull {
+                                        \(f.isOptional ? "__f\(i) = nil" : "__f\(i) = []")
+                                    } else if case .string(let __ws\(i)) = __v, __ws\(i).isEmpty {
+                                        // `<tags/>` — a childless wrapper projects to empty
+                                        // text, and empty is exactly what it means. This is
+                                        // the case .wrapped exists for: absent stays absent.
+                                        __f\(i) = []
                                     }
-                                } else if __v.isNull {
-                                    \(f.isOptional ? "__f\(i) = nil" : "__f\(i) = []")
-                                } else if case .string(let __ws\(i)) = __v, __ws\(i).isEmpty {
-                                    // `<tags/>` — a childless wrapper projects to empty
-                                    // text, and empty is exactly what it means. This is
-                                    // the case .wrapped exists for: absent stays absent.
-                                    __f\(i) = []
-                                }
-                """
+                    """
             }
             return """
-            if let __r = \(seqExpr) {
-                                __f\(i) = __r
-                            } else if __v.isNull {
-                                \(f.isOptional
+                if let __r = \(seqExpr) {
+                                    __f\(i) = __r
+                                } else if __v.isNull {
+                                    \(f.isOptional
                                     ? "__f\(i) = nil"
                                     : "Assay.RawValue._mismatchPublic(&sink, path, \"\(key)\", \"array\", __v)")
-                            } else {
-                                // One repeated sibling. Append, so `<tag>a</tag><tag>b</tag>`
-                                // accumulates across calls instead of the last one winning;
-                                // its index is how many siblings came before it.
-                                let __ix\(i) = __n\(i)
-                                __n\(i) &+= 1
-                                if let __one\(i) = \(rawIndexedExpr(element, "__v", key: key,
+                                } else {
+                                    // One repeated sibling. Append, so `<tag>a</tag><tag>b</tag>`
+                                    // accumulates across calls instead of the last one winning;
+                                    // its index is how many siblings came before it.
+                                    let __ix\(i) = __n\(i)
+                                    __n\(i) &+= 1
+                                    if let __one\(i) = \(rawIndexedExpr(element, "__v", key: key,
                                                                     index: "__ix\(i)", coerce: f.coerce,
                                                                     dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)) {
-                                    if __f\(i) == nil { __f\(i) = [] }
-                                    __f\(i)?.append(__one\(i))
+                                        if __f\(i) == nil { __f\(i) = [] }
+                                        __f\(i)?.append(__one\(i))
+                                    }
                                 }
-                            }
-            """
+                """
         }
 
         if dictionaryValue(base) != nil {
             return """
-            if let __r = \(rawFieldExpr(base, "__v", key: key, coerce: f.coerce,
+                if let __r = \(rawFieldExpr(base, "__v", key: key, coerce: f.coerce,
                                         dateFormatsRef: dateFormatsRef(f, i), ctx: ctx)) {
-                                __f\(i) = __r
-                            } else if __v.isNull {
-                                \(f.isOptional
+                                    __f\(i) = __r
+                                } else if __v.isNull {
+                                    \(f.isOptional
                                     ? "__f\(i) = nil"
                                     : "Assay.RawValue._mismatchPublic(&sink, path, \"\(key)\", \"object\", __v)")
-                            }
-            """
+                                }
+                """
         }
 
         if let call = rawScalarCall(base, key: key, coerce: f.coerce, span: spanRef) {
@@ -322,16 +338,16 @@ extension SchemaMacro {
 
         // Nested @Schema type.
         return """
-        if __v.isNull {
-                            \(f.isOptional
+            if __v.isNull {
+                                \(f.isOptional
                                 ? "__f\(i) = nil"
                                 : "Assay.RawValue._mismatchPublic(&sink, path, \"\(key)\", \"\(base)\", __v)")
-                        } else {
-                            path.append(.key("\(key)"))
-                            __f\(i) = \(base)._assay(from: __v, into: &sink, at: &path\(ctxArg))
-                            path.removeLast()
-                        }
-        """
+                            } else {
+                                path.append(.key("\(key)"))
+                                __f\(i) = \(base)._assay(from: __v, into: &sink, at: &path\(ctxArg))
+                                path.removeLast()
+                            }
+            """
     }
 
     /// An expression decoding the RawValue named `v` as `type`, recursing through nested
@@ -352,14 +368,17 @@ extension SchemaMacro {
         let ctxArg = ctx.isEmpty ? "" : ", context: context"
         if let element = arrayElement(type) {
             let e = "__e\(depth)"
-            return "Assay._assaySequence(&path, \(v), { \(e), path in \(rawElementExpr(element, e, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef, ctx: ctx)) })"
+            return
+                "Assay._assaySequence(&path, \(v), { \(e), path in \(rawElementExpr(element, e, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef, ctx: ctx)) })"
         }
         if let value = dictionaryValue(type) {
             let e = "__e\(depth)"
-            return "Assay._assayMapping(&path, \(v), { \(e), path in \(rawElementExpr(value, e, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef, ctx: ctx)) })"
+            return
+                "Assay._assayMapping(&path, \(v), { \(e), path in \(rawElementExpr(value, e, coerce: coerce, depth: depth + 1, dateFormatsRef: dateFormatsRef, ctx: ctx)) })"
         }
         if isDateType(type) {
-            return "\(v)._assayDate(&sink, path, \"\", \(dateFormatsRef)).map { \(type)(timeIntervalSince1970: $0) }"
+            return
+                "\(v)._assayDate(&sink, path, \"\", \(dateFormatsRef)).map { \(type)(timeIntervalSince1970: $0) }"
         }
         if let call = rawScalarCall(type, key: "", coerce: coerce) {
             return "\(v).\(call)"
@@ -383,7 +402,8 @@ extension SchemaMacro {
         // a sequence.
         let helper = arrayElement(type) != nil ? "_assaySequence" : "_assayMapping"
         let inner = arrayElement(type) ?? dictionaryValue(type) ?? type
-        return "Assay.\(helper)(&path, \"\(key)\", \(v), { __e0, path in \(rawElementExpr(inner, "__e0", coerce: coerce, depth: 1, dateFormatsRef: dateFormatsRef, ctx: ctx)) })"
+        return
+            "Assay.\(helper)(&path, \"\(key)\", \(v), { __e0, path in \(rawElementExpr(inner, "__e0", coerce: coerce, depth: 1, dateFormatsRef: dateFormatsRef, ctx: ctx)) })"
     }
 
     /// One element of a repeated or wrapped array, at position `index`.
@@ -426,21 +446,21 @@ extension SchemaMacro {
     ) -> String? {
         let c = (coerce ? ", coerce: true" : "") + (span.map { ", at: \($0)" } ?? "")
         switch type {
-        case "String":  return "_assayString(&sink, path, \"\(key)\"\(c))"
-        case "Int":     return "_assayInt(&sink, path, \"\(key)\"\(c))"
-        case "Int64":   return "_assayInt64(&sink, path, \"\(key)\"\(c))"
-        case "Int32":   return "_assayInt32(&sink, path, \"\(key)\"\(c))"
-        case "Int8":    return "_assayInt8(&sink, path, \"\(key)\"\(c))"
-        case "Int16":   return "_assayInt16(&sink, path, \"\(key)\"\(c))"
-        case "UInt8":   return "_assayUInt8(&sink, path, \"\(key)\"\(c))"
-        case "UInt16":  return "_assayUInt16(&sink, path, \"\(key)\"\(c))"
-        case "UInt32":  return "_assayUInt32(&sink, path, \"\(key)\"\(c))"
-        case "UInt64":  return "_assayUInt64(&sink, path, \"\(key)\"\(c))"
-        case "UInt":    return "_assayUInt(&sink, path, \"\(key)\"\(c))"
-        case "Double":  return "_assayDouble(&sink, path, \"\(key)\"\(c))"
-        case "Float":   return "_assayFloat(&sink, path, \"\(key)\"\(c))"
-        case "Bool":    return "_assayBool(&sink, path, \"\(key)\"\(c))"
-        default:        return nil
+        case "String": return "_assayString(&sink, path, \"\(key)\"\(c))"
+        case "Int": return "_assayInt(&sink, path, \"\(key)\"\(c))"
+        case "Int64": return "_assayInt64(&sink, path, \"\(key)\"\(c))"
+        case "Int32": return "_assayInt32(&sink, path, \"\(key)\"\(c))"
+        case "Int8": return "_assayInt8(&sink, path, \"\(key)\"\(c))"
+        case "Int16": return "_assayInt16(&sink, path, \"\(key)\"\(c))"
+        case "UInt8": return "_assayUInt8(&sink, path, \"\(key)\"\(c))"
+        case "UInt16": return "_assayUInt16(&sink, path, \"\(key)\"\(c))"
+        case "UInt32": return "_assayUInt32(&sink, path, \"\(key)\"\(c))"
+        case "UInt64": return "_assayUInt64(&sink, path, \"\(key)\"\(c))"
+        case "UInt": return "_assayUInt(&sink, path, \"\(key)\"\(c))"
+        case "Double": return "_assayDouble(&sink, path, \"\(key)\"\(c))"
+        case "Float": return "_assayFloat(&sink, path, \"\(key)\"\(c))"
+        case "Bool": return "_assayBool(&sink, path, \"\(key)\"\(c))"
+        default: return nil
         }
     }
 }
@@ -467,8 +487,9 @@ extension SchemaMacro {
         guard !groups.isEmpty else { return "" }
         var out = ""
         for g in groups {
-            out += rawNode(g.node, fields: fields, source: "__members",
-                           segment: g.segment, pathExpr: "path", depth: 0, indent: 4, ctx: ctx)
+            out += rawNode(
+                g.node, fields: fields, source: "__members",
+                segment: g.segment, pathExpr: "path", depth: 0, indent: 4, ctx: ctx)
         }
         return out
     }
@@ -487,38 +508,39 @@ extension SchemaMacro {
             let f = fields[i]
             let span = rawNeedsSpan(f) ? "\(pad)            __sp\(i) = __m.span\n" : ""
             body += """
-            \(pad)        if __m.key == "\(seg)" {
-            \(pad)            __presence |= \(presenceBit(i))
-            \(span)\(pad)            \(rawDecodeStatement(field: f, index: i, ctx: ctx))
-            \(pad)        }
+                \(pad)        if __m.key == "\(seg)" {
+                \(pad)            __presence |= \(presenceBit(i))
+                \(span)\(pad)            \(rawDecodeStatement(field: f, index: i, ctx: ctx))
+                \(pad)        }
 
-            """
+                """
         }
         // Nested groups resolve from this object's members, after the loop, so a child and a
         // leaf under the same parent cannot see different views of it.
         var deeper = ""
         for (seg, child) in n.children {
-            deeper += rawNode(child, fields: fields, source: mm,
-                              segment: seg, pathExpr: here, depth: depth + 1,
-                              indent: indent + 4, ctx: ctx)
+            deeper += rawNode(
+                child, fields: fields, source: mm,
+                segment: seg, pathExpr: here, depth: depth + 1,
+                indent: indent + 4, ctx: ctx)
         }
 
         return """
-        \(pad)if let \(v) = \(source).first(where: { $0.key == "\(segment)" })?.value {
-        \(pad)    if case .mapping(let \(mm)) = \(v) {
-        \(pad)        __gpresence |= \(presenceBit(n.bit))
-        \(pad)        for __m in \(mm) {
-        \(pad)            let __v = __m.value
-        \(pad)            _ = __v
-        \(body)\(pad)        }
-        \(deeper)\(pad)    } else if \(v).isNull {
-        \(pad)        // An explicit null intermediate is absence, as on the JSON path.
-        \(pad)    } else {
-        \(pad)        Assay.RawValue._mismatchPublic(&sink, \(pathExpr), "\(segment)", "object", \(v))
-        \(pad)    }
-        \(pad)}
+            \(pad)if let \(v) = \(source).first(where: { $0.key == "\(segment)" })?.value {
+            \(pad)    if case .mapping(let \(mm)) = \(v) {
+            \(pad)        __gpresence |= \(presenceBit(n.bit))
+            \(pad)        for __m in \(mm) {
+            \(pad)            let __v = __m.value
+            \(pad)            _ = __v
+            \(body)\(pad)        }
+            \(deeper)\(pad)    } else if \(v).isNull {
+            \(pad)        // An explicit null intermediate is absence, as on the JSON path.
+            \(pad)    } else {
+            \(pad)        Assay.RawValue._mismatchPublic(&sink, \(pathExpr), "\(segment)", "object", \(v))
+            \(pad)    }
+            \(pad)}
 
-        """
+            """
     }
 
     /// The missing-required rules, nested exactly as `PathTree.presenceChecks` nests them —
@@ -529,8 +551,9 @@ extension SchemaMacro {
     ) -> String {
         var out = ""
         for g in groups {
-            out += rawChecks(g.node, fields: fields, segment: g.segment,
-                             parentPath: "path", indent: indent)
+            out += rawChecks(
+                g.node, fields: fields, segment: g.segment,
+                parentPath: "path", indent: indent)
         }
         return out
     }
@@ -544,13 +567,15 @@ extension SchemaMacro {
 
         var inner = ""
         for (seg, i) in n.leaves where PathTree.isRequired(fields[i]) {
-            inner += "\(pad)    if __presence & \(presenceBit(i)) == 0 {\n"
+            inner +=
+                "\(pad)    if __presence & \(presenceBit(i)) == 0 {\n"
                 + "\(pad)        Assay.RawValue._missing(&sink, \(here), \"\(seg)\")\n"
                 + "\(pad)    }\n"
         }
         for (seg, child) in n.children {
-            inner += rawChecks(child, fields: fields, segment: seg,
-                               parentPath: here, indent: indent + 4)
+            inner += rawChecks(
+                child, fields: fields, segment: seg,
+                parentPath: here, indent: indent + 4)
         }
         guard !inner.isEmpty else { return "" }
 

@@ -100,17 +100,19 @@ struct UUIDFieldTests {
     /// Each of these is a form some UUID parser somewhere accepts, and every one of them
     /// must be refused identically by the field type and by the rule — otherwise
     /// `@Validate(.uuid) var s: String` and `var u: UUID` disagree about the same document.
-    @Test("the refused spellings are refused by BOTH the field type and the rule", arguments: [
-        "{3db7582f-b24c-4245-8556-3c25956d108f}",        // braces
-        "urn:uuid:3db7582f-b24c-4245-8556-3c25956d108f", // the URN form
-        "3db7582fb24c424585563c25956d108f",              // bare 32 hex, no hyphens
-        "3db7582f-b24c-4245-8556-3c25956d108",           // one short
-        "3db7582f-b24c-4245-8556-3c25956d108ff",         // one long
-        "3db7582f-b24c-4245-8556-3c25956d108g",          // not hex
-        "3db7582f_b24c_4245_8556_3c25956d108f",          // wrong separator
-        "",
-        "not a uuid at all",
-    ])
+    @Test(
+        "the refused spellings are refused by BOTH the field type and the rule",
+        arguments: [
+            "{3db7582f-b24c-4245-8556-3c25956d108f}",  // braces
+            "urn:uuid:3db7582f-b24c-4245-8556-3c25956d108f",  // the URN form
+            "3db7582fb24c424585563c25956d108f",  // bare 32 hex, no hyphens
+            "3db7582f-b24c-4245-8556-3c25956d108",  // one short
+            "3db7582f-b24c-4245-8556-3c25956d108ff",  // one long
+            "3db7582f-b24c-4245-8556-3c25956d108g",  // not hex
+            "3db7582f_b24c_4245_8556_3c25956d108f",  // wrong separator
+            "",
+            "not a uuid at all"
+        ])
     func refusedEverywhere(_ text: String) {
         let escaped = text.replacingOccurrences(of: "\"", with: "\\\"")
         let d = UUIDHolder.diagnose(json: Array(#"{"id":"\#(escaped)","name":"a"}"#.utf8))
@@ -121,7 +123,9 @@ struct UUIDFieldTests {
         #expect(!r.isValid, "the .uuid rule accepted \(text) while the field type refused it")
     }
 
-    @Test("a non-string JSON value is a mismatch, not a crash", arguments: ["7", "true", "null", "[]", "{}"])
+    @Test(
+        "a non-string JSON value is a mismatch, not a crash",
+        arguments: ["7", "true", "null", "[]", "{}"])
     func notAString(_ literal: String) {
         let d = UUIDHolder.diagnose(json: Array(#"{"id":\#(literal),"name":"a"}"#.utf8))
         #expect(d.value == nil)

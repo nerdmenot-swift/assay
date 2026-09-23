@@ -72,9 +72,11 @@ private final class CountingXMLDelegate: NSObject, XMLParserDelegate {
     var starts = 0
     var attributes = 0
     var textBytes = 0
-    func parser(_ p: XMLParser, didStartElement name: String,
-                namespaceURI: String?, qualifiedName: String?,
-                attributes attrs: [String: String] = [:]) {
+    func parser(
+        _ p: XMLParser, didStartElement name: String,
+        namespaceURI: String?, qualifiedName: String?,
+        attributes attrs: [String: String] = [:]
+    ) {
         starts += 1
         attributes += attrs.count
     }
@@ -82,10 +84,11 @@ private final class CountingXMLDelegate: NSObject, XMLParserDelegate {
 }
 
 private func elementCount(_ e: XML.Element) -> Int {
-    1 + e.children.reduce(0) {
-        if case .element(let sub) = $1 { return $0 + elementCount(sub) }
-        return $0
-    }
+    1
+        + e.children.reduce(0) {
+            if case .element(let sub) = $1 { return $0 + elementCount(sub) }
+            return $0
+        }
 }
 
 func runFormatBenchmarks(corpusDir: URL, sizes: [String]) {
@@ -100,40 +103,49 @@ func runFormatBenchmarks(corpusDir: URL, sizes: [String]) {
     for size in sizes {
         let url = corpusDir.appendingPathComponent("apimodel-\(size).json")
         guard let data = try? Data(contentsOf: url),
-              let value = try? JSON.Value.parse([UInt8](data)) else { continue }
+            let value = try? JSON.Value.parse([UInt8](data))
+        else { continue }
         let raw = RawValue(value)
         var yaml = renderYAML(raw)
         if yaml.hasPrefix("\n") { yaml.removeFirst() }
         let xml = renderXML(raw)
-        docs.append(Doc(size: size, yamlText: yaml, yamlBytes: Array(yaml.utf8),
-                        xmlText: xml, xmlBytes: Array(xml.utf8)))
+        docs.append(
+            Doc(
+                size: size, yamlText: yaml, yamlBytes: Array(yaml.utf8),
+                xmlText: xml, xmlBytes: Array(xml.utf8)))
     }
     guard !docs.isEmpty else {
         print("format bench: no corpus — run: swift run -c release CorpusGen")
         return
     }
 
-    func table(_ title: String, _ note: String, baseline: String,
-               rows: (Doc) -> (bytes: Int, theirs: Double, mine: Double)?) {
+    func table(
+        _ title: String, _ note: String, baseline: String,
+        rows: (Doc) -> (bytes: Int, theirs: Double, mine: Double)?
+    ) {
         print("")
         print(title)
         print(note)
-        print(pad("size", 10, right: true) + pad("bytes", 10) + pad("\(baseline) ns", 15)
-              + pad("Assay ns", 13) + pad("ratio", 10))
+        print(
+            pad("size", 10, right: true) + pad("bytes", 10) + pad("\(baseline) ns", 15)
+                + pad("Assay ns", 13) + pad("ratio", 10))
         print(String(repeating: "-", count: 62))
         var ratios: [Double] = []
         for doc in docs {
             guard let r = rows(doc) else { continue }
             let ratio = r.theirs / r.mine
             ratios.append(ratio)
-            print(pad(doc.size, 10, right: true) + pad("\(r.bytes)", 10)
-                  + pad(String(format: "%.0f", r.theirs), 15)
-                  + pad(String(format: "%.0f", r.mine), 13)
-                  + pad(String(format: "%.2fx", ratio), 10))
+            print(
+                pad(doc.size, 10, right: true) + pad("\(r.bytes)", 10)
+                    + pad(String(format: "%.0f", r.theirs), 15)
+                    + pad(String(format: "%.0f", r.mine), 13)
+                    + pad(String(format: "%.2fx", ratio), 10))
         }
         if !ratios.isEmpty {
-            print(String(format: "mean %.2fx over %d sizes",
-                         ratios.reduce(0, +) / Double(ratios.count), ratios.count))
+            print(
+                String(
+                    format: "mean %.2fx over %d sizes",
+                    ratios.reduce(0, +) / Double(ratios.count), ratios.count))
         }
     }
 
@@ -143,27 +155,33 @@ func runFormatBenchmarks(corpusDir: URL, sizes: [String]) {
     print("JSON-sized ratios should not be expected. Correctness of both parsers against")
     print("these exact documents is DiffFuzz's job and runs in the same CI.")
 
-    table("YAML node parse — YAML.parse vs Yams.compose",
-          "Tree vs tree; neither side resolves scalars. Yams crosses into libyaml (C).",
-          baseline: "Yams") { doc in
+    table(
+        "YAML node parse — YAML.parse vs Yams.compose",
+        "Tree vs tree; neither side resolves scalars. Yams crosses into libyaml (C).",
+        baseline: "Yams"
+    ) { doc in
         guard (try? YAML.parse(doc.yamlBytes)) != nil,
-              (try? Yams.compose(yaml: doc.yamlText)) != nil else { return nil }
+            (try? Yams.compose(yaml: doc.yamlText)) != nil
+        else { return nil }
         let iters = max(200, iterationCount(forBytes: doc.yamlBytes.count) / 5)
         let theirs = measure(iterations: iters) { _ = try? Yams.compose(yaml: doc.yamlText) }
         let mine = measure(iterations: iters) { _ = try? YAML.parse(doc.yamlBytes) }
         return (doc.yamlBytes.count, theirs, mine)
     }
 
-    table("YAML struct decode — T.parse(yaml:) vs Yams' YAMLDecoder (Codable)",
-          "The comparison a migrating project would actually make.",
-          baseline: "YAMLDecoder") { doc in
+    table(
+        "YAML struct decode — T.parse(yaml:) vs Yams' YAMLDecoder (Codable)",
+        "The comparison a migrating project would actually make.",
+        baseline: "YAMLDecoder"
+    ) { doc in
         let decoder = YAMLDecoder()
         // Gate: same items, same fields, or the row is a lie.
         guard let mine = try? RawPayload.parse(yaml: doc.yamlBytes),
-              let theirs = try? decoder.decode(CodablePayload.self, from: doc.yamlText),
-              mine.items.count == theirs.items.count,
-              mine.requestId == theirs.request_id,
-              mine.items.first?.id == theirs.items.first?.id else { return nil }
+            let theirs = try? decoder.decode(CodablePayload.self, from: doc.yamlText),
+            mine.items.count == theirs.items.count,
+            mine.requestId == theirs.request_id,
+            mine.items.first?.id == theirs.items.first?.id
+        else { return nil }
         let iters = max(200, iterationCount(forBytes: doc.yamlBytes.count) / 5)
         let t = measure(iterations: iters) {
             _ = try? decoder.decode(CodablePayload.self, from: doc.yamlText)
@@ -172,11 +190,13 @@ func runFormatBenchmarks(corpusDir: URL, sizes: [String]) {
         return (doc.yamlBytes.count, t, m)
     }
 
-    table("XML tree parse — XML.parse vs Foundation XMLParser (counting delegate)",
-          "ASYMMETRIC in Foundation's favour: Assay builds and keeps the whole tree;"
-          + "\nFoundation only counts events. A parser instance per iteration is Foundation's"
-          + "\nown requirement, not a handicap added here.",
-          baseline: "Foundation") { doc in
+    table(
+        "XML tree parse — XML.parse vs Foundation XMLParser (counting delegate)",
+        "ASYMMETRIC in Foundation's favour: Assay builds and keeps the whole tree;"
+            + "\nFoundation only counts events. A parser instance per iteration is Foundation's"
+            + "\nown requirement, not a handicap added here.",
+        baseline: "Foundation"
+    ) { doc in
         // Gate: Foundation must see exactly as many element starts as Assay's tree holds.
         guard let mine = try? XML.parse(doc.xmlBytes) else { return nil }
         let counter = CountingXMLDelegate()

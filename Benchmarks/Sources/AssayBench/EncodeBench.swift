@@ -113,27 +113,30 @@ func runEncodeBenchmarks() {
     print("this arm existed. It is a measurement, not a thesis: the decode direction's")
     print("claim is about deleting the Codable boundary, and encoding makes no such claim.")
     print("")
-    print(pad("items", 8, right: true) + pad("bytes", 10) + pad("JSONEncoder ns", 16)
-          + pad("Assay ns", 12) + pad("ratio", 10))
+    print(
+        pad("items", 8, right: true) + pad("bytes", 10) + pad("JSONEncoder ns", 16)
+            + pad("Assay ns", 12) + pad("ratio", 10))
     print(String(repeating: "-", count: 58))
 
     for count in [1, 10, 50, 200] {
         let items = (0..<count).map { i in
-            EncItem(id: "id-\(i)", sequence: i, name: "name-\(i)",
-                    description: "a description of moderate length for item \(i)",
-                    createdAt: "2026-08-09T12:00:00Z", updatedAt: "2026-08-09T12:30:00Z",
-                    amount: Double(i) * 1.5, active: i % 2 == 0,
-                    retryCount: i % 4, ownerId: "owner-\(i)")
+            EncItem(
+                id: "id-\(i)", sequence: i, name: "name-\(i)",
+                description: "a description of moderate length for item \(i)",
+                createdAt: "2026-08-09T12:00:00Z", updatedAt: "2026-08-09T12:30:00Z",
+                amount: Double(i) * 1.5, active: i % 2 == 0,
+                retryCount: i % 4, ownerId: "owner-\(i)")
         }
         let payload = EncPayloadBench(
             requestId: "req-1", generatedAt: "2026-08-09T12:00:00Z",
             page: 1, totalCount: count, hasMore: false, items: items)
 
         let cItems = items.map {
-            CodableEncItem(id: $0.id, sequence: $0.sequence, name: $0.name,
-                           description: $0.description, createdAt: $0.createdAt,
-                           updatedAt: $0.updatedAt, amount: $0.amount, active: $0.active,
-                           retryCount: $0.retryCount, ownerId: $0.ownerId)
+            CodableEncItem(
+                id: $0.id, sequence: $0.sequence, name: $0.name,
+                description: $0.description, createdAt: $0.createdAt,
+                updatedAt: $0.updatedAt, amount: $0.amount, active: $0.active,
+                retryCount: $0.retryCount, ownerId: $0.ownerId)
         }
         let cPayload = CodableEncPayload(
             requestId: payload.requestId, generatedAt: payload.generatedAt,
@@ -150,11 +153,12 @@ func runEncodeBenchmarks() {
         let assay = measure(iterations: reps) {
             _ = try? payload.encodedJSON()
         }
-        print(pad("\(count)", 8, right: true)
-              + pad("\(bytes.count)", 10)
-              + pad(String(format: "%.0f", foundation), 16)
-              + pad(String(format: "%.0f", assay), 12)
-              + pad(String(format: "%.2fx", foundation / assay), 10))
+        print(
+            pad("\(count)", 8, right: true)
+                + pad("\(bytes.count)", 10)
+                + pad(String(format: "%.0f", foundation), 16)
+                + pad(String(format: "%.0f", assay), 12)
+                + pad(String(format: "%.2fx", foundation / assay), 10))
     }
 
     // YAML and XML have no Foundation counterpart to compare against, so they are reported
@@ -166,11 +170,12 @@ func runEncodeBenchmarks() {
     print(String(repeating: "-", count: 36))
 
     let items = (0..<50).map { i in
-        EncItem(id: "id-\(i)", sequence: i, name: "name-\(i)",
-                description: "a description of moderate length for item \(i)",
-                createdAt: "2026-08-09T12:00:00Z", updatedAt: "2026-08-09T12:30:00Z",
-                amount: Double(i) * 1.5, active: i % 2 == 0,
-                retryCount: i % 4, ownerId: "owner-\(i)")
+        EncItem(
+            id: "id-\(i)", sequence: i, name: "name-\(i)",
+            description: "a description of moderate length for item \(i)",
+            createdAt: "2026-08-09T12:00:00Z", updatedAt: "2026-08-09T12:30:00Z",
+            amount: Double(i) * 1.5, active: i % 2 == 0,
+            retryCount: i % 4, ownerId: "owner-\(i)")
     }
     let payload = EncPayloadBench(
         requestId: "req-1", generatedAt: "2026-08-09T12:00:00Z",

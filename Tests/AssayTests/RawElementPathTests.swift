@@ -31,7 +31,9 @@ import AssayXML
     var maps: [[String: Int]] = []
 }
 @Schema(coerceScalars: true, formats: .all) struct REPTags: Equatable { var tag: [Int] }
-@Schema(coerceScalars: true, formats: .all) struct REPWrapped: Equatable { @XML(.wrapped) var tags: [Int] }
+@Schema(coerceScalars: true, formats: .all) struct REPWrapped: Equatable {
+    @XML(.wrapped) var tags: [Int]
+}
 
 @Suite struct RawElementPathTests {
 
@@ -41,55 +43,58 @@ import AssayXML
 
     @Test func yamlElementsCarryTheirIndexAndKey() {
         let yaml = """
-        items:
-        - x: 1
-        - x: bad
-        tags: [1, two, 3]
-        grid: [[1], [2, nope]]
-        byName: {a: 1, b: bad}
-        lists: {k: [1, 2, bad]}
-        when: [2026-01-01T00:00:00Z, notadate]
-        maps: [{a: 1}, {b: 2, c: bad}]
-        """
-        #expect(Self.paths(REPDoc.diagnose(yaml: yaml)) == [
-            "items[1].x", "tags[1]", "grid[1][1]", "byName.b", "lists.k[2]", "when[1]",
-            "maps[1].c",
-        ])
+            items:
+            - x: 1
+            - x: bad
+            tags: [1, two, 3]
+            grid: [[1], [2, nope]]
+            byName: {a: 1, b: bad}
+            lists: {k: [1, 2, bad]}
+            when: [2026-01-01T00:00:00Z, notadate]
+            maps: [{a: 1}, {b: 2, c: bad}]
+            """
+        #expect(
+            Self.paths(REPDoc.diagnose(yaml: yaml)) == [
+                "items[1].x", "tags[1]", "grid[1][1]", "byName.b", "lists.k[2]", "when[1]",
+                "maps[1].c"
+            ])
     }
 
     /// JSON had two of the same gaps, found by writing this test: `grid[1][1]` read
     /// `grid[1]` (the INNER index alone) and a date element named no element.
     @Test func jsonSaysTheSame() {
         let json = #"""
-        {"items":[{"x":1},{"x":"bad"}],"tags":[1,"two",3],"grid":[[1],[2,"nope"]],
-         "byName":{"a":1,"b":"bad"},"lists":{"k":[1,2,"bad"]},
-         "when":["2026-01-01T00:00:00Z","notadate"],"maps":[{"a":1},{"b":2,"c":"bad"}]}
-        """#
+            {"items":[{"x":1},{"x":"bad"}],"tags":[1,"two",3],"grid":[[1],[2,"nope"]],
+             "byName":{"a":1,"b":"bad"},"lists":{"k":[1,2,"bad"]},
+             "when":["2026-01-01T00:00:00Z","notadate"],"maps":[{"a":1},{"b":2,"c":"bad"}]}
+            """#
         let fromJSON = REPDoc.diagnose(json: Array(json.utf8)).issues.map(\.path.pathDescription)
-        #expect(fromJSON == [
-            "items[1].x", "tags[1]", "grid[1][1]", "byName.b", "lists.k[2]", "when[1]",
-            "maps[1].c",
-        ])
+        #expect(
+            fromJSON == [
+                "items[1].x", "tags[1]", "grid[1][1]", "byName.b", "lists.k[2]", "when[1]",
+                "maps[1].c"
+            ])
     }
 
     @Test func tomlElementsCarryTheirIndex() {
         let toml = """
-        tags = [1, "two", 3]
-        grid = [[1], [2, "nope"]]
-        when = ["2026-01-01T00:00:00Z", "notadate"]
-        [byName]
-        a = 1
-        b = "bad"
-        [lists]
-        k = [1, 2, "bad"]
-        [[items]]
-        x = 1
-        [[items]]
-        x = "bad"
-        """
-        #expect(Set(Self.paths(REPDoc.diagnose(toml: toml))) == [
-            "items[1].x", "tags[1]", "grid[1][1]", "byName.b", "lists.k[2]", "when[1]",
-        ])
+            tags = [1, "two", 3]
+            grid = [[1], [2, "nope"]]
+            when = ["2026-01-01T00:00:00Z", "notadate"]
+            [byName]
+            a = 1
+            b = "bad"
+            [lists]
+            k = [1, 2, "bad"]
+            [[items]]
+            x = 1
+            [[items]]
+            x = "bad"
+            """
+        #expect(
+            Set(Self.paths(REPDoc.diagnose(toml: toml))) == [
+                "items[1].x", "tags[1]", "grid[1][1]", "byName.b", "lists.k[2]", "when[1]"
+            ])
     }
 
     /// XML spells a sequence as repeated siblings, each arriving as its own call: the
@@ -106,14 +111,14 @@ import AssayXML
 
     @Test func aCleanDecodeIsUnchanged() throws {
         let yaml = """
-        items:
-        - x: 1
-        tags: [1]
-        grid: [[1, 2], []]
-        byName: {a: 1}
-        lists: {k: [3]}
-        when: [2026-01-01T00:00:00Z]
-        """
+            items:
+            - x: 1
+            tags: [1]
+            grid: [[1, 2], []]
+            byName: {a: 1}
+            lists: {k: [3]}
+            when: [2026-01-01T00:00:00Z]
+            """
         let d = try REPDoc.parse(yaml: yaml)
         #expect(d.items == [REPInner(x: 1)] && d.tags == [1] && d.grid == [[1, 2], []])
         #expect(d.byName == ["a": 1] && d.lists == ["k": [3]] && d.when.count == 1)

@@ -167,15 +167,17 @@ extension JSON {
         out.append(0x22)
         for scalar in s.unicodeScalars {
             switch scalar {
-            case "\"":  out.append(contentsOf: Array("\\\"".utf8))
-            case "\\":  out.append(contentsOf: Array("\\\\".utf8))
-            case "\n":  out.append(contentsOf: Array("\\n".utf8))
-            case "\r":  out.append(contentsOf: Array("\\r".utf8))
-            case "\t":  out.append(contentsOf: Array("\\t".utf8))
+            case "\"": out.append(contentsOf: Array("\\\"".utf8))
+            case "\\": out.append(contentsOf: Array("\\\\".utf8))
+            case "\n": out.append(contentsOf: Array("\\n".utf8))
+            case "\r": out.append(contentsOf: Array("\\r".utf8))
+            case "\t": out.append(contentsOf: Array("\\t".utf8))
             default:
                 if scalar.value < 0x20 {
                     let hex = String(scalar.value, radix: 16)
-                    out.append(contentsOf: Array("\\u\(String(repeating: "0", count: 4 - hex.count))\(hex)".utf8))
+                    out.append(
+                        contentsOf: Array(
+                            "\\u\(String(repeating: "0", count: 4 - hex.count))\(hex)".utf8))
                 } else {
                     out.append(contentsOf: Array(String(scalar).utf8))
                 }

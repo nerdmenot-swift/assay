@@ -24,6 +24,6 @@ struct AssayPlugin: CompilerPlugin {
         UnknownMacro.self,
         WrapsMacro.self,
         OneOrManyMacro.self,
-        InlineMacro.self,
+        InlineMacro.self
     ]
 }

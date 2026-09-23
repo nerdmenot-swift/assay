@@ -39,18 +39,21 @@ extension Rule.Storage {
         switch kind {
         case .min(let n):
             if FormatValidators.characterCount(v) < Int(n) {
-                emit(&sink, .tooSmall, field, span, path, override,
-                     ["minimum": .int(Int(n)), "unit": .string("characters")], v)
+                emit(
+                    &sink, .tooSmall, field, span, path, override,
+                    ["minimum": .int(Int(n)), "unit": .string("characters")], v)
             }
         case .max(let n):
             if FormatValidators.characterCount(v) > Int(n) {
-                emit(&sink, .tooLarge, field, span, path, override,
-                     ["maximum": .int(Int(n)), "unit": .string("characters")], v)
+                emit(
+                    &sink, .tooLarge, field, span, path, override,
+                    ["maximum": .int(Int(n)), "unit": .string("characters")], v)
             }
         case .length(let n):
             if FormatValidators.characterCount(v) != n {
-                emit(&sink, .wrongLength, field, span, path, override,
-                     ["length": .int(n)], v)
+                emit(
+                    &sink, .wrongLength, field, span, path, override,
+                    ["length": .int(n)], v)
             }
         case .notEmpty:
             if v.isEmpty {
@@ -88,31 +91,35 @@ extension Rule.Storage {
             }
         case .prefix(let p):
             if !v.hasPrefix(p) {
-                emit(&sink, .missingPrefix, field, span, path, override,
-                     ["prefix": .string(p)], v)
+                emit(
+                    &sink, .missingPrefix, field, span, path, override,
+                    ["prefix": .string(p)], v)
             }
         case .suffix(let sfx):
             if !v.hasSuffix(sfx) {
-                emit(&sink, .missingSuffix, field, span, path, override,
-                     ["suffix": .string(sfx)], v)
+                emit(
+                    &sink, .missingSuffix, field, span, path, override,
+                    ["suffix": .string(sfx)], v)
             }
         case .contains(let sub):
             if !FormatValidators.containsSubstring(v, sub) {
-                emit(&sink, .missingSubstring, field, span, path, override,
-                     ["substring": .string(sub)], v)
+                emit(
+                    &sink, .missingSubstring, field, span, path, override,
+                    ["substring": .string(sub)], v)
             }
         case .oneOf(let options):
             if !options.contains(v) {
-                emit(&sink, .notOneOf, field, span, path, override,
-                     ["options": .string(options.map { "\"\($0)\"" }.joined(separator: ", "))],
-                     v)
+                emit(
+                    &sink, .notOneOf, field, span, path, override,
+                    ["options": .string(options.map { "\"\($0)\"" }.joined(separator: ", "))],
+                    v)
             }
         case .all(let rules):
             _assayEachRule(rules) { $0.applyString(v, override, field, span, path, &sink) }
         case .messageOnly:
-            break                                     // carried via the override channel
+            break  // carried via the override channel
         default:
-            break                                     // numeric/collection kinds: macro-prevented
+            break  // numeric/collection kinds: macro-prevented
         }
     }
 
@@ -132,23 +139,27 @@ extension Rule.Storage {
         // instead of per value — same three codes, same params, same messages. Only the
         // compilation moved.
         if p.invalid {
-            emit(&sink, .invalidRegexPattern, field, span, path, override,
-                 ["pattern": .string(p.pattern)], v)
+            emit(
+                &sink, .invalidRegexPattern, field, span, path, override,
+                ["pattern": .string(p.pattern)], v)
             return
         }
         if #available(macOS 13, iOS 16, tvOS 16, watchOS 9, *) {
             guard let regex = p.compiled as? Regex<AnyRegexOutput> else {
-                emit(&sink, .regexUnavailable, field, span, path, override,
-                     ["pattern": .string(p.pattern)], v)
+                emit(
+                    &sink, .regexUnavailable, field, span, path, override,
+                    ["pattern": .string(p.pattern)], v)
                 return
             }
             if (try? regex.firstMatch(in: v)) == nil {
-                emit(&sink, .patternMismatch, field, span, path, override,
-                     ["pattern": .string(p.pattern)], v)
+                emit(
+                    &sink, .patternMismatch, field, span, path, override,
+                    ["pattern": .string(p.pattern)], v)
             }
         } else {
-            emit(&sink, .regexUnavailable, field, span, path, override,
-                 ["pattern": .string(p.pattern)], v)
+            emit(
+                &sink, .regexUnavailable, field, span, path, override,
+                ["pattern": .string(p.pattern)], v)
         }
     }
 
@@ -162,40 +173,49 @@ extension Rule.Storage {
         switch kind {
         case .min(let n):
             if v < n {
-                emit(&sink, .tooSmall, field, span, path, override,
-                     ["minimum": numberParam(n, isInteger)], display(v, isInteger))
+                emit(
+                    &sink, .tooSmall, field, span, path, override,
+                    ["minimum": numberParam(n, isInteger)], display(v, isInteger))
             }
         case .max(let n):
             if v > n {
-                emit(&sink, .tooLarge, field, span, path, override,
-                     ["maximum": numberParam(n, isInteger)], display(v, isInteger))
+                emit(
+                    &sink, .tooLarge, field, span, path, override,
+                    ["maximum": numberParam(n, isInteger)], display(v, isInteger))
             }
         case .range(let lo, let hi):
             if v < lo || v > hi {
-                emit(&sink, .notInRange, field, span, path, override,
-                     ["minimum": numberParam(lo, isInteger),
-                      "maximum": numberParam(hi, isInteger)], display(v, isInteger))
+                emit(
+                    &sink, .notInRange, field, span, path, override,
+                    [
+                        "minimum": numberParam(lo, isInteger),
+                        "maximum": numberParam(hi, isInteger)
+                    ], display(v, isInteger))
             }
         case .positive:
             if !(v > 0) {
-                emit(&sink, .notPositive, field, span, path, override, [:],
-                     display(v, isInteger))
+                emit(
+                    &sink, .notPositive, field, span, path, override, [:],
+                    display(v, isInteger))
             }
         case .negative:
             if !(v < 0) {
-                emit(&sink, .notNegative, field, span, path, override, [:],
-                     display(v, isInteger))
+                emit(
+                    &sink, .notNegative, field, span, path, override, [:],
+                    display(v, isInteger))
             }
         case .nonNegative:
             if v < 0 {
-                emit(&sink, .negative, field, span, path, override, [:],
-                     display(v, isInteger))
+                emit(
+                    &sink, .negative, field, span, path, override, [:],
+                    display(v, isInteger))
             }
         case .multipleOf(let m):
             let remainder = v.truncatingRemainder(dividingBy: m)
             if abs(remainder) > 1e-9 && abs(abs(remainder) - abs(m)) > 1e-9 {
-                emit(&sink, .notMultiple, field, span, path, override,
-                     ["multipleOf": numberParam(m, isInteger)], display(v, isInteger))
+                emit(
+                    &sink, .notMultiple, field, span, path, override,
+                    ["multipleOf": numberParam(m, isInteger)], display(v, isInteger))
             }
         case .finite:
             if !v.isFinite {
@@ -207,23 +227,27 @@ extension Rule.Storage {
         // violation reads as a date, never as 1786363800.0.
         case .before(let bound, let display):
             if !(v < bound) {
-                emit(&sink, .dateNotBefore, field, span, path, override,
-                     ["bound": .string(display)], formatEpochISO(v))
+                emit(
+                    &sink, .dateNotBefore, field, span, path, override,
+                    ["bound": .string(display)], formatEpochISO(v))
             }
         case .after(let bound, let display):
             if !(v > bound) {
-                emit(&sink, .dateNotAfter, field, span, path, override,
-                     ["bound": .string(display)], formatEpochISO(v))
+                emit(
+                    &sink, .dateNotAfter, field, span, path, override,
+                    ["bound": .string(display)], formatEpochISO(v))
             }
         case .betweenDates(let lo, let hi, let displayLo, let displayHi):
             if v < lo || v > hi {
-                emit(&sink, .dateNotBetween, field, span, path, override,
-                     ["minimum": .string(displayLo), "maximum": .string(displayHi)],
-                     formatEpochISO(v))
+                emit(
+                    &sink, .dateNotBetween, field, span, path, override,
+                    ["minimum": .string(displayLo), "maximum": .string(displayHi)],
+                    formatEpochISO(v))
             }
         case .invalidRuleDate(let bound):
-            emit(&sink, .invalidRuleDate, field, span, path, override,
-                 ["bound": .string(bound)], nil)
+            emit(
+                &sink, .invalidRuleDate, field, span, path, override,
+                ["bound": .string(bound)], nil)
 
         case .all(let rules):
             _assayEachRule(rules) {
@@ -255,18 +279,21 @@ extension Rule.Storage {
         switch kind {
         case .min(let n):
             if count < Int(n) {
-                emit(&sink, .tooSmall, field, span, path, override,
-                     ["minimum": .int(Int(n)), "unit": .string("items")], "\(count) items")
+                emit(
+                    &sink, .tooSmall, field, span, path, override,
+                    ["minimum": .int(Int(n)), "unit": .string("items")], "\(count) items")
             }
         case .max(let n):
             if count > Int(n) {
-                emit(&sink, .tooLarge, field, span, path, override,
-                     ["maximum": .int(Int(n)), "unit": .string("items")], "\(count) items")
+                emit(
+                    &sink, .tooLarge, field, span, path, override,
+                    ["maximum": .int(Int(n)), "unit": .string("items")], "\(count) items")
             }
         case .count(let lo, let hi):
             if count < lo || count > hi {
-                emit(&sink, .wrongCount, field, span, path, override,
-                     ["minimum": .int(lo), "maximum": .int(hi)], "\(count) items")
+                emit(
+                    &sink, .wrongCount, field, span, path, override,
+                    ["minimum": .int(lo), "maximum": .int(hi)], "\(count) items")
             }
         case .notEmpty:
             if count == 0 {
@@ -310,12 +337,13 @@ extension Rule.Storage {
         // `.each` passes an empty field name because the element path already ends in the
         // field and index; an empty key would render as "recipients[1]." with a bare dot.
         let name = String(describing: field)
-        sink.add(Issue(
-            code: code,
-            path: name.isEmpty ? path : path + [.key(name)],
-            params: params,
-            received: received,
-            location: span))
+        sink.add(
+            Issue(
+                code: code,
+                path: name.isEmpty ? path : path + [.key(name)],
+                params: params,
+                received: received,
+                location: span))
     }
 }
 
@@ -443,7 +471,8 @@ public func _assayValidate(
             for (i, element) in v.enumerated() {
                 elementPath[last] = .index(i)
                 _assayEachRule(inner) {
-                    $0.applyNumber(Double(element), isInteger: true, message, "", span, elementPath, &sink)
+                    $0.applyNumber(
+                        Double(element), isInteger: true, message, "", span, elementPath, &sink)
                 }
             }
         } else if r.isUnique {

@@ -51,9 +51,10 @@ extension YAML.Parser {
     mutating func scanToken(_ r: inout AssayReader) -> String? {
         let start = r.byteOffset
         while let c = r.currentByte,
-              c != 0x20, c != 0x09, c != 0x0A, c != 0x0D,
-              c != UInt8(ascii: ","), c != UInt8(ascii: "["), c != UInt8(ascii: "]"),
-              c != UInt8(ascii: "{"), c != UInt8(ascii: "}") {
+            c != 0x20, c != 0x09, c != 0x0A, c != 0x0D,
+            c != UInt8(ascii: ","), c != UInt8(ascii: "["), c != UInt8(ascii: "]"),
+            c != UInt8(ascii: "{"), c != UInt8(ascii: "}")
+        {
             r.advanceBy(1)
         }
         return r.byteOffset > start ? r.string(from: start, to: r.byteOffset) : nil

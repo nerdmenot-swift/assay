@@ -53,7 +53,8 @@ func runColdStartBenchmarks() {
     print("Noisier than every other arm here by construction — one sample per type.")
     print("")
 
-    let json = Array(#"""
+    let json = Array(
+        #"""
         {"id":"cold-0001","name":"a name of ordinary length","count":42,\
         "ratio":0.75,"enabled":true,"note":"a second string field","seq":7,\
         "score":1.5,"visible":false,"tag":"t"}
@@ -77,36 +78,44 @@ func runColdStartBenchmarks() {
 
     func median(_ xs: [Double]) -> Double {
         let s = xs.sorted()
-        return s.count % 2 == 1 ? s[s.count / 2]
-                                : (s[s.count / 2 - 1] + s[s.count / 2]) / 2
+        return s.count % 2 == 1
+            ? s[s.count / 2]
+            : (s[s.count / 2 - 1] + s[s.count / 2]) / 2
     }
     let assayMedian = median(assaySamples)
     let codableMedian = median(codableSamples)
     let assayTotal = assaySamples.reduce(0, +)
     let codableTotal = codableSamples.reduce(0, +)
 
-    print(pad("decoder", 14, right: true) + pad("median us", 12) + pad("total us", 12)
-          + pad("max us", 10))
+    print(
+        pad("decoder", 14, right: true) + pad("median us", 12) + pad("total us", 12)
+            + pad("max us", 10))
     print(String(repeating: "-", count: 48))
-    print(pad("JSONDecoder", 14, right: true)
-          + pad(String(format: "%.1f", codableMedian / 1000), 12)
-          + pad(String(format: "%.0f", codableTotal / 1000), 12)
-          + pad(String(format: "%.0f", (codableSamples.max() ?? 0) / 1000), 10))
-    print(pad("Assay", 14, right: true)
-          + pad(String(format: "%.1f", assayMedian / 1000), 12)
-          + pad(String(format: "%.0f", assayTotal / 1000), 12)
-          + pad(String(format: "%.0f", (assaySamples.max() ?? 0) / 1000), 10))
+    print(
+        pad("JSONDecoder", 14, right: true)
+            + pad(String(format: "%.1f", codableMedian / 1000), 12)
+            + pad(String(format: "%.0f", codableTotal / 1000), 12)
+            + pad(String(format: "%.0f", (codableSamples.max() ?? 0) / 1000), 10))
+    print(
+        pad("Assay", 14, right: true)
+            + pad(String(format: "%.1f", assayMedian / 1000), 12)
+            + pad(String(format: "%.0f", assayTotal / 1000), 12)
+            + pad(String(format: "%.0f", (assaySamples.max() ?? 0) / 1000), 10))
     print("")
-    print(String(format: "first decode: %.1fx  (median; the total-based ratio swings 3-6x "
-                 + "run to run, which is why it is not the headline)",
-                 codableMedian / assayMedian))
+    print(
+        String(
+            format: "first decode: %.1fx  (median; the total-based ratio swings 3-6x "
+                + "run to run, which is why it is not the headline)",
+            codableMedian / assayMedian))
 
     // The honest comparison beside it: the SAME types, steady state, so the reader can see how
     // much of the first-decode ratio is one-time work and how much is the decode itself.
     let warmAssay = measure(iterations: 20_000) { _ = coldAssayDecoders[0](json) }
     let warmCodable = measure(iterations: 20_000) { _ = coldCodableDecoders[0](data, decoder) }
-    print(String(format: "steady state, same shape: %.1fx  (%.0f ns vs %.0f ns)",
-                 warmCodable / warmAssay, warmCodable, warmAssay))
+    print(
+        String(
+            format: "steady state, same shape: %.1fx  (%.0f ns vs %.0f ns)",
+            warmCodable / warmAssay, warmCodable, warmAssay))
     print("")
     print("Read the DIFFERENCE between those two ratios, not either alone. Subtracting the")
     print("steady-state cost from the first-decode cost leaves the one-time per-type work,")

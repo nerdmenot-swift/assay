@@ -33,9 +33,9 @@ struct ISO8601Tests {
     func golden() {
         #expect(iso("1970-01-01T00:00:00Z") == 0)
         #expect(iso("2001-09-09T01:46:40Z") == 1_000_000_000)
-        #expect(iso("1994-11-06T08:49:37Z") == 784_111_777)     // RFC 9110's example
+        #expect(iso("1994-11-06T08:49:37Z") == 784_111_777)  // RFC 9110's example
         #expect(iso("1969-12-31T23:59:59Z") == -1)
-        #expect(iso("2000-02-29T00:00:00Z") == 951_782_400)     // century leap year
+        #expect(iso("2000-02-29T00:00:00Z") == 951_782_400)  // century leap year
     }
 
     @Test("offsets are subtracted, in both directions")
@@ -69,26 +69,29 @@ struct ISO8601Tests {
         #expect(iso("2016-12-31T23:59:60Z") == iso("2017-01-01T00:00:00Z"))
     }
 
-    @Test("every rejection names its field and its position", arguments: [
-        ("2026-13-01T00:00:00Z", "month 13"),
-        ("2026-02-29T00:00:00Z", "day 29 is out of range for 2026-02"),
-        ("2023-02-29T00:00:00Z", "day 29 is out of range for 2023-02"),
-        ("1900-02-29T00:00:00Z", "day 29 is out of range for 1900-02"),  // not a leap year
-        ("2026-04-31T00:00:00Z", "day 31 is out of range for 2026-04"),
-        ("2026-08-06T24:00:00Z", "hour 24"),
-        ("2026-08-06T12:60:00Z", "minute 60"),
-        ("2026-08-06T12:00:61Z", "second 61"),
-        ("2026-08-06X12:00:00Z", "expected 'T'"),
-        ("2026-08-06T12:00:00", "offset"),
-        ("2026-08-06T12:00:00Zx", "trailing"),
-        ("2026/08/06T12:00:00Z", "expected '-'"),
-        ("garbage", "4-digit year"),
-    ])
+    @Test(
+        "every rejection names its field and its position",
+        arguments: [
+            ("2026-13-01T00:00:00Z", "month 13"),
+            ("2026-02-29T00:00:00Z", "day 29 is out of range for 2026-02"),
+            ("2023-02-29T00:00:00Z", "day 29 is out of range for 2023-02"),
+            ("1900-02-29T00:00:00Z", "day 29 is out of range for 1900-02"),  // not a leap year
+            ("2026-04-31T00:00:00Z", "day 31 is out of range for 2026-04"),
+            ("2026-08-06T24:00:00Z", "hour 24"),
+            ("2026-08-06T12:60:00Z", "minute 60"),
+            ("2026-08-06T12:00:61Z", "second 61"),
+            ("2026-08-06X12:00:00Z", "expected 'T'"),
+            ("2026-08-06T12:00:00", "offset"),
+            ("2026-08-06T12:00:00Zx", "trailing"),
+            ("2026/08/06T12:00:00Z", "expected '-'"),
+            ("garbage", "4-digit year")
+        ])
     func rejections(_ input: String, _ reasonFragment: String) {
         let failure = isoFailure(input)
         #expect(failure != nil, "\(input) should have been rejected")
-        #expect(failure?.reason.contains(reasonFragment) == true,
-                "\(input): reason \"\(failure?.reason ?? "")\" should mention \"\(reasonFragment)\"")
+        #expect(
+            failure?.reason.contains(reasonFragment) == true,
+            "\(input): reason \"\(failure?.reason ?? "")\" should mention \"\(reasonFragment)\"")
     }
 
     @Test("the failure offset points into the value, at the failing field")
@@ -105,13 +108,17 @@ struct UnixTimestampTests {
 
     @Test("seconds and milliseconds, number and digit-string")
     func forms() {
-        #expect(try! DateParser.parse(seconds: 1_691_234_567, as: .unixSeconds).get()
+        #expect(
+            try! DateParser.parse(seconds: 1_691_234_567, as: .unixSeconds).get()
                 == 1_691_234_567)
-        #expect(try! DateParser.parse(seconds: 1_691_234_567_000, as: .unixMillis).get()
+        #expect(
+            try! DateParser.parse(seconds: 1_691_234_567_000, as: .unixMillis).get()
                 == 1_691_234_567)
-        #expect(try! DateParser.parse("1691234567", as: .unixSeconds).get()
+        #expect(
+            try! DateParser.parse("1691234567", as: .unixSeconds).get()
                 == 1_691_234_567)
-        #expect(try! DateParser.parse("1691234567.25", as: .unixSeconds).get()
+        #expect(
+            try! DateParser.parse("1691234567.25", as: .unixSeconds).get()
                 == 1_691_234_567.25)
         #expect(try! DateParser.parse("-86400", as: .unixSeconds).get() == -86_400)
     }
@@ -145,11 +152,14 @@ struct HTTPDateTests {
 
     @Test("all three forms the spec requires a parser to accept")
     func threeForms() {
-        #expect(try! DateParser.parse("Sun, 06 Nov 1994 08:49:37 GMT", as: .rfc9110).get()
+        #expect(
+            try! DateParser.parse("Sun, 06 Nov 1994 08:49:37 GMT", as: .rfc9110).get()
                 == Self.epoch)
-        #expect(try! DateParser.parse("Sunday, 06-Nov-94 08:49:37 GMT", as: .rfc9110).get()
+        #expect(
+            try! DateParser.parse("Sunday, 06-Nov-94 08:49:37 GMT", as: .rfc9110).get()
                 == Self.epoch)
-        #expect(try! DateParser.parse("Sun Nov  6 08:49:37 1994", as: .rfc9110).get()
+        #expect(
+            try! DateParser.parse("Sun Nov  6 08:49:37 1994", as: .rfc9110).get()
                 == Self.epoch)
     }
 
@@ -157,21 +167,24 @@ struct HTTPDateTests {
     func rfc850Years() {
         let y94 = try! DateParser.parse("Sunday, 06-Nov-94 08:49:37 GMT", as: .rfc9110).get()
         let y26 = try! DateParser.parse("Thursday, 06-Aug-26 08:49:37 GMT", as: .rfc9110).get()
-        #expect(y94 == Self.epoch)                       // 94 → 1994
-        #expect(y26 > 1_700_000_000)                     // 26 → 2026, not 1926
+        #expect(y94 == Self.epoch)  // 94 → 1994
+        #expect(y26 > 1_700_000_000)  // 26 → 2026, not 1926
     }
 
-    @Test("rejections name the problem", arguments: [
-        ("Xxx, 06 Nov 1994 08:49:37 GMT", "not a day name"),
-        ("Sun, 06 Foo 1994 08:49:37 GMT", "month name"),
-        ("Sun, 06 Nov 1994 08:49:37 UTC", "GMT"),
-        ("Sun, 31 Feb 1994 08:49:37 GMT", "out of range"),
-        ("Sun, 06 Nov 1994 25:49:37 GMT", "hour 25"),
-    ])
+    @Test(
+        "rejections name the problem",
+        arguments: [
+            ("Xxx, 06 Nov 1994 08:49:37 GMT", "not a day name"),
+            ("Sun, 06 Foo 1994 08:49:37 GMT", "month name"),
+            ("Sun, 06 Nov 1994 08:49:37 UTC", "GMT"),
+            ("Sun, 31 Feb 1994 08:49:37 GMT", "out of range"),
+            ("Sun, 06 Nov 1994 25:49:37 GMT", "hour 25")
+        ])
     func rejections(_ input: String, _ fragment: String) {
         if case .failure(let f) = DateParser.parse(input, as: .rfc9110) {
-            #expect(f.reason.contains(fragment),
-                    "\(input): \"\(f.reason)\" should mention \"\(fragment)\"")
+            #expect(
+                f.reason.contains(fragment),
+                "\(input): \"\(f.reason)\" should mention \"\(fragment)\"")
         } else {
             Issue.record("\(input) should have been rejected")
         }
@@ -183,23 +196,34 @@ struct PatternTests {
 
     @Test("date-only, datetime, millis, zone")
     func shapes() {
-        #expect(try! DateParser.parse("2026-08-06", as: .pattern("yyyy-MM-dd")).get()
+        #expect(
+            try! DateParser.parse("2026-08-06", as: .pattern("yyyy-MM-dd")).get()
                 == iso("2026-08-06T00:00:00Z"))
-        #expect(try! DateParser.parse("06/08/2026 12:30",
-                                      as: .pattern("dd/MM/yyyy HH:mm")).get()
+        #expect(
+            try! DateParser.parse(
+                "06/08/2026 12:30",
+                as: .pattern("dd/MM/yyyy HH:mm")
+            ).get()
                 == iso("2026-08-06T12:30:00Z"))
         // Letter literals are quoted, UTS-35 style — 'T' is the letter, not a field.
-        #expect(try! DateParser.parse("2026-08-06T12:30:00.250Z",
-                                      as: .pattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ")).get()
+        #expect(
+            try! DateParser.parse(
+                "2026-08-06T12:30:00.250Z",
+                as: .pattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+            ).get()
                 == iso("2026-08-06T12:30:00.25Z"))
-        #expect(try! DateParser.parse("20260806", as: .pattern("yyyyMMdd")).get()
+        #expect(
+            try! DateParser.parse("20260806", as: .pattern("yyyyMMdd")).get()
                 == iso("2026-08-06T00:00:00Z"))
     }
 
     @Test("a pattern with no zone is UTC — deterministic, unlike DateFormatter")
     func noZoneIsUTC() {
-        #expect(try! DateParser.parse("2026-08-06 05:00",
-                                      as: .pattern("yyyy-MM-dd HH:mm")).get()
+        #expect(
+            try! DateParser.parse(
+                "2026-08-06 05:00",
+                as: .pattern("yyyy-MM-dd HH:mm")
+            ).get()
                 == iso("2026-08-06T05:00:00Z"))
     }
 
@@ -225,4 +249,3 @@ struct PatternTests {
         }
     }
 }
-

@@ -15,9 +15,9 @@ import Foundation
 // MARK: - Driver
 
 var outDir = URL(fileURLWithPath: #filePath)
-    .deletingLastPathComponent()   // CorpusGen
-    .deletingLastPathComponent()   // Sources
-    .deletingLastPathComponent()   // Benchmarks
+    .deletingLastPathComponent()  // CorpusGen
+    .deletingLastPathComponent()  // Sources
+    .deletingLastPathComponent()  // Benchmarks
     .appendingPathComponent("Corpus/files")
 
 var args = Array(CommandLine.arguments.dropFirst())
@@ -40,16 +40,17 @@ for shape in SHAPES {
         try Data(blob).write(to: outDir.appendingPathComponent(name))
         doc.collectStringLengths(into: &lengths)
         positives += 1
-        manifestEntries.append("""
-            {
-              "file": "\(name)",
-              "shape": "\(shape.name)",
-              "target_bytes": \(size),
-              "actual_bytes": \(blob.count),
-              "kind": "positive",
-              "doc": "\(shape.doc)"
-            }
-        """)
+        manifestEntries.append(
+            """
+                {
+                  "file": "\(name)",
+                  "shape": "\(shape.name)",
+                  "target_bytes": \(size),
+                  "actual_bytes": \(blob.count),
+                  "kind": "positive",
+                  "doc": "\(shape.doc)"
+                }
+            """)
     }
 }
 
@@ -58,16 +59,17 @@ for neg in NEGATIVES {
     let blob = neg.build(&r)
     let name = "neg-\(neg.name).json"
     try Data(blob).write(to: outDir.appendingPathComponent(name))
-    manifestEntries.append("""
-        {
-          "file": "\(name)",
-          "shape": "\(neg.name)",
-          "target_bytes": 8192,
-          "actual_bytes": \(blob.count),
-          "kind": "negative",
-          "doc": "\(neg.doc)"
-        }
-    """)
+    manifestEntries.append(
+        """
+            {
+              "file": "\(name)",
+              "shape": "\(neg.name)",
+              "target_bytes": 8192,
+              "actual_bytes": \(blob.count),
+              "kind": "negative",
+              "doc": "\(neg.doc)"
+            }
+        """)
 }
 
 // SSO capacity is 15 on 64-bit, 14 on Android arm64, 8 on wasm32 and all 32-bit. Anything
@@ -76,38 +78,38 @@ for neg in NEGATIVES {
 var buckets = ["<=8": 0, "9-14": 0, "15": 0, "16-35": 0, "36+": 0]
 for n in lengths {
     switch n {
-    case ...8:   buckets["<=8"]! += 1
+    case ...8: buckets["<=8"]! += 1
     case 9...14: buckets["9-14"]! += 1
-    case 15:     buckets["15"]! += 1
+    case 15: buckets["15"]! += 1
     case 16...35: buckets["16-35"]! += 1
-    default:     buckets["36+"]! += 1
+    default: buckets["36+"]! += 1
     }
 }
 
 let manifest = """
-{
-  "seed": \(SEED),
-  "generator": "Benchmarks/Sources/CorpusGen",
-  "note": "Regenerating must be byte-identical; the allocation-count CI gate depends on \
-it. Fixed seed, SplitMix64 rather than the stdlib generator, ordered JSON objects, \
-hand-formatted doubles. No clock reads.",
-  "string_length_histogram": {
-    "total_strings": \(lengths.count),
-    "buckets": {
-      "<=8": \(buckets["<=8"]!),
-      "9-14": \(buckets["9-14"]!),
-      "15": \(buckets["15"]!),
-      "16-35": \(buckets["16-35"]!),
-      "36+": \(buckets["36+"]!)
-    },
-    "why": "SSO capacity is 15 on 64-bit, 14 on Android arm64, 8 on wasm32 and all \
-32-bit. No SSO-dependent claim ships without this table."
-  },
-  "files": [
-\(manifestEntries.joined(separator: ",\n"))
-  ]
-}
-"""
+    {
+      "seed": \(SEED),
+      "generator": "Benchmarks/Sources/CorpusGen",
+      "note": "Regenerating must be byte-identical; the allocation-count CI gate depends on \
+    it. Fixed seed, SplitMix64 rather than the stdlib generator, ordered JSON objects, \
+    hand-formatted doubles. No clock reads.",
+      "string_length_histogram": {
+        "total_strings": \(lengths.count),
+        "buckets": {
+          "<=8": \(buckets["<=8"]!),
+          "9-14": \(buckets["9-14"]!),
+          "15": \(buckets["15"]!),
+          "16-35": \(buckets["16-35"]!),
+          "36+": \(buckets["36+"]!)
+        },
+        "why": "SSO capacity is 15 on 64-bit, 14 on Android arm64, 8 on wasm32 and all \
+    32-bit. No SSO-dependent claim ships without this table."
+      },
+      "files": [
+    \(manifestEntries.joined(separator: ",\n"))
+      ]
+    }
+    """
 
 try Data(manifest.utf8).write(
     to: outDir.deletingLastPathComponent().appendingPathComponent("manifest.json"))
@@ -115,5 +117,6 @@ try Data(manifest.utf8).write(
 print("wrote \(positives) positive + \(NEGATIVES.count) negative files to \(outDir.path)")
 let band = buckets["9-14"]! + buckets["15"]!
 print("string lengths over \(lengths.count) strings: \(buckets)")
-print("  9-15 byte band: \(band) (\(band * 100 / max(1, lengths.count))%) "
-      + "— free on 64-bit, heap-allocated on wasm32")
+print(
+    "  9-15 byte band: \(band) (\(band * 100 / max(1, lengths.count))%) "
+        + "— free on 64-bit, heap-allocated on wasm32")

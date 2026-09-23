@@ -32,8 +32,9 @@ func runDecompositionBenchmarks(corpusDir: URL, sizes: [String]) {
     print("")
     print("Where decode time goes — the measurement that gates SIMD (phase 4) and C (5)")
     print("Amdahl: a vectorised validator cannot win more than the validate share below.")
-    print(pad("shape", 18, right: true) + pad("size", 7) + pad("decode ns", 12)
-          + pad("validate", 11) + pad("val %", 8) + pad("scan ns", 11) + pad("scan %", 8))
+    print(
+        pad("shape", 18, right: true) + pad("size", 7) + pad("decode ns", 12)
+            + pad("validate", 11) + pad("val %", 8) + pad("scan ns", 11) + pad("scan %", 8))
     print(String(repeating: "-", count: 76))
 
     var validateShares: [Double] = []
@@ -78,24 +79,31 @@ func runDecompositionBenchmarks(corpusDir: URL, sizes: [String]) {
             let vPct = vNs / dNs * 100
             let sPct = sNs / dNs * 100
             validateShares.append(vPct)
-            print(pad(shape, 18, right: true) + pad(size, 7)
-                  + pad(String(format: "%.0f", dNs), 12)
-                  + pad(String(format: "%.0f", vNs), 11)
-                  + pad(String(format: "%.1f%%", vPct), 8)
-                  + pad(String(format: "%.0f", sNs), 11)
-                  + pad(String(format: "%.0f%%", sPct), 8))
+            print(
+                pad(shape, 18, right: true) + pad(size, 7)
+                    + pad(String(format: "%.0f", dNs), 12)
+                    + pad(String(format: "%.0f", vNs), 11)
+                    + pad(String(format: "%.1f%%", vPct), 8)
+                    + pad(String(format: "%.0f", sNs), 11)
+                    + pad(String(format: "%.0f%%", sPct), 8))
         }
     }
 
     guard !validateShares.isEmpty else { return }
     let mean = validateShares.reduce(0, +) / Double(validateShares.count)
     let hi = validateShares.max()!
-    print(String(format: "UTF-8 validation is %.1f%% of decode on average, %.1f%% at worst.",
-                 mean, hi))
+    print(
+        String(
+            format: "UTF-8 validation is %.1f%% of decode on average, %.1f%% at worst.",
+            mean, hi))
     print("")
     print("Reading this as a gate: a PERFECT vectorised validator — zero cost, not merely")
-    print(String(format: "faster — would improve end-to-end decode by at most %.1f%%. A realistic", hi))
-    print(String(format: "4x validator wins about %.1f%%. That is the ceiling on phase 4's", hi * 0.75))
+    print(
+        String(
+            format: "faster — would improve end-to-end decode by at most %.1f%%. A realistic", hi))
+    print(
+        String(
+            format: "4x validator wins about %.1f%%. That is the ceiling on phase 4's", hi * 0.75))
     print("headline win for schema decoding, measured rather than assumed.")
     print("The prefix/skip and value-model paths spend a larger share here and would")
     print("benefit more; the struct path, which is the product, would not.")

@@ -72,8 +72,11 @@ extension SchemaDescriptor {
             // say "exactly one of these keys", so each alias is described as an optional
             // property of the same shape — permissive rather than wrong, per the file header.
             for alias in f.aliases {
-                properties.append((alias,
-                                   JSONSchemaRender.schema(for: shape, rules: f.rules)))
+                properties.append(
+                    (
+                        alias,
+                        JSONSchemaRender.schema(for: shape, rules: f.rules)
+                    ))
             }
             if f.isRequired && f.aliases.isEmpty { required.append(.string(f.wireKey)) }
         }
@@ -125,8 +128,9 @@ enum JSONSchemaRender {
             // which is expressed by leaving it out of `required` rather than here.
             var inner = schema(for: wrapped, rules: rules)
             if case .object(var members) = inner,
-               let i = members.firstIndex(where: { $0.0 == "type" }),
-               case .string(let t) = members[i].1 {
+                let i = members.firstIndex(where: { $0.0 == "type" }),
+                case .string(let t) = members[i].1
+            {
                 members[i] = ("type", .array([.string(t), .string("null")]))
                 inner = .object(members)
             }
@@ -149,7 +153,8 @@ enum JSONSchemaRender {
 
     /// Rule -> keyword, given the field's declared type. See the file header for what is
     /// deliberately dropped, and why dropping beats approximating.
-    static func keywords(for rules: [Rule], on type: TypeDescriptor) -> [(String, JSONSchemaValue)] {
+    static func keywords(for rules: [Rule], on type: TypeDescriptor) -> [(String, JSONSchemaValue)]
+    {
         var out: [(String, JSONSchemaValue)] = []
         var notes: [String] = []
 
@@ -159,13 +164,21 @@ enum JSONSchemaRender {
         for rule in rules {
             switch rule.kind {
             case .min(let v):
-                if isString() { out.append(("minLength", .number(v))) }
-                else if isArray() { out.append(("minItems", .number(v))) }
-                else { out.append(("minimum", .number(v))) }
+                if isString() {
+                    out.append(("minLength", .number(v)))
+                } else if isArray() {
+                    out.append(("minItems", .number(v)))
+                } else {
+                    out.append(("minimum", .number(v)))
+                }
             case .max(let v):
-                if isString() { out.append(("maxLength", .number(v))) }
-                else if isArray() { out.append(("maxItems", .number(v))) }
-                else { out.append(("maximum", .number(v))) }
+                if isString() {
+                    out.append(("maxLength", .number(v)))
+                } else if isArray() {
+                    out.append(("maxItems", .number(v)))
+                } else {
+                    out.append(("maximum", .number(v)))
+                }
             case .range(let lo, let hi):
                 if isString() {
                     out.append(("minLength", .number(lo)))
@@ -181,8 +194,11 @@ enum JSONSchemaRender {
                 out.append(("minLength", .number(Double(n))))
                 out.append(("maxLength", .number(Double(n))))
             case .notEmpty:
-                if isArray() { out.append(("minItems", .number(1))) }
-                else { out.append(("minLength", .number(1))) }
+                if isArray() {
+                    out.append(("minItems", .number(1)))
+                } else {
+                    out.append(("minLength", .number(1)))
+                }
             case .count(let lo, let hi):
                 out.append(("minItems", .number(Double(lo))))
                 out.append(("maxItems", .number(Double(hi))))
@@ -194,19 +210,19 @@ enum JSONSchemaRender {
                 // often than not, and the alternative — dropping it — under-documents a real
                 // constraint. Noted so a consumer knows to check.
                 out.append(("pattern", .string(p.pattern)))
-            case .email:    out.append(("format", .string("email")))
-            case .url:      out.append(("format", .string("uri")))
-            case .uuid:     out.append(("format", .string("uuid")))
+            case .email: out.append(("format", .string("email")))
+            case .url: out.append(("format", .string("uri")))
+            case .uuid: out.append(("format", .string("uuid")))
             case .hostname: out.append(("format", .string("hostname")))
-            case .ascii:    out.append(("pattern", .string("^[\\u0000-\\u007F]*$")))
-            case .prefix(let s):   out.append(("pattern", .string("^" + escaped(s))))
-            case .suffix(let s):   out.append(("pattern", .string(escaped(s) + "$")))
+            case .ascii: out.append(("pattern", .string("^[\\u0000-\\u007F]*$")))
+            case .prefix(let s): out.append(("pattern", .string("^" + escaped(s))))
+            case .suffix(let s): out.append(("pattern", .string(escaped(s) + "$")))
             case .contains(let s): out.append(("pattern", .string(escaped(s))))
             case .oneOf(let values):
                 out.append(("enum", .array(values.map { .string($0) })))
-            case .positive:     out.append(("exclusiveMinimum", .number(0)))
-            case .negative:     out.append(("exclusiveMaximum", .number(0)))
-            case .nonNegative:  out.append(("minimum", .number(0)))
+            case .positive: out.append(("exclusiveMinimum", .number(0)))
+            case .negative: out.append(("exclusiveMaximum", .number(0)))
+            case .nonNegative: out.append(("minimum", .number(0)))
             case .multipleOf(let v): out.append(("multipleOf", .number(v)))
             case .finite:
                 // JSON has no infinities to exclude, so this constrains nothing on the wire.
@@ -269,8 +285,8 @@ public indirect enum JSONSchemaValue: Sendable {
         let pad = String(repeating: " ", count: indent)
         let inner = String(repeating: " ", count: indent + 2)
         switch self {
-        case .string(let s):  return "\"\(JSONSchemaValue.escapeJSON(s))\""
-        case .bool(let b):    return b ? "true" : "false"
+        case .string(let s): return "\"\(JSONSchemaValue.escapeJSON(s))\""
+        case .bool(let b): return b ? "true" : "false"
         case .number(let d):
             if d == d.rounded() && d.magnitude < 1e15 {
                 return String(Int64(d))
@@ -294,11 +310,11 @@ public indirect enum JSONSchemaValue: Sendable {
         var out = ""
         for scalar in s.unicodeScalars {
             switch scalar {
-            case "\"":  out += "\\\""
-            case "\\":  out += "\\\\"
-            case "\n":  out += "\\n"
-            case "\r":  out += "\\r"
-            case "\t":  out += "\\t"
+            case "\"": out += "\\\""
+            case "\\": out += "\\\\"
+            case "\n": out += "\\n"
+            case "\r": out += "\\r"
+            case "\t": out += "\\t"
             default:
                 if scalar.value < 0x20 {
                     // No Foundation in AssayCore, so no `String(format:)`. Control bytes are

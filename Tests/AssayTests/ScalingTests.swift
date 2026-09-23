@@ -51,21 +51,28 @@ struct ScalingTests {
         let v = String(repeating: "x", count: valueLength)
         switch f {
         case .json:
-            return "{\"items\":[" + (0..<n).map {
-                "{\"name\":\"\(v)\",\"n\":\($0),\"tags\":[\"a\",\"b\"]}" }
+            return "{\"items\":["
+                + (0..<n).map {
+                    "{\"name\":\"\(v)\",\"n\":\($0),\"tags\":[\"a\",\"b\"]}"
+                }
                 .joined(separator: ",") + "]}"
         case .yaml:
             // Indentless, the way most real YAML is written. This fixture found that the
             // parser refused the form (fixed 2026-09-19, YAMLIndentlessSequenceTests).
-            return "items:\n" + (0..<n).map {
-                "- name: \(v)\n  n: \($0)\n  tags: [a, b]\n" }.joined()
+            return "items:\n"
+                + (0..<n).map {
+                    "- name: \(v)\n  n: \($0)\n  tags: [a, b]\n"
+                }.joined()
         case .xml:
-            return "<doc>" + (0..<n).map {
-                "<items><name>\(v)</name><n>\($0)</n><tags>a</tags><tags>b</tags></items>" }
+            return "<doc>"
+                + (0..<n).map {
+                    "<items><name>\(v)</name><n>\($0)</n><tags>a</tags><tags>b</tags></items>"
+                }
                 .joined() + "</doc>"
         case .toml:
             return (0..<n).map {
-                "[[items]]\nname = \"\(v)\"\nn = \($0)\ntags = [\"a\", \"b\"]\n" }.joined()
+                "[[items]]\nname = \"\(v)\"\nn = \($0)\ntags = [\"a\", \"b\"]\n"
+            }.joined()
         }
     }
 
@@ -81,8 +88,10 @@ struct ScalingTests {
     static func now() -> UInt64 { DispatchTime.now().uptimeNanoseconds }
 
     /// Best-of-five for each input, interleaved; returns large / small.
-    static func ratio(_ small: String, _ large: String,
-                      _ run: (String) throws -> Void) rethrows -> Double {
+    static func ratio(
+        _ small: String, _ large: String,
+        _ run: (String) throws -> Void
+    ) rethrows -> Double {
         var best = (s: UInt64.max, l: UInt64.max)
         for _ in 0..<5 {
             var t = now(); try run(small); best.s = min(best.s, now() - t)

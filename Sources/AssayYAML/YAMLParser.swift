@@ -47,12 +47,18 @@ extension YAML {
     ) throws(AssayError) -> Node {
         let docs = try parseAll(bytes, limits: limits)
         guard let first = docs.first else {
-            throw AssayError(issues: [Issue(code: .yamlEmptyStream)], source: SourceBytes(bytes), sourceName: "<input>")
+            throw AssayError(
+                issues: [Issue(code: .yamlEmptyStream)], source: SourceBytes(bytes),
+                sourceName: "<input>")
         }
         guard docs.count == 1 else {
-            throw AssayError(issues: [Issue(code: .yamlMultipleDocuments,
-                                            params: ["count": .int(docs.count)])],
-                             source: SourceBytes(bytes), sourceName: "<input>")
+            throw AssayError(
+                issues: [
+                    Issue(
+                        code: .yamlMultipleDocuments,
+                        params: ["count": .int(docs.count)])
+                ],
+                source: SourceBytes(bytes), sourceName: "<input>")
         }
         return first
     }
@@ -64,7 +70,9 @@ extension YAML {
     ) throws(AssayError) -> [Node] {
         var sink = IssueSink(limits: limits)
         let docs = decodeAll(bytes, into: &sink, limits: limits)
-        guard sink.isValid else { throw AssayError(issues: sink.issues, source: SourceBytes(bytes), sourceName: "<input>") }
+        guard sink.isValid else {
+            throw AssayError(issues: sink.issues, source: SourceBytes(bytes), sourceName: "<input>")
+        }
         return docs
     }
 
@@ -115,15 +123,19 @@ extension YAML {
         as builder: B.Type
     ) -> [B.Value] {
         if bytes.count > limits.maxBytes {
-            sink.add(Issue(code: .tooManyBytes,
-                           params: ["maxBytes": .int(limits.maxBytes)]))
+            sink.add(
+                Issue(
+                    code: .tooManyBytes,
+                    params: ["maxBytes": .int(limits.maxBytes)]))
             return []
         }
         return unsafe bytes.withUnsafeBufferPointer { buf -> [B.Value] in
             guard let base = buf.baseAddress else { return [] }
             if let bad = unsafe UTF8Validation.firstInvalid(base, buf.count) {
-                sink.add(Issue(code: .invalidUTF8, params: ["offset": .int(bad)],
-                               location: SourceSpan(lo: bad, len: 1)))
+                sink.add(
+                    Issue(
+                        code: .invalidUTF8, params: ["offset": .int(bad)],
+                        location: SourceSpan(lo: bad, len: 1)))
                 return []
             }
             var reader = unsafe AssayReader(base: base, count: buf.count, limits: limits)
@@ -265,9 +277,10 @@ extension YAML {
                 var i = end - 1
                 while i > start {
                     guard let b = r.byte(absolute: i) else { break }
-                    if b == 0x0A || b == 0x0D { break }        // multi-line: no comment
+                    if b == 0x0A || b == 0x0D { break }  // multi-line: no comment
                     if b == UInt8(ascii: "#"), let prev = r.byte(absolute: i - 1),
-                       isBlank(prev) {
+                        isBlank(prev)
+                    {
                         end = i
                         while end > start, let p = r.byte(absolute: end - 1), isBlank(p) {
                             end -= 1
@@ -359,8 +372,11 @@ extension YAML {
                 node = parseBlockScalar(&r, &sink, indent: indent)
             } else {
                 let column = currentColumn(&r)
-                if column > indent, let block = tryParseBlock(&r, &sink,
-                                                             indent: column, depth: depth) {
+                if column > indent,
+                    let block = tryParseBlock(
+                        &r, &sink,
+                        indent: column, depth: depth)
+                {
                     node = block
                 } else if indentlessSequence, column == indent, isSequenceEntry(&r) {
                     node = parseBlockSequence(&r, &sink, indent: column, depth: depth)
@@ -400,8 +416,9 @@ extension YAML {
 
             // Block sequence: "- " or "-" at end of line.
             if r.currentByte == UInt8(ascii: "-"),
-               let next = r.byte(at: 1),
-               next == 0x20 || next == 0x0A || next == 0x0D {
+                let next = r.byte(at: 1),
+                next == 0x20 || next == 0x0A || next == 0x0D
+            {
                 return parseBlockSequence(&r, &sink, indent: indent, depth: depth)
             }
 
@@ -421,7 +438,10 @@ extension YAML {
 
             // Explicit key form: "? "
             if r.currentByte == UInt8(ascii: "?"),
-               let n = r.byte(at: 1), n == 0x20 || n == 0x0A { return true }
+                let n = r.byte(at: 1), n == 0x20 || n == 0x0A
+            {
+                return true
+            }
 
             var quote: UInt8?
             while let c = r.currentByte {

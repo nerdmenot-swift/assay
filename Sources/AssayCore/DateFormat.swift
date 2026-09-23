@@ -62,10 +62,10 @@ public enum DateFormat: Sendable, Equatable {
     /// For error messages: "must be an ISO-8601 date".
     public var displayName: String {
         switch self {
-        case .iso8601:        return "ISO-8601 date"
-        case .unixSeconds:    return "unix timestamp (seconds)"
-        case .unixMillis:     return "unix timestamp (milliseconds)"
-        case .rfc9110:        return "HTTP date (RFC 9110)"
+        case .iso8601: return "ISO-8601 date"
+        case .unixSeconds: return "unix timestamp (seconds)"
+        case .unixMillis: return "unix timestamp (milliseconds)"
+        case .rfc9110: return "HTTP date (RFC 9110)"
         case .pattern(let p): return "date matching \"\(p)\""
         }
     }

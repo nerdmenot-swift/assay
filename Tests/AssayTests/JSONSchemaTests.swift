@@ -75,7 +75,8 @@ private func find(_ v: JSONSchemaValue, _ path: [String]) -> JSONSchemaValue? {
     var current = v
     for key in path {
         guard case .object(let members) = current,
-              let next = members.first(where: { $0.0 == key })?.1 else { return nil }
+            let next = members.first(where: { $0.0 == key })?.1
+        else { return nil }
         current = next
     }
     return current
@@ -97,7 +98,8 @@ struct JSONSchemaTests {
     @Test("the document names the 2020-12 dialect and the type")
     func envelope() {
         let s = SchemaArticle.jsonSchema()
-        #expect(str(find(s, ["$schema"]))
+        #expect(
+            str(find(s, ["$schema"]))
                 == "https://json-schema.org/draft/2020-12/schema")
         #expect(str(find(s, ["title"])) == "SchemaArticle")
         #expect(str(find(s, ["type"])) == "object")
@@ -150,14 +152,17 @@ struct JSONSchemaTests {
         }
         #expect(values.compactMap { str($0) } == ["admin", "member"])
         #expect(find(s, ["properties", "labels", "uniqueItems"]) != nil)
-        #expect(num(find(s, ["properties", "labels", "items", "minLength"])) == 1,
-                ".each's rules belong on the element, which is where JSON Schema puts them")
+        #expect(
+            num(find(s, ["properties", "labels", "items", "minLength"])) == 1,
+            ".each's rules belong on the element, which is where JSON Schema puts them")
     }
 
     @Test("an optional is a nullable type union, not a missing property")
     func optionals() {
-        guard case .array(let types)? =
-                find(SchemaArticle.jsonSchema(), ["properties", "summary", "type"]) else {
+        guard
+            case .array(let types)? =
+                find(SchemaArticle.jsonSchema(), ["properties", "summary", "type"])
+        else {
             Issue.record("summary's type is not a union"); return
         }
         #expect(types.compactMap { str($0) } == ["string", "null"])
@@ -167,13 +172,16 @@ struct JSONSchemaTests {
     func nested() {
         let s = SchemaPost.jsonSchema()
         #expect(str(find(s, ["properties", "author", "type"])) == "object")
-        #expect(str(find(s, ["properties", "author", "properties", "email", "format"]))
+        #expect(
+            str(find(s, ["properties", "author", "properties", "email", "format"]))
                 == "email")
         #expect(str(find(s, ["properties", "reviewers", "type"])) == "array")
-        #expect(str(find(s, ["properties", "reviewers", "items", "properties", "name", "type"]))
+        #expect(
+            str(find(s, ["properties", "reviewers", "items", "properties", "name", "type"]))
                 == "string")
         // [String: Int] is an object with a constrained additionalProperties.
-        #expect(str(find(s, ["properties", "counts", "additionalProperties", "type"]))
+        #expect(
+            str(find(s, ["properties", "counts", "additionalProperties", "type"]))
                 == "integer")
     }
 
@@ -190,10 +198,12 @@ struct JSONSchemaTests {
     func inputVersusOutput() {
         let input = SchemaTicket.jsonSchema(for: .input)
         let output = SchemaTicket.jsonSchema(for: .output)
-        #expect(str(find(input, ["properties", "code", "type"])) == "string",
-                "a producer must send what the transform consumes")
-        #expect(str(find(output, ["properties", "code", "type"])) == "integer",
-                "a consumer receives the declared property type")
+        #expect(
+            str(find(input, ["properties", "code", "type"])) == "string",
+            "a producer must send what the transform consumes")
+        #expect(
+            str(find(output, ["properties", "code", "type"])) == "integer",
+            "a consumer receives the declared property type")
         // A field with no transform is identical in both.
         #expect(str(find(input, ["properties", "name", "type"])) == "string")
         #expect(str(find(output, ["properties", "name", "type"])) == "string")
@@ -222,10 +232,12 @@ struct SchemaIsNotTooStrict {
     @Test("a rule with no exact keyword becomes prose, not an approximate pattern")
     func inexactRulesBecomeProse() throws {
         let s = SchemaNormalised.jsonSchema()
-        #expect(find(s, ["properties", "handle", "pattern"]) == nil,
-                "an approximate pattern could reject documents this type accepts")
-        #expect(num(find(s, ["properties", "handle", "minLength"])) == 2,
-                "the exactly-expressible constraint beside them must survive")
+        #expect(
+            find(s, ["properties", "handle", "pattern"]) == nil,
+            "an approximate pattern could reject documents this type accepts")
+        #expect(
+            num(find(s, ["properties", "handle", "minLength"])) == 2,
+            "the exactly-expressible constraint beside them must survive")
         let note = str(find(s, ["properties", "handle", "description"]))
         #expect(note?.contains("whitespace") == true, "got \(note ?? "nil")")
         #expect(note?.contains("lowercase") == true, "got \(note ?? "nil")")
@@ -244,19 +256,22 @@ struct SchemaIsNotTooStrict {
         #expect(find(s, ["properties", "email_address"]) != nil)
         if case .array(let req)? = find(s, ["required"]) {
             let names = Set(req.compactMap { str($0) })
-            #expect(!names.contains("email"),
-                    "requiring `email` would reject a document that used the alias")
+            #expect(
+                !names.contains("email"),
+                "requiring `email` would reject a document that used the alias")
             #expect(!names.contains("email_address"))
         }
         // Both really do decode.
-        _ = try SchemaContact.parse(json: #"""
-            {"email":"a@b.com","id":"6ba7b810-9dad-11d1-80b4-00c04fd430c8",\
-            "role":"admin","labels":["x"]}
-            """#.replacingOccurrences(of: "\\\n", with: ""))
-        _ = try SchemaContact.parse(json: #"""
-            {"email_address":"a@b.com","id":"6ba7b810-9dad-11d1-80b4-00c04fd430c8",\
-            "role":"admin","labels":["x"]}
-            """#.replacingOccurrences(of: "\\\n", with: ""))
+        _ = try SchemaContact.parse(
+            json: #"""
+                {"email":"a@b.com","id":"6ba7b810-9dad-11d1-80b4-00c04fd430c8",\
+                "role":"admin","labels":["x"]}
+                """#.replacingOccurrences(of: "\\\n", with: ""))
+        _ = try SchemaContact.parse(
+            json: #"""
+                {"email_address":"a@b.com","id":"6ba7b810-9dad-11d1-80b4-00c04fd430c8",\
+                "role":"admin","labels":["x"]}
+                """#.replacingOccurrences(of: "\\\n", with: ""))
     }
 
     /// A date bound has no 2020-12 keyword. It must not become `minimum`, which would compare
@@ -264,8 +279,9 @@ struct SchemaIsNotTooStrict {
     @Test("a date bound is prose, not a numeric bound")
     func dateBounds() {
         let s = SchemaDated.jsonSchema()
-        #expect(find(s, ["properties", "at", "minimum"]) == nil,
-                "minimum on a date-time string would compare the wrong things")
+        #expect(
+            find(s, ["properties", "at", "minimum"]) == nil,
+            "minimum on a date-time string would compare the wrong things")
         #expect(str(find(s, ["properties", "at", "format"])) == "date-time")
         #expect(str(find(s, ["properties", "at", "description"]))?.contains("after") == true)
     }
@@ -297,7 +313,8 @@ struct JSONSchemaDiagnostics {
     /// not read. Refused, with the alternative named.
     @Test("describes: true with @Key(path:) is refused")
     func pathRefused() {
-        let (_, diags) = expandSchemaForTesting("""
+        let (_, diags) = expandSchemaForTesting(
+            """
             @Schema(describes: true) struct S {
                 @Key(path: "a.b") var b: String
             }
@@ -308,7 +325,8 @@ struct JSONSchemaDiagnostics {
     /// An XML attribute is not a JSON property.
     @Test("describes: true with @XML placement is refused")
     func xmlRefused() {
-        let (_, diags) = expandSchemaForTesting("""
+        let (_, diags) = expandSchemaForTesting(
+            """
             @Schema(formats: .all, describes: true) struct S {
                 @XML(.attribute) var id: String
             }

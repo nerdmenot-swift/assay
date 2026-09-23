@@ -71,15 +71,17 @@ struct ValidateTests {
 
     @Test("the §5 worked example: every rule, every field")
     func signup() throws {
-        let good = try Signup.parse(json: #"""
-        {"username":"ada_l","email":"ada@example.com","password":"correct-horse-battery",
-         "age":36,"recipients":["a@example.com","b@example.com"]}
-        """#)
+        let good = try Signup.parse(
+            json: #"""
+                {"username":"ada_l","email":"ada@example.com","password":"correct-horse-battery",
+                 "age":36,"recipients":["a@example.com","b@example.com"]}
+                """#)
         #expect(good.username == "ada_l")
 
-        let d = Signup.diagnose(json: #"""
-        {"username":"A!","email":"nope","password":"short","age":9,"recipients":[]}
-        """#)
+        let d = Signup.diagnose(
+            json: #"""
+                {"username":"A!","email":"nope","password":"short","age":9,"recipients":[]}
+                """#)
         #expect(d.isValid == false)
         // All the errors, one pass: min(username) + regex(username), email, password, age, count.
         #expect(d.issues.count == 6)
@@ -91,46 +93,48 @@ struct ValidateTests {
     @Test("decode errors and rule violations collect in the same pass")
     func mixedFailures() {
         // One type mismatch AND one rule violation: both reported, not first-wins.
-        let d = Signup.diagnose(json: #"""
-        {"username":"ok_name","email":"nope","password":true,"age":36,"recipients":["a@example.com"]}
-        """#)
+        let d = Signup.diagnose(
+            json: #"""
+                {"username":"ok_name","email":"nope","password":true,"age":36,"recipients":["a@example.com"]}
+                """#)
         #expect(d.isValid == false)
-        #expect(d.issues.contains { $0.code == .typeMismatch })          // password
+        #expect(d.issues.contains { $0.code == .typeMismatch })  // password
         #expect(d.issues.contains { $0.code == .invalidEmail })
     }
 
     @Test("the flagship: a caret under a value that parsed fine and validated badly")
     func caretOnValidation() {
         let json = """
-        {
-        "name": "api",
-        "replicas": 0,
-        "image": "registry.internal/api"
-        }
-        """
+            {
+            "name": "api",
+            "replicas": 0,
+            "image": "registry.internal/api"
+            }
+            """
         let d = Deployment.diagnose(json: json, sourceName: "deploy.json")
         #expect(d.isValid == false)
 
         let expected = """
-        deploy.json:3:13: error: replicas must be at least 1
-          1 │ {
-          2 │ "name": "api",
-          3 │ "replicas": 0,
-            │             ^
-          4 │ "image": "registry.internal/api"
+            deploy.json:3:13: error: replicas must be at least 1
+              1 │ {
+              2 │ "name": "api",
+              3 │ "replicas": 0,
+                │             ^
+              4 │ "image": "registry.internal/api"
 
-        1 error
+            1 error
 
-        """
+            """
         #expect(d.render(.plain) == expected)
     }
 
     @Test("attribute-level message override, the message-as-a-rule trick")
     func messageOverride() {
-        let d = Signup.diagnose(json: #"""
-        {"username":"ada_l","email":"a@example.com","password":"short","age":36,
-         "recipients":["a@example.com"]}
-        """#)
+        let d = Signup.diagnose(
+            json: #"""
+                {"username":"ada_l","email":"a@example.com","password":"short","age":36,
+                 "recipients":["a@example.com"]}
+                """#)
         let issue = d.issues.first { $0.path.pathDescription == "password" }
         #expect(issue?.message == "must be at least 12 characters")
         // The code and params survive underneath the override — clients still branch.
@@ -152,19 +156,21 @@ struct ValidateTests {
         _ = try Org.parse(json: #"{"slug":"acme-corp"}"#)
         let d = Org.diagnose(json: #"{"slug":"X"}"#)
         #expect(d.isValid == false)
-        #expect(d.issues.count == 2)          // min AND regex, both from the composition
+        #expect(d.issues.count == 2)  // min AND regex, both from the composition
     }
 
     @Test("hand-rolled format validators behave, identically on every platform")
     func formats() throws {
-        _ = try Formats.parse(json: #"""
-        {"id":"3db7582f-b24c-4245-8556-3c25956d108f","link":"https://example.com/x",
-         "host":"api.example.com","code":"abc123"}
-        """#)
+        _ = try Formats.parse(
+            json: #"""
+                {"id":"3db7582f-b24c-4245-8556-3c25956d108f","link":"https://example.com/x",
+                 "host":"api.example.com","code":"abc123"}
+                """#)
 
-        let bad = Formats.diagnose(json: #"""
-        {"id":"not-a-uuid","link":"no scheme here","host":"-bad-.example","code":"café"}
-        """#)
+        let bad = Formats.diagnose(
+            json: #"""
+                {"id":"not-a-uuid","link":"no scheme here","host":"-bad-.example","code":"café"}
+                """#)
         #expect(bad.issues.count == 4)
         #expect(bad.issues.contains { $0.code == .invalidUuid })
         #expect(bad.issues.contains { $0.code == .invalidUrl })
@@ -177,9 +183,11 @@ struct ValidateTests {
         for good in ["a@example.com", "first.last@sub.example.co", "x+tag@example.io"] {
             #expect(FormatValidators.isEmail(good), "\(good) should pass")
         }
-        for bad in ["nope", "@example.com", "a@", "a@localhost", "a..b@example.com",
-                    ".a@example.com", "a@-bad-.com", "a@1.2.3.4",
-                    String(repeating: "x", count: 65) + "@example.com"] {
+        for bad in [
+            "nope", "@example.com", "a@", "a@localhost", "a..b@example.com",
+            ".a@example.com", "a@-bad-.com", "a@1.2.3.4",
+            String(repeating: "x", count: 65) + "@example.com"
+        ] {
             #expect(!FormatValidators.isEmail(bad), "\(bad) should fail")
         }
     }
@@ -210,10 +218,11 @@ struct ValidateTests {
         #expect(d.issues.contains { $0.code == .notUnique })
         #expect(d.issues.contains { $0.code == .empty })
 
-        let e = Signup.diagnose(json: #"""
-        {"username":"ada_l","email":"a@example.com","password":"long-enough-pass",
-         "age":36,"recipients":["ok@example.com","nope"]}
-        """#)
+        let e = Signup.diagnose(
+            json: #"""
+                {"username":"ada_l","email":"a@example.com","password":"long-enough-pass",
+                 "age":36,"recipients":["ok@example.com","nope"]}
+                """#)
         let bad = e.issues.first { $0.code == .invalidEmail }
         #expect(bad?.path.pathDescription == "recipients[1]")
     }
@@ -233,11 +242,12 @@ struct ValidateTests {
 
     @Test("validation runs identically through the YAML path")
     func yamlPath() {
-        let d = Deployment.diagnose(yaml: """
-        name: api
-        replicas: 0
-        image: docker.io/api
-        """)
+        let d = Deployment.diagnose(
+            yaml: """
+                name: api
+                replicas: 0
+                image: docker.io/api
+                """)
         #expect(d.isValid == false)
         #expect(d.issues.contains { $0.code == .tooSmall })
         #expect(d.issues.contains { $0.code == .missingPrefix })
@@ -245,19 +255,22 @@ struct ValidateTests {
 
     @Test("problemDetails carries validation codes and params for API clients")
     func problemDetails() throws {
-        let d = Signup.diagnose(json: #"""
-        {"username":"ada_l","email":"nope","password":"short","age":36,
-         "recipients":["a@example.com"]}
-        """#)
+        let d = Signup.diagnose(
+            json: #"""
+                {"username":"ada_l","email":"nope","password":"short","age":36,
+                 "recipients":["a@example.com"]}
+                """#)
         let v = try JSON.Value.parse(d.render(.problemDetails))
         let errors = v["errors"]?.array ?? []
-        #expect(errors.contains {
-            $0["code"]?.string == "invalid_email" && $0["path"]?.string == "email"
-        })
-        #expect(errors.contains {
-            $0["code"]?.string == "too_small"
-                && $0["params"]?["minimum"]?.int == 12
-        })
+        #expect(
+            errors.contains {
+                $0["code"]?.string == "invalid_email" && $0["path"]?.string == "email"
+            })
+        #expect(
+            errors.contains {
+                $0["code"]?.string == "too_small"
+                    && $0["params"]?["minimum"]?.int == 12
+            })
     }
 }
 
@@ -266,12 +279,15 @@ struct ValidateMacroDiagnosticTests {
 
     @Test("rule/type mismatch is caught at expansion with the §5 wording")
     func typeMismatch() {
-        let (_, diags) = expandSchemaForTesting("""
-        @Schema struct S { @Validate(.email) var age: Int }
-        """)
-        #expect(diags.contains {
-            $0.contains("rule '.email' applies to String") && $0.contains("'age' is declared Int")
-        })
+        let (_, diags) = expandSchemaForTesting(
+            """
+            @Schema struct S { @Validate(.email) var age: Int }
+            """)
+        #expect(
+            diags.contains {
+                $0.contains("rule '.email' applies to String")
+                    && $0.contains("'age' is declared Int")
+            })
     }
 
     @Test("array rules on scalars, number rules on strings")
@@ -310,29 +326,29 @@ struct ValidateMacroDiagnosticTests {
 
 @Schema
 struct EveryStringRule {
-    @Validate(.length(3))          var exact: String
-    @Validate(.notEmpty)           var present: String
-    @Validate(.ascii)              var plain: String
-    @Validate(.isTrimmed)          var trimmed: String
-    @Validate(.isLowercase)        var lower: String
-    @Validate(.prefix("id_"))      var prefixed: String
-    @Validate(.suffix(".txt"))     var suffixed: String
-    @Validate(.contains("@"))      var containing: String
-    @Validate(.oneOf(["a", "b"]))  var choice: String
+    @Validate(.length(3)) var exact: String
+    @Validate(.notEmpty) var present: String
+    @Validate(.ascii) var plain: String
+    @Validate(.isTrimmed) var trimmed: String
+    @Validate(.isLowercase) var lower: String
+    @Validate(.prefix("id_")) var prefixed: String
+    @Validate(.suffix(".txt")) var suffixed: String
+    @Validate(.contains("@")) var containing: String
+    @Validate(.oneOf(["a", "b"])) var choice: String
 }
 
 @Schema
 struct EveryNumberRule {
-    @Validate(.positive)      var pos: Int
-    @Validate(.negative)      var neg: Int
-    @Validate(.nonNegative)   var nonNeg: Int
+    @Validate(.positive) var pos: Int
+    @Validate(.negative) var neg: Int
+    @Validate(.nonNegative) var nonNeg: Int
     @Validate(.multipleOf(5)) var five: Int
-    @Validate(.finite)        var fin: Double
+    @Validate(.finite) var fin: Double
 }
 
 @Schema
 struct EveryCollectionRule {
-    @Validate(.unique)   var distinct: [Int]
+    @Validate(.unique) var distinct: [Int]
     @Validate(.notEmpty) var some: [Int]
     @Validate(.count(2)) var pair: [Int]
 }
@@ -346,9 +362,11 @@ struct EveryRuleTests {
 
     @Test("string rules: pass, fail, and the code")
     func strings() {
-        let good = #"{"exact":"abc","present":"x","plain":"ok","trimmed":"t","lower":"low","prefixed":"id_1","suffixed":"a.txt","containing":"a@b","choice":"a"}"#
+        let good =
+            #"{"exact":"abc","present":"x","plain":"ok","trimmed":"t","lower":"low","prefixed":"id_1","suffixed":"a.txt","containing":"a@b","choice":"a"}"#
         #expect(EveryStringRule.diagnose(json: good).isValid)
-        let bad = #"{"exact":"ab","present":"","plain":"é","trimmed":" t","lower":"Low","prefixed":"x_1","suffixed":"a.md","containing":"ab","choice":"c"}"#
+        let bad =
+            #"{"exact":"ab","present":"","plain":"é","trimmed":" t","lower":"Low","prefixed":"x_1","suffixed":"a.md","containing":"ab","choice":"c"}"#
         let d = EveryStringRule.diagnose(json: bad)
         #expect(d.issues.count == 9)
         #expect(code(d, "exact") == .wrongLength)
@@ -366,8 +384,11 @@ struct EveryRuleTests {
 
     @Test("number rules: pass, fail, and the code")
     func numbers() {
-        #expect(EveryNumberRule.diagnose(json: #"{"pos":1,"neg":-1,"nonNeg":0,"five":10,"fin":1.5}"#).isValid)
-        let d = EveryNumberRule.diagnose(json: #"{"pos":0,"neg":0,"nonNeg":-1,"five":7,"fin":1e400}"#)
+        #expect(
+            EveryNumberRule.diagnose(json: #"{"pos":1,"neg":-1,"nonNeg":0,"five":10,"fin":1.5}"#)
+                .isValid)
+        let d = EveryNumberRule.diagnose(
+            json: #"{"pos":0,"neg":0,"nonNeg":-1,"five":7,"fin":1e400}"#)
         #expect(code(d, "pos") == .notPositive)
         #expect(code(d, "neg") == .notNegative)
         #expect(code(d, "nonNeg") == .negative)
@@ -378,7 +399,9 @@ struct EveryRuleTests {
 
     @Test("collection rules: pass, fail, and the code")
     func collections() {
-        #expect(EveryCollectionRule.diagnose(json: #"{"distinct":[1,2],"some":[1],"pair":[1,2]}"#).isValid)
+        #expect(
+            EveryCollectionRule.diagnose(json: #"{"distinct":[1,2],"some":[1],"pair":[1,2]}"#)
+                .isValid)
         let d = EveryCollectionRule.diagnose(json: #"{"distinct":[1,1],"some":[],"pair":[1]}"#)
         #expect(code(d, "distinct") == .notUnique)
         #expect(code(d, "some") == .empty)
@@ -388,9 +411,11 @@ struct EveryRuleTests {
     /// The `(or:)` overloads added 2026-09-10 for the rules that had none.
     @Test("every message-less rule now takes a message")
     func messages() {
-        let rules: [Rule] = [.isTrimmed(or: "m"), .isLowercase(or: "m"), .positive(or: "m"),
-                             .negative(or: "m"), .nonNegative(or: "m"), .finite(or: "m"),
-                             .unique(or: "m")]
+        let rules: [Rule] = [
+            .isTrimmed(or: "m"), .isLowercase(or: "m"), .positive(or: "m"),
+            .negative(or: "m"), .nonNegative(or: "m"), .finite(or: "m"),
+            .unique(or: "m")
+        ]
         for r in rules { #expect(r.message == "m") }
     }
 }

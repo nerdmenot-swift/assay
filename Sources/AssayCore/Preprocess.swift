@@ -38,23 +38,30 @@ public func _assayPreprocess(_ value: String, _ ops: [PreprocessOp]) -> String {
             let bytes = Array(v.utf8)
             var lo = 0
             var hi = bytes.count
-            while lo < hi, bytes[lo] == 0x20 || bytes[lo] == 0x09
-                        || bytes[lo] == 0x0A || bytes[lo] == 0x0D {
+            while lo < hi,
+                bytes[lo] == 0x20 || bytes[lo] == 0x09
+                    || bytes[lo] == 0x0A || bytes[lo] == 0x0D
+            {
                 lo &+= 1
             }
-            while hi > lo, bytes[hi - 1] == 0x20 || bytes[hi - 1] == 0x09
-                        || bytes[hi - 1] == 0x0A || bytes[hi - 1] == 0x0D {
+            while hi > lo,
+                bytes[hi - 1] == 0x20 || bytes[hi - 1] == 0x09
+                    || bytes[hi - 1] == 0x0A || bytes[hi - 1] == 0x0D
+            {
                 hi &-= 1
             }
-            v = lo == 0 && hi == bytes.count
+            v =
+                lo == 0 && hi == bytes.count
                 ? v
                 : String(decoding: bytes[lo..<hi], as: UTF8.self)
         case .lowercase:
-            v = String(decoding: v.utf8.map { $0 >= 0x41 && $0 <= 0x5A ? $0 + 32 : $0 },
-                       as: UTF8.self)
+            v = String(
+                decoding: v.utf8.map { $0 >= 0x41 && $0 <= 0x5A ? $0 + 32 : $0 },
+                as: UTF8.self)
         case .uppercase:
-            v = String(decoding: v.utf8.map { $0 >= 0x61 && $0 <= 0x7A ? $0 - 32 : $0 },
-                       as: UTF8.self)
+            v = String(
+                decoding: v.utf8.map { $0 >= 0x61 && $0 <= 0x7A ? $0 - 32 : $0 },
+                as: UTF8.self)
         case .collapseWhitespace:
             var out: [UInt8] = []
             out.reserveCapacity(v.utf8.count)

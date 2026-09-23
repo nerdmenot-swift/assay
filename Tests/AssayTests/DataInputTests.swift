@@ -56,11 +56,13 @@ struct DataInputTests {
         #expect(fromData == DataDoor(title: "x", count: 7))
     }
 
-    @Test("issues, params and rendered output are identical", arguments: [
-        DataInputTests.badType, DataInputTests.truncated, "", "not json at all", "{",
-        #"{"title":"x"}"#,                       // a missing required field
-        #"{"title":"x","count":7}extra"#,        // trailing content
-    ])
+    @Test(
+        "issues, params and rendered output are identical",
+        arguments: [
+            DataInputTests.badType, DataInputTests.truncated, "", "not json at all", "{",
+            #"{"title":"x"}"#,  // a missing required field
+            #"{"title":"x","count":7}extra"#  // trailing content
+        ])
     func failuresMatch(_ document: String) {
         let d = DataDoor.diagnose(json: Self.data(document))
         let a = DataDoor.diagnose(json: Self.bytes(document))
@@ -149,7 +151,8 @@ struct DataInputTests {
     func contextual() throws {
         let ctx = TenantContext(availableRoles: ["admin"], maximumSeats: 3)
         let ok = #"{"email":"a@b.com","role":"admin"}"#
-        #expect(try Invitation.parse(json: Self.data(ok), context: ctx)
+        #expect(
+            try Invitation.parse(json: Self.data(ok), context: ctx)
                 == Invitation(email: "a@b.com", role: "admin"))
 
         let refused = #"{"email":"a@b.com","role":"owner"}"#
@@ -178,7 +181,7 @@ struct DataInputTests {
     func assayer() throws {
         let schema = Assayer<RawValue>.object([
             .init("title", .raw),
-            .init("count", .raw),
+            .init("count", .raw)
         ])
         let v = try schema.parse(json: Self.data(Self.good))
         #expect(v == (try schema.parse(json: Self.bytes(Self.good))))
@@ -188,25 +191,29 @@ struct DataInputTests {
 
     @Test("a JSON body is negotiated and decoded from Data")
     func jsonBody() throws {
-        let v = try DataBody.parse(body: Self.data(Self.good),
-                                   contentType: "application/json", accepting: [.json])
+        let v = try DataBody.parse(
+            body: Self.data(Self.good),
+            contentType: "application/json", accepting: [.json])
         #expect(v == DataBody(title: "x", count: 7))
     }
 
     @Test("an unacceptable media type is refused without entering a parser")
     func refusedMediaType() {
-        let d = DataBody.diagnose(body: Self.data("<a/>"),
-                                  contentType: "application/xml", accepting: [.json])
+        let d = DataBody.diagnose(
+            body: Self.data("<a/>"),
+            contentType: "application/xml", accepting: [.json])
         #expect(d.issues.map(\.code) == [.unsupportedMediaType])
         #expect(d.value == nil)
     }
 
     @Test("a body whose type mismatches reports as the array door does")
     func bodyFailureMatches() {
-        let d = DataBody.diagnose(body: Self.data(Self.badType),
-                                  contentType: "application/json", accepting: [.json])
-        let a = DataBody.diagnose(body: Self.bytes(Self.badType),
-                                  contentType: "application/json", accepting: [.json])
+        let d = DataBody.diagnose(
+            body: Self.data(Self.badType),
+            contentType: "application/json", accepting: [.json])
+        let a = DataBody.diagnose(
+            body: Self.bytes(Self.badType),
+            contentType: "application/json", accepting: [.json])
         #expect(d.issues.map(\.code) == a.issues.map(\.code))
         #expect(d.render(.terminal) == a.render(.terminal))
     }

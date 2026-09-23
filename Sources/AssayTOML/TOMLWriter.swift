@@ -135,10 +135,13 @@ extension TOML {
 
     /// Bare if it can be, quoted otherwise. The empty key must be quoted.
     static func key(_ k: String) -> String {
-        let bare = !k.isEmpty && k.utf8.allSatisfy {
-            ($0 >= 0x61 && $0 <= 0x7A) || ($0 >= 0x41 && $0 <= 0x5A) || ($0 >= 0x30 && $0 <= 0x39)
-                || $0 == UInt8(ascii: "_") || $0 == UInt8(ascii: "-")
-        }
+        let bare =
+            !k.isEmpty
+            && k.utf8.allSatisfy {
+                ($0 >= 0x61 && $0 <= 0x7A) || ($0 >= 0x41 && $0 <= 0x5A)
+                    || ($0 >= 0x30 && $0 <= 0x39)
+                    || $0 == UInt8(ascii: "_") || $0 == UInt8(ascii: "-")
+            }
         return bare ? k : quoted(k)
     }
 

@@ -47,6 +47,7 @@ warnings() {
 }
 
 step "soundness"                      bash Scripts/soundness.sh
+step "format"                         bash -c 'xcrun swift-format lint --strict --recursive --configuration .swift-format Sources Tests Benchmarks/Sources Scripts Package.swift'
 step "build (warning-free, forced)"   warnings
 step "tests"                          swift test
 step "documented examples"            swift Scripts/check-doc-examples.swift

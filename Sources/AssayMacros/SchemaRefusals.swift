@@ -51,9 +51,11 @@ enum SchemaRefusals {
         // With a `@Transform`, the DECLARED type is the closure's output and can be
         // anything — a `Set`, a `URL`, a `Decimal` is precisely what the attribute is for;
         // the shape that has to be decodable is the closure's parameter, the wire type.
-        let wireTypeName = SchemaMacro.transform(from: attrs, context: context)?.wireType ?? typeName
+        let wireTypeName =
+            SchemaMacro.transform(from: attrs, context: context)?.wireType ?? typeName
         if !set.contains("Ignore"), !set.contains("Extras"),
-           let why = SchemaRefusals.undecodableShape(wireTypeName) {
+            let why = SchemaRefusals.undecodableShape(wireTypeName)
+        {
             return refuse(why)
         }
 
@@ -61,12 +63,15 @@ enum SchemaRefusals {
         // excluded, so the other attribute would never run — and a rule that never runs
         // is the exact shape of bug this table exists to refuse.
         if set.contains("Ignore") {
-            let acted: Set<String> = ["Validate", "Preprocess", "Transform", "Inverse",
-                                      "Fallback", "DateFormat", "Coerce", "OneOrMany",
-                                      "Key", "XML", "Extras", "Inline"]
+            let acted: Set<String> = [
+                "Validate", "Preprocess", "Transform", "Inverse",
+                "Fallback", "DateFormat", "Coerce", "OneOrMany",
+                "Key", "XML", "Extras", "Inline"
+            ]
             if let other = names.first(where: { acted.contains($0) }) {
-                return refuse("@Ignore excludes this property from decoding, so @\(other) "
-                    + "would never run. Remove one of them.")
+                return refuse(
+                    "@Ignore excludes this property from decoding, so @\(other) "
+                        + "would never run. Remove one of them.")
             }
             return true
         }
@@ -77,9 +82,11 @@ enum SchemaRefusals {
             guard let args = a.arguments?.as(LabeledExprListSyntax.self) else { continue }
             for arg in args {
                 if let lit = arg.expression.as(StringLiteralExprSyntax.self),
-                   lit.segments.description.isEmpty {
-                    return refuse("@Key names an empty wire key. A key has at least one "
-                        + "character; remove the attribute to use the property's own name.")
+                    lit.segments.description.isEmpty
+                {
+                    return refuse(
+                        "@Key names an empty wire key. A key has at least one "
+                            + "character; remove the attribute to use the property's own name.")
                 }
             }
         }
@@ -89,25 +96,33 @@ enum SchemaRefusals {
         var positionalKey = false, pathKey = false
         for a in attrs where a.attributeName.trimmedDescription == "Key" {
             if let args = a.arguments?.as(LabeledExprListSyntax.self),
-               args.first?.label?.text == "path" { pathKey = true } else { positionalKey = true }
+                args.first?.label?.text == "path"
+            {
+                pathKey = true
+            } else {
+                positionalKey = true
+            }
         }
         if positionalKey && pathKey {
-            return refuse("@Key(\"…\") and @Key(path:) on the same property — a field has one "
-                + "wire location. Keep the path (its last segment is the key) or the key.")
+            return refuse(
+                "@Key(\"…\") and @Key(path:) on the same property — a field has one "
+                    + "wire location. Keep the path (its last segment is the key) or the key.")
         }
 
         // `@OneOrMany` accepts a single value where an ARRAY is declared.
         if set.contains("OneOrMany"), SchemaMacro.arrayElement(base) == nil {
-            return refuse("@OneOrMany accepts one value where an array is declared, and "
-                + "'\(typeName)' is not an array. Remove it, or declare `[\(base)]`.")
+            return refuse(
+                "@OneOrMany accepts one value where an array is declared, and "
+                    + "'\(typeName)' is not an array. Remove it, or declare `[\(base)]`.")
         }
 
         // `@Key` beside `@Extras`. `@Extras` is the bag for keys the schema does NOT name,
         // so naming a wire key for it is a contradiction: there is no single key to read.
         // It compiled and the `@Key` was dropped on the floor.
         if set.contains("Extras"), set.contains("Key") {
-            return refuse("@Extras collects the keys the schema does not name, so it has no "
-                + "wire key of its own and @Key cannot apply to it. Remove the @Key.")
+            return refuse(
+                "@Extras collects the keys the schema does not name, so it has no "
+                    + "wire key of its own and @Key cannot apply to it. Remove the @Key.")
         }
 
         // `@Key(path:)` beside `@Inline`. `@Inline` splices the nested type's fields into
@@ -115,9 +130,10 @@ enum SchemaRefusals {
         // sit — and a path moves the whole field somewhere else. One of them has to be
         // wrong, and until now the answer was silently "the path".
         if set.contains("Inline"), pathKey {
-            return refuse("@Inline splices the nested type's fields into this type's own "
-                + "keys, so there is no single location for @Key(path:) to name. Use one: "
-                + "@Inline for a flattened type, or @Key(path:) for a nested one.")
+            return refuse(
+                "@Inline splices the nested type's fields into this type's own "
+                    + "keys, so there is no single location for @Key(path:) to name. Use one: "
+                    + "@Inline for a flattened type, or @Key(path:) for a nested one.")
         }
 
         // `@Coerce` on something that is not a coercible scalar. Coercion is the "\"8080\" is
@@ -125,16 +141,19 @@ enum SchemaRefusals {
         // exist for exactly the fifteen scalar spellings below. On anything else — a nested
         // @Schema type, an array, a dictionary, a Date — the attribute parsed, type-checked
         // and did nothing at all.
-        let coercible: Set<String> = ["String", "Int", "Int64", "Int32", "Int16", "Int8",
-                                      "UInt", "UInt64", "UInt32", "UInt16", "UInt8",
-                                      "Double", "Float", "Bool"]
+        let coercible: Set<String> = [
+            "String", "Int", "Int64", "Int32", "Int16", "Int8",
+            "UInt", "UInt64", "UInt32", "UInt16", "UInt8",
+            "Double", "Float", "Bool"
+        ]
         if set.contains("Coerce") {
             let wire = SchemaMacro.stripOptional(wireTypeName.trimmingWhitespace())
             if !coercible.contains(wire) {
-                return refuse("@Coerce accepts a scalar written as the wrong JSON type — "
-                    + "\"8080\" for an Int, \"true\" for a Bool — and '\(typeName)' is not one "
-                    + "of the scalars it applies to. Remove it; a nested type coerces its "
-                    + "own fields, and an array coerces through its element's declaration.")
+                return refuse(
+                    "@Coerce accepts a scalar written as the wrong JSON type — "
+                        + "\"8080\" for an Int, \"true\" for a Bool — and '\(typeName)' is not one "
+                        + "of the scalars it applies to. Remove it; a nested type coerces its "
+                        + "own fields, and an array coerces through its element's declaration.")
             }
         }
 
@@ -145,9 +164,10 @@ enum SchemaRefusals {
         // exactly the pairing the two attributes exist for. Without the check at all, the
         // failure was a type error INSIDE the expansion at a line the author never wrote.
         if set.contains("Preprocess"), SchemaMacro.stripOptional(wireTypeName) != "String" {
-            return refuse("@Preprocess(.trim, .lowercase, …) normalises a String before its "
-                + "rules run; '\(typeName)' is not one. Use @Transform for a non-string "
-                + "conversion.")
+            return refuse(
+                "@Preprocess(.trim, .lowercase, …) normalises a String before its "
+                    + "rules run; '\(typeName)' is not one. Use @Transform for a non-string "
+                    + "conversion.")
         }
 
         return true
@@ -186,7 +206,9 @@ enum SchemaRefusals {
                 + "Declare `[\(element)]`, or keep the Set with "
                 + "`@Transform({ (a: [\(element)]) in Set(a) }) var …: Set<\(element)>`."
         }
-        if let element = SchemaMacro.arrayElement(base), element.hasSuffix("?") || element.hasPrefix("Optional<") {
+        if let element = SchemaMacro.arrayElement(base),
+            element.hasSuffix("?") || element.hasPrefix("Optional<")
+        {
             return "'\(t)' is an array of optionals. A JSON array holds values or nulls; "
                 + "declare `[\(SchemaMacro.stripOptional(element))]` (a null element is an "
                 + "error) or decode as `[RawValue]` and inspect the nulls yourself."
@@ -235,41 +257,47 @@ enum SchemaRefusals {
         // types, so the failure was "static stored properties not supported in generic
         // types" inside the expansion.
         if isGeneric {
-            return refuse("@Schema does not support generic types: the generated dispatch "
-                + "tables are static stored properties, which a generic type cannot have. "
-                + "Declare a concrete type, or decode the varying part as `RawValue` and "
-                + "convert it afterwards.")
+            return refuse(
+                "@Schema does not support generic types: the generated dispatch "
+                    + "tables are static stored properties, which a generic type cannot have. "
+                    + "Declare a concrete type, or decode the varying part as `RawValue` and "
+                    + "convert it afterwards.")
         }
 
         // `@Extras` holds keys the schema did not declare, so its VALUE type has to hold
         // anything: `RawValue` (format-neutral) or `JSON.Value` (JSON-only, full fidelity).
         // Anything else was "requires that 'Int' conform to 'JSONCollectible'".
         if let e = extras, let value = SchemaMacro.dictionaryValue(e.typeName),
-           !SchemaMacro.isCollectible(value) {
-            return refuse("@Extras must be `[String: RawValue]` or `[String: JSON.Value]`; "
-                + "'\(e.identifier)' is declared '\(e.typeName)'. The sink holds keys the "
-                + "schema did not declare, so its values can be any shape.")
+            !SchemaMacro.isCollectible(value)
+        {
+            return refuse(
+                "@Extras must be `[String: RawValue]` or `[String: JSON.Value]`; "
+                    + "'\(e.identifier)' is declared '\(e.typeName)'. The sink holds keys the "
+                    + "schema did not declare, so its values can be any shape.")
         }
 
         // A type that declares nothing to decode. `S.parse` would not exist and the reason
         // would be "no member", three files away from the empty braces.
         let active = fields.filter { !$0.isIgnored && !$0.isExtras }
         if active.isEmpty, extras == nil {
-            return refuse("@Schema on '\(typeName)' found no stored properties to decode. "
-                + "Declare at least one `var name: Type`, or remove the attribute.")
+            return refuse(
+                "@Schema on '\(typeName)' found no stored properties to decode. "
+                    + "Declare at least one `var name: Type`, or remove the attribute.")
         }
 
         // `@XML(...)` in either form on a type that will never see an XML document.
         if !config.formats.xml {
             if config.xmlRoot != nil {
-                return refuse("@XML(root:) names the root element of an XML document, and "
-                    + "'\(typeName)' does not decode XML. Add `formats: .xml` (or `.all`) "
-                    + "to @Schema, or remove the attribute.")
+                return refuse(
+                    "@XML(root:) names the root element of an XML document, and "
+                        + "'\(typeName)' does not decode XML. Add `formats: .xml` (or `.all`) "
+                        + "to @Schema, or remove the attribute.")
             }
             if let f = fields.first(where: { $0.xmlPlacement != nil }) {
-                return refuse("@XML(.\(f.xmlPlacement!)) on '\(f.identifier)' places it in an "
-                    + "XML document, and '\(typeName)' does not decode XML. Add "
-                    + "`formats: .xml` (or `.all`) to @Schema, or remove the attribute.")
+                return refuse(
+                    "@XML(.\(f.xmlPlacement!)) on '\(f.identifier)' places it in an "
+                        + "XML document, and '\(typeName)' does not decode XML. Add "
+                        + "`formats: .xml` (or `.all`) to @Schema, or remove the attribute.")
             }
         }
 
@@ -278,9 +306,10 @@ enum SchemaRefusals {
         // in `SchemaConfig.effectiveUnknownKeys` instead, because there the sink is the
         // clearer statement of intent.
         if extras != nil, config.unknownKeys == "reject" {
-            return refuse("@Schema(unknownKeys: .reject) refuses unknown keys, and @Extras "
-                + "collects them — both cannot hold. Use `.collect` (or drop the option: "
-                + "@Extras implies it), or remove the @Extras property.")
+            return refuse(
+                "@Schema(unknownKeys: .reject) refuses unknown keys, and @Extras "
+                    + "collects them — both cannot hold. Use `.collect` (or drop the option: "
+                    + "@Extras implies it), or remove the @Extras property.")
         }
 
         return true

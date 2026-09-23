@@ -44,100 +44,103 @@ enum Verdict {
 let rejectCorpus: [(String, String, Verdict)] = [
 
     // ---- §7, strings: control characters must be escaped -------------------
-    ("raw tab in string",       "[\"a\u{09}b\"]", .mustReject),
-    ("raw newline in string",   "[\"a\u{0A}b\"]", .mustReject),
-    ("raw CR in string",        "[\"a\u{0D}b\"]", .mustReject),
-    ("raw NUL in string",       "[\"a\u{00}b\"]", .mustReject),
-    ("raw 0x1F in string",      "[\"a\u{1F}b\"]", .mustReject),
-    ("raw 0x20 is legal",       "[\"a b\"]", .mustAccept),
-    ("raw DEL is legal",        "[\"a\u{7F}b\"]", .mustAccept),
-    ("control in a KEY",        "{\"a\u{09}b\": 1}", .mustReject),
-    ("control after escape",    "[\"a\\n\u{09}b\"]", .mustReject),
-    ("escaped control",         "[\"a\\tb\"]", .mustAccept),
+    ("raw tab in string", "[\"a\u{09}b\"]", .mustReject),
+    ("raw newline in string", "[\"a\u{0A}b\"]", .mustReject),
+    ("raw CR in string", "[\"a\u{0D}b\"]", .mustReject),
+    ("raw NUL in string", "[\"a\u{00}b\"]", .mustReject),
+    ("raw 0x1F in string", "[\"a\u{1F}b\"]", .mustReject),
+    ("raw 0x20 is legal", "[\"a b\"]", .mustAccept),
+    ("raw DEL is legal", "[\"a\u{7F}b\"]", .mustAccept),
+    ("control in a KEY", "{\"a\u{09}b\": 1}", .mustReject),
+    ("control after escape", "[\"a\\n\u{09}b\"]", .mustReject),
+    ("escaped control", "[\"a\\tb\"]", .mustAccept),
 
     // ---- §7, strings: escapes ---------------------------------------------
-    ("lone high surrogate",     "[\"\\uD800\"]", .mustReject),
-    ("lone low surrogate",      "[\"\\uDC00\"]", .mustReject),
-    ("reversed surrogates",     "[\"\\uDE00\\uD83D\"]", .mustReject),
-    ("paired surrogates",       "[\"\\uD83D\\uDE00\"]", .mustAccept),
-    ("bad escape letter",       "[\"\\x\"]", .mustReject),
-    ("short \\u",               "[\"\\u12\"]", .mustReject),
-    ("non-hex in \\u",          "[\"\\uZZZZ\"]", .mustReject),
-    ("all legal escapes",       "[\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"]", .mustAccept),
-    ("unterminated string",     "[\"abc]", .mustReject),
+    ("lone high surrogate", "[\"\\uD800\"]", .mustReject),
+    ("lone low surrogate", "[\"\\uDC00\"]", .mustReject),
+    ("reversed surrogates", "[\"\\uDE00\\uD83D\"]", .mustReject),
+    ("paired surrogates", "[\"\\uD83D\\uDE00\"]", .mustAccept),
+    ("bad escape letter", "[\"\\x\"]", .mustReject),
+    ("short \\u", "[\"\\u12\"]", .mustReject),
+    ("non-hex in \\u", "[\"\\uZZZZ\"]", .mustReject),
+    ("all legal escapes", "[\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"]", .mustAccept),
+    ("unterminated string", "[\"abc]", .mustReject),
 
     // ---- §6, numbers: int = zero / ( digit1-9 *DIGIT ) ---------------------
-    ("leading zero",            "[01]", .mustReject),
-    ("multiple leading zeros",  "[007]", .mustReject),
-    ("negative leading zero",   "[-01]", .mustReject),
-    ("zero alone",              "[0]", .mustAccept),
-    ("negative zero",           "[-0]", .mustAccept),
-    ("zero then fraction",      "[0.5]", .mustAccept),
-    ("zero then exponent",      "[0e0]", .mustAccept),
-    ("two zeros",               "[00]", .mustReject),
+    ("leading zero", "[01]", .mustReject),
+    ("multiple leading zeros", "[007]", .mustReject),
+    ("negative leading zero", "[-01]", .mustReject),
+    ("zero alone", "[0]", .mustAccept),
+    ("negative zero", "[-0]", .mustAccept),
+    ("zero then fraction", "[0.5]", .mustAccept),
+    ("zero then exponent", "[0e0]", .mustAccept),
+    ("two zeros", "[00]", .mustReject),
 
     // ---- §6, numbers: frac = "." 1*DIGIT -----------------------------------
-    ("no integer part",         "[.5]", .mustReject),
+    ("no integer part", "[.5]", .mustReject),
     ("no integer part, signed", "[-.5]", .mustReject),
-    ("trailing decimal point",  "[1.]", .mustReject),
-    ("point then exponent",     "[1.e5]", .mustReject),
-    ("fraction is fine",        "[1.5]", .mustAccept),
+    ("trailing decimal point", "[1.]", .mustReject),
+    ("point then exponent", "[1.e5]", .mustReject),
+    ("fraction is fine", "[1.5]", .mustAccept),
 
     // ---- §6, numbers: exp = e [sign] 1*DIGIT -------------------------------
-    ("exponent, no digits",     "[1e]", .mustReject),
+    ("exponent, no digits", "[1e]", .mustReject),
     ("exponent sign, no digit", "[1e+]", .mustReject),
-    ("double exponent",         "[1e2e3]", .mustReject),
-    ("lone minus",              "[-]", .mustReject),
-    ("plus sign",               "[+1]", .mustReject),
-    ("capital E",               "[1E5]", .mustAccept),
-    ("signed exponents",        "[1e+5, 1e-5]", .mustAccept),
+    ("double exponent", "[1e2e3]", .mustReject),
+    ("lone minus", "[-]", .mustReject),
+    ("plus sign", "[+1]", .mustReject),
+    ("capital E", "[1E5]", .mustAccept),
+    ("signed exponents", "[1e+5, 1e-5]", .mustAccept),
 
     // ---- §6, numbers: not JSON at all --------------------------------------
-    ("hex literal",             "[0x1]", .mustReject),
-    ("octal-ish",               "[0o7]", .mustReject),
-    ("Infinity",                "[Infinity]", .mustReject),
-    ("-Infinity",               "[-Infinity]", .mustReject),
-    ("NaN",                     "[NaN]", .mustReject),
-    ("trailing garbage",        "[1abc]", .mustReject),
+    ("hex literal", "[0x1]", .mustReject),
+    ("octal-ish", "[0o7]", .mustReject),
+    ("Infinity", "[Infinity]", .mustReject),
+    ("-Infinity", "[-Infinity]", .mustReject),
+    ("NaN", "[NaN]", .mustReject),
+    ("trailing garbage", "[1abc]", .mustReject),
 
     // ---- §4/§5, structure --------------------------------------------------
-    ("trailing comma, array",   "[1,]", .mustReject),
-    ("trailing comma, object",  "{\"a\":1,}", .mustReject),
-    ("leading comma",           "[,1]", .mustReject),
-    ("double comma",            "[1,,2]", .mustReject),
-    ("single quotes",           "['a']", .mustReject),
-    ("unquoted key",            "{a:1}", .mustReject),
-    ("missing colon",           "{\"a\" 1}", .mustReject),
-    ("missing value",           "{\"a\":}", .mustReject),
-    ("unclosed object",         "{\"a\":1", .mustReject),
-    ("unclosed array",          "[1", .mustReject),
-    ("mismatched brackets",     "[1}", .mustReject),
-    ("bare comma",              ",", .mustReject),
-    ("empty document",          "", .mustReject),
-    ("whitespace only",         "   \n\t ", .mustReject),
-    ("two documents",           "{}{}", .mustReject),
-    ("JS comment",              "[1] // hi", .mustReject),
-    ("block comment inside",    "[1 /* x */]", .mustReject),
-    ("empty containers",        "[[],{},[{}]]", .mustAccept),
-    ("empty key",               "{\"\":1}", .mustAccept),
-    ("all whitespace forms",    "[\u{20}\u{09}\u{0A}\u{0D}1]", .mustAccept),
+    ("trailing comma, array", "[1,]", .mustReject),
+    ("trailing comma, object", "{\"a\":1,}", .mustReject),
+    ("leading comma", "[,1]", .mustReject),
+    ("double comma", "[1,,2]", .mustReject),
+    ("single quotes", "['a']", .mustReject),
+    ("unquoted key", "{a:1}", .mustReject),
+    ("missing colon", "{\"a\" 1}", .mustReject),
+    ("missing value", "{\"a\":}", .mustReject),
+    ("unclosed object", "{\"a\":1", .mustReject),
+    ("unclosed array", "[1", .mustReject),
+    ("mismatched brackets", "[1}", .mustReject),
+    ("bare comma", ",", .mustReject),
+    ("empty document", "", .mustReject),
+    ("whitespace only", "   \n\t ", .mustReject),
+    ("two documents", "{}{}", .mustReject),
+    ("JS comment", "[1] // hi", .mustReject),
+    ("block comment inside", "[1 /* x */]", .mustReject),
+    ("empty containers", "[[],{},[{}]]", .mustAccept),
+    ("empty key", "{\"\":1}", .mustAccept),
+    ("all whitespace forms", "[\u{20}\u{09}\u{0A}\u{0D}1]", .mustAccept),
 
     // ---- §3, literals -------------------------------------------------------
-    ("True capitalised",        "[True]", .mustReject),
-    ("NULL capitalised",        "[NULL]", .mustReject),
-    ("truncated literal",       "[tru]", .mustReject),
-    ("literal with suffix",     "[truex]", .mustReject),
-    ("the three literals",      "[true, false, null]", .mustAccept),
+    ("True capitalised", "[True]", .mustReject),
+    ("NULL capitalised", "[NULL]", .mustReject),
+    ("truncated literal", "[tru]", .mustReject),
+    ("literal with suffix", "[truex]", .mustReject),
+    ("the three literals", "[true, false, null]", .mustAccept),
 
     // ---- left open by the RFC ----------------------------------------------
-    ("duplicate keys",          "{\"a\":1,\"a\":2}", .implementationDefined),
-    ("byte-order mark",         "\u{FEFF}{}", .implementationDefined),
-    ("30-digit integer",        "[123456789012345678901234567890]", .implementationDefined),
-    ("1e400 overflows Double",  "[1e400]", .implementationDefined),
-    ("1e-400 underflows",       "[1e-400]", .implementationDefined),
-    ("deep nesting",            String(repeating: "[", count: 200)
-                                  + String(repeating: "]", count: 200), .implementationDefined),
-    ("invalid UTF-8",           "\u{FFFD}", .implementationDefined),
+    ("duplicate keys", "{\"a\":1,\"a\":2}", .implementationDefined),
+    ("byte-order mark", "\u{FEFF}{}", .implementationDefined),
+    ("30-digit integer", "[123456789012345678901234567890]", .implementationDefined),
+    ("1e400 overflows Double", "[1e400]", .implementationDefined),
+    ("1e-400 underflows", "[1e-400]", .implementationDefined),
+    (
+        "deep nesting",
+        String(repeating: "[", count: 200)
+            + String(repeating: "]", count: 200), .implementationDefined
+    ),
+    ("invalid UTF-8", "\u{FFFD}", .implementationDefined)
 ]
 
 /// Cases where JSONSerialization is KNOWN to diverge from RFC 8259, verified by hand.
@@ -145,7 +148,7 @@ let rejectCorpus: [(String, String, Verdict)] = [
 let knownFoundationLaxities: Set<String> = [
     // RFC 8259 §5: value *( value-separator value ). Foundation accepts a trailing one.
     "trailing comma, array",
-    "trailing comma, object",
+    "trailing comma, object"
 ]
 
 /// Numbers whose VALUE is easy to get wrong, checked against Foundation's answer.
@@ -169,7 +172,7 @@ let numberValueCorpus: [String] = [
     "1e22", "1e23", "1.7976931348623157e308", "5e-324", "2.2250738585072014e-308",
     // Long significands, which exercise the >19-digit path.
     "0.1234567890123456789012345", "3.141592653589793238462643383279",
-    "1.000000000000000000000000001",
+    "1.000000000000000000000000001"
 ]
 
 func assayAcceptsJSON(_ bytes: [UInt8]) -> Bool {
@@ -179,8 +182,9 @@ func assayAcceptsJSON(_ bytes: [UInt8]) -> Bool {
 }
 
 func foundationAcceptsJSON(_ bytes: [UInt8]) -> Bool {
-    (try? JSONSerialization.jsonObject(with: Data(bytes),
-                                       options: [.fragmentsAllowed])) != nil
+    (try? JSONSerialization.jsonObject(
+        with: Data(bytes),
+        options: [.fragmentsAllowed])) != nil
 }
 
 /// Every number decoded, compared bit-exactly against **the Swift stdlib**, with
@@ -204,7 +208,8 @@ func runNumberValueDifferential() -> Int {
         let doc = "[\(literal)]"
         var sink = IssueSink()
         guard let v = JSON.Value.decode(Array(doc.utf8), into: &sink), sink.isValid,
-              case .array(let items) = v, let first = items.first else {
+            case .array(let items) = v, let first = items.first
+        else {
             Failures.shared.fail("number \(literal): Assay refused a valid JSON number")
             continue
         }
@@ -215,8 +220,9 @@ func runNumberValueDifferential() -> Int {
         switch first {
         case .int(let i):
             guard let truth = Int64(literal) else {
-                Failures.shared.fail("number \(literal): Assay made it an integer but the "
-                    + "stdlib cannot; the corpus entry or the scanner is wrong")
+                Failures.shared.fail(
+                    "number \(literal): Assay made it an integer but the "
+                        + "stdlib cannot; the corpus entry or the scanner is wrong")
                 continue
             }
             if i != truth {
@@ -224,13 +230,15 @@ func runNumberValueDifferential() -> Int {
             }
         case .double(let d):
             guard let truth = Double(literal) else {
-                Failures.shared.fail("number \(literal): the stdlib cannot parse it either; "
-                    + "the corpus entry is malformed")
+                Failures.shared.fail(
+                    "number \(literal): the stdlib cannot parse it either; "
+                        + "the corpus entry is malformed")
                 continue
             }
             if d.bitPattern != truth.bitPattern {
-                Failures.shared.fail("number \(literal): Assay decoded \(d), "
-                    + "correctly rounded is \(truth)")
+                Failures.shared.fail(
+                    "number \(literal): Assay decoded \(d), "
+                        + "correctly rounded is \(truth)")
             }
         default:
             Failures.shared.fail("number \(literal): decoded as \(first), not a number")
@@ -242,12 +250,14 @@ func runNumberValueDifferential() -> Int {
         // dictating the verdict. Only for genuinely fractional literals, where a Double is
         // the right yardstick for both sides.
         if literal.contains(where: { $0 == "." || $0 == "e" || $0 == "E" }),
-           let truth = Double(literal),
-           let obj = try? JSONSerialization.jsonObject(with: Data(doc.utf8)),
-           let arr = obj as? [Any], let n = arr.first as? NSNumber,
-           n.doubleValue.bitPattern != truth.bitPattern {
-            print("    (Foundation imprecise) \(literal): "
-                  + "JSONSerialization gives \(n.doubleValue), correct is \(truth)")
+            let truth = Double(literal),
+            let obj = try? JSONSerialization.jsonObject(with: Data(doc.utf8)),
+            let arr = obj as? [Any], let n = arr.first as? NSNumber,
+            n.doubleValue.bitPattern != truth.bitPattern
+        {
+            print(
+                "    (Foundation imprecise) \(literal): "
+                    + "JSONSerialization gives \(n.doubleValue), correct is \(truth)")
         }
     }
     return checked
@@ -265,14 +275,16 @@ func runRejectDifferential() -> Int {
         switch verdict {
         case .mustReject:
             if assay {
-                Failures.shared.fail("RFC 8259 requires rejecting \(name): "
-                    + "\(doc.debugDescription) — Assay accepted it")
+                Failures.shared.fail(
+                    "RFC 8259 requires rejecting \(name): "
+                        + "\(doc.debugDescription) — Assay accepted it")
             }
             checked += 1
         case .mustAccept:
             if !assay {
-                Failures.shared.fail("RFC 8259 requires accepting \(name): "
-                    + "\(doc.debugDescription) — Assay refused it")
+                Failures.shared.fail(
+                    "RFC 8259 requires accepting \(name): "
+                        + "\(doc.debugDescription) — Assay refused it")
             }
             checked += 1
         case .implementationDefined:
@@ -281,8 +293,9 @@ func runRejectDifferential() -> Int {
             openCases += 1
             let f = foundationAcceptsJSON(bytes)
             if assay != f {
-                print("    (open) \(name): Assay=\(assay ? "accept" : "reject"), "
-                      + "Foundation=\(f ? "accept" : "reject")")
+                print(
+                    "    (open) \(name): Assay=\(assay ? "accept" : "reject"), "
+                        + "Foundation=\(f ? "accept" : "reject")")
             }
         }
 
@@ -294,9 +307,10 @@ func runRejectDifferential() -> Int {
             let f = foundationAcceptsJSON(bytes)
             let expected = (verdict == .mustAccept)
             if f != expected {
-                Failures.shared.fail("the reject-corpus table may be wrong about \(name): "
-                    + "it says must\(expected ? "Accept" : "Reject") but JSONSerialization "
-                    + "\(f ? "accepted" : "rejected") it")
+                Failures.shared.fail(
+                    "the reject-corpus table may be wrong about \(name): "
+                        + "it says must\(expected ? "Accept" : "Reject") but JSONSerialization "
+                        + "\(f ? "accepted" : "rejected") it")
             }
         }
     }

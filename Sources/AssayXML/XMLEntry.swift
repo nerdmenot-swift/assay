@@ -22,15 +22,15 @@ public import Assay
 public import AssayCore
 
 /// The `@XML(root:)` check, if this type declared one.
-    ///
-    /// A **metatype cast**, not an overload pair. The obvious spelling — a no-op on
-    /// `RawDecodable` shadowed by a real one on `RawDecodable where Self: XMLRooted` — does
-    /// not work, and the reason is worth recording because the same trap is waiting in
-    /// `@Schema(context:)`: overloads are chosen from the STATIC type, and inside
-    /// `extension RawDecodable` the compiler does not know `Self: XMLRooted`, so the no-op
-    /// wins for every type including the ones that declared a root. It compiled, ran, and
-    /// checked nothing.
-    ///
+///
+/// A **metatype cast**, not an overload pair. The obvious spelling — a no-op on
+/// `RawDecodable` shadowed by a real one on `RawDecodable where Self: XMLRooted` — does
+/// not work, and the reason is worth recording because the same trap is waiting in
+/// `@Schema(context:)`: overloads are chosen from the STATIC type, and inside
+/// `extension RawDecodable` the compiler does not know `Self: XMLRooted`, so the no-op
+/// wins for every type including the ones that declared a root. It compiled, ran, and
+/// checked nothing.
+///
 /// The cast happens once per document, not per field, and only for types that decode
 /// XML at all.
 ///
@@ -42,13 +42,16 @@ public import AssayCore
 func __assayCheckXMLRoot(
     _ type: Any.Type, _ actual: String, _ sink: inout IssueSink
 ) {
-        guard let rooted = type as? any XMLRooted.Type,
-              let expected = rooted._assayXMLExpectedRoot else { return }
-        guard actual != expected else { return }
-        sink.add(Issue(code: .xmlRootMismatch,
-                       path: [],
-                       params: ["expected": .string(expected)],
-                       received: actual))
+    guard let rooted = type as? any XMLRooted.Type,
+        let expected = rooted._assayXMLExpectedRoot
+    else { return }
+    guard actual != expected else { return }
+    sink.add(
+        Issue(
+            code: .xmlRootMismatch,
+            path: [],
+            params: ["expected": .string(expected)],
+            received: actual))
 }
 
 extension RawDecodable {
@@ -79,12 +82,14 @@ extension RawDecodable {
         var sink = IssueSink(limits: limits)
         // THE DIRECT DOOR: no `XML.Element` tree is built here at all (`XML.decodeRaw`).
         guard let doc = XML.decodeRaw(bytes, into: &sink, limits: limits), sink.isValid else {
-            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(
+                sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         __assayCheckXMLRoot(Self.self, doc.rootName, &sink)
         var __rootPath: [PathStep] = []
         let value = Self._assay(from: doc.value, into: &sink, at: &__rootPath)
-        return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
+        return Diagnosis(
+            sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
     public static func diagnose(
@@ -112,8 +117,10 @@ extension ContextualRawDecodable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) throws -> Self {
-        try diagnose(xml: bytes, context: context,
-                     limits: limits, sourceName: sourceName).get()
+        try diagnose(
+            xml: bytes, context: context,
+            limits: limits, sourceName: sourceName
+        ).get()
     }
 
     public static func parse(
@@ -122,8 +129,9 @@ extension ContextualRawDecodable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) throws -> Self {
-        try parse(xml: Array(text.utf8), context: context,
-                  limits: limits, sourceName: sourceName)
+        try parse(
+            xml: Array(text.utf8), context: context,
+            limits: limits, sourceName: sourceName)
     }
 
     public static func diagnose(
@@ -134,13 +142,16 @@ extension ContextualRawDecodable {
     ) -> Diagnosis<Self> {
         var sink = IssueSink(limits: limits)
         guard let doc = XML.decodeRaw(bytes, into: &sink, limits: limits), sink.isValid else {
-            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(
+                sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         __assayCheckXMLRoot(Self.self, doc.rootName, &sink)
         var __rootPath: [PathStep] = []
-        let value = Self._assay(from: doc.value, into: &sink,
-                                at: &__rootPath, context: context)
-        return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
+        let value = Self._assay(
+            from: doc.value, into: &sink,
+            at: &__rootPath, context: context)
+        return Diagnosis(
+            sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
 
     public static func diagnose(
@@ -149,8 +160,9 @@ extension ContextualRawDecodable {
         limits: Limits = .default,
         sourceName: String = "<input>"
     ) -> Diagnosis<Self> {
-        diagnose(xml: Array(text.utf8), context: context,
-                 limits: limits, sourceName: sourceName)
+        diagnose(
+            xml: Array(text.utf8), context: context,
+            limits: limits, sourceName: sourceName)
     }
 }
 
@@ -173,8 +185,9 @@ extension XMLEncodableSchema {
         _assayEncodeXML(into: &w, into: &sink, at: [], element: root ?? Self._assayXMLRoot)
         let bytes = w.finish()
         guard sink.isValid else {
-            throw AssayError(issues: sink.issues, source: SourceBytes(Array(bytes)),
-                             sourceName: "<encoded.xml>")
+            throw AssayError(
+                issues: sink.issues, source: SourceBytes(Array(bytes)),
+                sourceName: "<encoded.xml>")
         }
         return bytes
     }
@@ -185,8 +198,9 @@ extension XMLEncodableSchema {
         var sink = IssueSink()
         var w = XMLWriter(pretty: pretty, declaration: declaration)
         _assayEncodeXML(into: &w, into: &sink, at: [], element: root ?? Self._assayXMLRoot)
-        return EncodeDiagnosis(bytes: Array(w.finish()), issues: sink.issues,
-                               warnings: sink.warnings)
+        return EncodeDiagnosis(
+            bytes: Array(w.finish()), issues: sink.issues,
+            warnings: sink.warnings)
     }
 
     public func xmlText(root: String? = nil, pretty: Bool = false) throws -> String {

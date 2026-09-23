@@ -2,7 +2,6 @@
 // Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
 // See LICENSE and NOTICE at the repository root for terms.
 
-
 //===----------------------------------------------------------------------===//
 // Discriminated unions — what failure looks like, and what the macro refuses.
 //
@@ -27,10 +26,12 @@ struct UnionErrors {
     func malformedBranchBlamesTheBranch() {
         let d = UnionEvent.diagnose(json: #"{"type":"click","x":"nope","y":2}"#)
         #expect(!d.isValid)
-        #expect(d.issues.count == 1, """
-                a discriminated union must report the chosen branch's failure and nothing \\
-                else. Got \\(d.issues.map { "\\($0.code) at \\($0.path.pathDescription)" })
-                """)
+        #expect(
+            d.issues.count == 1,
+            """
+            a discriminated union must report the chosen branch's failure and nothing \\
+            else. Got \\(d.issues.map { "\\($0.code) at \\($0.path.pathDescription)" })
+            """)
         #expect(d.issues.first?.code == .typeMismatch)
         #expect(d.issues.first?.path.pathDescription == "x")
         // And nothing about page_view, which was never a candidate.
@@ -48,7 +49,8 @@ struct UnionErrors {
     @Test("an absent tag is one missing-key issue, not a branch failure")
     func missingTag() {
         let d = UnionEvent.diagnose(json: #"{"x":1,"y":2}"#)
-        #expect(d.issues.count == 1, "\(d.issues.map { "\($0.code) at \($0.path.pathDescription)" })")
+        #expect(
+            d.issues.count == 1, "\(d.issues.map { "\($0.code) at \($0.path.pathDescription)" })")
         #expect(d.issues.first?.code == .missing)
         #expect(d.issues.first?.path.pathDescription == "type")
     }
@@ -60,8 +62,9 @@ struct UnionErrors {
         let d = UnionEvent.diagnose(json: #"{"type":"pageview","url":"/"}"#)
         #expect(d.issues.count == 1)
         #expect(d.issues.first?.code == .unionUnknownVariant)
-        #expect(d.issues.first?.params["didYouMean"] == .string("page_view"),
-                "got \(String(describing: d.issues.first?.params))")
+        #expect(
+            d.issues.first?.params["didYouMean"] == .string("page_view"),
+            "got \(String(describing: d.issues.first?.params))")
         #expect(d.issues.first?.params["known"] == .string("click, page_view"))
     }
 
@@ -93,21 +96,24 @@ struct UnionErrors {
     /// A union inside a struct reports at the field's path, not at the root.
     @Test("a nested union's issues carry the outer path")
     func nestedPath() {
-        let d = UnionEnvelope.diagnose(json: #"""
-            {"id":"e","payload":{"type":"click","x":"nope","y":1}}
-            """#)
+        let d = UnionEnvelope.diagnose(
+            json: #"""
+                {"id":"e","payload":{"type":"click","x":"nope","y":1}}
+                """#)
         #expect(d.issues.count == 1)
-        #expect(d.issues.first?.path.pathDescription == "payload.x",
-                "got \(d.issues.first?.path.pathDescription ?? "nil")")
+        #expect(
+            d.issues.first?.path.pathDescription == "payload.x",
+            "got \(d.issues.first?.path.pathDescription ?? "nil")")
     }
 
     /// An unrecognised variant must still leave the reader able to finish the document — the
     /// union skips the value it could not decode rather than abandoning the parse mid-object.
     @Test("an unrecognised variant does not derail the rest of the document")
     func unknownVariantResynchronises() {
-        let d = UnionEnvelope.diagnose(json: #"""
-            {"payload":{"type":"nope","x":1},"id":"e"}
-            """#)
+        let d = UnionEnvelope.diagnose(
+            json: #"""
+                {"payload":{"type":"nope","x":1},"id":"e"}
+                """#)
         // One issue about the variant; `id` still decoded, so no second issue about it.
         #expect(d.issues.count == 1, "\(d.issues.map { "\($0.code)" })")
         #expect(d.issues.first?.code == .unionUnknownVariant)
@@ -122,7 +128,8 @@ struct UnionDiagnostics {
     /// the one union check a macro can do without a conformance lookup.
     @Test("two untagged cases with the same payload type are refused")
     func duplicatePayloadRefused() {
-        let (_, diags) = expandSchemaForTesting("""
+        let (_, diags) = expandSchemaForTesting(
+            """
             @Schema(discriminator: .untagged) enum U { case a(Int); case b(Int) }
             """)
         #expect(diags.contains { $0.contains("both carry a 'Int'") }, "got \(diags)")
@@ -133,7 +140,8 @@ struct UnionDiagnostics {
     /// branch wins and the second never round-trips. `docs/UNIONS.md` §4's stated exception.
     @Test("two distinct types that accept the same documents are NOT refused")
     func indistinguishableTypesNotRefused() {
-        let (_, diags) = expandSchemaForTesting("""
+        let (_, diags) = expandSchemaForTesting(
+            """
             @Schema(discriminator: .untagged) enum U { case a(P); case b(Q) }
             """)
         #expect(diags.isEmpty, "a macro sees tokens, not conformances: \(diags)")
@@ -141,7 +149,8 @@ struct UnionDiagnostics {
 
     @Test("a case with no payload is refused")
     func noPayload() {
-        let (_, diags) = expandSchemaForTesting("""
+        let (_, diags) = expandSchemaForTesting(
+            """
             @Schema(discriminator: "type") enum U { case a(A); case b }
             """)
         #expect(diags.contains { $0.contains("exactly one associated value") }, "got \(diags)")
@@ -150,7 +159,8 @@ struct UnionDiagnostics {
     /// Two cases sharing a tag spelling would make the second unreachable, silently.
     @Test("two cases with the same tag are refused")
     func duplicateTag() {
-        let (_, diags) = expandSchemaForTesting("""
+        let (_, diags) = expandSchemaForTesting(
+            """
             @Schema(discriminator: "type") enum U {
                 case a(A)
                 @Key("a") case b(B)
@@ -161,7 +171,8 @@ struct UnionDiagnostics {
 
     @Test("@Unknown on a union case is refused")
     func unknownCase() {
-        let (_, diags) = expandSchemaForTesting("""
+        let (_, diags) = expandSchemaForTesting(
+            """
             @Schema(discriminator: "type") enum U {
                 case a(A)
                 @Unknown case other(String)
@@ -173,7 +184,8 @@ struct UnionDiagnostics {
     /// YAML and XML go through `RawValue`, which the union path does not implement.
     @Test("formats other than JSON are refused rather than silently omitted")
     func rawFormatsRefused() {
-        let (_, diags) = expandSchemaForTesting("""
+        let (_, diags) = expandSchemaForTesting(
+            """
             @Schema(formats: .yaml, discriminator: "type") enum U { case a(A) }
             """)
         #expect(diags.contains { $0.contains("RawValue path") }, "got \(diags)")
@@ -193,12 +205,14 @@ extension UnionDiagnostics {
     /// errors, and the context never reaches a check.
     @Test("describes: and context: are refused on a union")
     func ignoredOptionsRefused() {
-        let (_, describes) = expandSchemaForTesting("""
+        let (_, describes) = expandSchemaForTesting(
+            """
             @Schema(describes: true, discriminator: "type") enum U { case a(A) }
             """)
         #expect(describes.contains { $0.contains("not built for unions") }, "got \(describes)")
 
-        let (_, ctx) = expandSchemaForTesting("""
+        let (_, ctx) = expandSchemaForTesting(
+            """
             @Schema(context: Ctx.self, discriminator: "type") enum U { case a(A) }
             """)
         #expect(ctx.contains { $0.contains("non-contextual") }, "got \(ctx)")
@@ -206,7 +220,8 @@ extension UnionDiagnostics {
 
     @Test("formats: .all is refused, not silently narrowed to JSON")
     func allFormatsRefused() {
-        let (_, diags) = expandSchemaForTesting("""
+        let (_, diags) = expandSchemaForTesting(
+            """
             @Schema(formats: .all, discriminator: "type") enum U { case a(A) }
             """)
         #expect(diags.contains { $0.contains("RawValue path") }, "got \(diags)")

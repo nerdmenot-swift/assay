@@ -1695,7 +1695,7 @@ let coldAssayDecoders: [@Sendable ([UInt8]) -> Bool] = [
     { (try? ColdA56.parse(json: $0)) != nil },
     { (try? ColdA57.parse(json: $0)) != nil },
     { (try? ColdA58.parse(json: $0)) != nil },
-    { (try? ColdA59.parse(json: $0)) != nil },
+    { (try? ColdA59.parse(json: $0)) != nil }
 ]
 
 let coldCodableDecoders: [@Sendable (Data, JSONDecoder) -> Bool] = [
@@ -1758,5 +1758,5 @@ let coldCodableDecoders: [@Sendable (Data, JSONDecoder) -> Bool] = [
     { (try? $1.decode(ColdC56.self, from: $0)) != nil },
     { (try? $1.decode(ColdC57.self, from: $0)) != nil },
     { (try? $1.decode(ColdC58.self, from: $0)) != nil },
-    { (try? $1.decode(ColdC59.self, from: $0)) != nil },
+    { (try? $1.decode(ColdC59.self, from: $0)) != nil }
 ]

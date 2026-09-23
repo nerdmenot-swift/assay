@@ -113,7 +113,8 @@ public final class MappedFile: @unchecked Sendable {
         guard url.isFileURL else {
             throw MappedFileError.notAFileURL(url)
         }
-        return try open(path: unsafe url.withUnsafeFileSystemRepresentation { unsafe String(cString: $0!) })
+        return try open(
+            path: unsafe url.withUnsafeFileSystemRepresentation { unsafe String(cString: $0!) })
     }
 
     /// Map a filesystem path read-only.
@@ -160,7 +161,8 @@ public final class MappedFile: @unchecked Sendable {
         }
 
         guard let raw = unsafe mmap(nil, size, PROT_READ, MAP_PRIVATE, fd, 0),
-              unsafe raw != MAP_FAILED else {
+            unsafe raw != MAP_FAILED
+        else {
             throw MappedFileError.cannotMap(path, errno)
         }
 

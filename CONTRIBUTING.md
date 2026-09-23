@@ -49,6 +49,20 @@ for a while, and `.strictMemorySafety()` was decorative for exactly that long. A
 inside generated code is the emitter's bug: fix it in `AssayMacros`, never by suppressing it
 where it surfaced.
 
+**Formatting is `swift-format`'s job, not review's.** `.swift-format` is at the repository
+root and CI runs `swift-format lint --strict`. Before you push:
+
+```sh
+swift-format format --in-place --recursive --configuration .swift-format \
+    Sources Tests Benchmarks/Sources Scripts Package.swift
+```
+
+`Sources/AssayMacros/CodeGen.swift` is exempt via `// swift-format-ignore-file`, and its
+header says why: it nests multi-line string literals inside interpolations of other
+multi-line string literals, and a closing delimiter is what decides the indentation Swift
+strips. Reformatting it produced 44 compile errors. If you touch that file, the goldens are
+what check you.
+
 **No new dependencies in the library.** The benchmark package may take them — Yams lives
 there as an oracle — but nothing that ships does.
 

@@ -14,8 +14,7 @@ extension AssayReader {
     @_documentation(visibility: internal)
     @inlinable
     public mutating func _decodeInt8(
-        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
-        , _ element: Int = -1
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ element: Int = -1
     ) -> Int8? {
         beginValue()
         if let v = scanInt64(), let n = Int8(exactly: v) { return n }
@@ -51,8 +50,7 @@ extension AssayReader {
     @_documentation(visibility: internal)
     @inlinable
     public mutating func _decodeInt16(
-        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
-        , _ element: Int = -1
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ element: Int = -1
     ) -> Int16? {
         beginValue()
         if let v = scanInt64(), let n = Int16(exactly: v) { return n }
@@ -88,8 +86,7 @@ extension AssayReader {
     @_documentation(visibility: internal)
     @inlinable
     public mutating func _decodeUInt8(
-        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
-        , _ element: Int = -1
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ element: Int = -1
     ) -> UInt8? {
         beginValue()
         if let v = scanInt64(), let n = UInt8(exactly: v) { return n }
@@ -125,8 +122,7 @@ extension AssayReader {
     @_documentation(visibility: internal)
     @inlinable
     public mutating func _decodeUInt16(
-        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
-        , _ element: Int = -1
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ element: Int = -1
     ) -> UInt16? {
         beginValue()
         if let v = scanInt64(), let n = UInt16(exactly: v) { return n }
@@ -162,8 +158,7 @@ extension AssayReader {
     @_documentation(visibility: internal)
     @inlinable
     public mutating func _decodeUInt32(
-        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
-        , _ element: Int = -1
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ element: Int = -1
     ) -> UInt32? {
         beginValue()
         if let v = scanInt64(), let n = UInt32(exactly: v) { return n }
@@ -199,8 +194,7 @@ extension AssayReader {
     @_documentation(visibility: internal)
     @inlinable
     public mutating func _decodeUInt64(
-        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
-        , _ element: Int = -1
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ element: Int = -1
     ) -> UInt64? {
         beginValue()
         if let v = scanInt64(), let n = UInt64(exactly: v) { return n }

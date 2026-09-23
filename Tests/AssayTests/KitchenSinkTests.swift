@@ -100,33 +100,37 @@ struct KitchenSinkTests {
 
     @Test("required scalars, JSON and YAML")
     func required() throws {
-        let json = #"{"s":"x","i":-3,"i64":9007199254740993,"i32":-70000,"u":42,"d":2.5,"f":1.25,"b":true}"#
+        let json =
+            #"{"s":"x","i":-3,"i64":9007199254740993,"i32":-70000,"u":42,"d":2.5,"f":1.25,"b":true}"#
         let v = try SinkRequired.parse(json: json)
         #expect(v.s == "x" && v.i == -3 && v.i64 == 9_007_199_254_740_993)
         #expect(v.i32 == -70000 && v.u == 42 && v.d == 2.5 && v.f == 1.25 && v.b)
 
-        let y = try SinkRequired.parse(yaml: """
-        s: x
-        i: -3
-        i64: 9007199254740993
-        i32: -70000
-        u: 42
-        d: 2.5
-        f: 1.25
-        b: true
-        """)
+        let y = try SinkRequired.parse(
+            yaml: """
+                s: x
+                i: -3
+                i64: 9007199254740993
+                i32: -70000
+                u: 42
+                d: 2.5
+                f: 1.25
+                b: true
+                """)
         #expect(y.i64 == v.i64 && y.f == v.f && y.u == v.u)
     }
 
     @Test("out-of-range narrows are errors, not truncations")
     func narrowing() {
         // Int32 overflow, UInt negative — every narrowing variant must refuse.
-        #expect(SinkRequired.diagnose(
-            json: #"{"s":"x","i":1,"i64":1,"i32":3000000000,"u":1,"d":1,"f":1,"b":true}"#
-        ).isValid == false)
-        #expect(SinkRequired.diagnose(
-            json: #"{"s":"x","i":1,"i64":1,"i32":1,"u":-5,"d":1,"f":1,"b":true}"#
-        ).isValid == false)
+        #expect(
+            SinkRequired.diagnose(
+                json: #"{"s":"x","i":1,"i64":1,"i32":3000000000,"u":1,"d":1,"f":1,"b":true}"#
+            ).isValid == false)
+        #expect(
+            SinkRequired.diagnose(
+                json: #"{"s":"x","i":1,"i64":1,"i32":1,"u":-5,"d":1,"f":1,"b":true}"#
+            ).isValid == false)
     }
 
     @Test("optional scalars: absent, present, and explicit null")
@@ -153,9 +157,10 @@ struct KitchenSinkTests {
         #expect(v.s == "9" && v.i == 7 && v.i64 == 8 && v.i32 == 9)
         #expect(v.u == 10 && v.d == 2.5 && v.f == 1.5 && v.b == true)
 
-        let x = try SinkCoerced.parse(xml: """
-        <r><s>text</s><i>7</i><i64>8</i64><i32>9</i32><u>10</u><d>2.5</d><f>1.5</f><b>true</b></r>
-        """)
+        let x = try SinkCoerced.parse(
+            xml: """
+                <r><s>text</s><i>7</i><i64>8</i64><i32>9</i32><u>10</u><d>2.5</d><f>1.5</f><b>true</b></r>
+                """)
         #expect(x.i == 7 && x.d == 2.5 && x.b == true)
     }
 
@@ -174,13 +179,14 @@ struct KitchenSinkTests {
         let v = try SinkArrays.parse(json: json)
         #expect(v.nested == [[1], [2, 3]])
 
-        let y = try SinkArrays.parse(yaml: """
-        ss: [a]
-        ii: [1, 2]
-        dd: [1.5]
-        bb: [true, false]
-        nested: [[1], [2, 3]]
-        """)
+        let y = try SinkArrays.parse(
+            yaml: """
+                ss: [a]
+                ii: [1, 2]
+                dd: [1.5]
+                bb: [true, false]
+                nested: [[1], [2, 3]]
+                """)
         #expect(y.nested == v.nested && y.bb == v.bb)
     }
 
@@ -190,14 +196,15 @@ struct KitchenSinkTests {
         let v = try SinkNested.parse(json: json)
         #expect(v.child.name == "a" && v.maybe == nil && v.many.count == 2)
 
-        let y = try SinkNested.parse(yaml: """
-        child:
-          name: a
-        maybe:
-          name: m
-        many:
-          - name: b
-        """)
+        let y = try SinkNested.parse(
+            yaml: """
+                child:
+                  name: a
+                maybe:
+                  name: m
+                many:
+                  - name: b
+                """)
         #expect(y.maybe?.name == "m" && y.many[0].name == "b")
     }
 

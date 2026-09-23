@@ -61,10 +61,11 @@ struct KeyPathTests {
 
     @Test("a path reaches through an intermediate object")
     func reaches() throws {
-        let c = try Card.parse(json: #"""
-            {"id":"x","profile":{"display_name":"Ada","avatar":"a.png"},
-             "meta":{"stats":{"views":9}}}
-            """#)
+        let c = try Card.parse(
+            json: #"""
+                {"id":"x","profile":{"display_name":"Ada","avatar":"a.png"},
+                 "meta":{"stats":{"views":9}}}
+                """#)
         #expect(c == Card(displayName: "Ada", avatar: "a.png", views: 9, id: "x"))
     }
 
@@ -72,9 +73,10 @@ struct KeyPathTests {
     /// document that puts `id` last decodes exactly as one that puts it first.
     @Test("key order does not matter")
     func anyOrder() throws {
-        let c = try Card.parse(json: #"""
-            {"meta":{"stats":{"views":1}},"profile":{"avatar":null,"display_name":"B"},"id":"y"}
-            """#)
+        let c = try Card.parse(
+            json: #"""
+                {"meta":{"stats":{"views":1}},"profile":{"avatar":null,"display_name":"B"},"id":"y"}
+                """#)
         #expect(c.displayName == "B")
         #expect(c.avatar == nil)
         #expect(c.views == 1)
@@ -82,34 +84,38 @@ struct KeyPathTests {
 
     @Test("three levels deep")
     func threeLevels() throws {
-        let c = try Card.parse(json: #"""
-            {"id":"x","profile":{"display_name":"A"},"meta":{"stats":{"views":42}}}
-            """#)
+        let c = try Card.parse(
+            json: #"""
+                {"id":"x","profile":{"display_name":"A"},"meta":{"stats":{"views":42}}}
+                """#)
         #expect(c.views == 42)
     }
 
     /// Keys the schema does not declare are skipped at every level, not just the top.
     @Test("unknown keys inside an intermediate are skipped")
     func unknownInside() throws {
-        let c = try Card.parse(json: #"""
-            {"id":"x","profile":{"other":{"deep":[1,2]},"display_name":"A","junk":null},
-             "meta":{"stats":{"views":0,"extra":"s"},"more":1}}
-            """#)
+        let c = try Card.parse(
+            json: #"""
+                {"id":"x","profile":{"other":{"deep":[1,2]},"display_name":"A","junk":null},
+                 "meta":{"stats":{"views":0,"extra":"s"},"more":1}}
+                """#)
         #expect(c.displayName == "A")
         #expect(c.views == 0)
     }
 
     @Test("paths coexist with ordinary keys, rules and collections")
     func mixed() throws {
-        let m = try Mixed.parse(json: #"""
-            {"plain_key":"p","nested":{"tags":["a","b"],"count":3}}
-            """#)
+        let m = try Mixed.parse(
+            json: #"""
+                {"plain_key":"p","nested":{"tags":["a","b"],"count":3}}
+                """#)
         #expect(m == Mixed(plainKey: "p", tags: ["a", "b"], count: 3))
 
         let bad = Mixed.diagnose(json: #"{"plain_key":"p","nested":{"tags":[],"count":99}}"#)
         #expect(!bad.isValid)
-        #expect(bad.issues.first?.path.pathDescription.contains("count") == true,
-                "\(bad.issues.map(\.path.pathDescription))")
+        #expect(
+            bad.issues.first?.path.pathDescription.contains("count") == true,
+            "\(bad.issues.map(\.path.pathDescription))")
     }
 }
 
@@ -125,11 +131,13 @@ struct PresenceMatrix {
         let d = Card.diagnose(json: #"{"id":"x","meta":{"stats":{"views":1}}}"#)
         #expect(!d.isValid)
         let profileIssues = d.issues.filter { $0.path.pathDescription.contains("profile") }
-        #expect(profileIssues.count == 1,
-                "expected one issue for the group, got \(profileIssues.map(\.path.pathDescription))")
+        #expect(
+            profileIssues.count == 1,
+            "expected one issue for the group, got \(profileIssues.map(\.path.pathDescription))")
         #expect(profileIssues.first?.code == .missing)
-        #expect(profileIssues.first?.path.pathDescription == "profile",
-                "got \(profileIssues.first?.path.pathDescription ?? "nil")")
+        #expect(
+            profileIssues.first?.path.pathDescription == "profile",
+            "got \(profileIssues.first?.path.pathDescription ?? "nil")")
     }
 
     @Test("a missing intermediate leaves optionals nil and defaults applied")
@@ -168,8 +176,9 @@ struct PresenceMatrix {
     @Test("a wrong-typed intermediate carries a caret on the value")
     func wrongTypedIntermediateCaret() {
         let d = AllOptional.diagnose(json: #"{"wrap":42}"#)
-        #expect(d.issues.first?.location != nil,
-                "the caret should point at the 42 — the innermost thing that existed")
+        #expect(
+            d.issues.first?.location != nil,
+            "the caret should point at the 42 — the innermost thing that existed")
     }
 
     @Test("an array intermediate is a mismatch, not a descent")
@@ -186,8 +195,9 @@ struct PresenceMatrix {
         let d = Card.diagnose(json: #"{"id":"x","profile":{},"meta":{"stats":{"views":1}}}"#)
         #expect(!d.isValid)
         let issue = d.issues.first { $0.code == .missing }
-        #expect(issue?.path.pathDescription == "profile.display_name",
-                "got \(issue?.path.pathDescription ?? "nil")")
+        #expect(
+            issue?.path.pathDescription == "profile.display_name",
+            "got \(issue?.path.pathDescription ?? "nil")")
     }
 
     @Test("a missing leaf leaves the other states alone")
@@ -210,13 +220,15 @@ struct PresenceMatrix {
 
     @Test("a wrong-typed leaf reports at the full path, not the intermediate")
     func wrongTypedLeaf() {
-        let d = Card.diagnose(json: #"""
-            {"id":"x","profile":{"display_name":42},"meta":{"stats":{"views":1}}}
-            """#)
+        let d = Card.diagnose(
+            json: #"""
+                {"id":"x","profile":{"display_name":42},"meta":{"stats":{"views":1}}}
+                """#)
         #expect(!d.isValid)
         #expect(d.issues.first?.code == .typeMismatch)
-        #expect(d.issues.first?.path.pathDescription == "profile.display_name",
-                "got \(d.issues.first?.path.pathDescription ?? "nil")")
+        #expect(
+            d.issues.first?.path.pathDescription == "profile.display_name",
+            "got \(d.issues.first?.path.pathDescription ?? "nil")")
     }
 
     /// A missing intermediate must not suppress an unrelated failure elsewhere.
@@ -235,8 +247,9 @@ struct KeyPathDiagnostics {
     func noDot() {
         let (_, diags) = expandSchemaForTesting(
             "@Schema struct S { @Key(path: \"name\") var name: String }")
-        #expect(diags.contains { $0.contains("has no `.`") && $0.contains("@Key(\"name\")") },
-                "got \(diags)")
+        #expect(
+            diags.contains { $0.contains("has no `.`") && $0.contains("@Key(\"name\")") },
+            "got \(diags)")
     }
 
     @Test("an empty segment is refused")
@@ -253,14 +266,16 @@ struct KeyPathDiagnostics {
     func indexSegment() {
         let (_, diags) = expandSchemaForTesting(
             "@Schema struct S { @Key(path: \"meta.tags[0]\") var t: String }")
-        #expect(diags.contains { $0.contains("index segment") && $0.contains("nested @Schema") },
-                "got \(diags)")
+        #expect(
+            diags.contains { $0.contains("index segment") && $0.contains("nested @Schema") },
+            "got \(diags)")
     }
 
     /// One arm cannot both descend into an object and decode a value.
     @Test("a group's first segment colliding with a declared key is refused")
     func collision() {
-        let (_, diags) = expandSchemaForTesting("""
+        let (_, diags) = expandSchemaForTesting(
+            """
             @Schema struct S {
                 var profile: String
                 @Key(path: "profile.name") var name: String
@@ -285,15 +300,16 @@ struct KeyPathRawTests {
 
     @Test("a path walks a YAML mapping")
     func yaml() throws {
-        let c = try RawCard.parse(yaml: """
-            id: x
-            profile:
-              name: Ada
-              avatar: a.png
-            meta:
-              stats:
-                views: 5
-            """)
+        let c = try RawCard.parse(
+            yaml: """
+                id: x
+                profile:
+                  name: Ada
+                  avatar: a.png
+                meta:
+                  stats:
+                    views: 5
+                """)
         #expect(c == RawCard(name: "Ada", avatar: "a.png", views: 5, id: "x"))
     }
 
@@ -327,9 +343,10 @@ struct KeyPathRawTests {
 
     @Test("a path walks XML nesting")
     func xml() throws {
-        let c = try RawCard.parse(xml: """
-            <card><id>x</id><profile><name>Ada</name></profile></card>
-            """)
+        let c = try RawCard.parse(
+            xml: """
+                <card><id>x</id><profile><name>Ada</name></profile></card>
+                """)
         #expect(c.name == "Ada")
         #expect(c.id == "x")
     }
@@ -388,7 +405,8 @@ struct KeyPathExpansion {
     /// this asserts on the expansion rather than on behaviour.
     @Test("a path schema emits a SPARSE key table, not 253 assignments")
     func keyTableStaysSparse() {
-        let (expansion, diags) = expandSchemaForTesting("""
+        let (expansion, diags) = expandSchemaForTesting(
+            """
             @Schema struct S {
                 @Key(path: "profile.display_name") var displayName: String
                 @Key(path: "profile.avatar") var avatar: String?
@@ -401,14 +419,18 @@ struct KeyPathExpansion {
         // Four fields, but only THREE top-level arms — `profile` and `meta` are one each,
         // shared by the fields beneath them.
         let assignments = expansion.components(separatedBy: "t[").count - 1
-        #expect(assignments <= 8, """
-                the key table has \(assignments) assignments. It should have one per distinct \
-                window value — a handful. A number near 253 means the sentinel does not match \
-                the arm count and every entry is being written out.
-                """)
-        #expect(expansion.contains("repeating: 3"), """
-                the sentinel should be the ARM count (3: one plain field plus two path \
-                groups), not the field count (4).
-                """)
+        #expect(
+            assignments <= 8,
+            """
+            the key table has \(assignments) assignments. It should have one per distinct \
+            window value — a handful. A number near 253 means the sentinel does not match \
+            the arm count and every entry is being written out.
+            """)
+        #expect(
+            expansion.contains("repeating: 3"),
+            """
+            the sentinel should be the ARM count (3: one plain field plus two path \
+            groups), not the field count (4).
+            """)
     }
 }

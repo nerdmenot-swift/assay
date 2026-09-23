@@ -57,37 +57,37 @@ struct Task {
 
 private func decodeStruct(_ shape: String, _ b: [UInt8]) -> Int? {
     switch shape {
-    case "fields-2":          return (try? Doc2.parse(json: b)).map { $0.items.count }
-    case "fields-20":         return (try? Doc20.parse(json: b)).map { $0.items.count }
-    case "keys-long":         return (try? DocLongKeys.parse(json: b)).map { $0.items.count }
-    case "values-int":        return (try? DocInt.parse(json: b)).map { $0.items.count }
-    case "values-double":     return (try? DocDouble.parse(json: b)).map { $0.items.count }
-    case "values-bool":       return (try? DocBool.parse(json: b)).map { $0.items.count }
-    case "nested-3":          return (try? DocNested.parse(json: b)).map { $0.items.count }
+    case "fields-2": return (try? Doc2.parse(json: b)).map { $0.items.count }
+    case "fields-20": return (try? Doc20.parse(json: b)).map { $0.items.count }
+    case "keys-long": return (try? DocLongKeys.parse(json: b)).map { $0.items.count }
+    case "values-int": return (try? DocInt.parse(json: b)).map { $0.items.count }
+    case "values-double": return (try? DocDouble.parse(json: b)).map { $0.items.count }
+    case "values-bool": return (try? DocBool.parse(json: b)).map { $0.items.count }
+    case "nested-3": return (try? DocNested.parse(json: b)).map { $0.items.count }
     case "array-10", "array-640":
-                              return (try? DocArray.parse(json: b)).map { $0.items.count }
-    case "groups-10":         return (try? DocGroup.parse(json: b)).map { $0.items.count }
+        return (try? DocArray.parse(json: b)).map { $0.items.count }
+    case "groups-10": return (try? DocGroup.parse(json: b)).map { $0.items.count }
     case "optional-absent", "optional-null":
-                              return (try? DocOptional.parse(json: b)).map { $0.items.count }
-    default:                  return (try? Doc5.parse(json: b)).map { $0.items.count }
+        return (try? DocOptional.parse(json: b)).map { $0.items.count }
+    default: return (try? Doc5.parse(json: b)).map { $0.items.count }
     }
 }
 
 private func diagnoseStruct(_ shape: String, _ b: [UInt8]) -> Int? {
     switch shape {
-    case "fields-2":          return Doc2.diagnose(json: b).value?.items.count
-    case "fields-20":         return Doc20.diagnose(json: b).value?.items.count
-    case "keys-long":         return DocLongKeys.diagnose(json: b).value?.items.count
-    case "values-int":        return DocInt.diagnose(json: b).value?.items.count
-    case "values-double":     return DocDouble.diagnose(json: b).value?.items.count
-    case "values-bool":       return DocBool.diagnose(json: b).value?.items.count
-    case "nested-3":          return DocNested.diagnose(json: b).value?.items.count
+    case "fields-2": return Doc2.diagnose(json: b).value?.items.count
+    case "fields-20": return Doc20.diagnose(json: b).value?.items.count
+    case "keys-long": return DocLongKeys.diagnose(json: b).value?.items.count
+    case "values-int": return DocInt.diagnose(json: b).value?.items.count
+    case "values-double": return DocDouble.diagnose(json: b).value?.items.count
+    case "values-bool": return DocBool.diagnose(json: b).value?.items.count
+    case "nested-3": return DocNested.diagnose(json: b).value?.items.count
     case "array-10", "array-640":
-                              return DocArray.diagnose(json: b).value?.items.count
-    case "groups-10":         return DocGroup.diagnose(json: b).value?.items.count
+        return DocArray.diagnose(json: b).value?.items.count
+    case "groups-10": return DocGroup.diagnose(json: b).value?.items.count
     case "optional-absent", "optional-null":
-                              return DocOptional.diagnose(json: b).value?.items.count
-    default:                  return Doc5.diagnose(json: b).value?.items.count
+        return DocOptional.diagnose(json: b).value?.items.count
+    default: return Doc5.diagnose(json: b).value?.items.count
     }
 }
 
@@ -103,23 +103,25 @@ private func diagnoseElements(_ shape: String, _ b: [UInt8]) -> Int? {
 let stringValuedShapes: Set<String> = [
     "base", "fields-2", "fields-20", "values-long",
     "escapes-10", "escapes-100", "nested-3", "array-10", "array-640", "unknown-5", "pretty",
-    "errors-1", "errors-10", "errors-100",
+    "errors-1", "errors-10", "errors-100"
 ]
 
 /// Shapes whose element type is the plain 5-string `M5`, so the encode and validate tasks
 /// (which need one concrete type) can run on them.
 private let fiveStringShapes: Set<String> = [
     "base", "values-long", "escapes-10", "escapes-100", "unknown-5", "pretty",
-    "errors-1", "errors-10", "errors-100",
+    "errors-1", "errors-10", "errors-100"
 ]
 
 // MARK: - The tasks
 
 func allTasks() -> [Task] {
     var out: [Task] = []
-    func add(_ name: String, _ summary: String,
-             applies: @escaping (String) -> Bool = { _ in true },
-             _ make: @escaping (String, [UInt8]) -> (() -> Int?)?) {
+    func add(
+        _ name: String, _ summary: String,
+        applies: @escaping (String) -> Bool = { _ in true },
+        _ make: @escaping (String, [UInt8]) -> (() -> Int?)?
+    ) {
         out.append(Task(name: name, summary: summary, make: make, applies: applies))
     }
 
@@ -144,8 +146,10 @@ func allTasks() -> [Task] {
     // Only where the two declared fields are actually strings: on `values-int` and friends
     // the prefix type would be a type mismatch, not a skip, and "declined" on half the
     // matrix hides that the task never ran.
-    add("skip", "prefix type — the unknown-key structural skip",
-        applies: { stringValuedShapes.contains($0) }) { _, b in
+    add(
+        "skip", "prefix type — the unknown-key structural skip",
+        applies: { stringValuedShapes.contains($0) }
+    ) { _, b in
         { (try? DocPrefix.parse(json: b)).map { $0.items.count } }
     }
 
@@ -179,9 +183,13 @@ func allTasks() -> [Task] {
     // The write path, with the READ done once in `make`. It also returns the element count
     // rather than the byte count: returning bytes made ns/element mean "ns per output byte"
     // and put `encode` in a different unit from every other row in the table.
-    add("encode", "encodedJSON() — the write path",
-        applies: { (fiveStringShapes.contains($0) && !$0.hasPrefix("errors"))
-                    || $0 == "fields-2" || $0 == "fields-20" || $0 == "nested-3" }) { shape, b in
+    add(
+        "encode", "encodedJSON() — the write path",
+        applies: {
+            (fiveStringShapes.contains($0) && !$0.hasPrefix("errors"))
+                || $0 == "fields-2" || $0 == "fields-20" || $0 == "nested-3"
+        }
+    ) { shape, b in
         switch shape {
         case "nested-3":
             guard let d = try? DocNested.parse(json: b) else { return nil }
@@ -203,8 +211,10 @@ func allTasks() -> [Task] {
     // `validate` needs a type that HAS rules: a rule-free `@Schema` does not conform to
     // `Validatable` at all, which is the right design (nothing to run) and worth knowing.
     // `DocValidated` is the base shape with one rule per field.
-    add("validate", "T.validate(_:) — rules against a decoded value",
-        applies: { fiveStringShapes.contains($0) && !$0.hasPrefix("errors") }) { _, b in
+    add(
+        "validate", "T.validate(_:) — rules against a decoded value",
+        applies: { fiveStringShapes.contains($0) && !$0.hasPrefix("errors") }
+    ) { _, b in
         // The BATCH overload, over the elements, with the decode done once in `make` —
         // this is `T.validate(_:)` alone, which is the seam a fast external reader uses.
         // The wrapper declares no rule of its own, so it is not `Validatable`; rules live
@@ -217,23 +227,31 @@ func allTasks() -> [Task] {
     // timed region, by the library's own writers, so the parse sees realistic block YAML and
     // `[[items]]` TOML rather than YAML's JSON-compatible flow style. The count is the root's
     // item count, which also checks the rendering survived.
-    add("yaml", "YAML.parse — the block-style tree", applies: { treeFormatShapes.contains($0) }) { _, b in
+    add("yaml", "YAML.parse — the block-style tree", applies: { treeFormatShapes.contains($0) }) {
+        _, b in
         var sink = IssueSink(limits: .default)
         guard let v = JSON.Value.decode(b, into: &sink, limits: .default) else { return nil }
         let text = Array(YAML.encode(RawValue(v)))
         return {
             guard let n = try? YAML.parse(text) else { return nil }
-            if case .mapping(let pairs) = n, case .sequence(let xs)? = pairs.first?.value { return xs.count }
+            if case .mapping(let pairs) = n, case .sequence(let xs)? = pairs.first?.value {
+                return xs.count
+            }
             return nil
         }
     }
-    add("toml", "TOML.parse — array-of-tables", applies: { treeFormatShapes.contains($0) }) { _, b in
+    add("toml", "TOML.parse — array-of-tables", applies: { treeFormatShapes.contains($0) }) {
+        _, b in
         var sink = IssueSink(limits: .default)
         guard let v = JSON.Value.decode(b, into: &sink, limits: .default) else { return nil }
         let text = Array(TOML.encode(RawValue(v), into: &sink))
         return {
             guard let n = try? TOML.parse(text) else { return nil }
-            if case .table(let t) = n, case .array(let xs)? = t.first(where: { $0.key == "items" })?.value { return xs.count }
+            if case .table(let t) = n,
+                case .array(let xs)? = t.first(where: { $0.key == "items" })?.value
+            {
+                return xs.count
+            }
             return nil
         }
     }
@@ -244,7 +262,8 @@ func allTasks() -> [Task] {
         let text = Array(renderXML(RawValue(v)).utf8)
         return {
             guard let doc = try? XML.parse(text),
-                  case .element(let items)? = doc.root.children.first else { return nil }
+                case .element(let items)? = doc.root.children.first
+            else { return nil }
             return items.children.count
         }
     }
@@ -252,8 +271,10 @@ func allTasks() -> [Task] {
     // Decoding each format INTO A STRUCT: parse, project to RawValue, decode. That is what a
     // user of these formats calls, and until 2026-09-19 no cell timed it: the tasks above
     // stop at the tree.
-    add("yaml-struct", "T.parse(yaml:) — parse, project, decode",
-        applies: { structFormatShapes.contains($0) }) { shape, b in
+    add(
+        "yaml-struct", "T.parse(yaml:) — parse, project, decode",
+        applies: { structFormatShapes.contains($0) }
+    ) { shape, b in
         var sink = IssueSink(limits: .default)
         guard let v = JSON.Value.decode(b, into: &sink, limits: .default) else { return nil }
         let text = Array(YAML.encode(RawValue(v)))
@@ -262,8 +283,10 @@ func allTasks() -> [Task] {
         default: return { (try? Doc5.parse(yaml: text))?.items.count }
         }
     }
-    add("toml-struct", "T.parse(toml:) — parse, project, decode",
-        applies: { structFormatShapes.contains($0) }) { shape, b in
+    add(
+        "toml-struct", "T.parse(toml:) — parse, project, decode",
+        applies: { structFormatShapes.contains($0) }
+    ) { shape, b in
         var sink = IssueSink(limits: .default)
         guard let v = JSON.Value.decode(b, into: &sink, limits: .default) else { return nil }
         let text = Array(TOML.encode(RawValue(v), into: &sink))
@@ -272,8 +295,10 @@ func allTasks() -> [Task] {
         default: return { (try? Doc5.parse(toml: text))?.items.count }
         }
     }
-    add("xml-struct", "T.parse(xml:) — parse, project, decode",
-        applies: { structFormatShapes.contains($0) }) { shape, b in
+    add(
+        "xml-struct", "T.parse(xml:) — parse, project, decode",
+        applies: { structFormatShapes.contains($0) }
+    ) { shape, b in
         var sink = IssueSink(limits: .default)
         guard let v = JSON.Value.decode(b, into: &sink, limits: .default) else { return nil }
         // Arrays as repeated siblings, which is how XML decoding reads a sequence.
@@ -296,5 +321,5 @@ private let structFormatShapes: Set<String> = ["base", "nested-3", "values-long"
 /// Shapes the YAML, TOML and XML tasks run on: enough to separate record width, nesting, arrays,
 /// long values and escapes, without paying Valgrind for every shape twice more.
 private let treeFormatShapes: Set<String> = [
-    "base", "fields-20", "nested-3", "array-10", "values-long", "escapes-10", "values-int",
+    "base", "fields-20", "nested-3", "array-10", "values-long", "escapes-10", "values-int"
 ]

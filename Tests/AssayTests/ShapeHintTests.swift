@@ -30,16 +30,26 @@ struct ShapeHintTests {
         }
     }
 
-    @Test("heterogeneous siblings decode exactly", arguments: [
-        (#"[{"a":1,"b":2,"c":3,"d":4,"e":5,"f":6},{"a":1},{},{"x":1,"y":2}]"#,
-         "[{6:.,.,.,.,.,.},{1:.},{0:},{2:.,.}]"),
-        (#"[[],[1],[1,2,3,4,5,6,7,8,9,10],[1,2],[]]"#,
-         "[[],[.],[.,.,.,.,.,.,.,.,.,.],[.,.],[]]"),
-        (#"[{"a":[1,2,3]},[{"b":1},{"c":2,"d":3}],{"e":{"f":{"g":[[],[1]]}}}]"#,
-         "[{1:[.,.,.]},[{1:.},{2:.,.}],{1:{1:{1:[[],[.]]}}}]"),
-        (#"{"k":[{"a":1,"b":2},{"a":1,"b":2,"c":3}],"m":[{"z":0}]}"#,
-         "{2:[{2:.,.},{3:.,.,.}],[{1:.}]}"),
-    ])
+    @Test(
+        "heterogeneous siblings decode exactly",
+        arguments: [
+            (
+                #"[{"a":1,"b":2,"c":3,"d":4,"e":5,"f":6},{"a":1},{},{"x":1,"y":2}]"#,
+                "[{6:.,.,.,.,.,.},{1:.},{0:},{2:.,.}]"
+            ),
+            (
+                #"[[],[1],[1,2,3,4,5,6,7,8,9,10],[1,2],[]]"#,
+                "[[],[.],[.,.,.,.,.,.,.,.,.,.],[.,.],[]]"
+            ),
+            (
+                #"[{"a":[1,2,3]},[{"b":1},{"c":2,"d":3}],{"e":{"f":{"g":[[],[1]]}}}]"#,
+                "[{1:[.,.,.]},[{1:.},{2:.,.}],{1:{1:{1:[[],[.]]}}}]"
+            ),
+            (
+                #"{"k":[{"a":1,"b":2},{"a":1,"b":2,"c":3}],"m":[{"z":0}]}"#,
+                "{2:[{2:.,.},{3:.,.,.}],[{1:.}]}"
+            )
+        ])
     func heterogeneous(_ json: String, _ expected: String) throws {
         #expect(Self.signature(try Self.roundTrip(json)) == expected)
     }
@@ -48,7 +58,9 @@ struct ShapeHintTests {
     func exactCounts() throws {
         let v = try Self.roundTrip(#"[{"a":1,"b":2,"c":3,"d":4},{"a":1},{"a":1,"b":2}]"#)
         guard case .array(let xs) = v else { Issue.record("not an array"); return }
-        let counts = xs.map { v -> Int in if case .object(let m) = v { return m.count } else { return -1 } }
+        let counts = xs.map { v -> Int in
+            if case .object(let m) = v { return m.count } else { return -1 }
+        }
         #expect(counts == [4, 1, 2])
     }
 }

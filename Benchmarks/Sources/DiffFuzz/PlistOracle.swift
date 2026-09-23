@@ -33,10 +33,10 @@ import AssayPlist
 /// `RawValue` does, so comparing tags would test the bridge rather than the parser.
 func plistEquivalent(_ mine: RawValue, _ theirs: Any) -> Bool {
     switch mine {
-    case .null:            return theirs is NSNull
-    case .bool(let b):     return (theirs as? NSNumber)?.boolValue == b
-    case .int(let i):      return (theirs as? NSNumber)?.int64Value == i
-    case .double(let d):   return (theirs as? NSNumber)?.doubleValue == d
+    case .null: return theirs is NSNull
+    case .bool(let b): return (theirs as? NSNumber)?.boolValue == b
+    case .int(let i): return (theirs as? NSNumber)?.int64Value == i
+    case .double(let d): return (theirs as? NSNumber)?.doubleValue == d
     case .string(let s):
         if let t = theirs as? String { return t == s }
         if let dt = theirs as? Data { return dt.base64EncodedString() == s }
@@ -61,11 +61,19 @@ func plistOracleValues() -> [Any] {
     for i in 0..<40 { wide["key\(i)"] = i }
     return [
         ["s": "x", "n": 42, "b": true, "f": false] as [String: Any],
-        ["ints": [0, 1, -1, 127, 128, 255, 256, 65535, 65536,
-                  2_147_483_647, 9_223_372_036_854_775_807, -9_223_372_036_854_775_808]],
+        [
+            "ints": [
+                0, 1, -1, 127, 128, 255, 256, 65535, 65536,
+                2_147_483_647, 9_223_372_036_854_775_807, -9_223_372_036_854_775_808
+            ]
+        ],
         ["reals": [0.0, -0.0, 0.5, -1.25, 1e300, 1e-300]],
-        ["strings": ["", "a", "héllo €", "a longer ASCII string past the fifteen-byte nibble",
-                     "日本語のテキスト、これも十五バイトを超えます"]],
+        [
+            "strings": [
+                "", "a", "héllo €", "a longer ASCII string past the fifteen-byte nibble",
+                "日本語のテキスト、これも十五バイトを超えます"
+            ]
+        ],
         ["data": Data([0]), "data2": Data([1, 2, 3]), "data3": Data(repeating: 7, count: 300)],
         ["nested": ["a": ["b": ["c": ["d": "deep"]]]]],
         ["empty_dict": [String: Any](), "empty_array": [Any]()],
@@ -75,7 +83,7 @@ func plistOracleValues() -> [Any] {
         // amplifying) case the reader must accept.
         ["a": "same", "b": "same", "c": "same", "d": ["same", "same", "same"]],
         [1, 2, 3] as [Any],
-        "a bare string root",
+        "a bare string root"
     ]
 }
 
@@ -83,10 +91,14 @@ func runPlistDifferential() throws -> (Int, Int) {
     var binary = 0
     var xml = 0
     for v in plistOracleValues() {
-        for (format, counter) in [(PropertyListSerialization.PropertyListFormat.binary, 0),
-                                  (.xml, 1)] {
-            guard let data = try? PropertyListSerialization.data(
-                fromPropertyList: v, format: format, options: 0) else {
+        for (format, counter) in [
+            (PropertyListSerialization.PropertyListFormat.binary, 0),
+            (.xml, 1)
+        ] {
+            guard
+                let data = try? PropertyListSerialization.data(
+                    fromPropertyList: v, format: format, options: 0)
+            else {
                 fail("Foundation could not write \(v) as \(format)")
                 continue
             }
@@ -112,7 +124,8 @@ func runPlistFuzz() throws -> Int {
     for v in plistOracleValues() {
         for format in [PropertyListSerialization.PropertyListFormat.binary, .xml] {
             if let d = try? PropertyListSerialization.data(
-                fromPropertyList: v, format: format, options: 0) {
+                fromPropertyList: v, format: format, options: 0)
+            {
                 seeds.append(Array(d))
             }
         }
@@ -133,7 +146,8 @@ func runPlistFuzz() throws -> Int {
         for _ in 0..<220 {
             var bytes = seed
             let inTrailer = bytes.count > 32 && (rng.next() % 2 == 0)
-            let i = inTrailer
+            let i =
+                inTrailer
                 ? bytes.count - 32 + Int(rng.next() % 32)
                 : Int(rng.next() % UInt64(bytes.count))
             bytes[i] = UInt8(truncatingIfNeeded: rng.next())
@@ -175,8 +189,8 @@ func runPlistFuzz() throws -> Int {
                 }
                 var bytes = Array("bplist00".utf8) + obj
                 let table = bytes.count
-                bytes.append(8)                                  // one object, at offset 8
-                bytes += [0, 0, 0, 0, 0, 0, 1, 1]                // unused, sortVersion, widths
+                bytes.append(8)  // one object, at offset 8
+                bytes += [0, 0, 0, 0, 0, 0, 1, 1]  // unused, sortVersion, widths
                 for v in [1, 0, table] {
                     for i in (0..<8).reversed() {
                         bytes.append(UInt8(truncatingIfNeeded: v >> (8 * i)))

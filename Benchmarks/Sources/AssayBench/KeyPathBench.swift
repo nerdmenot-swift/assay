@@ -83,13 +83,15 @@ struct WidePathCard {
 /// states a limit could not enforce it. A gate that prints its own failure and passes is
 /// worse than no gate, because the line in the log reads like a check that ran.
 func runKeyPathBenchmarks() -> Bool {
-    let doc = Array(#"""
+    let doc = Array(
+        #"""
         {"id":"card-00000000","profile":{"display_name":"A name of ordinary length",\
         "avatar":"https://example.com/avatars/00000000.png"},\
         "meta":{"stats":{"views":128,"likes":7}}}
         """#.replacingOccurrences(of: "\\\n", with: "").utf8)
 
-    let wide = Array(#"""
+    let wide = Array(
+        #"""
         {"id":"card-00000000","kind":"article","region":"eu-west-1",\
         "profile":{"display_name":"A name of ordinary length",\
         "avatar":"https://example.com/avatars/00000000.png"},\
@@ -102,37 +104,44 @@ func runKeyPathBenchmarks() -> Bool {
     print("Identical documents; `nested` also materialises two structs the caller must reach")
     print("through, which favours `paths`. Read the ratio as \"the walk costs no more\".")
     print("")
-    print(pad("shape", 16, right: true) + pad("bytes", 8) + pad("nested ns", 12)
-          + pad("paths ns", 12) + pad("ratio", 10))
+    print(
+        pad("shape", 16, right: true) + pad("bytes", 8) + pad("nested ns", 12)
+            + pad("paths ns", 12) + pad("ratio", 10))
     print(String(repeating: "-", count: 58))
 
     // Sanity: both must actually decode, or the comparison times two error paths.
     guard let n = try? NestedCard.parse(json: doc),
-          let p = try? PathCard.parse(json: doc),
-          n.profile.displayName == p.displayName, n.meta.stats.likes == p.likes else {
+        let p = try? PathCard.parse(json: doc),
+        n.profile.displayName == p.displayName, n.meta.stats.likes == p.likes
+    else {
         print("  SKIPPED — the two schemas disagree, so the comparison is meaningless")
-        return false          // a comparison that could not run is not a gate that passed
+        return false  // a comparison that could not run is not a gate that passed
     }
 
     let reps = 20_000
     let nested = measure(iterations: reps) { _ = try? NestedCard.parse(json: doc) }
     let paths = measure(iterations: reps) { _ = try? PathCard.parse(json: doc) }
-    print(pad("4 leaves", 16, right: true) + pad("\(doc.count)", 8)
-          + pad(String(format: "%.0f", nested), 12)
-          + pad(String(format: "%.0f", paths), 12)
-          + pad(String(format: "%.2fx", paths / nested), 10))
+    print(
+        pad("4 leaves", 16, right: true) + pad("\(doc.count)", 8)
+            + pad(String(format: "%.0f", nested), 12)
+            + pad(String(format: "%.0f", paths), 12)
+            + pad(String(format: "%.2fx", paths / nested), 10))
 
     let widePaths = measure(iterations: reps) { _ = try? WidePathCard.parse(json: wide) }
-    print(pad("+3 plain keys", 16, right: true) + pad("\(wide.count)", 8)
-          + pad("-", 12)
-          + pad(String(format: "%.0f", widePaths), 12)
-          + pad(String(format: "%.2fx", widePaths / paths), 10))
+    print(
+        pad("+3 plain keys", 16, right: true) + pad("\(wide.count)", 8)
+            + pad("-", 12)
+            + pad(String(format: "%.0f", widePaths), 12)
+            + pad(String(format: "%.2fx", widePaths / paths), 10))
 
     let ratio = paths / nested
     let passed = ratio <= 1.15
     print("")
-    print(passed
-          ? String(format: "GATE PASSED — %.2fx of the nested alternative (limit 1.15x)", ratio)
-          : String(format: "GATE FAILED — %.2fx, over the 1.15x limit. ROADMAP §3's fallback stands.", ratio))
+    print(
+        passed
+            ? String(format: "GATE PASSED — %.2fx of the nested alternative (limit 1.15x)", ratio)
+            : String(
+                format: "GATE FAILED — %.2fx, over the 1.15x limit. ROADMAP §3's fallback stands.",
+                ratio))
     return passed
 }

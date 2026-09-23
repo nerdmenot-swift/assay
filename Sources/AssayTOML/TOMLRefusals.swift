@@ -25,33 +25,61 @@ import Assay
 
 extension Assayable {
 
-    @available(*, unavailable, message: "this schema does not decode TOML. Add `formats: .toml` (or `.all`) to its @Schema, e.g. @Schema(formats: .toml).")
-    public static func parse(toml bytes: [UInt8], limits: Limits = .default,
-                             sourceName: String = "<input>") throws -> Self {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode TOML. Add `formats: .toml` (or `.all`) to its @Schema, e.g. @Schema(formats: .toml)."
+    )
+    public static func parse(
+        toml bytes: [UInt8], limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) throws -> Self {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "this schema does not decode TOML. Add `formats: .toml` (or `.all`) to its @Schema, e.g. @Schema(formats: .toml).")
-    public static func parse(toml text: String, limits: Limits = .default,
-                             sourceName: String = "<input>") throws -> Self {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode TOML. Add `formats: .toml` (or `.all`) to its @Schema, e.g. @Schema(formats: .toml)."
+    )
+    public static func parse(
+        toml text: String, limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) throws -> Self {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "this schema does not decode TOML. Add `formats: .toml` (or `.all`) to its @Schema, e.g. @Schema(formats: .toml).")
-    public static func diagnose(toml bytes: [UInt8], limits: Limits = .default,
-                                sourceName: String = "<input>") -> Diagnosis<Self> {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode TOML. Add `formats: .toml` (or `.all`) to its @Schema, e.g. @Schema(formats: .toml)."
+    )
+    public static func diagnose(
+        toml bytes: [UInt8], limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) -> Diagnosis<Self> {
         fatalError("unavailable")
     }
 
-    @available(*, unavailable, message: "this schema does not decode TOML. Add `formats: .toml` (or `.all`) to its @Schema, e.g. @Schema(formats: .toml).")
-    public static func diagnose(toml text: String, limits: Limits = .default,
-                                sourceName: String = "<input>") -> Diagnosis<Self> {
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not decode TOML. Add `formats: .toml` (or `.all`) to its @Schema, e.g. @Schema(formats: .toml)."
+    )
+    public static func diagnose(
+        toml text: String, limits: Limits = .default,
+        sourceName: String = "<input>"
+    ) -> Diagnosis<Self> {
         fatalError("unavailable")
     }
 
     // The encode side needs BOTH `encodes: true` and the format, so the message names both
     // rather than sending the reader back for a second compile to discover the other half.
-    @available(*, unavailable, message: "this schema does not encode TOML. It needs both `encodes: true` and the format — e.g. @Schema(formats: .toml, encodes: true).")
+    @available(
+        *, unavailable,
+        message:
+            "this schema does not encode TOML. It needs both `encodes: true` and the format — e.g. @Schema(formats: .toml, encodes: true)."
+    )
     public func encodedTOML() throws -> EncodedBytes {
         fatalError("unavailable")
     }

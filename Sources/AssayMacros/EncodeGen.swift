@@ -39,14 +39,15 @@ extension SchemaMacro {
         _ fields: [SchemaField], _ extras: SchemaField?, groups: [PathGroup] = []
     ) -> String {
         guard extras != nil else { return "" }
-        let names = (fields.filter { $0.pathSegments == nil }.map(\.wireKey)
-                     + groups.map(\.segment))
+        let names =
+            (fields.filter { $0.pathSegments == nil }.map(\.wireKey)
+            + groups.map(\.segment))
             .map { "\"\($0)\"" }.joined(separator: ", ")
         return """
-        nonisolated static let __assayDeclaredKeys: Set<String> = [\(names)]
+            nonisolated static let __assayDeclaredKeys: Set<String> = [\(names)]
 
 
-        """
+            """
     }
 
     static func encodeBody(
@@ -75,19 +76,19 @@ extension SchemaMacro {
             // decodes, edits and re-encodes would silently delete everything it did not
             // recognise.
             lines += """
-                    for __x in self.\(e.identifier) {
-                        if Self.__assayDeclaredKeys.contains(__x.key) {
-                            sink.add(Assay.Issue(
-                                code: .extrasKeyCollision,
-                                path: path + [.key(__x.key)],
-                                params: ["key": .string(__x.key)]))
-                            continue
+                        for __x in self.\(e.identifier) {
+                            if Self.__assayDeclaredKeys.contains(__x.key) {
+                                sink.add(Assay.Issue(
+                                    code: .extrasKeyCollision,
+                                    path: path + [.key(__x.key)],
+                                    params: ["key": .string(__x.key)]))
+                                continue
+                            }
+                            w.key(__x.key)
+                            w.write(__x.value, &sink, path + [.key(__x.key)], "")
                         }
-                        w.key(__x.key)
-                        w.write(__x.value, &sink, path + [.key(__x.key)], "")
-                    }
 
-            """
+                """
         }
 
         // THE MEMBERS ARE A SEPARATE FUNCTION, and the reason is a union.
@@ -105,23 +106,23 @@ extension SchemaMacro {
         // keep that reachable. This costs one three-line wrapper per encoding type — constant,
         // not per-field, which is the term `docs/COMPILE-TIME.md` says actually matters.
         body += """
-        nonisolated public func _assayEncodeMembers(
-            into w: inout Assay.JSONWriter,
-            into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathStep]
-        ) {
-        \(lines)}
+            nonisolated public func _assayEncodeMembers(
+                into w: inout Assay.JSONWriter,
+                into sink: inout Assay.IssueSink,
+                at path: inout [Assay.PathStep]
+            ) {
+            \(lines)}
 
-        nonisolated public func _assayEncode(
-            into w: inout Assay.JSONWriter,
-            into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathStep]
-        ) {
-            w.beginObject()
-            self._assayEncodeMembers(into: &w, into: &sink, at: &path)
-            w.endObject()
-        }
-        """
+            nonisolated public func _assayEncode(
+                into w: inout Assay.JSONWriter,
+                into sink: inout Assay.IssueSink,
+                at path: inout [Assay.PathStep]
+            ) {
+                w.beginObject()
+                self._assayEncodeMembers(into: &w, into: &sink, at: &path)
+                w.endObject()
+            }
+            """
         return body
     }
 
@@ -143,11 +144,11 @@ extension SchemaMacro {
             inner += encodePathNode(child, fields: fields, segment: seg, indent: indent + 4)
         }
         return """
-        \(pad)\(keyStatement(segment))
-        \(pad)w.beginObject()
-        \(inner)\(pad)w.endObject()
+            \(pad)\(keyStatement(segment))
+            \(pad)w.beginObject()
+            \(inner)\(pad)w.endObject()
 
-        """
+            """
     }
 
     /// Shift generated lines right, so a nested object's contents sit under it. Cheaper
@@ -171,7 +172,8 @@ extension SchemaMacro {
         // Q3: a transformed field encodes through its inverse, back to the WIRE type —
         // which is what makes Q5's round-trip law hold. The expansion-time check in
         // checkEncodable guarantees the inverse exists by the time this runs.
-        let value = f.transform != nil
+        let value =
+            f.transform != nil
             ? "Self.__assayInverse_\(i)(self.\(f.identifier))"
             : "self.\(f.identifier)"
 
@@ -179,29 +181,29 @@ extension SchemaMacro {
             // An absent optional writes an explicit null: `nil` decoded from either an
             // absent key or a null, and null is the form that round-trips through both.
             return """
-                    \(keyStatement(key))
-                    if let __e\(i) = \(value) {
-            \(writeCall(base, "__e\(i)", key: key, index: i, indent: 12))
-                    } else {
-                        w.writeNull()
-                    }
+                        \(keyStatement(key))
+                        if let __e\(i) = \(value) {
+                \(writeCall(base, "__e\(i)", key: key, index: i, indent: 12))
+                        } else {
+                            w.writeNull()
+                        }
 
-            """
+                """
         }
         // A plain String field: the key literal opens the value's quote as well, so
         // separator, key and quote are one append (`JSONWriter._key(separatedOpeningString:)`).
         if base == "String", f.transform == nil, isPlainKey(key) {
             return """
-                    w._key(separatedOpeningString: ",\\"\(key)\\":\\"")
-                    w._writeStringOpened(\(value))
+                        w._key(separatedOpeningString: ",\\"\(key)\\":\\"")
+                        w._writeStringOpened(\(value))
 
-            """
+                """
         }
         return """
-                \(keyStatement(key))
-        \(writeCall(base, value, key: key, index: i, indent: 8))
+                    \(keyStatement(key))
+            \(writeCall(base, value, key: key, index: i, indent: 8))
 
-        """
+            """
     }
 
     /// The expression that writes one non-optional value of `type`.
@@ -231,12 +233,14 @@ extension SchemaMacro {
         let pad = String(repeating: " ", count: indent)
 
         if isDateType(type) {
-            let formats = dateFormatsRef(SchemaField(
-                identifier: "", typeName: type, wireKey: key, aliases: [], isOptional: false,
-                defaultExpr: nil, isIgnored: false, isExtras: false, coerce: false,
-                dateFormats: nil), i)
+            let formats = dateFormatsRef(
+                SchemaField(
+                    identifier: "", typeName: type, wireKey: key, aliases: [], isOptional: false,
+                    defaultExpr: nil, isIgnored: false, isExtras: false, coerce: false,
+                    dateFormats: nil), i)
             _ = formats
-            return "\(pad)w.writeDate(\(expr).timeIntervalSince1970, \(dateFormatsExpr(i)), &sink, path, \"\(key)\")"
+            return
+                "\(pad)w.writeDate(\(expr).timeIntervalSince1970, \(dateFormatsExpr(i)), &sink, path, \"\(key)\")"
         }
         // The canonical 8-4-4-4-12 text, which is what the decoder accepts and nothing else.
         // `uuidString` is upper-case and the decoder takes either case, so the round-trip law
@@ -253,47 +257,48 @@ extension SchemaMacro {
             // is read only when something fails; rewriting its last component keeps the
             // buffer uniquely referenced, so the happy path copies nothing.
             let ep = "__ep\(i)_\(indent)", n = "__en\(i)_\(indent)"
-            let body = writeCall(element, "__a\(i)", key: key, index: i, indent: indent + 4,
-                                 nestedPath: ep)
+            let body = writeCall(
+                element, "__a\(i)", key: key, index: i, indent: indent + 4,
+                nestedPath: ep)
             guard body.containsSubstring(ep) else {
                 return """
+                    \(pad)w.beginArray()
+                    \(pad)for __a\(i) in \(expr) {
+                    \(body)
+                    \(pad)}
+                    \(pad)w.endArray()
+                    """
+            }
+            return """
                 \(pad)w.beginArray()
+                \(pad)var \(ep) = path
+                \(pad)\(ep).append(.key("\(key)"))
+                \(pad)\(ep).append(.index(0))
+                \(pad)var \(n) = 0
                 \(pad)for __a\(i) in \(expr) {
+                \(pad)    \(ep)[\(ep).count &- 1] = .index(\(n))
+                \(pad)    \(n) &+= 1
                 \(body)
                 \(pad)}
                 \(pad)w.endArray()
                 """
-            }
-            return """
-            \(pad)w.beginArray()
-            \(pad)var \(ep) = path
-            \(pad)\(ep).append(.key("\(key)"))
-            \(pad)\(ep).append(.index(0))
-            \(pad)var \(n) = 0
-            \(pad)for __a\(i) in \(expr) {
-            \(pad)    \(ep)[\(ep).count &- 1] = .index(\(n))
-            \(pad)    \(n) &+= 1
-            \(body)
-            \(pad)}
-            \(pad)w.endArray()
-            """
         }
         if let valueType = dictionaryValue(type) {
             // Sorted, so encoding is deterministic: a Dictionary has no order, and a
             // decoder that produced a different byte sequence on every run would make the
             // round-trip law in docs/ENCODING.md §5 untestable.
             return """
-            \(pad)w.beginObject()
-            \(pad)for __k\(i) in \(expr).keys.sorted() {
-            \(pad)    w.key(__k\(i))
-            \(writeCall(valueType, "\(expr)[__k\(i)]!", key: key, index: i, indent: indent + 4))
-            \(pad)}
-            \(pad)w.endObject()
-            """
+                \(pad)w.beginObject()
+                \(pad)for __k\(i) in \(expr).keys.sorted() {
+                \(pad)    w.key(__k\(i))
+                \(writeCall(valueType, "\(expr)[__k\(i)]!", key: key, index: i, indent: indent + 4))
+                \(pad)}
+                \(pad)w.endObject()
+                """
         }
         switch type {
         case "String", "Bool", "Int", "Int64", "Int32", "UInt",
-             "Int8", "Int16", "UInt8", "UInt16", "UInt32", "UInt64":
+            "Int8", "Int16", "UInt8", "UInt16", "UInt32", "UInt64":
             return "\(pad)w.write(\(expr))"
         case "Double", "Float":
             // Q4: NaN and infinity have no JSON spelling, so these take the sink.
@@ -310,10 +315,10 @@ extension SchemaMacro {
                 return "\(pad)\(expr)._assayEncode(into: &w, into: &sink, at: &\(nestedPath))"
             }
             return """
-            \(pad)path.append(.key("\(key)"))
-            \(pad)\(expr)._assayEncode(into: &w, into: &sink, at: &path)
-            \(pad)path.removeLast()
-            """
+                \(pad)path.append(.key("\(key)"))
+                \(pad)\(expr)._assayEncode(into: &w, into: &sink, at: &path)
+                \(pad)path.removeLast()
+                """
         }
     }
 
@@ -328,9 +333,9 @@ extension SchemaMacro {
             guard let inv = f.inverse, let t = f.transform else { continue }
             let output = stripOptional(f.typeName)
             out += """
-            nonisolated static let __assayInverse_\(i): @Sendable (\(output)) -> \(t.wireType) = \(inv)
+                nonisolated static let __assayInverse_\(i): @Sendable (\(output)) -> \(t.wireType) = \(inv)
 
-            """
+                """
         }
         return out
     }
@@ -347,14 +352,14 @@ extension SchemaMacro {
             if let t = f.transform, f.inverse == nil {
                 out.append(
                     "'\(f.identifier)' has a @Transform but no @Inverse, so this type "
-                    + "cannot be encoded; add "
-                    + "@Inverse({ (v: \(stripOptional(f.typeName))) in /* -> \(t.wireType) */ }), "
-                    + "or remove `encodes: true`")
+                        + "cannot be encoded; add "
+                        + "@Inverse({ (v: \(stripOptional(f.typeName))) in /* -> \(t.wireType) */ }), "
+                        + "or remove `encodes: true`")
             }
             if f.inverse != nil, f.transform == nil {
                 out.append(
                     "'\(f.identifier)' has an @Inverse but no @Transform; the inverse "
-                    + "would never run")
+                        + "would never run")
             }
         }
         return out

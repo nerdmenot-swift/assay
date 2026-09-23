@@ -74,24 +74,28 @@ struct IssueCodeCoverageTests {
         (.xmlUnterminatedDoctype, .xml, "<!DOCTYPE a [ never closed"),
         // The one that is a WARNING and not an error: an external DTD is ignored, loudly,
         // because silently ignoring it is how a parser pretends it resolved entities.
-        (.xmlExternalDtdIgnored, .xml,
-         "<!DOCTYPE a SYSTEM \"http://example.invalid/a.dtd\"><a/>"),
+        (
+            .xmlExternalDtdIgnored, .xml,
+            "<!DOCTYPE a SYSTEM \"http://example.invalid/a.dtd\"><a/>"
+        )
     ]
 
-    @Test("each document produces its code",
-          arguments: IssueCodeCoverageTests.cases.indices)
+    @Test(
+        "each document produces its code",
+        arguments: IssueCodeCoverageTests.cases.indices)
     func provokes(_ i: Int) {
         let c = IssueCodeCoverageTests.cases[i]
         var sink = IssueSink(limits: .default)
         let bytes = Array(c.doc.utf8)
         switch c.flavour {
-        case .yaml:  _ = YAML.decodeAll(bytes, into: &sink, limits: .default)
-        case .xml:   _ = XML.decode(bytes, into: &sink, limits: .default)
+        case .yaml: _ = YAML.decodeAll(bytes, into: &sink, limits: .default)
+        case .xml: _ = XML.decode(bytes, into: &sink, limits: .default)
         case .plist: _ = Plist.decode(bytes, into: &sink, limits: .default)
         }
         let produced = sink.issues.map(\.code) + sink.warnings.map(\.code)
-        #expect(produced.contains(c.code),
-                "\(c.code) not produced by \(c.doc.debugDescription); got \(produced)")
+        #expect(
+            produced.contains(c.code),
+            "\(c.code) not produced by \(c.doc.debugDescription); got \(produced)")
     }
 
     @Test("yaml_empty_stream — the single-document door on an empty stream")
@@ -112,8 +116,10 @@ struct IssueCodeCoverageTests {
     /// Layout, which the trailer describes and the reader trusts only after checking:
     /// `bplist00` | objects | offset table | trailer(offsetIntSize, objectRefSize,
     /// numObjects, topObject, offsetTableOffset).
-    static func bplist(objects: [UInt8], offsetTableEntry: Int? = nil,
-                       topObject: Int = 0, numObjects: Int = 1) -> [UInt8] {
+    static func bplist(
+        objects: [UInt8], offsetTableEntry: Int? = nil,
+        topObject: Int = 0, numObjects: Int = 1
+    ) -> [UInt8] {
         var out = Array("bplist00".utf8)
         out += objects
         let tableAt = out.count
@@ -121,8 +127,10 @@ struct IssueCodeCoverageTests {
         // which sits immediately after the magic.
         let entry = offsetTableEntry ?? 8
         out.append(UInt8(truncatingIfNeeded: entry))
-        func be(_ v: Int) -> [UInt8] { (0..<8).reversed().map { UInt8(truncatingIfNeeded: v >> ($0 * 8)) } }
-        out += [0, 0, 0, 0, 0, 0, 1, 1]          // 6 unused, offsetIntSize, objectRefSize
+        func be(_ v: Int) -> [UInt8] {
+            (0..<8).reversed().map { UInt8(truncatingIfNeeded: v >> ($0 * 8)) }
+        }
+        out += [0, 0, 0, 0, 0, 0, 1, 1]  // 6 unused, offsetIntSize, objectRefSize
         out += be(numObjects) + be(topObject) + be(tableAt)
         return out
     }
@@ -133,9 +141,9 @@ struct IssueCodeCoverageTests {
     @Schema(formats: .all) struct Anything: Equatable { var unused: String? }
 
     static func plistCodes(_ bytes: [UInt8]) -> [IssueCode] {
-        do { _ = try Anything.parse(binaryPlist: bytes); return [] }
-        catch let e as AssayError { return e.issues.map(\.code) }
-        catch { return [] }
+        do { _ = try Anything.parse(binaryPlist: bytes); return [] } catch let e as AssayError {
+            return e.issues.map(\.code)
+        } catch { return [] }
     }
 
     @Test("plist_bad_magic — the eight bytes are the whole format check")
@@ -168,7 +176,7 @@ struct IssueCodeCoverageTests {
 
     @Test("plist_bad_real — a real that is not 4 or 8 bytes")
     func plistBadReal() {
-        let bytes = Self.bplist(objects: [0x21, 0, 0])      // width 1 << 1 == 2
+        let bytes = Self.bplist(objects: [0x21, 0, 0])  // width 1 << 1 == 2
         #expect(Self.plistCodes(bytes).contains(.plistBadReal))
     }
 
@@ -181,9 +189,11 @@ struct IssueCodeCoverageTests {
     @Test("plist_bad_root — <plist> with more than one value")
     func plistBadRoot() {
         var sink = IssueSink(limits: .default)
-        _ = Plist.decode(Array("""
-            <?xml version="1.0"?><plist version="1.0"><string>a</string><string>b</string></plist>
-            """.utf8), into: &sink, limits: .default)
+        _ = Plist.decode(
+            Array(
+                """
+                <?xml version="1.0"?><plist version="1.0"><string>a</string><string>b</string></plist>
+                """.utf8), into: &sink, limits: .default)
         #expect(sink.issues.map(\.code).contains(.plistBadRoot), "\(sink.issues)")
     }
 
@@ -257,13 +267,13 @@ struct IssueCodeCoverageTests {
     /// entry on this list is a standing invitation to ask whether the code should exist.
     static let unreachableHere: Set<String> = ["regex_unavailable"]
 
-
     @Test("every declared issue code is named by some test")
     func completeness() throws {
         let here = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-        let names = here                 // Tests/AssayTests
-            .deletingLastPathComponent() // Tests
-            .deletingLastPathComponent() // repository root
+        let names =
+            here  // Tests/AssayTests
+            .deletingLastPathComponent()  // Tests
+            .deletingLastPathComponent()  // repository root
             .appendingPathComponent("Sources/AssayCore/IssueCode+Names.swift")
         let source = try String(contentsOf: names, encoding: .utf8)
 
@@ -274,17 +284,23 @@ struct IssueCodeCoverageTests {
         // so splitting on "\n" saw this whole file as a single line on Windows CI.
         for line in source.split(whereSeparator: \.isNewline) {
             guard let r = line.range(of: "static let "),
-                  let eq = line.range(of: " = IssueCode.custom(\""),
-                  let close = line.range(of: "\")", range: eq.upperBound..<line.endIndex)
+                let eq = line.range(of: " = IssueCode.custom(\""),
+                let close = line.range(of: "\")", range: eq.upperBound..<line.endIndex)
             else { continue }
-            declared.append((String(line[r.upperBound..<eq.lowerBound])
-                                .trimmingCharacters(in: .whitespaces),
-                             String(line[eq.upperBound..<close.lowerBound])))
+            declared.append(
+                (
+                    String(line[r.upperBound..<eq.lowerBound])
+                        .trimmingCharacters(in: .whitespaces),
+                    String(line[eq.upperBound..<close.lowerBound])
+                ))
         }
-        #expect(declared.count > 100, "the parse found \(declared.count) codes — did the file's shape change?")
+        #expect(
+            declared.count > 100,
+            "the parse found \(declared.count) codes — did the file's shape change?")
 
         var corpus = ""
-        for f in try FileManager.default.contentsOfDirectory(at: here, includingPropertiesForKeys: nil)
+        for f in try FileManager.default.contentsOfDirectory(
+            at: here, includingPropertiesForKeys: nil)
         where f.pathExtension == "swift" {
             corpus += (try? String(contentsOf: f, encoding: .utf8)) ?? ""
         }
@@ -301,7 +317,9 @@ struct IssueCodeCoverageTests {
             !corpus.contains($0.ident) && !corpus.contains("\"\($0.wire)\"")
                 && !Self.unreachableHere.contains($0.wire)
         }
-        #expect(unasserted.isEmpty, """
+        #expect(
+            unasserted.isEmpty,
+            """
             \(unasserted.count) issue codes are declared and never named by a test:
             \(unasserted.map(\.wire).joined(separator: ", "))
             Add a provoking document to IssueCodeCoverageTests.cases, or assert the code
@@ -333,8 +351,9 @@ struct MalformedMessageTests {
     func missingColon() {
         let i = issues(#"{"name": "a", "age" 1}"#)
         #expect(i.count == 1, "\(i.map(\.message))")
-        #expect(i.first?.message.contains("expected ':' after the key") == true,
-                "\(i.map(\.message))")
+        #expect(
+            i.first?.message.contains("expected ':' after the key") == true,
+            "\(i.map(\.message))")
     }
 
     @Test("truncated input says the input ended, and carries a position")
@@ -350,8 +369,9 @@ struct MalformedMessageTests {
     func noRedundantTrailing() {
         for doc in [#"{"name": "a", "age" 1}"#, #"{"name" "#, #"{"name": "a","#] {
             let codes = issues(doc).map(\.code)
-            #expect(!codes.contains(.trailingContent),
-                    "\(doc) reported trailing content beside its syntax error: \(codes)")
+            #expect(
+                !codes.contains(.trailingContent),
+                "\(doc) reported trailing content beside its syntax error: \(codes)")
         }
     }
 
@@ -456,10 +476,12 @@ struct AsyncCheckFormTests {
         #expect(d.issues.count == 2, "\(d.issues.map(\.message))")
         let email = d.issues.first { $0.path == [.key("email")] }
         let name = d.issues.first { $0.path == [.key("name")] }
-        #expect(email?.message == "is already registered",
-                "\(d.issues.map { ($0.path, $0.message) })")
-        #expect(name?.message == "must differ from the email",
-                "\(d.issues.map { ($0.path, $0.message) })")
+        #expect(
+            email?.message == "is already registered",
+            "\(d.issues.map { ($0.path, $0.message) })")
+        #expect(
+            name?.message == "must differ from the email",
+            "\(d.issues.map { ($0.path, $0.message) })")
     }
 
     /// Async checks run only on a clean sync pass — spending a round trip on a value that
@@ -498,14 +520,17 @@ struct CapabilityDoorTests {
         #expect(try v.encodedJSON().text() == #"{"a":"x"}"#)
         #expect(try v.encodedYAML().text().contains("a: x"))
         // The root element name comes from the type's own name, which is nested here.
-        #expect(try v.encodedXML(declaration: false).text()
-                    .contains("<a>x</a>"))
+        #expect(
+            try v.encodedXML(declaration: false).text()
+                .contains("<a>x</a>"))
         #expect(try v.encodedTOML().text().contains(#"a = "x""#))
         #expect(Full.jsonSchemaText().contains("\"a\""))
         #expect(try Full.parse(yaml: "a: z") == Full(a: "z"))
         #expect(try Full.parse(toml: #"a = "t""#) == Full(a: "t"))
-        #expect(try Full.parse(body: Array(#"{"a":"y"}"#.utf8),
-                               contentType: "application/json",
-                               accepting: [.json]) == Full(a: "y"))
+        #expect(
+            try Full.parse(
+                body: Array(#"{"a":"y"}"#.utf8),
+                contentType: "application/json",
+                accepting: [.json]) == Full(a: "y"))
     }
 }

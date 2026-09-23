@@ -74,14 +74,18 @@ extension JSONAssayable {
             file = try MappedFile.open(url)
         } catch {
             var sink = IssueSink(limits: limits)
-            sink.add(Issue(
-                code: .cannotMapFile,
-                params: ["path": .string(url.path),
-                         "reason": .string(String(describing: error))]))
-            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: false,
-                             source: .empty,
-                             sourceName: url.lastPathComponent)
+            sink.add(
+                Issue(
+                    code: .cannotMapFile,
+                    params: [
+                        "path": .string(url.path),
+                        "reason": .string(String(describing: error))
+                    ]))
+            return Diagnosis(
+                value: nil, issues: sink.issues, warnings: sink.warnings,
+                truncatedIssues: false,
+                source: .empty,
+                sourceName: url.lastPathComponent)
         }
 
         var sink = IssueSink(limits: limits)
@@ -91,7 +95,8 @@ extension JSONAssayable {
             into: &sink,
             limits: limits)
 
-        return Diagnosis(sink: sink, value: value, source: file.sourceBytes, sourceName: url.lastPathComponent)
+        return Diagnosis(
+            sink: sink, value: value, source: file.sourceBytes, sourceName: url.lastPathComponent)
     }
 }
 
@@ -115,12 +120,16 @@ extension JSONAssayable {
             file = try MappedFile.open(path: path)
         } catch {
             var sink = IssueSink(limits: limits)
-            sink.add(Issue(
-                code: .cannotMapFile,
-                params: ["path": .string(path),
-                         "reason": .string(String(describing: error))]))
-            return Diagnosis(value: nil, issues: sink.issues, warnings: sink.warnings,
-                             truncatedIssues: false, source: .empty, sourceName: path)
+            sink.add(
+                Issue(
+                    code: .cannotMapFile,
+                    params: [
+                        "path": .string(path),
+                        "reason": .string(String(describing: error))
+                    ]))
+            return Diagnosis(
+                value: nil, issues: sink.issues, warnings: sink.warnings,
+                truncatedIssues: false, source: .empty, sourceName: path)
         }
 
         var sink = IssueSink(limits: limits)
@@ -155,8 +164,9 @@ extension JSON.Value {
             guard let base = unsafe buf.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
                 return nil
             }
-            return unsafe JSON.Value._decode(base: base, count: buf.count,
-                                             into: &sink, limits: limits)
+            return unsafe JSON.Value._decode(
+                base: base, count: buf.count,
+                into: &sink, limits: limits)
         }
         guard let value = v, sink.isValid else {
             throw AssayError(issues: sink.issues, source: .empty, sourceName: "<mapped>")
@@ -202,17 +212,23 @@ extension ContextualJSONAssayable {
             file = try MappedFile.open(url)
         } catch {
             var sink = IssueSink(limits: limits)
-            sink.add(Issue(code: .cannotMapFile,
-                           params: ["path": .string(url.path),
-                                    "reason": .string(String(describing: error))]))
-            return Diagnosis(sink: sink, value: nil, source: .empty,
-                             sourceName: url.lastPathComponent)
+            sink.add(
+                Issue(
+                    code: .cannotMapFile,
+                    params: [
+                        "path": .string(url.path),
+                        "reason": .string(String(describing: error))
+                    ]))
+            return Diagnosis(
+                sink: sink, value: nil, source: .empty,
+                sourceName: url.lastPathComponent)
         }
         var sink = IssueSink(limits: limits)
         let value = unsafe Self._decode(
             base: file.base.assumingMemoryBound(to: UInt8.self), count: file.count,
             into: &sink, limits: limits, context: context)
-        return Diagnosis(sink: sink, value: value, source: file.sourceBytes,
-                         sourceName: url.lastPathComponent)
+        return Diagnosis(
+            sink: sink, value: value, source: file.sourceBytes,
+            sourceName: url.lastPathComponent)
     }
 }

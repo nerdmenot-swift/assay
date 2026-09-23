@@ -85,55 +85,71 @@ struct FuzzWide: Equatable {
 /// valid `FuzzWide` documents in each format; mutating THEM lands on both sides of the
 /// verdict, and `schemaAccepted` counts how often the successful side came up.
 let schemaSeeds: [(format: String, bytes: [UInt8])] = [
-    ("json", Array("""
-        {"name":"a","id":7,"small":3,"unsigned_small":9,"ratio":0.5,\
-        "meta":{"revision":2},"attempts":1,"flags":["x","y"],"lookup":{"k":1},\
-        "inner":{"label":"i","weights":[1.5],"enabled":true},\
-        "children":[{"label":"c","weights":[2.5]}],"spare":"extra"}
-        """.replacingOccurrences(of: "\\\n", with: "")
-           .replacingOccurrences(of: " ", with: "").utf8)),
-    ("yaml", Array("""
-        name: a
-        id: 7
-        small: 3
-        unsigned_small: 9
-        ratio: 0.5
-        meta:
-          revision: 2
-        attempts: 1
-        flags: [x, y]
-        lookup: {k: 1}
-        inner:
-          label: i
-          weights: [1.5]
-          enabled: true
-        children:
-          - label: c
-            weights: [2.5]
-        """.utf8)),
-    ("toml", Array("""
-        name = "a"
-        id = 7
-        small = 3
-        unsigned_small = 9
-        ratio = 0.5
-        attempts = 1
-        flags = ["x", "y"]
-        [meta]
-        revision = 2
-        [lookup]
-        k = 1
-        [inner]
-        label = "i"
-        weights = [1.5]
-        enabled = true
-        """.utf8)),
-    ("xml", Array("""
-        <root><name>a</name><id>7</id><small>3</small><unsigned_small>9</unsigned_small>\
-        <ratio>0.5</ratio><meta><revision>2</revision></meta><attempts>1</attempts>\
-        <flags>x</flags><flags>y</flags><inner><label>i</label><weights>1.5</weights>\
-        <enabled>true</enabled></inner></root>
-        """.replacingOccurrences(of: "\\\n", with: "").utf8)),
+    (
+        "json",
+        Array(
+            """
+            {"name":"a","id":7,"small":3,"unsigned_small":9,"ratio":0.5,\
+            "meta":{"revision":2},"attempts":1,"flags":["x","y"],"lookup":{"k":1},\
+            "inner":{"label":"i","weights":[1.5],"enabled":true},\
+            "children":[{"label":"c","weights":[2.5]}],"spare":"extra"}
+            """.replacingOccurrences(of: "\\\n", with: "")
+                .replacingOccurrences(of: " ", with: "").utf8)
+    ),
+    (
+        "yaml",
+        Array(
+            """
+            name: a
+            id: 7
+            small: 3
+            unsigned_small: 9
+            ratio: 0.5
+            meta:
+              revision: 2
+            attempts: 1
+            flags: [x, y]
+            lookup: {k: 1}
+            inner:
+              label: i
+              weights: [1.5]
+              enabled: true
+            children:
+              - label: c
+                weights: [2.5]
+            """.utf8)
+    ),
+    (
+        "toml",
+        Array(
+            """
+            name = "a"
+            id = 7
+            small = 3
+            unsigned_small = 9
+            ratio = 0.5
+            attempts = 1
+            flags = ["x", "y"]
+            [meta]
+            revision = 2
+            [lookup]
+            k = 1
+            [inner]
+            label = "i"
+            weights = [1.5]
+            enabled = true
+            """.utf8)
+    ),
+    (
+        "xml",
+        Array(
+            """
+            <root><name>a</name><id>7</id><small>3</small><unsigned_small>9</unsigned_small>\
+            <ratio>0.5</ratio><meta><revision>2</revision></meta><attempts>1</attempts>\
+            <flags>x</flags><flags>y</flags><inner><label>i</label><weights>1.5</weights>\
+            <enabled>true</enabled></inner></root>
+            """.replacingOccurrences(of: "\\\n", with: "").utf8)
+    )
 ]
 
 /// How many mutated documents actually decoded. Printed by the arm, because a law that
@@ -157,8 +173,9 @@ func fuzzSchema(_ bytes: [UInt8], _ format: String) -> Int {
 
         // Law 1 — the two doors decide the same thing.
         if threw != !diagnosed.isValid {
-            fail("schema fuzz (\(what)): parse \(threw ? "threw" : "returned") but "
-                 + "diagnose said \(diagnosed.isValid ? "valid" : "invalid")")
+            fail(
+                "schema fuzz (\(what)): parse \(threw ? "threw" : "returned") but "
+                    + "diagnose said \(diagnosed.isValid ? "valid" : "invalid")")
         }
         // Law 3 — a verdict is never empty in either direction.
         if diagnosed.isValid, diagnosed.value == nil {
@@ -173,8 +190,9 @@ func fuzzSchema(_ bytes: [UInt8], _ format: String) -> Int {
             schemaAccepted += 1
             let again = revalidate(v)
             if !again.isValid {
-                fail("schema fuzz (\(what)): parse succeeded, then the same schema "
-                     + "rejected its own output: \(again.issues.map(\.code))")
+                fail(
+                    "schema fuzz (\(what)): parse succeeded, then the same schema "
+                        + "rejected its own output: \(again.issues.map(\.code))")
             }
         }
         return 1
@@ -182,29 +200,34 @@ func fuzzSchema(_ bytes: [UInt8], _ format: String) -> Int {
 
     switch format {
     case "json":
-        return check("json/wide",
-                     diagnosed: FuzzWide.diagnose(json: bytes, limits: limits),
-                     parsed: { try FuzzWide.parse(json: bytes, limits: limits) },
-                     revalidate: { FuzzWide.diagnose($0, limits: limits) })
-            + check("json/inner",
-                    diagnosed: FuzzInner.diagnose(json: bytes, limits: limits),
-                    parsed: { try FuzzInner.parse(json: bytes, limits: limits) },
-                    revalidate: { FuzzInner.diagnose($0, limits: limits) })
+        return check(
+            "json/wide",
+            diagnosed: FuzzWide.diagnose(json: bytes, limits: limits),
+            parsed: { try FuzzWide.parse(json: bytes, limits: limits) },
+            revalidate: { FuzzWide.diagnose($0, limits: limits) })
+            + check(
+                "json/inner",
+                diagnosed: FuzzInner.diagnose(json: bytes, limits: limits),
+                parsed: { try FuzzInner.parse(json: bytes, limits: limits) },
+                revalidate: { FuzzInner.diagnose($0, limits: limits) })
     case "yaml":
-        return check("yaml/wide",
-                     diagnosed: FuzzWide.diagnose(yaml: bytes, limits: limits),
-                     parsed: { try FuzzWide.parse(yaml: bytes, limits: limits) },
-                     revalidate: { FuzzWide.diagnose($0, limits: limits) })
+        return check(
+            "yaml/wide",
+            diagnosed: FuzzWide.diagnose(yaml: bytes, limits: limits),
+            parsed: { try FuzzWide.parse(yaml: bytes, limits: limits) },
+            revalidate: { FuzzWide.diagnose($0, limits: limits) })
     case "xml":
-        return check("xml/wide",
-                     diagnosed: FuzzWide.diagnose(xml: bytes, limits: limits),
-                     parsed: { try FuzzWide.parse(xml: bytes, limits: limits) },
-                     revalidate: { FuzzWide.diagnose($0, limits: limits) })
+        return check(
+            "xml/wide",
+            diagnosed: FuzzWide.diagnose(xml: bytes, limits: limits),
+            parsed: { try FuzzWide.parse(xml: bytes, limits: limits) },
+            revalidate: { FuzzWide.diagnose($0, limits: limits) })
     case "toml":
-        return check("toml/wide",
-                     diagnosed: FuzzWide.diagnose(toml: bytes, limits: limits),
-                     parsed: { try FuzzWide.parse(toml: bytes, limits: limits) },
-                     revalidate: { FuzzWide.diagnose($0, limits: limits) })
+        return check(
+            "toml/wide",
+            diagnosed: FuzzWide.diagnose(toml: bytes, limits: limits),
+            parsed: { try FuzzWide.parse(toml: bytes, limits: limits) },
+            revalidate: { FuzzWide.diagnose($0, limits: limits) })
     default:
         return 0
     }

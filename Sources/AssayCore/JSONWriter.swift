@@ -115,7 +115,7 @@ public struct JSONWriter: ~Copyable {
     mutating func newlineAndIndent() {
         guard pretty else { return }
         if afterKey { afterKey = false; return }
-        guard length > 0 else { return }            // no newline before the first byte
+        guard length > 0 else { return }  // no newline before the first byte
         byte(0x0A)
         for _ in 0..<depth { byte(0x20); byte(0x20) }
     }
@@ -123,7 +123,7 @@ public struct JSONWriter: ~Copyable {
     @inlinable
     public mutating func beginObject() {
         separate()
-        byte(0x7B)                              // {
+        byte(0x7B)  // {
         depth &+= 1
         needsComma = false
     }
@@ -132,14 +132,14 @@ public struct JSONWriter: ~Copyable {
     public mutating func endObject() {
         depth &-= 1
         if needsComma { newlineAndIndent() }
-        byte(0x7D)                              // }
+        byte(0x7D)  // }
         needsComma = true
     }
 
     @inlinable
     public mutating func beginArray() {
         separate()
-        byte(0x5B)                              // [
+        byte(0x5B)  // [
         depth &+= 1
         needsComma = false
     }
@@ -148,7 +148,7 @@ public struct JSONWriter: ~Copyable {
     public mutating func endArray() {
         depth &-= 1
         if needsComma { newlineAndIndent() }
-        byte(0x5D)                              // ]
+        byte(0x5D)  // ]
         needsComma = true
     }
 
@@ -179,7 +179,7 @@ public struct JSONWriter: ~Copyable {
             i &+= 1
         }
         byte(0x22)
-        byte(0x3A)                              // :
+        byte(0x3A)  // :
         if pretty { byte(0x20); afterKey = true }
         needsComma = false
     }
@@ -278,7 +278,9 @@ public struct JSONWriter: ~Copyable {
         // BORROWED, not copied. `var v = v; v.withUTF8` did the same job and cost a String
         // retain per string written (count.py: +2,000 per call on fields-2/encode). A native
         // String always has contiguous UTF-8, so the copy is only for a bridged one.
-        let borrowed: Void? = unsafe v.utf8.withContiguousStorageIfAvailable { unsafe appendEscaping($0) }
+        let borrowed: Void? = unsafe v.utf8.withContiguousStorageIfAvailable {
+            unsafe appendEscaping($0)
+        }
         if borrowed == nil {
             var copy = v
             copy.withUTF8 { unsafe appendEscaping($0) }
@@ -315,13 +317,13 @@ public struct JSONWriter: ~Copyable {
         switch c {
         case 0x22: byte(0x22)
         case 0x5C: byte(0x5C)
-        case 0x08: byte(0x62)                   // \b
-        case 0x0C: byte(0x66)                   // \f
-        case 0x0A: byte(0x6E)                   // \n
-        case 0x0D: byte(0x72)                   // \r
-        case 0x09: byte(0x74)                   // \t
+        case 0x08: byte(0x62)  // \b
+        case 0x0C: byte(0x66)  // \f
+        case 0x0A: byte(0x6E)  // \n
+        case 0x0D: byte(0x72)  // \r
+        case 0x09: byte(0x74)  // \t
         default:
-            byte(0x75)                          // u
+            byte(0x75)  // u
             let hex: [UInt8] = Array("0123456789abcdef".utf8)
             byte(0x30); byte(0x30)
             byte(hex[Int(c >> 4)]); byte(hex[Int(c & 0x0F)])
@@ -442,7 +444,7 @@ public struct JSONWriter: ~Copyable {
         // otherwise defer to the stdlib, which is shortest-round-trippable by construction.
         if v == v.rounded(), abs(v) < 9_007_199_254_740_992 {
             var n = Int64(v)
-            if n == 0 { byte(0x30); if v.sign == .minus { } ; return }
+            if n == 0 { byte(0x30); if v.sign == .minus {}; return }
             var digits = [UInt8]()
             digits.reserveCapacity(20)
             if n < 0 { byte(0x2D) } else { n = -n }
@@ -470,11 +472,12 @@ public struct JSONWriter: ~Copyable {
     mutating func unrepresentable(
         _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ v: Double
     ) {
-        sink.add(Issue(
-            code: .unrepresentableValue,
-            path: path + [.key(String(describing: key))],
-            params: ["format": .string("JSON")],
-            received: v.isNaN ? "NaN" : (v > 0 ? "Infinity" : "-Infinity")))
+        sink.add(
+            Issue(
+                code: .unrepresentableValue,
+                path: path + [.key(String(describing: key))],
+                params: ["format": .string("JSON")],
+                received: v.isNaN ? "NaN" : (v > 0 ? "Infinity" : "-Infinity")))
     }
 
     // MARK: Value models
@@ -484,11 +487,11 @@ public struct JSONWriter: ~Copyable {
         _ v: RawValue, _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) {
         switch v {
-        case .null:            writeNull()
-        case .bool(let b):     write(b)
-        case .int(let i):      write(i)
-        case .double(let d):   write(d, &sink, path, key)
-        case .string(let s):   write(s)
+        case .null: writeNull()
+        case .bool(let b): write(b)
+        case .int(let i): write(i)
+        case .double(let d): write(d, &sink, path, key)
+        case .string(let s): write(s)
         case .sequence(let xs):
             beginArray()
             for x in xs { write(x, &sink, path, key) }
@@ -507,11 +510,11 @@ public struct JSONWriter: ~Copyable {
         _ v: JSON.Value, _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) {
         switch v {
-        case .null:            writeNull()
-        case .bool(let b):     write(b)
-        case .int(let i):      write(i)
-        case .double(let d):   write(d, &sink, path, key)
-        case .string(let s):   write(s)
+        case .null: writeNull()
+        case .bool(let b): write(b)
+        case .int(let i): write(i)
+        case .double(let d): write(d, &sink, path, key)
+        case .string(let s): write(s)
         case .array(let xs):
             beginArray()
             for x in xs { write(x, &sink, path, key) }
@@ -558,8 +561,6 @@ public struct JSONWriter: ~Copyable {
 
 // MARK: - Encode-side issue codes
 
-
-
 // MARK: - The RawValue encode seam
 
 /// A `RawValue` for a date field, in its PRIMARY format — the first of the candidate
@@ -568,13 +569,12 @@ public struct JSONWriter: ~Copyable {
 public func _assayRawDate(_ seconds: Double, _ formats: [DateFormat]) -> RawValue {
     switch formats.first ?? .iso8601 {
     case .unixSeconds: return .double(seconds)
-    case .unixMillis:  return .double(seconds * 1_000)
+    case .unixMillis: return .double(seconds * 1_000)
     case .iso8601, .rfc9110, .pattern:
         guard seconds.isFinite else { return .null }
         return .string(DateParser.formatISO8601(seconds))
     }
 }
-
 
 /// An `@Unknown` case reached the encoder without `roundTrips: true`.
 ///
@@ -587,10 +587,10 @@ public func _assayUnknownNotEncodable(
     _ typeName: String, _ value: String,
     _ sink: inout IssueSink, _ path: [PathStep]
 ) {
-    sink.add(Issue(
-        code: .unknownNotEncodable,
-        path: path,
-        params: ["type": .string(typeName)],
-        received: value))
+    sink.add(
+        Issue(
+            code: .unknownNotEncodable,
+            path: path,
+            params: ["type": .string(typeName)],
+            received: value))
 }
-

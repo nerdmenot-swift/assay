@@ -79,19 +79,23 @@ struct UnionTests {
     @Test("the tag may arrive in the middle, after a nested object")
     func tagAfterNesting() throws {
         // The pre-scan must skip a whole nested value structurally to reach the tag.
-        let a = try UnionEvent.parse(json: #"""
-            {"x":1,"ignored":{"deep":[1,2,{"deeper":true}]},"type":"click","y":2}
-            """#)
+        let a = try UnionEvent.parse(
+            json: #"""
+                {"x":1,"ignored":{"deep":[1,2,{"deeper":true}]},"type":"click","y":2}
+                """#)
         #expect(a == .click(UnionClick(x: 1, y: 2)))
     }
 
     @Test("a case's tag spelling follows keys:, and @Key overrides it")
     func tagSpelling() throws {
-        #expect(try UnionEvent.parse(json: #"{"type":"page_view","url":"/"}"#)
+        #expect(
+            try UnionEvent.parse(json: #"{"type":"page_view","url":"/"}"#)
                 == .pageView(UnionPageView(url: "/", referrer: nil)))
-        #expect(try UnionShape.parse(json: #"{"kind":"circular","x":1,"y":2}"#)
+        #expect(
+            try UnionShape.parse(json: #"{"kind":"circular","x":1,"y":2}"#)
                 == .circle(UnionClick(x: 1, y: 2)))
-        #expect(try UnionShape.parse(json: #"{"kind":"square","x":1,"y":2}"#)
+        #expect(
+            try UnionShape.parse(json: #"{"kind":"square","x":1,"y":2}"#)
                 == .square(UnionClick(x: 1, y: 2)))
     }
 
@@ -105,17 +109,19 @@ struct UnionTests {
 
     @Test("a union works as a field of a struct")
     func asField() throws {
-        let e = try UnionEnvelope.parse(json: #"""
-            {"id":"e1","payload":{"type":"click","x":3,"y":4}}
-            """#)
+        let e = try UnionEnvelope.parse(
+            json: #"""
+                {"id":"e1","payload":{"type":"click","x":3,"y":4}}
+                """#)
         #expect(e == UnionEnvelope(id: "e1", payload: .click(UnionClick(x: 3, y: 4))))
     }
 
     @Test("a union works in an array")
     func inArray() throws {
-        let b = try UnionBatch.parse(json: #"""
-            {"events":[{"type":"click","x":1,"y":2},{"type":"page_view","url":"/a"}]}
-            """#)
+        let b = try UnionBatch.parse(
+            json: #"""
+                {"events":[{"type":"click","x":1,"y":2},{"type":"page_view","url":"/a"}]}
+                """#)
         #expect(b.events.count == 2)
         #expect(b.events[0] == .click(UnionClick(x: 1, y: 2)))
         #expect(b.events[1] == .pageView(UnionPageView(url: "/a", referrer: nil)))

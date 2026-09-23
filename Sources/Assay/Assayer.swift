@@ -70,13 +70,17 @@ extension Assayer where T == String {
     /// written, because the spelling `EXPERIENCE.md` §8 documents depends on Swift inferring
     /// `T` from a constrained static member.
     public static var string: Assayer<String> {
-        Assayer(plan: AssayerPlan(.string([]))) { if case .string(let s) = $0 { return s }; return nil }
+        Assayer(plan: AssayerPlan(.string([]))) {
+            if case .string(let s) = $0 { return s }; return nil
+        }
     }
 }
 
 extension Assayer where T == Int64 {
     public static var int: Assayer<Int64> {
-        Assayer(plan: AssayerPlan(.int([]))) { if case .int(let i) = $0 { return i }; return nil }
+        Assayer(plan: AssayerPlan(.int([]))) {
+            if case .int(let i) = $0 { return i }; return nil
+        }
     }
 }
 
@@ -94,7 +98,9 @@ extension Assayer where T == Double {
 
 extension Assayer where T == Bool {
     public static var bool: Assayer<Bool> {
-        Assayer(plan: AssayerPlan(.bool([]))) { if case .bool(let b) = $0 { return b }; return nil }
+        Assayer(plan: AssayerPlan(.bool([]))) {
+            if case .bool(let b) = $0 { return b }; return nil
+        }
     }
 }
 
@@ -110,9 +116,14 @@ extension Assayer where T == RawValue {
     /// output IS a `RawValue`, so a child's `build` would have nowhere to go. Taking
     /// `Assayer<RawValue>` makes the type say that instead of silently discarding a `.map`.
     public static func object(_ fields: [Assayer.Field]) -> Assayer<RawValue> {
-        Assayer(plan: AssayerPlan(.object(fields.map {
-            AssayerPlan.Field(key: $0.key, plan: $0.value.plan, isOptional: $0.isOptional)
-        }))) { $0 }
+        Assayer(
+            plan: AssayerPlan(
+                .object(
+                    fields.map {
+                        AssayerPlan.Field(
+                            key: $0.key, plan: $0.value.plan, isOptional: $0.isOptional)
+                    }))
+        ) { $0 }
     }
 
     /// One field of a runtime-built object.
@@ -142,7 +153,7 @@ extension Assayer {
         case .int(let r): node = .int(r + rules)
         case .double(let r): node = .double(r + rules)
         case .bool(let r): node = .bool(r + rules)
-        default: node = plan.node          // rules on a container are a no-op, as in @Validate
+        default: node = plan.node  // rules on a container are a no-op, as in @Validate
         }
         return Assayer(plan: AssayerPlan(node), build: build)
     }
@@ -211,7 +222,8 @@ extension Assayer {
     ) -> Diagnosis<T> {
         var sink = IssueSink(limits: limits)
         guard let out = plan.run(raw, &sink, [], limits), sink.isValid else {
-            return Diagnosis(sink: sink, value: nil, source: SourceBytes([]), sourceName: sourceName)
+            return Diagnosis(
+                sink: sink, value: nil, source: SourceBytes([]), sourceName: sourceName)
         }
         guard let value = build(out) else {
             // The plan accepted the shape and the rules passed; a `.map` refused the
@@ -219,11 +231,13 @@ extension Assayer {
             // value, so `get()` threw an error carrying zero issues. Same code
             // `AssayerBacked` uses for the same situation.
             sink.add(Issue(code: .assayerConversionFailed, path: []))
-            return Diagnosis(sink: sink, value: nil, source: SourceBytes([]), sourceName: sourceName)
+            return Diagnosis(
+                sink: sink, value: nil, source: SourceBytes([]), sourceName: sourceName)
         }
-        return Diagnosis(value: value, issues: sink.issues, warnings: sink.warnings,
-                         truncatedIssues: sink.truncatedIssues,
-                         source: SourceBytes([]), sourceName: sourceName)
+        return Diagnosis(
+            value: value, issues: sink.issues, warnings: sink.warnings,
+            truncatedIssues: sink.truncatedIssues,
+            source: SourceBytes([]), sourceName: sourceName)
     }
 
     /// Decode from JSON bytes.
@@ -232,13 +246,15 @@ extension Assayer {
     ) -> Diagnosis<T> {
         var sink = IssueSink(limits: limits)
         guard let v = JSON.Value.decode(bytes, into: &sink, limits: limits), sink.isValid else {
-            return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
+            return Diagnosis(
+                sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
         let d = diagnose(RawValue(v), limits: limits, sourceName: sourceName)
-        return Diagnosis(value: d.value, issues: sink.issues + d.issues,
-                         warnings: sink.warnings + d.warnings,
-                         truncatedIssues: d.truncatedIssues,
-                         source: SourceBytes(bytes), sourceName: sourceName)
+        return Diagnosis(
+            value: d.value, issues: sink.issues + d.issues,
+            warnings: sink.warnings + d.warnings,
+            truncatedIssues: d.truncatedIssues,
+            source: SourceBytes(bytes), sourceName: sourceName)
     }
 
     public func parse(

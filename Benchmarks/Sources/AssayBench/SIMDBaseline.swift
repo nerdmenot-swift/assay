@@ -58,17 +58,18 @@ private func extractPayload(_ root: UnsafeMutablePointer<yyjson_val>?) -> Codabl
         var iter = yyjson_arr_iter()
         yyjson_arr_iter_init(arr, &iter)
         while let e = yyjson_arr_iter_next(&iter) {
-            items.append(CodableItem(
-                id: yyString(yyjson_obj_get(e, "id")),
-                sequence: Int(yyjson_get_int(yyjson_obj_get(e, "sequence"))),
-                name: yyString(yyjson_obj_get(e, "name")),
-                description: yyString(yyjson_obj_get(e, "description")),
-                created_at: yyString(yyjson_obj_get(e, "created_at")),
-                updated_at: yyString(yyjson_obj_get(e, "updated_at")),
-                amount: yyjson_get_real(yyjson_obj_get(e, "amount")),
-                active: yyjson_get_bool(yyjson_obj_get(e, "active")),
-                retry_count: Int(yyjson_get_int(yyjson_obj_get(e, "retry_count"))),
-                owner_id: yyString(yyjson_obj_get(e, "owner_id"))))
+            items.append(
+                CodableItem(
+                    id: yyString(yyjson_obj_get(e, "id")),
+                    sequence: Int(yyjson_get_int(yyjson_obj_get(e, "sequence"))),
+                    name: yyString(yyjson_obj_get(e, "name")),
+                    description: yyString(yyjson_obj_get(e, "description")),
+                    created_at: yyString(yyjson_obj_get(e, "created_at")),
+                    updated_at: yyString(yyjson_obj_get(e, "updated_at")),
+                    amount: yyjson_get_real(yyjson_obj_get(e, "amount")),
+                    active: yyjson_get_bool(yyjson_obj_get(e, "active")),
+                    retry_count: Int(yyjson_get_int(yyjson_obj_get(e, "retry_count"))),
+                    owner_id: yyString(yyjson_obj_get(e, "owner_id"))))
         }
     }
     return CodablePayload(
@@ -99,8 +100,9 @@ private func extractPolygon(_ root: UnsafeMutablePointer<yyjson_val>?) -> Codabl
             coords.append(one)
         }
     }
-    return CodablePolygon(type: yyString(yyjson_obj_get(root, "type")),
-                          coordinates: coords)
+    return CodablePolygon(
+        type: yyString(yyjson_obj_get(root, "type")),
+        coordinates: coords)
 }
 
 /// Recursive equivalence between Assay's tree and yyjson's, value for value and key for
@@ -143,8 +145,9 @@ private func equivalent(_ mine: JSON.Value, _ theirs: UnsafeMutablePointer<yyjso
         yyjson_obj_iter_init(t, &iter)
         for m in ms {
             guard let k = yyjson_obj_iter_next(&iter), let kp = yyjson_get_str(k),
-                  String(cString: kp) == m.key,
-                  equivalent(m.value, yyjson_obj_iter_get_val(k)) else { return false }
+                String(cString: kp) == m.key,
+                equivalent(m.value, yyjson_obj_iter_get_val(k))
+            else { return false }
         }
         return true
     }
@@ -161,8 +164,9 @@ func runSIMDBaselineBenchmarks(corpusDir: URL, sizes: [String]) {
     // ---- DOM vs DOM ----
     print("")
     print("DOM vs DOM — JSON.Value.parse vs yyjson_read. Scanner against scanner.")
-    print(pad("shape", 18, right: true) + pad("size", 7) + pad("bytes", 9)
-          + pad("yyjson ns", 12) + pad("Assay ns", 11) + pad("ratio", 10))
+    print(
+        pad("shape", 18, right: true) + pad("size", 7) + pad("bytes", 9)
+            + pad("yyjson ns", 12) + pad("Assay ns", 11) + pad("ratio", 10))
     print(String(repeating: "-", count: 68))
 
     var domRatios: [Double] = []
@@ -175,8 +179,9 @@ func runSIMDBaselineBenchmarks(corpusDir: URL, sizes: [String]) {
             // Correctness gate: the two trees must agree, value for value.
             guard let mine = try? JSON.Value.parse(bytes) else { continue }
             let agree: Bool = data.withUnsafeBytes { buf -> Bool in
-                let doc = yyjson_read(buf.baseAddress!.assumingMemoryBound(to: CChar.self),
-                                      buf.count, 0)
+                let doc = yyjson_read(
+                    buf.baseAddress!.assumingMemoryBound(to: CChar.self),
+                    buf.count, 0)
                 defer { yyjson_doc_free(doc) }
                 return equivalent(mine, yyjson_doc_get_root(doc))
             }
@@ -193,22 +198,26 @@ func runSIMDBaselineBenchmarks(corpusDir: URL, sizes: [String]) {
             let aNs = measure(iterations: iters) { _ = try? JSON.Value.parse(bytes) }
             let ratio = yNs / aNs
             domRatios.append(ratio)
-            print(pad(shape, 18, right: true) + pad(size, 7) + pad("\(bytes.count)", 9)
-                  + pad(String(format: "%.0f", yNs), 12)
-                  + pad(String(format: "%.0f", aNs), 11)
-                  + pad(String(format: "%.2fx", ratio), 10))
+            print(
+                pad(shape, 18, right: true) + pad(size, 7) + pad("\(bytes.count)", 9)
+                    + pad(String(format: "%.0f", yNs), 12)
+                    + pad(String(format: "%.0f", aNs), 11)
+                    + pad(String(format: "%.2fx", ratio), 10))
         }
     }
     if !domRatios.isEmpty {
         let m = domRatios.reduce(0, +) / Double(domRatios.count)
-        print(String(format: "mean %.2fx  (below 1.00 means Assay is SLOWER — the expected result)", m))
+        print(
+            String(
+                format: "mean %.2fx  (below 1.00 means Assay is SLOWER — the expected result)", m))
     }
 
     // ---- Use case: decoded value vs decoded value ----
     print("")
     print("Use case — @Schema decode vs yyjson parse + extracting the same Swift structs.")
-    print(pad("shape", 18, right: true) + pad("size", 7) + pad("bytes", 9)
-          + pad("yyjson ns", 12) + pad("Assay ns", 11) + pad("ratio", 10))
+    print(
+        pad("shape", 18, right: true) + pad("size", 7) + pad("bytes", 9)
+            + pad("yyjson ns", 12) + pad("Assay ns", 11) + pad("ratio", 10))
     print(String(repeating: "-", count: 68))
 
     var useRatios: [Double] = []
@@ -218,15 +227,17 @@ func runSIMDBaselineBenchmarks(corpusDir: URL, sizes: [String]) {
         let bytes = [UInt8](data)
         guard let mine = Payload.diagnose(json: bytes).value else { continue }
         let theirs: CodablePayload? = data.withUnsafeBytes { buf in
-            let doc = yyjson_read(buf.baseAddress!.assumingMemoryBound(to: CChar.self),
-                                  buf.count, 0)
+            let doc = yyjson_read(
+                buf.baseAddress!.assumingMemoryBound(to: CChar.self),
+                buf.count, 0)
             defer { yyjson_doc_free(doc) }
             return extractPayload(yyjson_doc_get_root(doc))
         }
         guard let ref = theirs else { continue }
-        precondition(mine.items.count == ref.items.count && mine.requestId == ref.request_id
-                     && mine.items.first?.id == ref.items.first?.id,
-                     "apimodel-\(size): extracted values differ")
+        precondition(
+            mine.items.count == ref.items.count && mine.requestId == ref.request_id
+                && mine.items.first?.id == ref.items.first?.id,
+            "apimodel-\(size): extracted values differ")
 
         let iters = max(300, iterationCount(forBytes: bytes.count) / 2)
         let yNs = measure(iterations: iters) {
@@ -240,18 +251,20 @@ func runSIMDBaselineBenchmarks(corpusDir: URL, sizes: [String]) {
         let aNs = measure(iterations: iters) { _ = Payload.diagnose(json: bytes).value }
         let ratio = yNs / aNs
         useRatios.append(ratio)
-        print(pad("apimodel", 18, right: true) + pad(size, 7) + pad("\(bytes.count)", 9)
-              + pad(String(format: "%.0f", yNs), 12)
-              + pad(String(format: "%.0f", aNs), 11)
-              + pad(String(format: "%.2fx", ratio), 10))
+        print(
+            pad("apimodel", 18, right: true) + pad(size, 7) + pad("\(bytes.count)", 9)
+                + pad(String(format: "%.0f", yNs), 12)
+                + pad(String(format: "%.0f", aNs), 11)
+                + pad(String(format: "%.2fx", ratio), 10))
     }
 
     // ---- The float arm, called out on its own ----
     print("")
     print("float-dense use case — the arm PERFORMANCE.md predicted Assay would lose.")
     print("yyjson carries a bespoke fast float parser; Assay has a bounded Clinger path.")
-    print(pad("shape", 18, right: true) + pad("size", 7) + pad("bytes", 9)
-          + pad("yyjson ns", 12) + pad("Assay ns", 11) + pad("ratio", 10))
+    print(
+        pad("shape", 18, right: true) + pad("size", 7) + pad("bytes", 9)
+            + pad("yyjson ns", 12) + pad("Assay ns", 11) + pad("ratio", 10))
     print(String(repeating: "-", count: 68))
 
     var floatRatios: [Double] = []
@@ -261,8 +274,9 @@ func runSIMDBaselineBenchmarks(corpusDir: URL, sizes: [String]) {
         let bytes = [UInt8](data)
         guard let mine = Polygon.diagnose(json: bytes).value else { continue }
         let theirs: CodablePolygon? = data.withUnsafeBytes { buf in
-            let doc = yyjson_read(buf.baseAddress!.assumingMemoryBound(to: CChar.self),
-                                  buf.count, 0)
+            let doc = yyjson_read(
+                buf.baseAddress!.assumingMemoryBound(to: CChar.self),
+                buf.count, 0)
             defer { yyjson_doc_free(doc) }
             return extractPolygon(yyjson_doc_get_root(doc))
         }
@@ -271,8 +285,9 @@ func runSIMDBaselineBenchmarks(corpusDir: URL, sizes: [String]) {
         // Bit-identical floats, or the comparison is meaningless.
         for (a, b) in zip(mine.coordinates, ref.coordinates) {
             for (x, y) in zip(a, b) {
-                precondition(x.bitPattern == y.bitPattern,
-                             "floats-dense-\(size): \(x) vs \(y) — parsers disagree")
+                precondition(
+                    x.bitPattern == y.bitPattern,
+                    "floats-dense-\(size): \(x) vs \(y) — parsers disagree")
             }
         }
 
@@ -288,17 +303,20 @@ func runSIMDBaselineBenchmarks(corpusDir: URL, sizes: [String]) {
         let aNs = measure(iterations: iters) { _ = Polygon.diagnose(json: bytes).value }
         let ratio = yNs / aNs
         floatRatios.append(ratio)
-        print(pad("floats-dense", 18, right: true) + pad(size, 7) + pad("\(bytes.count)", 9)
-              + pad(String(format: "%.0f", yNs), 12)
-              + pad(String(format: "%.0f", aNs), 11)
-              + pad(String(format: "%.2fx", ratio), 10))
+        print(
+            pad("floats-dense", 18, right: true) + pad(size, 7) + pad("\(bytes.count)", 9)
+                + pad(String(format: "%.0f", yNs), 12)
+                + pad(String(format: "%.0f", aNs), 11)
+                + pad(String(format: "%.2fx", ratio), 10))
     }
 
     func summarise(_ label: String, _ rs: [Double]) {
         guard !rs.isEmpty else { return }
         let m = rs.reduce(0, +) / Double(rs.count)
-        print(String(format: "%@: mean %.2fx (min %.2fx, max %.2fx)",
-                     label, m, rs.min()!, rs.max()!))
+        print(
+            String(
+                format: "%@: mean %.2fx (min %.2fx, max %.2fx)",
+                label, m, rs.min()!, rs.max()!))
     }
     print("")
     summarise("DOM vs DOM        ", domRatios)

@@ -159,8 +159,9 @@ struct SchemaConfig {
         for attr in decl.attributes.compactMap({ $0.as(AttributeSyntax.self) })
         where attr.attributeName.trimmedDescription == "XML" {
             guard let args = attr.arguments?.as(LabeledExprListSyntax.self),
-                  let first = args.first, first.label?.text == "root",
-                  let lit = first.expression.as(StringLiteralExprSyntax.self) else { continue }
+                let first = args.first, first.label?.text == "root",
+                let lit = first.expression.as(StringLiteralExprSyntax.self)
+            else { continue }
             return lit.segments.trimmedDescription
         }
         return nil

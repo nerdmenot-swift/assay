@@ -69,30 +69,38 @@ func tomlNumberLiterals() -> [String] {
     var literals: [String] = []
 
     // --- integers, plain ---
-    literals += ["0", "-0", "+0", "1", "-1", "+1", "7", "42", "1000", "999999",
-                 "2147483647", "2147483648", "-2147483648", "4294967295"]
+    literals += [
+        "0", "-0", "+0", "1", "-1", "+1", "7", "42", "1000", "999999",
+        "2147483647", "2147483648", "-2147483648", "4294967295"
+    ]
 
     // --- Int64 boundaries, and one past each: the fast path accumulates as it reads and
     //     must hand over rather than wrap. ---
-    literals += ["9223372036854775807", "9223372036854775806",
-                 "-9223372036854775808", "-9223372036854775807",
-                 "9223372036854775808", "-9223372036854775809",
-                 "99999999999999999999", "-99999999999999999999",
-                 String(repeating: "9", count: 40)]
+    literals += [
+        "9223372036854775807", "9223372036854775806",
+        "-9223372036854775808", "-9223372036854775807",
+        "9223372036854775808", "-9223372036854775809",
+        "99999999999999999999", "-99999999999999999999",
+        String(repeating: "9", count: 40)
+    ]
 
     // --- leading zeros: `0` alone is an integer, `01` is not, `0.5` is a float ---
     literals += ["00", "01", "007", "-01", "+01", "0.5", "-0.5", "0.0", "00.0", "0e0", "00e0"]
 
     // --- separators, legal and not ---
-    literals += ["1_0", "1_000", "1_000_000", "-1_0", "+1_0",
-                 "1__0", "_1", "1_", "_", "1_.0", "1._0", "1_e2", "1e_2", "1e2_",
-                 "0_1", "1_000_000_000_000"]
+    literals += [
+        "1_0", "1_000", "1_000_000", "-1_0", "+1_0",
+        "1__0", "_1", "1_", "_", "1_.0", "1._0", "1_e2", "1e_2", "1e2_",
+        "0_1", "1_000_000_000_000"
+    ]
 
     // --- floats: fraction, exponent, both ---
     for mantissa in ["1", "0", "-1", "+1", "123", "-0"] {
         for frac in ["", ".0", ".5", ".25", ".000001", ".123456789012345"] {
-            for exp in ["", "e0", "e1", "E1", "e+1", "e-1", "E+10", "E-10", "e308", "e-308",
-                        "e309", "e-400"] {
+            for exp in [
+                "", "e0", "e1", "E1", "e+1", "e-1", "E+10", "E-10", "e308", "e-308",
+                "e309", "e-400"
+            ] {
                 if frac.isEmpty && exp.isEmpty { continue }
                 literals.append(mantissa + frac + exp)
             }
@@ -100,16 +108,20 @@ func tomlNumberLiterals() -> [String] {
     }
 
     // --- shapes that look numeric and are not ---
-    literals += ["1.", ".5", "-.5", "1e", "1e+", "1e-", "1.e2", "1.2.3", "--1", "++1",
-                 "+-1", "1-2", "1+2", "e1", "E1", ".e1", "1.2e", "1 2", "- 1", "+ 1"]
+    literals += [
+        "1.", ".5", "-.5", "1e", "1e+", "1e-", "1.e2", "1.2.3", "--1", "++1",
+        "+-1", "1-2", "1+2", "e1", "E1", ".e1", "1.2e", "1 2", "- 1", "+ 1"
+    ]
 
     // --- inf / nan, which precede the decimal path and must stay that way ---
     literals += ["inf", "+inf", "-inf", "nan", "+nan", "-nan", "infinity", "Inf", "NaN"]
 
     // --- radix prefixes: the fast path must not intercept these ---
-    literals += ["0x1", "0xDEADBEEF", "0xdeadbeef", "0x_1", "0x1_2", "0x", "0o755", "0o8",
-                 "0o", "0b1101", "0b102", "0b", "+0x1", "-0x1", "0X1", "0O7", "0B1",
-                 "0x7FFFFFFFFFFFFFFF", "0x8000000000000000"]
+    literals += [
+        "0x1", "0xDEADBEEF", "0xdeadbeef", "0x_1", "0x1_2", "0x", "0o755", "0o8",
+        "0o", "0b1101", "0b102", "0b", "+0x1", "-0x1", "0X1", "0O7", "0B1",
+        "0x7FFFFFFFFFFFFFFF", "0x8000000000000000"
+    ]
 
     // --- long digit runs, where an accumulator's overflow check earns its keep ---
     for n in [18, 19, 20, 21, 30] {
@@ -159,9 +171,10 @@ func tomlNumberHeldOut() -> [String] {
 func runTOMLNumberDifferential() -> YAMLOracleResult {
     let held = tomlNumberHeldOut()
     if !held.isEmpty {
-        print("  \(held.count) subnormal literals held out — Assay accepts them and toml++ "
-              + "does not; see TOMLNumberOracle.swift. e.g. "
-              + held.prefix(3).joined(separator: ", "))
+        print(
+            "  \(held.count) subnormal literals held out — Assay accepts them and toml++ "
+                + "does not; see TOMLNumberOracle.swift. e.g. "
+                + held.prefix(3).joined(separator: ", "))
     }
     return runTOMLDifferential(tomlNumberDocuments())
 }

@@ -2,6 +2,25 @@
 // Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
 // See LICENSE and NOTICE at the repository root for terms.
 
+// swift-format-ignore-file
+//
+// NOT formatted, and swift-format's own escape hatch is the reason rather than taste. This
+// file builds generated code out of multi-line string literals NESTED INSIDE
+// INTERPOLATIONS of other multi-line string literals:
+//
+//     out += """
+//         ...
+//         \(groups.isEmpty ? "" : """
+//         let __pathDepth = path.count
+//
+//     """)    guard reader.tryConsume(0x7B) else {
+//
+// A closing delimiter's indentation is what Swift strips from every line of a literal, and
+// here one line is content of two literals at once. Reformatting produced 44 "insufficient
+// indentation of line in multi-line string literal" errors — the formatter cannot know that
+// moving a closing delimiter changes what the inner template emits. Every other file in this
+// module formats fine; this one is exempt and the goldens are what keep it honest.
+
 //===----------------------------------------------------------------------===//
 // Emitting the decode body.
 //

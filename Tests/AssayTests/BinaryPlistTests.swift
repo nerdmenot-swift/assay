@@ -26,10 +26,12 @@ struct BinaryPlistTests {
         let kRetry = b.add(BPlistBuilder.asciiString("retry_count"))
         let vRetry = b.add(BPlistBuilder.int(3))
         let kEnabled = b.add(BPlistBuilder.asciiString("enabled"))
-        let vEnabled = b.add([0x09])                              // true
+        let vEnabled = b.add([0x09])  // true
         let kRatio = b.add(BPlistBuilder.asciiString("ratio"))
-        let vRatio = b.add([0x23] + BPlistBuilder.beBytes(
-            Int(bitPattern: UInt(Double(0.5).bitPattern)), 8))    // 8-byte real
+        let vRatio = b.add(
+            [0x23]
+                + BPlistBuilder.beBytes(
+                    Int(bitPattern: UInt(Double(0.5).bitPattern)), 8))  // 8-byte real
         var dict: [UInt8] = [0xD4]
         for r in [kName, kRetry, kEnabled, kRatio] { dict.append(UInt8(r)) }
         for r in [vName, vRetry, vEnabled, vRatio] { dict.append(UInt8(r)) }
@@ -88,7 +90,7 @@ struct BinaryPlistTests {
         #expect(Plist.decode(b.finish(top: top), into: &sink) == .string("é€"))
 
         var c = BPlistBuilder()
-        let bad = c.add([0x61, 0xD8, 0x00])          // a lone high surrogate
+        let bad = c.add([0x61, 0xD8, 0x00])  // a lone high surrogate
         var sink2 = IssueSink(limits: .default)
         #expect(Plist.decode(c.finish(top: bad), into: &sink2) == nil)
         #expect(sink2.issues.contains { $0.code == .plistBadString })
@@ -97,7 +99,7 @@ struct BinaryPlistTests {
     @Test("<data> becomes base64 in the binary flavour too, so the flavours agree")
     func dataAgrees() {
         var b = BPlistBuilder()
-        let top = b.add([0x45] + Array("Hello".utf8))   // 5-byte data
+        let top = b.add([0x45] + Array("Hello".utf8))  // 5-byte data
         var sink = IssueSink(limits: .default)
         #expect(Plist.decode(b.finish(top: top), into: &sink) == .string("SGVsbG8="))
     }
@@ -107,8 +109,10 @@ struct BinaryPlistTests {
     @Test("a date is the stored double, unconverted")
     func date() {
         var b = BPlistBuilder()
-        let top = b.add([0x33] + BPlistBuilder.beBytes(
-            Int(bitPattern: UInt(Double(1.0).bitPattern)), 8))
+        let top = b.add(
+            [0x33]
+                + BPlistBuilder.beBytes(
+                    Int(bitPattern: UInt(Double(1.0).bitPattern)), 8))
         var sink = IssueSink(limits: .default)
         #expect(Plist.decode(b.finish(top: top), into: &sink) == .double(1.0))
     }
@@ -144,8 +148,8 @@ struct PlistUIDTests {
         let table = b.count
         b.append(UInt8(objOffset))
         b.append(contentsOf: [UInt8](repeating: 0, count: 6))
-        b.append(1)                                   // offsetIntSize
-        b.append(1)                                   // objectRefSize
+        b.append(1)  // offsetIntSize
+        b.append(1)  // objectRefSize
         for v in [UInt64(1), UInt64(0), UInt64(table)] {
             withUnsafeBytes(of: v.bigEndian) { b.append(contentsOf: $0) }
         }
@@ -157,16 +161,17 @@ struct PlistUIDTests {
         #expect(Self.hugeUID.count == 50)
         var sink = IssueSink(limits: .default)
         #expect(Plist.decode(Self.hugeUID, into: &sink) == nil)
-        #expect(sink.issues.contains { $0.code == .plistIntOutOfRange },
-                "got \(sink.issues.map(\.code))")
+        #expect(
+            sink.issues.contains { $0.code == .plistIntOutOfRange },
+            "got \(sink.issues.map(\.code))")
     }
 
     @Test("a UID that does fit decodes as the integer it is")
     func smallUIDDecodes() {
         var b: [UInt8] = Array("bplist00".utf8)
         let objOffset = b.count
-        b.append(0x81)                                // width 2
-        b.append(contentsOf: [0x01, 0x2C])            // 300
+        b.append(0x81)  // width 2
+        b.append(contentsOf: [0x01, 0x2C])  // 300
         let table = b.count
         b.append(UInt8(objOffset))
         b.append(contentsOf: [UInt8](repeating: 0, count: 6))
@@ -188,7 +193,7 @@ struct PlistAmplification {
     @Test(.timeLimit(.minutes(1)))
     func selfReferencingArray() {
         var b = BPlistBuilder()
-        let top = b.add(BPlistBuilder.array([0]))    // object 0 is itself
+        let top = b.add(BPlistBuilder.array([0]))  // object 0 is itself
         var sink = IssueSink(limits: .default)
         #expect(Plist.decode(b.finish(top: top), into: &sink) == nil)
         #expect(sink.issues.contains { $0.code == .plistCycle })
@@ -197,8 +202,8 @@ struct PlistAmplification {
     @Test(.timeLimit(.minutes(1)))
     func mutuallyReferencingArrays() {
         var b = BPlistBuilder()
-        _ = b.add(BPlistBuilder.array([1]))          // 0 -> 1
-        _ = b.add(BPlistBuilder.array([0]))          // 1 -> 0
+        _ = b.add(BPlistBuilder.array([1]))  // 0 -> 1
+        _ = b.add(BPlistBuilder.array([0]))  // 1 -> 0
         var sink = IssueSink(limits: .default)
         #expect(Plist.decode(b.finish(top: 0), into: &sink) == nil)
         #expect(sink.issues.contains { $0.code == .plistCycle })
@@ -210,7 +215,7 @@ struct PlistAmplification {
     @Test(.timeLimit(.minutes(1)))
     func sharedObjectAmplification() {
         var b = BPlistBuilder()
-        _ = b.add(BPlistBuilder.asciiString("leaf"))          // object 0
+        _ = b.add(BPlistBuilder.asciiString("leaf"))  // object 0
         var previous = 0
         for _ in 0..<10 {
             let refs = Array(repeating: previous, count: 12)
@@ -223,8 +228,9 @@ struct PlistAmplification {
 
         var sink = IssueSink(limits: .default)
         #expect(Plist.decode(doc, into: &sink) == nil)
-        #expect(sink.issues.contains { $0.code == .plistAmplification },
-                "got \(sink.issues.map(\.code))")
+        #expect(
+            sink.issues.contains { $0.code == .plistAmplification },
+            "got \(sink.issues.map(\.code))")
     }
 
     /// An object referenced twice from two different branches is SHARED, not cyclic. A global
@@ -238,8 +244,9 @@ struct PlistAmplification {
         let top = b.add(BPlistBuilder.array([a, c]))
         var sink = IssueSink(limits: .default)
         let v = Plist.decode(b.finish(top: top), into: &sink)
-        #expect(v == .sequence([.sequence([.string("x")]), .sequence([.string("x")])]),
-                "a shared leaf must decode twice, not be refused")
+        #expect(
+            v == .sequence([.sequence([.string("x")]), .sequence([.string("x")])]),
+            "a shared leaf must decode twice, not be refused")
     }
 
     @Test
@@ -252,9 +259,10 @@ struct PlistAmplification {
         // offsetSize 2: 200 objects run past byte 255, and a 1-byte offset table would
         // truncate them into a document that is malformed for the wrong reason.
         #expect(Plist.decode(b.finish(top: previous, offsetSize: 2), into: &sink) == nil)
-        #expect(sink.issues.contains {
-            $0.code == .plistTooDeep || $0.code == .plistAmplification
-        })
+        #expect(
+            sink.issues.contains {
+                $0.code == .plistTooDeep || $0.code == .plistAmplification
+            })
     }
 
     @Test
@@ -298,7 +306,7 @@ struct PlistDifferential {
         "<plist version=\"1.0\"><array><integer>1</integer><integer>2</integer></array></plist>",
         "<plist version=\"1.0\"><dict><key>e</key><dict/></dict></plist>",
         "<plist version=\"1.0\"><dict><key>a</key><array/></dict></plist>",
-        "<plist version=\"1.0\"><dict><key>u</key><string>héllo €</string></dict></plist>",
+        "<plist version=\"1.0\"><dict><key>u</key><string>héllo €</string></dict></plist>"
     ]
 
     @Test("XML plists agree with PropertyListSerialization")
@@ -331,7 +339,7 @@ struct PlistDifferential {
             ["unicode": "héllo €", "empty": ""] as [String: Any],
             ["big": 9_223_372_036_854_775_807] as [String: Any],
             ["neg": -1, "zero": 0] as [String: Any],
-            ["real": 0.5, "negreal": -1.25] as [String: Any],
+            ["real": 0.5, "negreal": -1.25] as [String: Any]
         ]
         for v in values {
             let data = try PropertyListSerialization.data(
@@ -396,7 +404,7 @@ struct PlistCountOverflow {
 
     /// Build an object whose 0xF-escaped element count is `count`, then a valid trailer.
     static func hugeCount(marker: UInt8, count: Int) -> [UInt8] {
-        var obj: [UInt8] = [marker | 0x0F, 0x13]        // 0xF escape, then an 8-byte integer
+        var obj: [UInt8] = [marker | 0x0F, 0x13]  // 0xF escape, then an 8-byte integer
         obj += BPlistBuilder.beBytes(count, 8)
         var b = BPlistBuilder()
         _ = b.add(obj)
@@ -426,8 +434,10 @@ struct PlistCountOverflow {
     @Test("a dictionary at half Int.max does not trap on the key/value doubling")
     func dictHalfCount() {
         var sink = IssueSink(limits: .default)
-        #expect(Plist.decode(Self.hugeCount(marker: 0xD0, count: Int.max / 2),
-                             into: &sink) == nil)
+        #expect(
+            Plist.decode(
+                Self.hugeCount(marker: 0xD0, count: Int.max / 2),
+                into: &sink) == nil)
     }
 
     @Test("data claiming Int.max bytes does not trap")

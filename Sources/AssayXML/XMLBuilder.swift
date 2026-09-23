@@ -70,9 +70,11 @@ protocol XMLBuilding {
     static func childCount(_ c: borrowing Children) -> Int
 
     @inline(__always)
-    static func finish(_ c: consuming Children, name: consuming XML.Name,
-                       attributes: consuming [XML.Attribute],
-                       contentSpan: SourceSpan?) -> Value
+    static func finish(
+        _ c: consuming Children, name: consuming XML.Name,
+        attributes: consuming [XML.Attribute],
+        contentSpan: SourceSpan?
+    ) -> Value
 
     /// `<tag/>`: no children, and the span covers the tag name.
     @inline(__always)
@@ -135,8 +137,9 @@ enum XMLNodeBuilder: XMLBuilding {
         _ c: consuming [XML.Node], name: consuming XML.Name,
         attributes: consuming [XML.Attribute], contentSpan: SourceSpan?
     ) -> XML.Element {
-        XML.Element(name: consume name, attributes: consume attributes,
-                    children: consume c, contentSpan: contentSpan)
+        XML.Element(
+            name: consume name, attributes: consume attributes,
+            children: consume c, contentSpan: contentSpan)
     }
 
     @inline(__always)
@@ -144,8 +147,9 @@ enum XMLNodeBuilder: XMLBuilding {
         name: consuming XML.Name, attributes: consuming [XML.Attribute],
         contentSpan: SourceSpan?
     ) -> XML.Element {
-        XML.Element(name: consume name, attributes: consume attributes, children: [],
-                    contentSpan: contentSpan)
+        XML.Element(
+            name: consume name, attributes: consume attributes, children: [],
+            contentSpan: contentSpan)
     }
 
     static func document(
@@ -197,14 +201,17 @@ enum XMLRawBuilder: XMLBuilding {
                     unsafe swap(&key, &src[i].name.local)
                     var value = ""
                     unsafe swap(&value, &src[i].value)
-                    members.append(RawValue.Member(key: consume key,
-                                                   value: .string(consume value),
-                                                   span: unsafe src[i].valueSpan))
+                    members.append(
+                        RawValue.Member(
+                            key: consume key,
+                            value: .string(consume value),
+                            span: unsafe src[i].valueSpan))
                 }
             }
         }
-        return Children(key: consume key, members: members, text: "",
-                        hadAttributes: hadAttributes, sawElement: false)
+        return Children(
+            key: consume key, members: members, text: "",
+            hadAttributes: hadAttributes, sawElement: false)
     }
 
     @inline(__always)
@@ -273,13 +280,15 @@ enum XMLRawBuilder: XMLBuilding {
         if !c.hadAttributes, !c.sawElement {
             var text = ""
             swap(&text, &c.text)
-            return RawValue.Member(key: consume key, value: .string(consume text),
-                                   span: contentSpan)
+            return RawValue.Member(
+                key: consume key, value: .string(consume text),
+                span: contentSpan)
         }
         var members: [RawValue.Member] = []
         swap(&members, &c.members)
-        return RawValue.Member(key: consume key, value: .mapping(consume members),
-                               span: contentSpan)
+        return RawValue.Member(
+            key: consume key, value: .mapping(consume members),
+            span: contentSpan)
     }
 
     @inline(__always)
@@ -290,8 +299,9 @@ enum XMLRawBuilder: XMLBuilding {
         var name = name
         var attributes = attributes
         let c = makeChildren(name: &name, attributes: &attributes, reserving: 0)
-        return finish(c, name: consume name, attributes: consume attributes,
-                      contentSpan: contentSpan)
+        return finish(
+            c, name: consume name, attributes: consume attributes,
+            contentSpan: contentSpan)
     }
 
     /// A document IS its root element's value: the projection unwrapped the root the same

@@ -44,7 +44,10 @@ let handWrittenYAML: [(name: String, text: String)] = [
     ("indentless-then-key", "items:\n- a\nnext: 1\n"),
     ("indentless-anchored", "items: &l\n- a\n- b\ncopy: *l\n"),
     ("indentless-after-comment", "items:\n# note\n- a\n"),
-    ("indentless-k8s", "spec:\n  containers:\n  - name: web\n    ports:\n    - containerPort: 80\n  - name: side\n"),
+    (
+        "indentless-k8s",
+        "spec:\n  containers:\n  - name: web\n    ports:\n    - containerPort: 80\n  - name: side\n"
+    ),
 
     // Multi-line plain scalars — YAML 1.2 §7.3.3. A line break inside one folds to a
     // single space and a blank line becomes a newline, which is fiddly enough that the
@@ -112,7 +115,7 @@ let handWrittenYAML: [(name: String, text: String)] = [
     ("crlf-literal", "a: |\r\n  x\r\n  y\r\n"),
     ("dash-value-next-line", "- \n  a: 1\n  b: 2\n-\n  - 1\n  - 2\n"),
     ("empty-flow", "a: []\nb: {}\n"),
-    ("long-plain", "a: this is a fairly long plain scalar with spaces in it\n"),
+    ("long-plain", "a: this is a fairly long plain scalar with spaces in it\n")
 ]
 
 // MARK: - XML, hand-written
@@ -142,12 +145,18 @@ let handWrittenXML: [(name: String, text: String)] = [
     // resolved URIs rather than prefixes.
     ("default-namespace", "<r xmlns=\"http://example.com/ns\"><a>1</a></r>"),
     ("prefixed-namespace", "<n:r xmlns:n=\"http://example.com/n\"><n:a>1</n:a></n:r>"),
-    ("two-namespaces",
-     "<r xmlns=\"http://d\" xmlns:n=\"http://n\"><a/><n:b/></r>"),
-    ("nested-redefinition",
-     "<r xmlns=\"http://a\"><c xmlns=\"http://b\"><d/></c></r>"),
-    ("namespaced-attribute",
-     "<r xmlns:n=\"http://n\"><a n:k=\"v\" k=\"w\"/></r>"),
+    (
+        "two-namespaces",
+        "<r xmlns=\"http://d\" xmlns:n=\"http://n\"><a/><n:b/></r>"
+    ),
+    (
+        "nested-redefinition",
+        "<r xmlns=\"http://a\"><c xmlns=\"http://b\"><d/></c></r>"
+    ),
+    (
+        "namespaced-attribute",
+        "<r xmlns:n=\"http://n\"><a n:k=\"v\" k=\"w\"/></r>"
+    ),
 
     // Whitespace and text handling.
     ("whitespace-between", "<r>\n  <a>1</a>\n  <b>2</b>\n</r>"),
@@ -163,10 +172,14 @@ let handWrittenXML: [(name: String, text: String)] = [
     // \r\n is ONE space because line-ending normalisation runs first.
     ("newline-in-attribute", "<r a=\"x\ny\" b=\"p\r\nq\" c=\"t\tu\"/>"),
     ("long-text", "<r>" + String(repeating: "abcdefghij", count: 200) + "</r>"),
-    ("many-attributes",
-     "<r " + (0..<30).map { "a\($0)=\"v\($0)\"" }.joined(separator: " ") + "/>"),
-    ("many-children",
-     "<r>" + (0..<200).map { "<c>\($0)</c>" }.joined() + "</r>"),
+    (
+        "many-attributes",
+        "<r " + (0..<30).map { "a\($0)=\"v\($0)\"" }.joined(separator: " ") + "/>"
+    ),
+    (
+        "many-children",
+        "<r>" + (0..<200).map { "<c>\($0)</c>" }.joined() + "</r>"
+    )
 ]
 
 /// TOML feature cases, one per specification section plus the corners a hand-written
@@ -188,10 +201,22 @@ let handWrittenTOML: [(name: String, text: String)] = [
     ("strings-ml-literal", "a = '''\nraw \\ text\n  kept\n'''\n"),
     ("strings-ml-crlf", "a = \"\"\"\r\nx\r\ny\"\"\"\r\nb = '''\r\nx\r\ny'''\r\n"),
     ("strings-unicode", "a = \"ünïcödé 日本語 😀\"\n\"ключ\" = 1\n"),
-    ("keys", "bare = 1\n\"quoted key\" = 2\n'lit' = 3\n\"\" = 4\n1234 = 5\na.b.c = 6\na . d = 7\n\"x.y\".z = 8\n"),
-    ("keys-dotted-then-header", "[fruit]\napple.color = \"red\"\n[fruit.apple.texture]\nsmooth = true\n"),
-    ("dates", "a = 1979-05-27T07:32:00Z\nb = 1979-05-27T00:32:00-07:00\nc = 1979-05-27T00:32:00.999999-07:00\nd = 1979-05-27 07:32:00Z\n"),
-    ("dates-local", "a = 1979-05-27T07:32:00\nb = 1979-05-27\nc = 07:32:00\nd = 00:32:00.999999\ne = 1979-05-27t07:32:00.5z\n"),
+    (
+        "keys",
+        "bare = 1\n\"quoted key\" = 2\n'lit' = 3\n\"\" = 4\n1234 = 5\na.b.c = 6\na . d = 7\n\"x.y\".z = 8\n"
+    ),
+    (
+        "keys-dotted-then-header",
+        "[fruit]\napple.color = \"red\"\n[fruit.apple.texture]\nsmooth = true\n"
+    ),
+    (
+        "dates",
+        "a = 1979-05-27T07:32:00Z\nb = 1979-05-27T00:32:00-07:00\nc = 1979-05-27T00:32:00.999999-07:00\nd = 1979-05-27 07:32:00Z\n"
+    ),
+    (
+        "dates-local",
+        "a = 1979-05-27T07:32:00\nb = 1979-05-27\nc = 07:32:00\nd = 00:32:00.999999\ne = 1979-05-27t07:32:00.5z\n"
+    ),
     ("dates-frac-long", "a = 07:32:00.123456789123\nb = 1979-05-27T07:32:00.1Z\n"),
     // No `23:59:60` here: the TOML ABNF allows a leap second (`time-second … 00-60`) and
     // Assay accepts one, toml++ refuses it, toml-test has no case either way. The
@@ -200,16 +225,28 @@ let handWrittenTOML: [(name: String, text: String)] = [
     ("arrays", "a = [1, 2, 3]\nb = [\"x\", 'y']\nc = [[1, 2], [3]]\nd = []\ne = [ 1 , 2 , ]\n"),
     ("arrays-multiline", "a = [\n  1, # one\n  2,\n  # comment\n  3\n]\n"),
     ("arrays-mixed", "a = [1, \"two\", 3.0, true, 1979-05-27, [1], {x = 1}]\n"),
-    ("inline-tables", "a = {}\nb = { x = 1, y = \"z\" }\nc = { d.e = 1, d.f = 2 }\nn = { a = { b = { c = 1 } } }\n"),
+    (
+        "inline-tables",
+        "a = {}\nb = { x = 1, y = \"z\" }\nc = { d.e = 1, d.f = 2 }\nn = { a = { b = { c = 1 } } }\n"
+    ),
     ("tables", "[a]\nx = 1\n[a.b]\ny = 2\n[c . d]\nz = 3\n[\"q k\"]\nw = 4\n[e]\n"),
     ("tables-implicit", "[a.b.c]\nx = 1\n[a]\ny = 2\n"),
-    ("tables-array", "[[p]]\nn = 1\n[[p]]\nn = 2\n[p.sub]\nq = 1\n[[p.items]]\ni = 1\n[[p.items]]\ni = 2\n[[p]]\n"),
-    ("tables-array-nested", "[[fruits]]\nname = \"apple\"\n[fruits.physical]\ncolor = \"red\"\n[[fruits.varieties]]\nname = \"red delicious\"\n[[fruits.varieties]]\nname = \"granny smith\"\n[[fruits]]\nname = \"banana\"\n[[fruits.varieties]]\nname = \"plantain\"\n"),
+    (
+        "tables-array",
+        "[[p]]\nn = 1\n[[p]]\nn = 2\n[p.sub]\nq = 1\n[[p.items]]\ni = 1\n[[p.items]]\ni = 2\n[[p]]\n"
+    ),
+    (
+        "tables-array-nested",
+        "[[fruits]]\nname = \"apple\"\n[fruits.physical]\ncolor = \"red\"\n[[fruits.varieties]]\nname = \"red delicious\"\n[[fruits.varieties]]\nname = \"granny smith\"\n[[fruits]]\nname = \"banana\"\n[[fruits.varieties]]\nname = \"plantain\"\n"
+    ),
     ("whitespace", "  a   =   1   \n\t b\t=\t2\t\n\n\n[ t ]\n c = 3 # c\n"),
     ("crlf", "a = 1\r\nb = 2\r\n[t]\r\nc = 3\r\n"),
     ("bom", "\u{FEFF}a = 1\n"),
     ("no-trailing-newline", "a = 1"),
-    ("deep", "a = " + String(repeating: "[", count: 40) + "1" + String(repeating: "]", count: 40) + "\n"),
+    (
+        "deep",
+        "a = " + String(repeating: "[", count: 40) + "1" + String(repeating: "]", count: 40) + "\n"
+    ),
     ("wide", (0..<300).map { "k\($0) = \($0)" }.joined(separator: "\n") + "\n"),
     // Both should reject.
     ("bad-dup-key", "a = 1\na = 2\n"),
@@ -245,7 +282,7 @@ let handWrittenTOML: [(name: String, text: String)] = [
     ("bad-six-quotes", "a = \"\"\"x\"\"\"\"\"\"\n"),
     ("bad-empty-header", "[]\n"),
     ("bad-header-space", "[a] b\n"),
-    ("bad-utf8", "a = \"" + String(decoding: [0xC3], as: UTF8.self) + "\"\n"),
+    ("bad-utf8", "a = \"" + String(decoding: [0xC3], as: UTF8.self) + "\"\n")
 ]
 
 // The generated-volume renderers (renderYAML / renderXML) live in CorpusRender, shared

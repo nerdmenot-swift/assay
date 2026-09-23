@@ -87,6 +87,9 @@ extension SchemaMacro {
         if isDateType(type) {
             return "Assay._assayRawDate(\(expr).timeIntervalSince1970, Self.__assayDateFormats_\(i))"
         }
+        if isUUIDType(type) {
+            return ".string(\(expr).uuidString)"
+        }
         if let element = arrayElement(type) {
             return ".sequence(\(expr).map { __e\(i) in \(rawExpr(element, "__e\(i)", key: key, index: i)) })"
         }

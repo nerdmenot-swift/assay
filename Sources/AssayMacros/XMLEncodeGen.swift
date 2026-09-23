@@ -150,6 +150,9 @@ extension SchemaMacro {
         if isDateType(type) {
             return "\(pad)w.element(\(name), Assay._assayXMLDate(\(expr).timeIntervalSince1970, Self.__assayDateFormats_\(i)))"
         }
+        if isUUIDType(type) {
+            return "\(pad)w.element(\(name), \(expr).uuidString)"
+        }
         if let value = dictionaryValue(type) {
             return """
             \(pad)w.beginElement(\(name))
@@ -176,6 +179,9 @@ extension SchemaMacro {
     static func scalarText(_ type: String, _ expr: String, key: String, index i: Int) -> String {
         if isDateType(type) {
             return "Assay._assayXMLDate(\(expr).timeIntervalSince1970, Self.__assayDateFormats_\(i))"
+        }
+        if isUUIDType(type) {
+            return "\(expr).uuidString"
         }
         switch type {
         case "String":  return expr

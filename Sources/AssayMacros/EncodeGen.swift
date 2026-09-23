@@ -238,6 +238,12 @@ extension SchemaMacro {
             _ = formats
             return "\(pad)w.writeDate(\(expr).timeIntervalSince1970, \(dateFormatsExpr(i)), &sink, path, \"\(key)\")"
         }
+        // The canonical 8-4-4-4-12 text, which is what the decoder accepts and nothing else.
+        // `uuidString` is upper-case and the decoder takes either case, so the round-trip law
+        // holds on the VALUE — `parse(encode(v)) == v` — while the bytes may change case.
+        if isUUIDType(type) {
+            return "\(pad)w.write(\(expr).uuidString)"
+        }
         if let element = arrayElement(type) {
             // ONE PATH PER ARRAY, rewritten in place — the decode side's 2026-09-13 fix,
             // which this side never got. Until 2026-09-19 a nested-schema element was encoded

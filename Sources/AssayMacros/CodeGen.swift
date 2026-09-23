@@ -964,6 +964,17 @@ extension SchemaMacro {
         t == "Date" || t == "Foundation.Date"
     }
 
+    /// `UUID`, which decodes through the static `_assay` that `AssayFoundation` adds and
+    /// therefore needs no macro support to READ. Writing is different: there is no
+    /// `_assayEncode` on Foundation's type and there cannot be a conformance supplying one
+    /// (it would hand `UUID` a `parse(json:)` of its own — `TypeShapes` says why), so the
+    /// emitters special-case it exactly as they special-case `Date`. Without this, a
+    /// `@Schema(encodes: true)` type with a `UUID` field did not compile, and the error
+    /// named `_assayEncode` — an internal member the reader never wrote.
+    static func isUUIDType(_ t: String) -> Bool {
+        t == "UUID" || t == "Foundation.UUID"
+    }
+
     /// The formats expression a date field's decode passes: the shared default when no
     /// `@DateFormat` was written, a per-field static when one was.
     static func dateFormatsRef(_ f: SchemaField, _ i: Int) -> String {

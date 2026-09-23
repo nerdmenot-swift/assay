@@ -84,6 +84,30 @@ lists every refusal with its reason.
 One thing that trips people: a `Data` *field* is refused, but `parse(json: data)` takes a
 `Data` document and is the fastest way to hand one over. Different things, same type name.
 
+### "'Issue' is ambiguous for type lookup in this context"
+
+You are in a test file with both `import Testing` and `import Assay`, and swift-testing
+exports an `Issue` of its own. Qualify Assay's:
+
+```swift
+let issues: [Assay.Issue] = d.issues          // or Testing.Issue, if you meant that one
+```
+
+Only *type annotations* are ambiguous. `for issue in d.issues` is fine, and so is
+`d.issues.map(\.code)` — Swift resolves those from the expression. It bites when you write
+the name down: a stored property, a function parameter, an explicit array type.
+
+If you write a lot of them, one line at the top of the file fixes it for good:
+
+```swift
+private typealias Issue = Assay.Issue
+```
+
+Generic top-level names are the Swift norm rather than an accident — swift-testing exports
+`Issue`, Vapor exports `Request` and `Validatable`, Foundation exports `Data` — and module
+qualification is the language's answer. Assay keeps `Issue` because it is the vocabulary the
+whole library speaks: `d.issues`, `IssueCode`, `issue.path`, `IssueSink`.
+
 ### `@Schema` and SwiftData both export `Schema`
 
 They do, and it does not matter. Macro lookup takes a different path from type lookup, so a

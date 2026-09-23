@@ -122,9 +122,9 @@ Plus one thing that is not a file format but decodes the same way:
 @Schema(formats: [.toml])                  // TOML only; no JSON body emitted
 ```
 
-Generated code is not free. A shared YAML/XML/TOML decode body costs about 34 ms per type
-at build time — roughly 41% of the expansion — and a type that only ever sees JSON should
-not pay for a capability it never calls.
+Generated code is not free. A shared YAML/XML/TOML body adds about 34 ms per type to your
+build — roughly 41% of the expansion. A type that only ever sees JSON should not pay for a
+parser it never calls, so you ask for what you read.
 
 Calling `parse(yaml:)` on a type that did not list `.yaml` is a **compile** error, not a
 runtime one: the conformance that entry point needs simply is not there.

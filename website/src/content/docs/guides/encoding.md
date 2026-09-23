@@ -16,20 +16,21 @@ let bytes = try article.encodedJSON()   // EncodedBytes: an owned buffer, not a 
 let text  = try article.jsonText()     // String
 ```
 
-`EncodedBytes` is `~Copyable`, because it owns the allocation the writer wrote into and frees
-it exactly once. That is what lets a write be a store rather than an `Array` append with a
-uniqueness check behind it, and it is why nothing is copied on the way out:
+`EncodedBytes` owns the buffer the writer filled. You get it handed over, not copied:
 
 ```swift
 try article.encodedJSON().withUnsafeBytes { try socket.write($0) }   // no copy
-let array = try article.encodedJSON().toArray()                      // one copy, asked for
+let array = try article.encodedJSON().toArray()                      // one copy, you asked
 let string = try article.encodedJSON().text()                        // UTF-8, no repair
 ```
 
-An `EncodedBytes` cannot be stored twice, put in an array, or captured by an escaping
-closure. `toArray()` is the way out when you need those things, and `EncodeDiagnosis.bytes`
-below is an ordinary `[UInt8]` on purpose — it is the diagnostic path, meant to be stored and
-passed around.
+That is why it is `~Copyable`. It frees the buffer exactly once. So you cannot store it
+twice, put it in an array, or capture it in an escaping closure. Want any of those? Call
+`toArray()` and pay for the copy where you can see it.
+
+`EncodeDiagnosis.bytes` stays a plain `[UInt8]`, deliberately. That is the diagnostic path.
+You store it, pass it around, show it to someone — one copy is a fair price for an ordinary
+value.
 
 Adding it costs about 5% of the type's compile time. The design note that justified making
 it opt-in guessed it would roughly double the per-field code; the code does double, the

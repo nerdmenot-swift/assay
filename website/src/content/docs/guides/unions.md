@@ -23,8 +23,8 @@ value unless `@Key` says otherwise.
 
 ## Prefer the tagged form
 
-A discriminated union is better in every way that matters, and it is worth saying plainly
-because untagged looks more convenient:
+Untagged looks more convenient. Tagged is better in every way that matters, and it is worth
+saying plainly:
 
 - **The error is about one branch.** The tag said `purchase`, so a failure is a `purchase`
   failure with its own caret. There is nothing to compose.
@@ -49,8 +49,8 @@ accepts almost anything will shadow the ones after it.
 
 ### What a failure looks like
 
-When nothing matches, you get one summary plus the **closest** branch's detail — the branch
-that got furthest before failing:
+When nothing matches you get a summary, plus the detail from the **closest** branch — the
+one that got furthest before giving up:
 
 ```
 error: value did not match any variant of Value (2 tried)

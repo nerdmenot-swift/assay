@@ -42,13 +42,23 @@ const READS = [
 const HEADLINE = [
   'struct decode, full corpus',
   'vs ZippyJSON (simdjson + Codable)',
+  'YAML struct decode',
   'Date fields',
-  '[String: T] dictionaries',
   'encoding, 50 / 200 items',
   'compile time, 10 fields',
 ]
-const rows = HEADLINE.map((arm) => numbers.find((n) => n.arm === arm)).filter(Boolean) as
-  { arm: string; number: string; against: string }[]
+// A missing arm is a BUILD FAILURE, not a quietly shorter table. `[String: T] dictionaries`
+// sat in this list naming a row that no longer exists, `.filter(Boolean)` dropped it, and
+// the landing page showed five numbers where six were meant for as long as nobody counted.
+const rows = HEADLINE.map((arm) => {
+  const row = numbers.find((n) => n.arm === arm)
+  if (!row) {
+    throw new Error(
+      `index.astro: no arm named "${arm}" in RESULTS.md — rename it here or there`
+    )
+  }
+  return row
+}) as { arm: string; number: string; against: string }[]
 
 /** Three things the macro does that Codable cannot, each with the smallest example that
  *  shows it. Kept short: this is a taste, the guides are where the depth is. */

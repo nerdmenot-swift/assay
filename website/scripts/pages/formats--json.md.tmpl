@@ -128,15 +128,15 @@ try Report.parse(json: text)       // String — copied to UTF-8 for you
 try Report.parse(json: data)       // Data — no copy of the input
 ```
 
-`Array(data)` is the thing you would otherwise write, and it allocates and copies the whole
-document before the parse starts, so a second copy of it stays alive throughout. The `Data`
-door saves that: one allocation per decode whatever the size, and 1–3.5% of the time on
-documents from 0.2 to 8.3 MB. The memory matters more than the time.
+`Array(data)` is what you would otherwise write, and it copies the whole document before the
+parse even starts. That copy then sits there for the length of the parse. Skipping it saves
+one allocation per decode whatever the size, plus 1–3.5% of the time on documents from 0.2 to
+8.3 MB — the memory is the real win.
 
-After a **clean** decode from `Data`, `d.source` is empty — a `Data`'s bytes are only valid
-for the duration of the call, so Assay keeps a copy only when an issue or warning needs a
-caret rendered later. You passed the `Data` in, so you still have it. Failures render
-identically either way.
+One wrinkle: after a **clean** decode from `Data`, `d.source` is empty. A `Data`'s bytes are
+only valid for the length of the call, so Assay copies them only when an issue or warning
+needs a caret. You handed the `Data` over, so you still have it — and failures render exactly
+as they do from an array.
 
 ## Large documents
 

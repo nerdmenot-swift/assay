@@ -6,6 +6,10 @@ description: Naming, renaming, aliases, paths into nested objects, and what to d
 Your properties are camelCase. The wire is whatever the wire is. This page is how you
 reconcile the two.
 
+All of it happens at compile time. A key style, a rename, an alias, a path into a nested
+object — none of them cost you anything at run time, because the macro has already turned
+them into the byte comparisons the decoder does anyway.
+
 ## A whole-type convention
 
 ```swift

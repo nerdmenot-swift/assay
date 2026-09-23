@@ -20,6 +20,11 @@ struct Article {
 No `CodingKeys`. No `init(from:)`. No conformance to write. Every stored property is a
 field, and the declaration you already wrote says everything the decoder needs.
 
+It is also about 9× quicker than `JSONDecoder` on the same documents, which is less a boast
+than an accident of the design: there is no `KeyedDecodingContainer` in the middle, because
+the macro wrote the decode at compile time. [The numbers](/reference/performance/) are all
+there, including the arms where Assay loses.
+
 ```swift
 let article = try Article.parse(json: data)
 ```

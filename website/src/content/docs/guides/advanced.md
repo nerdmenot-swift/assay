@@ -181,16 +181,16 @@ try Article.parse(json: text)         // String — copied to UTF-8 for you
 try Article.parse(json: data)         // Data, from AssayFoundation
 ```
 
-The `Data` overloads decode the buffer where it already is. `Array(data)` — the thing you
-would otherwise write — allocates and copies the whole document first, so a second copy of it
-stays alive for the length of the parse; that is one allocation saved per decode whatever the
-size, and 1–3.5% of the time on documents from 0.2 to 8.3 MB. The memory is the point more
-than the time.
+Hand it a `Data` and it decodes the buffer where it already sits. `Array(data)` — what you
+would otherwise write — copies the whole document first, and that copy stays alive for the
+whole parse. Skipping it saves one allocation per decode, whatever the size. On documents
+from 0.2 to 8.3 MB it also saves 1–3.5% of the time. The memory is the point; the time is a
+bonus.
 
-One difference worth knowing: after a **clean** decode from `Data`, `d.source` is empty. A
-`Data`'s bytes are only valid for the duration of the call, so Assay keeps a copy of them
-only when an issue or warning needs a caret rendered later — you passed the `Data` in, so you
-still have it. Failures render identically either way.
+One thing to know: after a **clean** decode from `Data`, `d.source` is empty. A `Data`'s
+bytes are only valid for the length of the call, so Assay copies them only when an issue or
+warning actually needs a caret. You handed the `Data` over, so you still have it — and
+failures render exactly as they do from an array.
 
 For a file, prefer `parse(mmapped:)`: the kernel pages it in as the parse walks it, and errors
 still render carets straight out of the mapping.

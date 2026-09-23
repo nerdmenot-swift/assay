@@ -44,7 +44,7 @@ holds arrays of 9,510. It is reverted, the ledger's row 2 carries the numbers, a
 | XML tree parse | **2.47×** (macOS; **0.96×** on Linux, 2026-08-18) | Foundation `XMLParser` | [XML, made faster](#making-the-xml-parser-faster-by-profiling-rather-than-by-admiring-libxml2) |
 | TOML node parse | **4.06×** | toml++ via TOMLKit | [TOML](#toml-a-fourth-tree-decoder-against-c) |
 | TOML struct decode | **6.55×** | TOMLKit `TOMLDecoder` | same |
-| `Date` fields | **5.40×** mean (4.25× at the previously published commit, measured today) | `JSONDecoder` + `.iso8601` | [Dates](#dates-the-unclaimed-win-claimed) |
+| `Date` fields | **5.40×** mean over 5 sizes | `JSONDecoder` + `.iso8601` | [Dates](#dates-the-unclaimed-win-claimed) |
 | binary plist | **4.05×** | Foundation `PropertyListDecoder` | [coverage](#the-arms-that-did-not-exist) |
 | XML plist | **1.28×** | Foundation `PropertyListDecoder` | same |
 | union vs its variant | **1.09×** (the tag scan) | the variant decoded directly | same |

@@ -1,8 +1,8 @@
 {
   "stats": {
     "version": "0.1.0",
-    "tests": 814,
-    "suites": 140,
+    "tests": 825,
+    "suites": 141,
     "codes": 118,
     "formats": [
       "JSON",
@@ -80,7 +80,7 @@
     },
     {
       "arm": "Date fields",
-      "number": "5.40× mean (4.25× at the previously published commit, measured today)",
+      "number": "5.40× mean over 5 sizes",
       "against": "JSONDecoder + .iso8601"
     },
     {

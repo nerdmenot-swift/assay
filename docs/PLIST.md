@@ -1,5 +1,7 @@
 # Property lists
 
+Two formats wearing one name, and the second one has a security surface the first does not.
+
 **Built 2026-09-09.** `EXPERIENCE.md` §1 named `parse(plist:)`; `ROADMAP.md` §10 deferred it
 with one sentence — *"Binary and XML plists, as a separate product on the `RawValue`
 projection path the YAML and XML decoders already use. Mechanically the smallest item on this

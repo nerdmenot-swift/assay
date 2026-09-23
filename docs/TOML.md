@@ -1,7 +1,13 @@
 # TOML
 
-**Built 2026-09-10.** The fourth text format, as a separate `AssayTOML` product on the
-`RawValue` projection path YAML and XML use. TOML 1.0.0, complete: **210/210 valid and
+TOML looks like the easy format. It has a real grammar, types on the wire, and no
+significant whitespace — after YAML it reads like a holiday.
+
+Then you get to the redefinition rules, which is where all of the difficulty turns out to
+live, and which this document is mostly about.
+
+**Built 2026-09-10**, as a separate `AssayTOML` product on the `RawValue` projection path
+YAML and XML use. TOML 1.0.0, complete: **210/210 valid and
 501/501 invalid documents of the official [toml-test](https://github.com/toml-lang/toml-test)
 suite**, run in CI, and a differential against toml++ (via TOMLKit) on the hand-written
 cases and the whole JSON corpus rendered twice.

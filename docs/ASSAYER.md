@@ -1,4 +1,11 @@
-# `Assayer<T>` — the runtime value API
+# `Assayer<T>` — a schema with no declaration
+
+`@Schema` needs a struct to attach to. Twice that is not good enough: when the shape is only
+known at run time — a form built from a database, a config schema a server shipped you — and
+when your type *is* a constrained scalar rather than a thing with fields.
+
+`Assayer<T>` is the answer to both. Same `Diagnosis`, same issue codes, same rules; the verbs
+just live on a value instead of a type.
 
 *Built 2026-09-08. `ROADMAP.md` §7, `EXPERIENCE.md` §8 and §17.*
 

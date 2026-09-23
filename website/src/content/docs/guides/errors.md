@@ -202,5 +202,5 @@ Around 120 of them, each with a stable string. The ones you will see most:
 
 ## Next
 
-- [Formats](/formats/) — the same errors, on four more parsers and on database rows.
+- [Formats](/formats/) — the same errors, on four more parsers.
 - [Issue codes](/reference/issue-codes/) — all of them, with parameters.

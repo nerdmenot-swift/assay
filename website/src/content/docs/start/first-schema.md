@@ -142,8 +142,8 @@ validation at all, not an on-ramp to one.
 ## It is not only JSON
 
 The struct you just wrote is the whole declaration. Add a format and the same struct, the
-same rules and the same errors work on YAML, XML, TOML, property lists, HTTP request bodies
-and database rows:
+same rules and the same errors work on YAML, XML, TOML, property lists and HTTP request
+bodies:
 
 ```swift
 @Schema(keys: .snakeCase, formats: [.json, .yaml, .toml])
@@ -160,6 +160,6 @@ every one of them genuinely does differently.
 
 - [Recipes](/recipes/) — seven jobs start to finish, each a program that compiles.
 - [Coming from Codable](/start/from-codable/) — every habit you have, and what it becomes.
-- [Formats](/formats/) — the same struct, on five formats and on database rows.
+- [Formats](/formats/) — the same struct, on five formats and an HTTP body.
 - [Cheatsheet](/start/cheatsheet/) — one page, everything, no prose.
 - [Errors](/guides/errors/) — the part this library exists for.

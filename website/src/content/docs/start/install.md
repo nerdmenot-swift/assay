@@ -1,6 +1,6 @@
 ---
 title: Install
-description: One line in Package.swift, and which of the six products you actually need.
+description: One line in Package.swift, and which of the seven products you actually need.
 ---
 
 Add the package:

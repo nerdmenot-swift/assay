@@ -1,9 +1,11 @@
-# Streaming
+# Streaming, and why there is none
 
-*Design note. "Can Assay support a streaming interface?" turns out to be three different
-questions with three different answers.*
+"Can Assay stream?" sounds like one question. It is three, wearing a coat.
 
-**Status: proposed. Not built.**
+**This is a settled decision, not a backlog item.** Two of the three are out of scope by
+construction and the third already has an answer that is better than streaming would be. The
+reasoning is written out at length precisely so it stays decided — an unwritten "no" gets
+relitigated every few months by whoever asks next.
 
 ---
 

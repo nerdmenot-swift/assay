@@ -1,19 +1,25 @@
-# Value models — one per format, plus a neutral projection
+# Value models
 
-*Design note, written before implementation. Supersedes an earlier draft that proposed a
-single unified `RawValue`; that draft was wrong and §1 says why.*
+Five of them, and the obvious question is why not one.
 
-**Status: models BUILT (2026-07-26). Parsers pending for YAML and XML.**
+An earlier draft of this document proposed a single unified tree. That draft was wrong, and
+§1 is the autopsy: a YAML scalar's resolution and an XML element's namespace are not the same
+kind of thing, and a type that pretends otherwise loses information the moment you ask it
+anything specific. So each format keeps its own model, and `RawValue` is the **narrow
+intersection** every `@Schema` type decodes from.
 
 | | model | parser | projection to `RawValue` |
 |---|---|---|---|
-| `RawValue` | ✅ `AssayCore` | — | — |
-| `JSON.Value` | ✅ `AssayCore` | ✅ on the existing scanner | ✅ total |
-| `YAML.Node` | ✅ `AssayYAML` | ❌ | ✅ lossy, fails on non-string keys |
-| `XML.Node` | ✅ `AssayXML` | ❌ | ✅ lossy |
+| `RawValue` | `AssayCore` | — | it *is* the projection |
+| `JSON.Value` | `AssayCore` | the JSON scanner | total — nothing is lost |
+| `YAML.Node` | `AssayYAML` | hand-written | lossy, and fails outright on a non-string key |
+| `XML.Node` | `AssayXML` | hand-written | lossy |
+| `TOML.Node` | `AssayTOML` | hand-written | lossy — four date-time kinds become RFC 3339 text |
 
-51 tests, and the tests pin the **losses** as hard as the fidelity — a projection that
-quietly stopped being lossy would be as much a regression as one that lost more.
+All five exist and all four parsers are built. **The tests pin the losses as hard as the
+fidelity**: a projection that quietly stopped being lossy would be as much a regression as
+one that started losing more, because somebody downstream is relying on the shape it
+promised.
 
 `@Extras` and `unknownKeys: .collect` are **wired** (71 tests). Open question 2 below is
 **resolved, and the desirable property holds**: declaring `[String: XML.Node]` and calling

@@ -664,7 +664,8 @@ shape in the corpus is smaller than the gap on ordinary API payloads.
 
 # The third decode path, measured — and withdrawn on its own numbers
 
-**2026-08-09, closed 2026-08-10.** `docs/KEYED-SOURCE.md` justified a general row-at-a-time
+**2026-08-09, closed 2026-08-10.** The row-at-a-time design note (deleted with the feature;
+`ROADMAP.md` keeps the record) justified a general row-at-a-time
 `KeyedSource` protocol with a claim: reaching already-parsed data through the `RawValue` path
 "costs an allocation per value per record." That was reasoning, not measurement, and it was
 false — `RawValue.mapping` is one allocation per record.
@@ -809,7 +810,7 @@ the heap, and a blob never does.
 
 ## Where the generic entry point actually costs — and the API conclusion that follows
 
-**2026-08-09.** `docs/KEYED-SOURCE.md` claimed the generic entry point "specialises within a
+**2026-08-09.** That same note claimed the generic entry point "specialises within a
 module and falls back to witness-table dispatch across one, which is precisely the
 arrangement a CSV or Postgres driver in another package would hit." That was reasoning.
 Measured, it names the **wrong boundary**.
@@ -844,7 +845,7 @@ the caller cannot otherwise remove, because the penalty comes from a restriction
 
 That is worth more than the number: it means the columnar batch path is not just a
 performance option for Parquet, it is **the correct integration point for any driver**, and
-`docs/KEYED-SOURCE.md` now says so.
+The note was corrected to say so before it was deleted with the path it described.
 
 ---
 
@@ -1310,7 +1311,7 @@ mutating a copy of the input to terminate names in place and storing pointers in
 is how they beat libxml2 by 2-4x. Every one of those designs has nodes that BORROW the input.
 
 In Swift that is `~Escapable` in the public surface. This library refused it for
-`AssayReader`, refused it again for `KeyedSource`, and `docs/KEYED-SOURCE.md` records what
+`AssayReader`, refused it again for `KeyedSource`, and the design note recorded what
 the second refusal cost. **The remaining gap to libxml2 is, quite precisely, the price of
 that decision** — 13%, for a value type that cannot dangle.
 
@@ -1663,7 +1664,7 @@ is the corrected version of the claim it used to make.
 
 ## Rows: the transpose, measured seven times
 
-**2026-09-11.** `docs/ROWS.md`. `RowBatch` is the transpose a row-shaped source would
+**2026-09-11.** The columnar design note. `RowBatch` is the transpose a row-shaped source would
 otherwise write, and it was rebuilt seven times against a profile before it was committed —
 the table in ROWS.md §2 is the record, and the short version is that three things a Swift
 struct does by default each cost more than the work: dynamic exclusivity on a class's stored
@@ -1875,7 +1876,7 @@ not exist.
 
 **Every test of it used `TextStore`, a hand-written `ColumnarSource` that serves
 `stringColumn` directly.** So the feature was covered, the transpose was covered, and the
-one path that joins them was not. `docs/ROWS.md` §6 described the combination in a
+one path that joins them was not. That note's §6 described the combination in a
 sentence, and the sentence was wrong.
 
 ### Three designs, measured, two refused
@@ -1962,8 +1963,7 @@ conclusions that predate it are unverified again. Not wrong: unverified.
 
 # Doing less, not spending more
 
-**2026-09-13.** The efficiency audit (`docs/AUDIT-2026-09-13-efficiency.md`) moved the
-headline arms, and the first question to ask of that is whether speed was bought with
+**2026-09-13.** An efficiency sweep moved the headline arms, and the first question to ask of that is whether speed was bought with
 memory. It was not, and `totalalloc` is the instrument that can say so — it counts every
 allocate and free exactly, and both decoders retain the same output, so the retained part
 cancels and what is left is transient work.

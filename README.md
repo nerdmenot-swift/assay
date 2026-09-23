@@ -2,6 +2,53 @@
 
 **A decoder for Swift that tells you what went wrong.**
 
+Foundation tells you it expected an `Int` and found a `String`. Somewhere. Good luck.
+
+Assay tells you this:
+
+```
+deploy.json:3:15: error: replicas must be at least 1
+  1 │ {
+  2 │   "name": "api",
+  3 │   "replicas": 0,
+    │               ^
+  4 │   "image": "registry.internal/api"
+
+1 error
+```
+
+That is real output, not a mock-up — this repository's CI regenerates every render in its
+documentation from the library and fails if one drifts. Decode failures and validation
+failures look identical on purpose: to the person reading them, they are the same problem.
+
+> **0.1.0 — built, tested, measured, released for early adopters.** A `0.x` minor may change
+> the API and [`CHANGELOG.md`](CHANGELOG.md) says when. [`ROADMAP.md`](ROADMAP.md) lists what
+> is deliberately not here, with reasons.
+
+📖 **[assay.nerdmenot.in](https://assay.nerdmenot.in)** — guides, recipes, and a page per
+format. This file is the version for people who would rather stay in the terminal.
+
+---
+
+## Install
+
+```swift
+.package(url: "https://github.com/nerdmenot-swift/assay.git", from: "0.1.0")
+```
+
+```swift
+.target(name: "App", dependencies: [
+    .product(name: "Assay", package: "assay"),     // the macro + JSON
+])
+```
+
+`AssayYAML`, `AssayXML`, `AssayTOML`, `AssayPlist` and `AssayFoundation` are separate
+products, so a JSON-only app never links a YAML parser. Swift 6.2+, no runtime dependencies.
+
+## Sixty seconds
+
+Mark a struct. That is the setup.
+
 ```swift-check
 @Schema
 struct Article {
@@ -14,527 +61,188 @@ struct Article {
 let article = try Article.parse(json: data)
 ```
 
-No `CodingKeys`. No `Codable`. No rules, unless you want them — zero-rule `@Schema` is a
-first-class mode, and Assay is a complete serde with no validation at all rather than an
-on-ramp to one.
+No `CodingKeys`. No `init(from:)`. No conformance to write. Zero-rule `@Schema` is a
+first-class mode — Assay is a complete serde that happens to do validation, not a validator
+that grudgingly decodes.
 
-> **Status: 0.1.0 — built, tested, measured, and released for early adopters.**
-> The API in `docs/EXPERIENCE.md` is implemented and checked for breaking changes on every
-> pull request; a `0.x` minor may still change it, and [`CHANGELOG.md`](CHANGELOG.md) says
-> when. [`ROADMAP.md`](ROADMAP.md) lists the few things deliberately deferred, and why.
-
----
-
-## Why
-
-Foundation tells you a `String` was expected and an `Int` arrived, somewhere. Assay tells you
-this:
-
-```
-deploy.json:3:13: error: replicas must be at least 1
-  1 │ {
-  2 │ "name": "api",
-  3 │ "replicas": 0,
-    │             ^
-  4 │ "image": "registry.internal/api"
-
-1 error
-```
-
-That output is a golden test, not a mock-up. Decoding failures and validation failures render
-identically, because to the person reading them they are the same thing: the data is wrong, and
-here is where.
-
-And it is **faster** — not despite the error reporting but alongside it. Roughly **6–10×
-Foundation** on the corpus below, from scalar Swift with no SIMD and no C.
-
----
-
-## Install
-
-```swift
-.package(url: "https://github.com/nerdmenot-swift/assay.git", from: "0.1.0")
-```
-
-```swift
-.target(name: "App", dependencies: [
-    .product(name: "Assay", package: "assay"),            // core + JSON
-    .product(name: "AssayCore", package: "assay"),        // optional: values and rules, no macro
-    .product(name: "AssayYAML", package: "assay"),        // optional
-    .product(name: "AssayXML", package: "assay"),         // optional
-    .product(name: "AssayTOML", package: "assay"),        // optional
-    .product(name: "AssayPlist", package: "assay"),       // optional, binary + XML plists
-    .product(name: "AssayFoundation", package: "assay"),  // Data/URL/mmap conveniences
-])
-```
-
-Seven products, so a JSON-only user never links a YAML parser and a library that only
-consumes `Issue`s and `RawValue`s need not link the macro. The core takes bytes, not `Data`,
-and imports no Foundation. Swift 6.2+.
-
----
-
-## The two verbs
-
-```swift
-let user = try User.parse(json: data)      // -> User, throws AssayError, warnings discarded
-let d = User.diagnose(json: data)          // -> Diagnosis<User>
-```
-
-`parse` is for when a failure is exceptional. `diagnose` is for when it is expected — a form
-submission, a config file, an upload:
-
-```swift
-d.value            // User?  — nil if invalid
-d.issues           // [Issue] — every problem, not the first
-d.warnings         // [Warning] — things that succeeded but you should know about
-d.isValid
-try d.get()        // the parse behaviour, when you change your mind
-d.render(.terminal)
-```
-
-Assay walks the whole document. Twelve bad fields produce twelve issues, once.
-
-### And a third, for a value you already have
-
-Both verbs above start from bytes. When something *else* produced the value — a Parquet
-reader, a database driver, a form, a value you mutated after decoding — the same rules are
-reachable without a decode:
-
-```swift
-let trips = try Table("trips.parquet").rows(of: Trip.self)   // someone else's decoder
-try Trip.validate(trips)                                     // Assay's rules
-```
-
-79 ns for one value, 87 ns/row over a batch, and issues carry `[i]` so a million-row report
-still says which row. The law it holds is that a value `parse` accepted is never rejected
-here — see [`docs/VALIDATE.md`](docs/VALIDATE.md), including the three things it deliberately
-cannot re-check and why each one follows from that law.
-
-### Issues are data
-
-An `Issue` is a code plus parameters, never a rendered string:
+Two verbs, and which you want depends on who reads the failure:
 
 ```swift-check
-Issue(code: .tooSmall, path: [.key("replicas")], params: ["min": .int(1)])
+@Schema struct User { var id: Int }
+
+// Throws. For code that wants a value or an error.
+let user = try User.parse(json: data)
+
+// Never throws. For code that wants to SHOW someone what happened.
+let d = User.diagnose(json: data)
+if let value = d.value { _ = value }
+for issue in d.issues { print(issue.message) }
 ```
 
-`.message` is derived on demand, and every code has a name and documented parameters — so an
-API can serialise the code for a client and render English into a log from the same value. Four
-renderers ship: `.terminal` (carets, colour when the terminal supports it), `.plain`, `.json`,
-and `.problemDetails` (RFC 9457).
+`parse` belongs in a network layer. `diagnose` belongs behind a form, a config loader or a
+CLI — anywhere a human reads the result.
 
-And you do not have to ask for any of them: `print(error)`, `"\(diagnosis)"`, a failed
-`#expect(throws:)` and `error.localizedDescription` (with `AssayFoundation`) all show the
-plain caret render. A library whose product is the error report must never print
-`AssayError(storage: …)`.
+### Issues are data, not strings
 
----
+```swift-check
+@Schema struct Signup { @Validate(.min(3)) var username: String }
 
-## Validation
-
-```swift
-@Schema(keys: .snakeCase)
-struct Signup {
-    @Validate(.min(3), .max(20), .regex(#"^[a-z0-9_]+$"#)) var username: String
-    @Validate(.email) var email: String
-    @Validate(.min(12), "must be at least 12 characters") var password: String
-    @Validate(.range(13...120)) var age: Int
-    @Validate(.count(1...10), .each(.email)) var recipients: [String]
+for issue in Signup.diagnose(json: data).issues {
+    _ = issue.code        // .tooSmall — stable, matchable, never a sentence
+    _ = issue.path        // [.key("username")]
+    _ = issue.params      // ["minimum": .int(3), "unit": .string("characters")]
+    _ = issue.location    // the byte span, for the caret
+    _ = issue.message     // derived when you ask, never stored
 }
 ```
 
-`Rule` is non-generic, so leading-dot syntax works with no type context to infer from — and
-because it is `ExpressibleByStringLiteral`, a bare string in the list is a message override for
-that attribute. Rules compose, and they are values:
+Match on the code, render your own words, interpolate the params. The English is a
+convenience, not the API.
 
-```swift-check
-extension Rule {
-    static let companySlug = Rule.all(.min(3), .max(40), .regex("^[a-z][a-z0-9-]*$"))
-}
-```
+## What you stop writing
 
-The macro type-checks rules against field types **at expansion**:
+| Codable | Assay |
+|---|---|
+| `enum CodingKeys: String, CodingKey` | `@Schema(keys: .snakeCase)` — at compile time, losslessly |
+| `init(from:)` for one default | `var retries: Int = 3` |
+| `decodeIfPresent` | `var nickname: String?` |
+| A validation pass after decoding | `@Validate(.email)`, `@Check` — same pass, same errors |
+| A second model for YAML | `@Schema(formats: .all)` |
+| `try/catch` around the first failure | every failure at once, each at its byte |
 
-```
-error: rule '.email' applies to String, but 'age' is declared Int
-```
-
-`.email`, `.url`, `.uuid` and `.hostname` are hand-written byte validators — no regex engine, no
-ICU, no locale, identical on every platform.
-
-### Dates
-
-A `Date` field needs `import Foundation` in the file that declares it — the core is
-Foundation-free by design, and `AssayFoundation` does not re-export it.
-
-```swift
-var createdAt: Date                                   // ISO-8601, the default
-@DateFormat(.unixSeconds)           var ts: Date
-@DateFormat(.rfc9110)               var expires: Date // all 3 forms RFC 9110 requires
-@DateFormat(.pattern("yyyy-MM-dd")) var day: Date     // pattern checked at compile time
-@DateFormat(.iso8601, .unixMillis)  var updated: Date // candidate chain; fallback warns
-@Validate(.after("2020-01-01"), .before("2030-01-01")) var opens: Date
-```
-
-The parsers are hand-written integer arithmetic (Hinnant's days-from-civil), verified against
-Foundation on 2,279 instants **exactly** — no tolerance — and **5.40× faster** than
-`JSONDecoder`'s `.iso8601` strategy on the date-dense corpus shape. A candidate chain tries
-formats in order; a match on anything but the first *warns*, naming both formats, because silent
-tolerance is how a payload drifts formats unnoticed. A total miss reports every format tried and
-the byte where the primary one failed: `must be an ISO-8601 date — day 30 is out of range for
-2026-02`, caret on the day. Foundation quietly rolls `2026-02-29` over to March 1; Assay
-refuses it by name.
-
-### Checks: validation with a debugger attached
+Five presence states, five spellings, and three of them need no attribute at all:
 
 ```swift-check
 @Schema
-struct DateRange {
-    var start: Int
-    var end: Int
-
-    @Check
-    static func endAfterStart(_ r: DateRange, _ issues: inout Issues<DateRange>) {
-        if r.end < r.start { issues.add("must be on or after start", at: \.end) }
-    }
+struct Account {
+    var id: Int                     // required — absent is an error
+    var nickname: String?           // absent → nil
+    var retries: Int = 3            // absent → 3; present is still validated
+    @Fallback(0) var score: Int     // absent OR invalid → 0, with a warning
+    @Ignore var cache: String?      // not a field
 }
 ```
 
-A real static function: real types, real breakpoints, its own unit tests. The keypath does real
-work — the issue lands on `end`, carrying `end`'s path. There is a field form
-(`@Check(\Signup.workEmail) static func f(_ email: String) -> String?`) and an `@AsyncCheck` for
-database and network round trips, which makes `parse` async **by a compile-time count**, so
-schemas that never need it never see an `await`.
+## Not only JSON
 
-> A `@Check` in an extension is a **compile error**. An attached macro cannot see extension
-> members, so the check would silently never run; the attribute detects the placement and says
-> so, rather than letting you find out in production.
-
-### Forward compatibility
+One declaration, five formats, one set of rules, one kind of error:
 
 ```swift-check
-@Schema enum Status {
-    case active, suspended
-    @Unknown case other(String)     // a v2 server's new variant, captured not rejected
-}
-```
-
-Decoding an unrecognised value succeeds and keeps the text, so a v1 client survives a v2
-server. **Encoding it back is refused by default** — writing an unvetted value through a type
-that reads as a closed set is how a proxy launders attacker input — and
-`@Unknown(roundTrips: true)` opts in. A *closed* enum needs no macro at all:
-`enum P: String, JSONAssayable {}` already decodes and reports the case list on a bad value.
-
-### The five presence states
-
-Missing, null, defaulted, salvaged and ignored are five different things, and Assay spells all
-five:
-
-```swift-check
-var required: String              // must be present
-var optional: String?             // may be absent or null
-var withDefault: Int = 3          // absent -> 3, still validated
-@Fallback(0) var salvaged: Int    // absent OR INVALID -> 0, with a warning, not re-validated
-@Ignore var derived: String = ""  // never touched by decoding
-```
-
-### Preprocess and transform
-
-```swift
-@Preprocess(.trim, .lowercase) @Validate(.email) var email: String
-@Transform({ (a: [String]) in Set(a) }) var tags: Set<String>
-```
-
-Preprocess normalises before rules run; transform changes the type after they pass. The order is
-fixed and total: preprocess → coerce → decode → field rules → cross-field checks → transform →
-async checks.
-
----
-
-## Encoding
-
-```swift
-@Schema(keys: .snakeCase, encodes: true)
-struct Article { var title: String; var tags: [String] = [] }
-
-let bytes = try article.encode()          // throws AssayError, carrying every issue
-let d = article.diagnoseEncode()          // partial bytes + issues, same renderers
-```
-
-Opt-in, because generated body size is what dominates compile cost and a decode-only type
-must not pay for an encoder it never calls. **Round-trip is a stated law, not a hope:**
-
-> For any `v` from `parse`, `parse(encode(v))` equals `v` — except where a `@Fallback` fired,
-> or unknown keys were dropped by a policy other than `.collect`.
-
-The law and each exception are named test cases. A `@Transform` needs a paired `@Inverse` or
-the type will not compile with `encodes: true`; `Double.nan` is reported with its path rather
-than silently written as `null`; `@Extras` are written back so a decode-edit-encode proxy
-loses nothing. The six semantics questions behind those choices are worked through in
-[`docs/ENCODING.md`](docs/ENCODING.md).
-
-```swift
-try article.encode(yaml: ())              // block-style YAML
-```
-
-YAML encodes through the same `RawValue` projection it decodes through — the pipeline run
-backwards — so the macro never learns about YAML. The hard part is quoting: a bare `123` or
-`true` in YAML is an integer or a boolean, so a string that looks like one is always quoted.
-57 hazard cases and a differential against **libyaml** hold it to that.
-
-```swift
-@Schema(formats: .all, encodes: true)
-struct User {
-    @XML(.attribute) var id: Int          // <User id="7">
-    var name: String                      // <name>ada</name>
-    var tags: [String]                    // <tags>a</tags><tags>b</tags>
-    @XML(.wrapped) var roles: [String]    // <roles>…</roles> — keeps empty ≠ absent
-}
-try user.encode(xml: nil)
-```
-
-XML defaults were settled by surveying the field, not by taste: **element** for unannotated
-fields (Jackson, Go, .NET and pydantic-xml all agree; none defaults to an attribute) and
-**unwrapped repeated siblings** for arrays (Go and serde-xml-rs — the two whose XML support
-was designed rather than retrofitted onto a JSON mapper). `@XML(.wrapped)` exists for the one
-thing unwrapped cannot express: an empty array versus an absent one.
-
-Encoding is deliberately **unbenchmarked**, so no speed claim is made for it.
-
----
-
-## Keys
-
-```swift-check
-@Schema(keys: .snakeCase, unknownKeys: .warn)
-struct User {
-    var displayName: String                                // display_name
-    @Key("id") var identifier: String
-    @Key("email", or: "email_address") var email: String    // warns which alias matched
-    @Extras var rest: [String: RawValue]
-}
-```
-
-Key conversion happens **at compile time, from the declared identifier**, so it round-trips
-exactly. Foundation's `.convertFromSnakeCase` is lossy at runtime — `avatarURL` becomes
-`avatar_url` becomes `avatarUrl`, and the field silently goes missing.
-
-Unknown keys are a policy, not a fixed behaviour: `.ignore`, `.warn`, `.reject`, `.collect`. The
-message carries a did-you-mean, using Damerau-Levenshtein distance so that transpositions — the
-commonest typo there is — actually get suggested.
-
-Dictionary fields decode as declared — `[String: Int]`, `[String: MySchema]`,
-`[String: [String: Int]]`, `[[String: Int]]` all nest — and an open map is an ordinary field:
-`var meta: [String: RawValue]`. A dictionary keyed by anything but `String` is a compile-time
-diagnostic, because object keys are strings in every wire format.
-
----
-
-## One struct, several formats
-
-Formats are opt-in per type, so nothing links a parser it does not use:
-
-```swift
-@Schema(formats: [.json, .yaml, .xml, .toml])
+@Schema(keys: .snakeCase, formats: .all)
 struct Config {
     var name: String
-    var replicas: Int
+    @Validate(.min(1)) var replicas: Int
 }
-
-try Config.parse(json: bytes)
-try Config.parse(yaml: text)
-try Config.parse(xml: bytes)
-try Config.parse(toml: text)
 ```
 
-The YAML, XML and TOML parsers are hand-written, and each format keeps its own value model —
-`JSON.Value`, `YAML.Node`, `XML.Node`, `TOML.Node`. They are deliberately not unified behind one type: a
-YAML scalar's resolution and an XML element's namespace are not the same kind of thing, and
-pretending otherwise loses information. XXE is refused by construction; billion-laughs and alias
-bombs are capped by budget.
-
----
-
-## Performance
-
-The design staked itself on a falsification condition written down in advance
-(`docs/PERFORMANCE.md` §14): *if scalar Swift does not comfortably clear ZippyJSON's 1.38× over
-Foundation, the thesis is wrong and the SIMD work is moot.*
-
-| pass | baseline | mean |
+| Format | Product | Notes |
 |---|---|---|
-| Struct decode, 25 files (`@Schema` vs `Codable`) | Foundation | **9.14×** |
-| Prefix decode + unknown-key skip, 45 files | Foundation | **5.62×** |
-| Generic value model, 75 files (`JSON.Value`) | `JSONSerialization` | **3.35×** |
-| Falsification arm (API-shaped, 512 B – 64 kB) | Foundation | **5.24×** |
-| Float-dense (canada.json-shaped) | Foundation | **8.13×** |
-| Date decode (`[Date]`, corpus date strings) | `JSONDecoder` `.iso8601` | **5.40×** |
-| Dictionary decode (`[String: T]`, the stated worst case) | Foundation | **5.98×** |
-| YAML node parse | Yams (`compose`, libyaml) | **8.35×** |
-| YAML struct decode | Yams `YAMLDecoder` (Codable) | **18.20×** |
-| XML tree parse (asymmetric, and **macOS only** — read `RESULTS.md`) | Foundation `XMLParser` | **2.47×** |
-| TOML node parse | toml++ (`TOMLTable(string:)`, C++) | **4.06×** |
-| TOML struct decode | TOMLKit `TOMLDecoder` (Codable) | **6.55×** |
+| JSON | `Assay` | straight from bytes into your struct — the fast path |
+| YAML 1.2 | `AssayYAML` | hand-written, anchors and aliases, no libyaml to vendor |
+| XML | `AssayXML` | XXE refused by construction, not by a flag |
+| TOML 1.0.0 | `AssayTOML` | 710/710 on the official test suite |
+| Property lists | `AssayPlist` | binary and XML |
+| HTTP bodies | — | `parse(body:contentType:accepting:)`, RFC 9110 negotiation |
 
-The thesis in one line: **the parser was never the bottleneck; the `Codable` container boundary
-was.** ZippyJSON bolted simdjson — the fastest JSON parser in existence — onto `Decodable` and
-got 1.38×. Apple's own prototype changes nothing about parsing, deletes only the container
-protocol, and reports ~6×. Assay's macro deletes that boundary at compile time.
+Carets work on all of them, because the spans come from the parsers.
 
-The generic-value row is the honest floor: a value model has no `Codable` boundary to remove, so
-1.49× is what the scanner is worth on its own.
+## Speed, with receipts
 
-**Compile cost: ~84 ms per `@Schema` type** at 10 fields — 83–87 ms across runs, so it is a band
-rather than a figure — gated in CI at 100 ms. `@Schema` is not free, and the number is published
-rather than buried. It scales with generated body size, not with plugin round-trips.
+The thesis in one line: **Assay does not need to beat simdjson, it needs to not have a
+`KeyedDecodingContainer`.** Roughly 83% of a Swift decode is the Codable boundary, and a
+macro deletes it at compile time.
 
-**Allocations** are gated on absolute live-block thresholds: `arrays-of-scalars-8k` decodes to
-exactly one exactly-sized `[Int]` with no doubling, and a six-field struct of short strings
-allocates nothing at all, because those `String`s are small-form and immortal. The counter's
-three limitations are documented at the top of
-`Benchmarks/Sources/AssayBench/Allocations.swift` rather than hidden — read them before quoting
-a number from it.
+| Arm | Against | |
+|---|---|---|
+| Struct decode, 25 files | `JSONDecoder` | **9.14×** |
+| YAML struct decode | Yams `YAMLDecoder` | **18.20×** |
+| Encoding, 50 items | `JSONEncoder` | **8.75×** |
+| vs ZippyJSON (simdjson + Codable) | ZippyJSON | **3.61×** |
+| `T.validate(_:)` | — | **37 ns**, one allocation |
+| Compile time, 10 fields | `Codable` | 81 ms/type, ~4× |
 
-### Where Assay loses, measured and published
+One arm64 Mac, warm, `-O`, minimum of five rounds. **Where it loses is published too**:
+0.69× yyjson on the use-case shape, 0.16× building a tree, and XML is 2.47× Foundation on
+macOS but 0.96× on Linux where `FoundationXML` is libxml2. A benchmark page that lists only
+its wins is an advertisement.
 
-Against **yyjson** — hand-tuned C, built `-O3`, values asserted equal first, teardown inside
-both timed regions:
+Full table, method and caveats: [`Benchmarks/RESULTS.md`](Benchmarks/RESULTS.md).
 
-| comparison | result |
-|---|---|
-| `@Schema` decode vs yyjson parse **+ extracting the same Swift structs** | **0.69×** — C is ~1.4× faster |
-| float-dense, same comparison (the arm predicted to lose) | **0.69×** — C is ~1.4× faster |
-| `JSON.Value` vs `yyjson_read` (DOM vs DOM) | **0.16×** — C is ~6× faster |
+## How it is checked
 
-The DOM row is the one to read carefully: yyjson builds a tape in one arena with strings
-pointing into it, while `JSON.Value` is a Swift enum tree of individually ARC-managed `String`s.
-That is a representation difference, and it is why **`JSON.Value` is not the fast path and is
-never presented as one** — it exists so `@Extras` and "I don't know this shape" have somewhere
-to land.
+This is the part the author enjoys more than is strictly healthy.
 
-Assay sits between Foundation and C, closer to C, and behind it. Both numbers are true at once,
-and the Foundation ones remain the relevant comparison for the audience: nobody migrating off
-`JSONDecoder` gets yyjson's number without hand-writing the extraction and giving up typed
-errors, source spans, validation, and every format but JSON.
+- **825 tests**, 141 suites, 87% line coverage.
+- **Differential oracles** — every format decoded twice, once by Assay and once by the
+  incumbent: `JSONSerialization`, Yams/libyaml, Foundation's `XMLParser`, toml++,
+  `PropertyListDecoder`. Disagreement fails the build. Two real parser bugs found on the
+  first run.
+- **710/710** on the official `toml-test` suite; 2,279 instants bit-exact against Foundation
+  for dates.
+- **A fuzzer that asserts laws**, not just the absence of crashes: 12,680 mutated and
+  truncated documents, 55,905 generated decodes checked against three invariants.
+- **Exact counters.** Every matrix cell runs under Callgrind and DHAT on x86-64 and arm64,
+  every push, counting instructions, retains, releases, allocations and uniqueness checks per
+  call. An allocation that appears where there was none fails CI. Wall clock is never gated —
+  it is a flaky test with extra steps.
+- **A static ARC audit** comparing retain/release *sites* against a golden, because a release
+  on an error path costs nothing at run time and still costs code size.
+- **Amplification tests** with stated budgets: billion laughs, alias bombs, plist reference
+  cycles, 10<sup>30</sup>-node shared-object graphs under a kilobyte.
 
-### What is *not* claimed
-
-- Not "the fastest JSON decoder." Unqualified, unprovable, and false on the axis above.
-- The baseline above is **yyjson, not simdjson** — simdjson is C++ and would need an interop
-  shim. Read it as "a SIMD-tier C parser", not as a simdjson number.
-- Every number above is one arm64 macOS machine, warm, minimum of five rounds. None of them is a
-  claim about another platform.
-- Multi-megabyte documents are outside the target band and unmeasured.
-
----
-
-## Correctness
-
-| | |
-|---|---|
-| Unit tests | **712** in 120 suites |
-| JSON differential | `JSON.Value` agrees with `JSONSerialization` value-for-value on all **75** positive corpus files |
-| YAML differential | agrees with **Yams/libyaml** on 37 adversarial hand-written cases + 75 generated documents, and with `JSONSerialization` on the whole corpus read as YAML (JSON ⊂ YAML 1.2) |
-| XML differential | agrees with **Foundation's `XMLParser`** on 29 hand-written + 75 generated documents, namespaces and attributes included |
-| TOML conformance | **710/710** documents of the official `toml-test` suite (210 valid to the exact value, 501 invalid refused), run in CI; agrees with **toml++** on 35 hand-written + 150 generated documents |
-| Date differential | **2,279 instants** agree with Foundation *exactly*; deliberate divergences pinned in both directions (leap seconds; Foundation's silent date rollover) |
-| Fuzz | **10,680** deterministic mutations and truncations through all four parsers per run — no crash, no hang |
-| Macro tests | expansion and diagnostic assertions, without XCTest |
-
-The differential oracles earn their place the same way the fuzzer does: their first run caught
-two real parser bugs (a YAML block-sequence form and XML line-ending normalisation), both fixed
-and pinned before any of this shipped.
-
-The fuzzer earns its place: it found a YAML flow-collection hang (`[}]` looped forever appending
-empty scalars, until the OOM killer arrived) within its first 466 inputs. Seeds and mutations are
-SplitMix64 with a fixed seed, so any finding reproduces exactly, and
-`DiffFuzz --probe yaml '<input>'` shrinks it.
-
----
+If that sounds excessive for a decoder: a decoder is a thing that reads bytes an attacker
+chose.
 
 ## Platforms
 
-| platform | status |
+| | |
 |---|---|
-**Three supported platforms, and every one of them gates CI.** There is no fourth category
-of "enabled, reported, allowed to fail" — a signal that is always red is not a signal.
+| Test suite runs | macOS, Linux (x86-64 + aarch64), Windows |
+| Builds | iOS, tvOS, watchOS, visionOS, static-musl Linux, wasm32 |
 
-| platform | status |
-|---|---|
-| macOS (arm64) | tested and benchmarked, gating |
-| Linux (x86-64) | tested and benchmarked, gating |
-| Windows (x86-64) | tested and gating |
-| Linux (aarch64) | tested and benchmarked, gating |
-| iOS | built for the platform, gating |
-| Static Linux SDK (musl) | cross-compiles clean, both architectures, gating |
-| WASI (wasm32) | cross-compiles clean, gating |
-
-**Apple deployment floor: macOS 11, iOS 14, tvOS 14, watchOS 7, visionOS 1.** One release
-generation, forced by `String(unsafeUninitializedCapacity:)` (SE-0263) and by swift-syntax's
-macro plugin. `platforms:` constrains Apple platforms *only* — it sets no floor on Linux,
-Windows or WebAssembly, which are governed by what the toolchain supports.
-
-Embedded Swift is explicitly not a target. Every build in CI passes
-`--explicit-target-dependency-import-check error`, which is how an undeclared cross-module
-import gets caught rather than accidentally working.
-
----
+Every libc call is behind `canImport`, and the parsers are hand-written Swift with nothing to
+vendor — which is why that list is as long as it is. Android is not a target.
 
 ## Documents
 
-| file | what it is |
+Start at the [website](https://assay.nerdmenot.in) if you want prose and examples. These are
+the ones worth reading in the repository:
+
+| | |
 |---|---|
-| [`docs/EXPERIENCE.md`](docs/EXPERIENCE.md) | the developer experience, end to end — the API spec |
-| [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) | the runtime strategy and the falsification condition |
-| [`docs/COMPILE-TIME.md`](docs/COMPILE-TIME.md) | the second performance axis, and the CI gate |
-| [`docs/VALUE-MODELS.md`](docs/VALUE-MODELS.md) | why JSON, YAML, XML and TOML keep separate value types |
-| [`docs/TOML.md`](docs/TOML.md) | the TOML parser: redefinition rules, the date-time projection, toml-test 710/710 |
-| [`docs/STREAMING.md`](docs/STREAMING.md) | why streaming is out of scope, and what it would cost |
-| [`docs/ENCODING.md`](docs/ENCODING.md) | the six semantics questions behind encoding, and how each was answered |
-| [`docs/VALIDATE.md`](docs/VALIDATE.md) | validating a value you already have, and the law that decides what it can check |
-| [`docs/CONFORMANCE.md`](docs/CONFORMANCE.md) | what each parser accepts and refuses, and how that is checked |
-| [`docs/PLIST.md`](docs/PLIST.md) | property lists, and the two amplification attacks the binary format carries |
-| [`docs/AUDIT-2026-09-13-efficiency.md`](docs/AUDIT-2026-09-13-efficiency.md) | the efficiency audit: two denial-of-service fixes, a 2.5× on the generated body, and why SIMD and concurrency stay out |
-| [`docs/AUDIT-2026-09-12.md`](docs/AUDIT-2026-09-12.md) | the second full audit: what was fixed, what was recorded, and the class of bug behind both |
-| [`ROADMAP.md`](ROADMAP.md) | what is deferred, and why |
-| [`CLAUDE.md`](CLAUDE.md) | settled decisions and hard constraints on generated code |
-| [`LICENSE`](LICENSE) / [`NOTICE`](NOTICE) | Apache 2.0, and third-party attribution |
-| [`docs/research/`](docs/research/) | the seven research passes the above were built from |
+| [`docs/EXPERIENCE.md`](docs/EXPERIENCE.md) | the API, and the argument for every part of it |
+| [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) | the strategy, and what was retired unbuilt |
+| [`docs/EFFICIENCY.md`](docs/EFFICIENCY.md) | the ledger: one row per idea, decided by a counter |
+| [`docs/COMPILE-TIME.md`](docs/COMPILE-TIME.md) | why build time is a gate and not a footnote |
+| [`docs/ENCODING.md`](docs/ENCODING.md) | round-trip as a law, with a closed exception list |
+| [`docs/VALIDATE.md`](docs/VALIDATE.md) · [`UNIONS.md`](docs/UNIONS.md) · [`TOML.md`](docs/TOML.md) · [`PLIST.md`](docs/PLIST.md) · [`ASSAYER.md`](docs/ASSAYER.md) | one feature each, in depth |
+| [`docs/CONFORMANCE.md`](docs/CONFORMANCE.md) | what each parser accepts and refuses, and how that is held |
+| [`docs/VALUE-MODELS.md`](docs/VALUE-MODELS.md) | five value models and why they are not one |
+| [`docs/STREAMING.md`](docs/STREAMING.md) | why streaming is out of scope, in full |
+| [`Benchmarks/RESULTS.md`](Benchmarks/RESULTS.md) | every measurement, with the mistakes made getting there |
+| [`ROADMAP.md`](ROADMAP.md) | what is deferred, what was removed, and why |
 
-Every research file ends with an explicit **"do not assert these"** section. Where a research
-file and an experiment disagree, the experiment wins.
+`docs/research/` holds the seven pre-implementation research passes. They are a historical
+record, each ending in an explicit "do not assert these" list, and several of their premises
+have since been measured false — read them as archaeology, not as documentation.
 
----
-
-## Reproduce
+## Reproduce anything
 
 ```sh
-swift test                                          # 196 tests
-
+swift test                                    # 825 tests
 cd Benchmarks
-swift run -c release CorpusGen                      # 81-file corpus, deterministic
-swift run -c release AssayBench                     # full sweep + allocation gate
-swift run -c release DiffFuzz                       # differential + fuzz
-
-Experiments/01-jump-table/sweep.sh                  # does dispatch reach a jump table?
-Experiments/03-compile-time/gate.sh                 # compile-time budget gate
+swift run -c release CorpusGen                # the corpus, deterministic
+swift run -c release AssayBench --list        # every arm
+swift run -c release DiffFuzz                 # oracles + fuzz
+./count.sh                                    # exact counters, in a container
 ```
 
----
+## Contributing
+
+[`CONTRIBUTING.md`](CONTRIBUTING.md) has the shape of a change that gets merged. The short
+version: a claim needs a number, a bug needs a failing test first, and if you make something
+faster the counters have to agree with you.
 
 ## Licence
 
-Apache License 2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
-
-Apache 2.0 rather than MIT for one reason that matters to anyone shipping this inside a product:
-**it grants patent rights explicitly, and terminates them for anyone who sues over them.** MIT is
-silent on patents, which leaves a downstream user relying on an implied licence that has never
-been tested. Apache also requires that modified files say they were modified, which keeps
-provenance intact when a file is copied out of the tree rather than depended on.
-
-Contributions are inbound=outbound under section 5 of the licence: anything you submit is offered
-under the same terms, and there is no separate CLA to sign.
-
-The one dependency, `swift-syntax`, is Apache 2.0 with the Runtime Library Exception, and is a
-build-time dependency of the macro plugin only — it is not linked into a client binary.
+Apache-2.0. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).

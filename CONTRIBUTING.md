@@ -1,99 +1,114 @@
 # Contributing
 
-Thanks for looking. Assay is opinionated in ways that are written down, so the best
-first step for any non-trivial change is reading the documents the change touches:
+Thanks for looking. Assay is opinionated, but the opinions are written down rather than
+lurking in a reviewer's head — so the fastest way in is reading the document your change
+touches before you write it.
 
-- **`docs/EXPERIENCE.md`** — the developer experience. Authoritative for API shape.
-- **`docs/PERFORMANCE.md`** — the performance strategy, and `docs/COMPILE-TIME.md` —
-  the compile-time budget. Authoritative for how generated and runtime code may be
-  written; the hard constraints in `CLAUDE.md` ("never switch over a String", "one
-  line of generated code per field", …) are enforced in review.
-- **`ROADMAP.md`** — what is deliberately deferred and why. If your idea is there,
-  the deferral reason is the conversation to have first.
+| If you are changing… | Read first |
+|---|---|
+| the API's shape | [`docs/EXPERIENCE.md`](docs/EXPERIENCE.md) |
+| anything in a hot path | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md), [`docs/EFFICIENCY.md`](docs/EFFICIENCY.md) |
+| the macro's output | [`docs/COMPILE-TIME.md`](docs/COMPILE-TIME.md) — build time is a gate here |
+| a parser's accept/reject behaviour | [`docs/CONFORMANCE.md`](docs/CONFORMANCE.md) |
+| something listed as deferred | [`ROADMAP.md`](ROADMAP.md) — the deferral reason is the conversation |
 
-## Ground rules that will come up in review
+The hard constraints on generated code live in [`CLAUDE.md`](CLAUDE.md) — "never switch over
+a `String`", "one line of generated code per field", and a few others that look arbitrary
+until you read the paragraph under each. They are enforced in review.
 
-- **Every parser change needs the differential to stay green.**
-  `cd Benchmarks && swift run -c release DiffFuzz` runs the JSON, YAML, XML and date
-  oracles plus the fuzzer. If you fixed a parser bug, add the case that found it.
-- **Every new issue code needs a message.** The message-coverage suite fails on a
-  code that renders as its own identifier.
-- **Anything that turns input into output needs an amplification case.**
-  `Tests/AssayTests/AmplificationTests.swift` bounds how much output a small input may
-  buy. It exists because a YAML alias bomb — 331 bytes reaching 11.4 million nodes with
-  no issue reported — survived 250 tests, a differential per format, and the fuzzer:
-  fuzzing proves no crash, differentials prove two parsers agree, and neither asks what a
-  cheap input *costs*. If you add expansion, aliasing, references, repetition, or any
-  construct where one token can produce many values, add a case there. Assert on
-  deterministic quantities (nodes, bytes, issues), never on wall clock — the few
-  time-based ceilings in that file are blowup detectors for quadratic paths, sized
-  absurdly loose on purpose, and must not be tightened into performance gates.
-- **Performance claims need numbers from the harness**, on stated hardware, with the
-  caveats attached. The honesty rules in `CLAUDE.md` are not aspirational; "faster"
-  without a table does not merge. Wall clock is never gated in CI — allocation counts
-  and compile-time are.
-- **Compile-time budget**: `bash Experiments/03-compile-time/gate.sh` must stay under
-  100 ms per type. "Emit less code per field" is the lever that works.
-- **Zero warnings, in `Sources/`, `Tests/` and every macro expansion.** CI fails on one.
-  The library carried 56 for a while and `.strictMemorySafety()` was decorative for
-  exactly that long. A warning inside generated code is the emitter's bug, not the
-  user's — fix it in `AssayMacros`, never by suppressing it at the use site.
-- **No new dependencies in the library.** The benchmark package may take dependencies
-  (Yams lives there as an oracle); the shipping products may not.
+## What review will ask you
 
-## Running everything
+**A parser change keeps the differentials green.** `cd Benchmarks && swift run -c release
+DiffFuzz` decodes every format twice — once by Assay, once by the incumbent — and disagreement
+fails. Fixed a parser bug? Add the document that found it.
 
-One command, before you push:
+**A new issue code gets a message.** The coverage suite fails on a code that renders as its
+own identifier, which is the failure mode where an error says `too_small` at a human.
+
+**Anything that turns input into output gets an amplification case.** This rule has a story.
+A YAML alias bomb — 331 bytes reaching 11.4 million nodes, no issue reported — walked past 250
+tests, a differential per format, and the fuzzer. Fuzzing proves nothing crashed.
+Differentials prove two parsers agree. Neither one asks what a *cheap input costs*.
+`Tests/AssayTests/AmplificationTests.swift` asks. If you add expansion, aliasing, references,
+repetition, or any construct where one token yields many values, add a case.
+
+Assert on deterministic quantities — nodes, bytes, issues. Never wall clock. The few
+time-based ceilings in that file are blowup detectors for quadratic paths, sized absurdly
+loose on purpose, and tightening one into a performance gate is how you get a flaky suite.
+
+**A performance claim arrives with numbers.** From the harness, on stated hardware, caveats
+attached. "Faster" without a table does not merge. Wall clock is never gated in CI;
+allocation counts, exact instruction counts and compile time are.
+
+**Compile time stays under budget.** `bash Experiments/03-compile-time/gate.sh`, 100 ms per
+type. The lever that works is "emit less code per field" — not "call the macro less", which
+buys nothing.
+
+**Zero warnings**, in `Sources/`, `Tests/` and every macro expansion. The library carried 56
+for a while, and `.strictMemorySafety()` was decorative for exactly that long. A warning
+inside generated code is the emitter's bug: fix it in `AssayMacros`, never by suppressing it
+where it surfaced.
+
+**No new dependencies in the library.** The benchmark package may take them — Yams lives
+there as an oracle — but nothing that ships does.
+
+## Running it
+
+One command before you push:
 
 ```sh
 bash Scripts/check.sh
 ```
 
-It runs the build (warning-free, with a forced recompile — an incremental build reports no
-warning for a file it did not rebuild), the tests, the documented examples, the benchmark
-package's build, and the differentials. It reports every step and exits with the number of
-failures, so a partial pass is visible instead of being whatever the last command returned.
+Build (warning-free, forced recompile — an incremental build reports no warning for a file it
+did not rebuild), tests, documented examples, the benchmark package's build, the
+differentials. It reports every step and exits with the number of failures, so a partial pass
+is visible instead of being whatever the last command happened to return.
 
-It deliberately leaves out the two slow gates, which must not run at the same time as each
-other — see the note below the list. Individually:
+It leaves out the two slow gates on purpose. Individually:
 
 ```sh
-swift test                                        # ~700 tests, includes macro tests
+swift test                                      # 825 tests, macro expansion included
+
 cd Benchmarks
-swift run -c release CorpusGen                    # regenerate the corpus (deterministic)
-swift run -c release DiffFuzz                     # differentials + fuzz — CI-gated
-swift run -c release DiffFuzz toml-numbers         # ~4,900 numeric literals vs toml++
-# The official 710-case suite. The checkout is one command and worth having locally:
-#   git clone --depth 1 https://github.com/toml-lang/toml-test ~/src/toml-test
-TOML_TEST_DIR=~/src/toml-test swift run -c release DiffFuzz toml-test
-swift run -c release AssayBench --list            # the benchmark arms
-swift run -c release AssayBench allocations       # the one arm CI gates on
-swift run -c release AssayBench encode zippy      # any arms you touched, in under a minute
-swift run -c release AssayBench                   # every arm — about eight minutes
-swift run -c release AssayMatrix run             # the profiling matrix, ~3 minutes
-swift run -c release AssayMatrix run --baseline matrix-baseline.json   # against the saved run
-bash ../Experiments/03-compile-time/gate.sh       # compile-time budget
+swift run -c release CorpusGen                  # the corpus, deterministic
+swift run -c release DiffFuzz                   # differentials + fuzz, CI-gated
+swift run -c release DiffFuzz toml-numbers      # ~4,900 numeric literals against toml++
+swift run -c release AssayBench --list          # every arm, with a one-line summary
+swift run -c release AssayBench allocations     # the arm CI gates on
+swift run -c release AssayBench                 # all of them, about eight minutes
+swift run -c release AssayMatrix run            # the profiling matrix, ~3 minutes
+./count.sh                                      # exact counters, in a container
+bash ../Experiments/03-compile-time/gate.sh     # the compile-time budget
 ```
 
-`AssayMatrix` is the wide net: eighteen fixtures that each move ONE property off a base,
-crossed with seven verbs, so a number that moves points at the property responsible. Reach
-for it when you have changed something whose blast radius you are unsure of, and for
-`AssayBench` when you have a specific question with a named competitor. It deliberately does
-not run in CI — wall clock on a hosted runner is not something to gate on — and its own
-measured noise floor is recorded in `Benchmarks/RESULTS.md`.
+The official TOML suite is worth having locally — one clone, 710 cases:
 
-Run only the arms your change can affect while iterating, and the whole set once before
-you commit a number. Two arms running at once measure each other's contention, so never
-run `AssayBench` and `gate.sh` concurrently; a run contaminated that way was discarded on
-2026-09-10 and the arm selector exists so that nobody has to wait eight minutes to find
-out.
+```sh
+git clone --depth 1 https://github.com/toml-lang/toml-test ~/src/toml-test
+TOML_TEST_DIR=~/src/toml-test swift run -c release DiffFuzz toml-test
+```
 
-### Documentation
+**Never run two timing harnesses at once.** They measure each other's contention. A run
+contaminated that way was thrown away on 2026-09-10, and the arm selector exists so nobody
+waits eight minutes to learn that.
 
-`Sources/Assay/Assay.docc` is the DocC catalogue — the landing page and four articles —
-and the Swift Package Index builds it for every product named in `.spi.yml`. The package
-deliberately does not depend on `swift-docc-plugin` (every consumer would fetch it), so to
-build locally use the toolchain's `docc` on a symbol graph:
+Which instrument for which question:
+
+- **`AssayBench`** — a specific question with a named competitor. "Is encoding still faster
+  than `JSONEncoder`?"
+- **`AssayMatrix`** — the wide net. Eighteen fixtures that each move *one* property off a
+  base, crossed with seven verbs, so a number that moves points at the property responsible.
+  Reach for it when you are unsure of a change's blast radius.
+- **`count.sh`** — the exact one. Instructions, retains, releases, allocations and uniqueness
+  checks per call, under Callgrind and DHAT. Deterministic run to run, which is why it gates
+  and wall clock does not.
+
+## Documentation
+
+`Sources/Assay/Assay.docc` is the DocC catalogue that the Swift Package Index builds. The
+package deliberately does not depend on `swift-docc-plugin` — every consumer would fetch it —
+so build it locally from a symbol graph:
 
 ```sh
 swift build --target Assay --scratch-path .build/symbol-graph \
@@ -103,21 +118,26 @@ xcrun docc preview Sources/Assay/Assay.docc --additional-symbol-graph-dir /tmp/s
     --fallback-display-name Assay --fallback-bundle-identifier dev.assay.Assay
 ```
 
-Use the separate `--scratch-path`: the symbol-graph flags change the compile job shape,
-and sharing the ordinary `.build` graph with them corrupted an incremental build once.
+Use the separate `--scratch-path`. The symbol-graph flags change the compile job shape, and
+sharing the ordinary `.build` graph with them corrupted an incremental build once.
 
-CI runs `docc convert` on the catalogue and fails on a broken symbol link.
+The website lives in [`website/`](website/) and its own README explains the extract: every
+error render on that site is produced by building the examples against the real library, and
+CI fails if a committed render no longer matches. If you change an error message, run
+`bun run extract` in `website/` and commit what moves.
 
-### API stability
+## API stability
 
-`swift package diagnose-api-breaking-changes <ref>` compares the public API against a
-git ref. CI runs it on every pull request against the base branch; a PR that breaks API on
-purpose carries the `api-break` label, which skips the job, and a line in `CHANGELOG.md`
-saying what broke and why. Before 1.0 that is allowed in a minor version — the label is
-so it is never accidental.
+`swift package diagnose-api-breaking-changes <ref>` compares the public API against a git
+ref, and CI runs it on every pull request. Breaking the API on purpose is allowed before 1.0:
+add the `api-break` label, which skips the job, and a line in
+[`CHANGELOG.md`](CHANGELOG.md) saying what broke and why. The label exists so it is never
+accidental.
 
-A note on tests: the library's test target deliberately does not import Foundation
-(swift-testing's overlay would raise the deployment floor), which is why
-Foundation-dependent verification lives in `Benchmarks/Sources/DiffFuzz`. If your
-test needs `Date`, look at how `DateSchemaTests` uses a local stub — that stub is
-also what pins the macro's type-name seam.
+## One trap worth knowing
+
+The library's test target does not import Foundation — swift-testing's overlay would raise
+the deployment floor — which is why Foundation-dependent verification lives in
+`Benchmarks/Sources/DiffFuzz`. If your test needs `Date`, see how `DateSchemaTests` uses a
+local stub. That stub is also what pins the macro's type-name seam, so it is load-bearing in
+two directions at once.

@@ -1,9 +1,14 @@
 # Unions
 
-`EXPERIENCE.md` §9 specifies them. `ROADMAP.md` §5 says they were absent from the roadmap
-entirely until cutting `@PickFirst` turned them up, and that they need this document first —
-answering **how a composed failure is reported, what bounds the backtracking, and what
-encoding a union means** — because those three are the design, and the code is downstream.
+A union is the one shape where "collect every error" stops being obviously right. If a
+payload could be three things and none of them fit, *whose* errors do you show?
+
+That question — plus what bounds the backtracking, and what encoding a union even means —
+is the design. The code is downstream of it, which is why this document exists and was
+written first.
+
+Unions arrived by accident, incidentally: they were absent from the roadmap entirely until
+cutting `@PickFirst` turned them up as the real blocker behind it (`ROADMAP.md` §5).
 
 ```swift
 @Schema(discriminator: "type")

@@ -47,7 +47,7 @@ These pages are generated in full and **should not be edited** — edit the temp
 | page | from |
 |---|---|
 | `reference/issue-codes.md` | `Sources/AssayCore/IssueCode+Names.swift` |
-| `reference/performance.md` | `scripts/performance.md.tmpl`, table from `RESULTS.md` |
+| `reference/performance.md` | `scripts/performance.md.tmpl`, table from `../Benchmarks/RESULTS.md` |
 | `reference/changelog.md` | `CHANGELOG.md`, with repo-relative links rewritten to GitHub |
 | `formats/*.md` | `scripts/pages/formats--*.md.tmpl` |
 | `recipes/*.md` | `scripts/pages/recipes--*.md.tmpl`, examples from `scripts/cookbook.swift.txt` and `scripts/recipes.swift.txt` |

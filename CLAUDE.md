@@ -443,7 +443,7 @@ Swift — do not put numbers for those anywhere.
 - `withUnsafeTemporaryAllocation`'s stack cliff is **1024 bytes**, not 4 KB.
 - `String(unsafeUninitializedCapacity:)` is **SE-0263**, not SE-0309.
 - **A `~Escapable` public type does NOT gate its clients** (verified 2026-08-19, Swift 6.3.3).
-  `AssayReader.swift` and `docs/KEYED-SOURCE.md` both say a `~Escapable` type in the public
+  `AssayReader.swift` said — and the since-deleted `KeyedSource` note agreed — that a `~Escapable` type in the public
   surface "would put an experimental-feature gate on the whole library". Measured: a client
   package **consumes** one and calls its methods with no `enableExperimentalFeature` at all,
   and the escape check still fires — returning a borrowed view from a client function is a

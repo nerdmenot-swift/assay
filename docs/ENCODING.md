@@ -1,23 +1,39 @@
-# Encoding — the questions that block it, and a recommendation for each
+# Encoding
 
-**Status: ALL SIX ACCEPTED AND IMPLEMENTED for JSON, YAML and XML, 2026-08-09.** This document began
-as proposals; the recommendations were accepted and built. What is implemented, what is not,
-and why:
+Writing is the easy direction, right up until you ask what a *round trip* means. Then it
+turns into six questions that all have to be answered the same way, or the answers contradict
+each other.
 
-| question | status |
+This document is those six answers, the survey that settled the two XML ones, and the law
+the whole thing is held to:
+
+> For any `v` that `parse` produced, `parse(encode(v))` produces a value equal to `v` —
+> except in four cases, named below and tested as named cases.
+
+That exception list is closed. Adding to it is an API change.
+
+Encoding is opt-in — `@Schema(encodes: true)` — because the writer roughly doubles the
+generated code and most types only ever read. It costs about 5% of the type's compile time
+and measures about 8.75× `JSONEncoder` at fifty items. All three formats:
+`encodes: true` emits a JSON writer, `.yaml` adds the `RawValue` projection YAML renders
+from, and `.xml` gets its own body because placement is not expressible in `RawValue`.
+
+## The six questions, and where each one landed
+
+| question | answer |
 |---|---|
-| 1 · `@Fallback` writes its value | **built** — decode-time-only, with the exception named in the round-trip law |
-| 2 · `@Unknown(roundTrips:)` | **built** — `@Unknown` exists, and encoding an unrecognised variant is refused unless the declaration opts in |
-| 3 · `@Inverse` + expansion-time check | **built** — a `@Transform` without one is a compile error |
-| 4 · encode error channel | **built** — `Issue`/`IssueSink`, `location: nil`, `encode` / `diagnoseEncode` |
-| 5 · target `.input`, round-trip as a law | **built** — the law is a test suite with its exception list as named cases, for JSON and YAML |
-| 6 · defaults emitted, `@Extras` written back | **built** — collisions are an encode-time error |
+| Does a `@Fallback` write its value? | Yes. It is decode-time only, and that is round-trip exception #1. |
+| Can an `@Unknown` case be written back? | Only if the declaration opts in with `roundTrips: true`. Otherwise refused. |
+| How does a `@Transform` reverse itself? | `@Inverse`, and a `@Transform` without one is a compile error rather than a surprise. |
+| Where do encode errors go? | The same `Issue`/`IssueSink` decoding uses, with `location: nil` — there is no document to point at. |
+| Which face does it write? | `.input`. Round-trip is a law with four named exceptions, each a test case. |
+| Are defaults and `@Extras` written? | Both. A key collision between them is an encode-time error. |
 
-**All three formats.** `@Schema(encodes: true)` emits a JSON encoder; adding `.yaml` also
-emits the `RawValue` projection YAML renders from, and `.xml` emits an XML body.
+## XML's two defaults were settled by survey, not by taste
 
-**XML's two decisions were settled by surveying the field rather than by taste**, after the
-first draft of this document guessed at them:
+The first draft of this document guessed at them. Guessing about a format everyone else has
+already implemented is how you end up with the one library that behaves differently, so the
+guesses were replaced by a look at what four established mappers actually do:
 
 | | decision | who agrees |
 |---|---|---|

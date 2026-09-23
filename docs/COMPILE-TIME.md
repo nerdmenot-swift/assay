@@ -1,8 +1,12 @@
-# Assay — the compile-time budget
+# The compile-time budget
 
-*Third document. `EXPERIENCE.md` settled the shape, `PERFORMANCE.md` settled the runtime
-strategy. This one exists because a decoder built on a macro has a second performance
-axis, and it is the one that decides whether anybody adopts the library.*
+A macro-based decoder has two performance axes, and this is the one nobody benchmarks.
+
+Here is the scenario that makes it a gate rather than a footnote. A developer replaces
+`: Codable` with `@Schema` across a model layer, in one commit, and then waits for a build.
+**That is when they decide whether to keep it — before running a single decode.** Which means
+build time is not a tax on the library's author; it is the first thing the library says to
+its user.
 
 ---
 

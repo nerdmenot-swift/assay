@@ -1,24 +1,24 @@
-# Assay — the developer experience
+# The developer experience
 
-> **This is the API specification, written before the implementation, and it describes a
-> larger surface than exists today.** Almost all of it is built. What is **not** is
-> `StandardSchema` (§15), and its blocker is a repository rather than a design — see
-> `ROADMAP.md` §11. `jsonSchema(for:)` (§14) and `parse(plist:)` (§1) shipped 2026-09-09.
-> `@Inline` and `@Key(path:)` (§4), `@Wraps` (§8), `Assayer<T>` (§17), `@OneOrMany` (§9),
-> `@XML(root:)`, `@Schema(context:)` (§10) and
-> `parse(body:contentType:accepting:)` (§12) all shipped on 2026-09-08; `@PickFirst` (§9)
-> was **cut** — see `ROADMAP.md` §5 for why the construct it named cannot be built as
-> spelled. Each remaining item is a deliberate
-> deferral with its reasoning in `ROADMAP.md`.
-> `CLAUDE.md` carries the one-table inventory of which is which; that table is the thing to
-> trust when this document and the compiler disagree.
+This is the API specification, and it was written **before** the implementation — which makes
+it the argument for the API rather than a description of one. Every surface here has a reason
+stated next to it, and the reasons are the point: this document is meant to be argued with.
 
+Two things to know before you trust it:
 
-**Second edition.** Rewritten after four audits: macro feasibility (checked against swift-syntax 600.0.1 and the Swift 6.3 compiler sources), cross-platform reality (Apple / Linux / Windows / Android / Wasm, July 2026), a competitive benchmark against serde, Pydantic, Zod v4, Valibot, ArkType, Ecto and garde, and a naming + scope review.
+**It describes a slightly larger surface than exists.** Almost everything is built. What is
+not is `StandardSchema` (§15), whose blocker is a repository rather than a design, and
+`@PickFirst` (§9), which was **cut** once the real obstacle behind it turned out to be
+unions. `ROADMAP.md` has both stories. **`CLAUDE.md` carries the one-table inventory of what
+exists**, and that table wins any disagreement between this document and the compiler.
 
-Everything in the first edition that could not compile has been removed. Where a surface changed, the reason is stated inline rather than hidden — this document is meant to be argued with.
+**Second edition.** Rewritten after four audits: macro feasibility against swift-syntax
+600.0.1 and the Swift 6.3 compiler sources; cross-platform reality across Apple, Linux,
+Windows, Android and Wasm; a competitive read of serde, Pydantic, Zod v4, Valibot, ArkType,
+Ecto and garde; and a naming review. Everything in the first edition that could not compile
+was removed.
 
-No internals. No parser design, no ARC, no SIL, no benchmark tables. Those live in `PERFORMANCE.md` and `FORMATS.md`. This is only what a developer sees, types, and reads.
+No internals. No parser design, no ARC, no SIL, no benchmark tables — those live in `PERFORMANCE.md`, `EFFICIENCY.md` and `../Benchmarks/RESULTS.md`. This is only what a developer sees, types and reads.
 
 ---
 
@@ -520,7 +520,7 @@ struct EnvConfig {
 
 Coercion rules are written down and boring, which is the property that matters: `"8080" → 8080`, `"8080.5" → Int` is an error rather than a truncation, `"true"`/`"yes"`/`"1"` → `true`, `1.0 → 1` succeeds and `1.5 → Int` does not. Nothing depends on the current locale, because nothing goes through a locale-sensitive formatter — which is also what makes it behave identically on Linux and on a Mac.
 
-The first edition and `DESIGN.md` agree on this and the reason is worth keeping visible: a global strict/lax switch means the meaning of a struct depends on a setting somewhere else in the program, which is exactly the class of bug that makes a config library infuriating.
+The first edition agreed on this, and the reason is worth keeping visible: a global strict/lax switch means the meaning of a struct depends on a setting somewhere else in the program, which is exactly the class of bug that makes a config library infuriating.
 
 ---
 
@@ -741,7 +741,7 @@ let invite = try Invitation.parse(json: data, context: appContext)
 
 Declaring a context makes `parse(json:context:)` the *only* signature. You cannot forget to pass it. `AppContext` is a real type in the check — no casting, no optionals, no `userInfo` dictionary.
 
-This differs from what `DESIGN.md` settled on, which was a type-erased context threaded through `ParseState`, and the difference is deliberate rather than an oversight: they operate at different layers. The macro knows the context type at compile time and should use it.
+This differs from what the first edition settled on, which was a type-erased context threaded through `ParseState`, and the difference is deliberate rather than an oversight: they operate at different layers. The macro knows the context type at compile time and should use it.
 
 **Built 2026-09-08 — the macro half.** The erased form for the runtime `Assayer<T>` value API is *not* built, and "both exist" was a claim this document made before either did. `ROADMAP.md` §8 records the reasoning: an erased context has no users, and building one would be designing for an imagined user twice over, once for the API and once for the erasure.
 

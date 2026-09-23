@@ -1,9 +1,13 @@
-# Assay — the performance strategy
+# The performance strategy
 
-*Second document. `EXPERIENCE.md` settled the shape: `@Schema`, `Assayable`, `Assayer<T>`,
-two verbs, issues as code+params, keys before formats. This one asks what it would take for
-that shape to also be the fastest thing in its category, and where unsafe code and C actually
-earn their keep.*
+`EXPERIENCE.md` settled the shape. This document asks the follow-up question: can that shape
+also be the fastest thing in its category, and if so, what actually buys the speed?
+
+The answer turned out to be less exotic than expected. **No SIMD. No C. No concurrency.** Two
+whole phases of this plan were retired without a line being written, because measurement said
+they would buy about 5% of a decode — and the thing that does buy the speed is deleting a
+protocol boundary at compile time. Both retirements are recorded below rather than quietly
+dropped, because a plan that only records its wins is a sales document.
 
 *Status of the evidence: everything numeric below is either extracted from a primary source
 (a repository read at a named path and line, a paper, a maintainer's own benchmark output) or

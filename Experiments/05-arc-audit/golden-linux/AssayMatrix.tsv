@@ -8,30 +8,30 @@ AssayMatrix.(quote in _E4B1A95E9A35F78033C9E0BF0B02B9AD)(Swift.String) -> Swift.
 AssayMatrix.(quote in _E4B1A95E9A35F78033C9E0BF0B02B9AD)(Swift.String) -> Swift.String	retain	2
 AssayMatrix.(walk in _78EEF6CD58B6EFDDEF59FE67D7AEFB6F)(Any, inout AssayMatrix.Floor) -> ()	conditional-runtime-cast	1
 AssayMatrix.(walk in _78EEF6CD58B6EFDDEF59FE67D7AEFB6F)(Any, inout AssayMatrix.Floor) -> ()	release	7
-AssayMatrix.Doc2._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	release	4
-AssayMatrix.Doc2._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	retain	3
-AssayMatrix.Doc20._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	release	3
-AssayMatrix.Doc20._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	retain	2
-AssayMatrix.Doc5._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	release	3
-AssayMatrix.Doc5._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	retain	2
-AssayMatrix.Doc5._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	release	2
-AssayMatrix.Doc5._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	retain	2
-AssayMatrix.Doc5._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	release	2
-AssayMatrix.Doc5._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	retain	2
-AssayMatrix.DocNested._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	release	3
-AssayMatrix.DocNested._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	retain	2
-AssayMatrix.DocNested._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	release	2
-AssayMatrix.DocNested._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	retain	2
-AssayMatrix.DocNested._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	release	4
-AssayMatrix.DocNested._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	retain	4
-AssayMatrix.MInner1._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	release	1
-AssayMatrix.MInner1._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	release	1
-AssayMatrix.MInner1._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	retain	3
-AssayMatrix.MNested._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> ()	release	1
-AssayMatrix.MNested._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	release	1
-AssayMatrix.MNested._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	retain	5
-AssayMatrix.MNested._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	release	2
-AssayMatrix.MNested._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> ()	retain	2
+AssayMatrix.Doc2._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> ()	release	4
+AssayMatrix.Doc2._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> ()	retain	3
+AssayMatrix.Doc20._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> ()	release	3
+AssayMatrix.Doc20._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> ()	retain	2
+AssayMatrix.Doc5._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> ()	release	3
+AssayMatrix.Doc5._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> ()	retain	2
+AssayMatrix.Doc5._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathStep]) -> AssayCore.RawValue	release	2
+AssayMatrix.Doc5._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathStep]) -> AssayCore.RawValue	retain	2
+AssayMatrix.Doc5._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathStep], element: Swift.String) -> ()	release	2
+AssayMatrix.Doc5._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathStep], element: Swift.String) -> ()	retain	2
+AssayMatrix.DocNested._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> ()	release	3
+AssayMatrix.DocNested._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> ()	retain	2
+AssayMatrix.DocNested._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathStep]) -> AssayCore.RawValue	release	2
+AssayMatrix.DocNested._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathStep]) -> AssayCore.RawValue	retain	2
+AssayMatrix.DocNested._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathStep], element: Swift.String) -> ()	release	4
+AssayMatrix.DocNested._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathStep], element: Swift.String) -> ()	retain	4
+AssayMatrix.MInner1._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> ()	release	1
+AssayMatrix.MInner1._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathStep]) -> AssayCore.RawValue	release	1
+AssayMatrix.MInner1._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathStep]) -> AssayCore.RawValue	retain	3
+AssayMatrix.MNested._assayEncodeMembers(into: inout AssayCore.JSONWriter, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> ()	release	1
+AssayMatrix.MNested._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathStep]) -> AssayCore.RawValue	release	1
+AssayMatrix.MNested._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathStep]) -> AssayCore.RawValue	retain	5
+AssayMatrix.MNested._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathStep], element: Swift.String) -> ()	release	2
+AssayMatrix.MNested._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathStep], element: Swift.String) -> ()	retain	2
 AssayMatrix.allAxes() -> [AssayMatrix.Axis]	ref	1
 AssayMatrix.allShapes() -> [AssayMatrix.Shape]	release	171
 AssayMatrix.allShapes() -> [AssayMatrix.Shape]	retain	32
@@ -111,8 +111,8 @@ closure #6 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix
 closure #6 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	2
 closure #6 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	1
 closure #8 (Swift.String, [Swift.UInt8]) -> (() -> Swift.Int?)? in AssayMatrix.allTasks() -> [AssayMatrix.Task]	release	12
-function signature specialization <Arg[1] = Dead> of AssayMatrix.M5._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	retain	5
-function signature specialization <Arg[1] = Dead> of AssayMatrix.MInner2._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent]) -> AssayCore.RawValue	retain	1
+function signature specialization <Arg[1] = Dead> of AssayMatrix.M5._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathStep]) -> AssayCore.RawValue	retain	5
+function signature specialization <Arg[1] = Dead> of AssayMatrix.MInner2._assayEncodeRaw(into: inout AssayCore.IssueSink, at: [AssayCore.PathStep]) -> AssayCore.RawValue	retain	1
 function signature specialization <Arg[1] = [Constant Propagated Function : closure #1 (Swift.Int) -> Swift.String in AssayMatrix.allAxes() -> Swift.Array<AssayMatrix.Axis>]> of closure #2 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	12
 function signature specialization <Arg[1] = [Constant Propagated Function : closure #1 (Swift.Int) -> Swift.String in AssayMatrix.allAxes() -> Swift.Array<AssayMatrix.Axis>]> of closure #2 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	2
 function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #3 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	11
@@ -125,60 +125,60 @@ function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.
 function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #8 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	1
 function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #9 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	release	8
 function signature specialization <Arg[1] = [Constant Propagated Struct : Swift.Int][Constant Propagated Integer : 200]> of closure #9 (Swift.Int) -> [Swift.UInt8] in AssayMatrix.allAxes() -> [AssayMatrix.Axis]	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc2._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc2?	release	12
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc2._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc2?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc20._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc20?	release	12
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc20._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc20?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc5._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc5?	release	9
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc5._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc5?	retain	3
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc5._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc5?	release	12
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc5._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.Doc5?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocArray._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocArray?	release	12
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocArray._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocArray?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocBool._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocBool?	release	12
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocBool._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocBool?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocDouble._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocDouble?	release	12
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocDouble._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocDouble?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocGroup._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocGroup?	release	12
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocGroup._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocGroup?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocInt._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocInt?	release	12
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocInt._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocInt?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocLongKeys._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocLongKeys?	release	12
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocLongKeys._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocLongKeys?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocNested._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocNested?	release	9
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocNested._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocNested?	retain	3
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocNested._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocNested?	release	12
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocNested._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocNested?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocOptional._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocOptional?	release	12
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocOptional._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocOptional?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocPrefix._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocPrefix?	release	12
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocPrefix._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocPrefix?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocValidated._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocValidated?	release	12
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocValidated._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.DocValidated?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.M2._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.M2?	release	14
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.M20._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.M20?	release	462
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.M5._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.M5?	release	36
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.M5._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.M5?	retain	10
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.M5._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.M5?	release	46
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MArray._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MArray?	release	53
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MArray._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MArray?	retain	1
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MGroup._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MGroup?	release	30
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MGroup._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MGroup?	retain	4
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MGroupItem._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MGroupItem?	release	14
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MInner1._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MInner1?	release	10
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MInner1._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MInner1?	retain	3
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MInner1._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MInner1?	release	14
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MInner2._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MInner2?	release	4
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MInner2._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MInner2?	retain	2
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MInner2._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MInner2?	release	6
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MLongKeys._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MLongKeys?	release	46
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MNested._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MNested?	release	36
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MNested._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MNested?	retain	9
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MNested._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MNested?	release	47
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MOptional._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MOptional?	release	26
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MPrefix._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MPrefix?	release	14
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MValidated._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MValidated?	release	47
-function signature specialization <Arg[3] = Dead> of static AssayMatrix.MValidated._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathComponent]) -> AssayMatrix.MValidated?	retain	1
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc2._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.Doc2?	release	12
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc2._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.Doc2?	retain	2
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc20._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.Doc20?	release	12
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc20._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.Doc20?	retain	2
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc5._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.Doc5?	release	9
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc5._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.Doc5?	retain	3
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc5._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.Doc5?	release	12
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.Doc5._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.Doc5?	retain	2
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocArray._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocArray?	release	12
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocArray._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocArray?	retain	2
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocBool._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocBool?	release	12
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocBool._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocBool?	retain	2
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocDouble._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocDouble?	release	12
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocDouble._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocDouble?	retain	2
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocGroup._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocGroup?	release	12
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocGroup._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocGroup?	retain	2
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocInt._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocInt?	release	12
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocInt._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocInt?	retain	2
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocLongKeys._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocLongKeys?	release	12
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocLongKeys._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocLongKeys?	retain	2
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocNested._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocNested?	release	9
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocNested._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocNested?	retain	3
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocNested._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocNested?	release	12
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocNested._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocNested?	retain	2
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocOptional._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocOptional?	release	12
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocOptional._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocOptional?	retain	2
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocPrefix._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocPrefix?	release	12
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocPrefix._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocPrefix?	retain	2
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocValidated._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocValidated?	release	12
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.DocValidated._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.DocValidated?	retain	2
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.M2._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.M2?	release	14
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.M20._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.M20?	release	462
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.M5._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.M5?	release	36
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.M5._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.M5?	retain	10
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.M5._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.M5?	release	46
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MArray._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MArray?	release	53
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MArray._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MArray?	retain	1
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MGroup._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MGroup?	release	30
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MGroup._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MGroup?	retain	4
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MGroupItem._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MGroupItem?	release	14
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MInner1._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MInner1?	release	10
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MInner1._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MInner1?	retain	3
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MInner1._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MInner1?	release	14
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MInner2._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MInner2?	release	4
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MInner2._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MInner2?	retain	2
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MInner2._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MInner2?	release	6
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MLongKeys._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MLongKeys?	release	46
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MNested._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MNested?	release	36
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MNested._assay(from: AssayCore.RawValue, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MNested?	retain	9
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MNested._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MNested?	release	47
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MOptional._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MOptional?	release	26
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MPrefix._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MPrefix?	release	14
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MValidated._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MValidated?	release	47
+function signature specialization <Arg[3] = Dead> of static AssayMatrix.MValidated._assay(from: inout AssayCore.AssayReader, into: inout AssayCore.IssueSink, at: inout [AssayCore.PathStep]) -> AssayMatrix.MValidated?	retain	1
 one-time initialization function for (fiveStringShapes in _F59BA0A9BCC4D9DF66BC0146E96B3BD7)	release	2
 one-time initialization function for (fiveStringShapes in _F59BA0A9BCC4D9DF66BC0146E96B3BD7)	retain	1
 one-time initialization function for (structFormatShapes in _F59BA0A9BCC4D9DF66BC0146E96B3BD7)	release	2
@@ -192,4 +192,4 @@ one-time initialization function for __assayRules_3_0	ref	2
 one-time initialization function for __assayRules_4_0	ref	2
 one-time initialization function for stringValuedShapes	release	2
 one-time initialization function for stringValuedShapes	retain	1
-protocol witness for Assay.XMLEncodableSchema._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathComponent], element: Swift.String) -> () in conformance AssayMatrix.MInner1 : Assay.XMLEncodableSchema in AssayMatrix	retain	1
+protocol witness for Assay.XMLEncodableSchema._assayEncodeXML(into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathStep], element: Swift.String) -> () in conformance AssayMatrix.MInner1 : Assay.XMLEncodableSchema in AssayMatrix	retain	1

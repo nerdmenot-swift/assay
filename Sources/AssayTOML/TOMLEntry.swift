@@ -89,7 +89,7 @@ extension RawEncodableSchema {
         let raw = _assayEncodeRaw(into: &sink, at: [])
         let bytes = TOML.encode(raw, into: &sink)
         guard sink.isValid else {
-            throw AssayError(issues: sink.issues, source: SourceBytes(bytes.toArray()),
+            throw AssayError(issues: sink.issues, source: SourceBytes(Array(bytes)),
                              sourceName: "<encoded.toml>")
         }
         return bytes
@@ -99,7 +99,7 @@ extension RawEncodableSchema {
     public func diagnoseEncodeTOML() -> EncodeDiagnosis {
         var sink = IssueSink()
         let raw = _assayEncodeRaw(into: &sink, at: [])
-        let bytes = TOML.encode(raw, into: &sink).toArray()
+        let bytes = Array(TOML.encode(raw, into: &sink))
         return EncodeDiagnosis(bytes: bytes, issues: sink.issues, warnings: sink.warnings)
     }
 

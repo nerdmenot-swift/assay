@@ -221,7 +221,7 @@ extension JSONEncodableSchema {
     ///
     /// Returns `EncodedBytes`, not `[UInt8]`: the writer owns its buffer and hands it over
     /// here, so nothing copies the document on the way out. `EncodedBytes`'s header carries
-    /// the measurement that decided it, and `toArray()` is the way back to a value type.
+    /// the measurement that decided it, and `Array(_:)` is the way back to a value type.
     public func encodedJSON(pretty: Bool = false) throws -> EncodedBytes {
         var sink = IssueSink()
         var w = JSONWriter(pretty: pretty)
@@ -232,7 +232,7 @@ extension JSONEncodableSchema {
             // Cold, and the only copy on this path: the error carries the partial document
             // so a renderer can point at it.
             throw AssayError(issues: sink.issues,
-                             source: SourceBytes(bytes.toArray()),
+                             source: SourceBytes(Array(bytes)),
                              sourceName: "<encoded>")
         }
         return bytes
@@ -249,7 +249,7 @@ extension JSONEncodableSchema {
         _assayEncode(into: &w, into: &sink, at: &path)
         // `EncodeDiagnosis.bytes` stays `[UInt8]` on purpose — see `EncodedBytes`'s header —
         // so this path, and only this path, copies.
-        let bytes = w.finish().toArray()
+        let bytes = Array(w.finish())
         return EncodeDiagnosis(bytes: bytes, issues: sink.issues, warnings: sink.warnings)
     }
 

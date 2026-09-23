@@ -99,7 +99,7 @@ struct IntegerWidthTests {
     @Test("round-trip through JSON is exact at the extremes")
     func roundTrip() throws {
         let v = try Widths.parse(json: Array(Self.atLimits.utf8))
-        let again = try Widths.parse(json: try v.encodedJSON().toArray())
+        let again = try Widths.parse(json: try Array(v.encodedJSON()))
         #expect(again == v)
     }
 

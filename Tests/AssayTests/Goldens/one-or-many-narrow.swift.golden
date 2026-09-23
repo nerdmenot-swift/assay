@@ -75,7 +75,7 @@ nonisolated public static func _assay(
                         if let __e0_0 = reader._decodeString(&sink, path, "tags") {
                                 __f0 = [__e0_0]
                             } else {
-                                // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
                             // whole-value mismatch on a collection reported an issue whose path
                             // was EMPTY at the top level -- worse than the missing element index
                             // this change set out to fix, and found by a test written for that.

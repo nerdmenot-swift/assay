@@ -220,7 +220,7 @@ func allTasks() -> [Task] {
     add("yaml", "YAML.parse — the block-style tree", applies: { treeFormatShapes.contains($0) }) { _, b in
         var sink = IssueSink(limits: .default)
         guard let v = JSON.Value.decode(b, into: &sink, limits: .default) else { return nil }
-        let text = YAML.encode(RawValue(v)).toArray()
+        let text = Array(YAML.encode(RawValue(v)))
         return {
             guard let n = try? YAML.parse(text) else { return nil }
             if case .mapping(let pairs) = n, case .sequence(let xs)? = pairs.first?.value { return xs.count }
@@ -230,7 +230,7 @@ func allTasks() -> [Task] {
     add("toml", "TOML.parse — array-of-tables", applies: { treeFormatShapes.contains($0) }) { _, b in
         var sink = IssueSink(limits: .default)
         guard let v = JSON.Value.decode(b, into: &sink, limits: .default) else { return nil }
-        let text = TOML.encode(RawValue(v), into: &sink).toArray()
+        let text = Array(TOML.encode(RawValue(v), into: &sink))
         return {
             guard let n = try? TOML.parse(text) else { return nil }
             if case .table(let t) = n, case .array(let xs)? = t.first(where: { $0.key == "items" })?.value { return xs.count }
@@ -256,7 +256,7 @@ func allTasks() -> [Task] {
         applies: { structFormatShapes.contains($0) }) { shape, b in
         var sink = IssueSink(limits: .default)
         guard let v = JSON.Value.decode(b, into: &sink, limits: .default) else { return nil }
-        let text = YAML.encode(RawValue(v)).toArray()
+        let text = Array(YAML.encode(RawValue(v)))
         switch shape {
         case "nested-3": return { (try? DocNested.parse(yaml: text))?.items.count }
         default: return { (try? Doc5.parse(yaml: text))?.items.count }
@@ -266,7 +266,7 @@ func allTasks() -> [Task] {
         applies: { structFormatShapes.contains($0) }) { shape, b in
         var sink = IssueSink(limits: .default)
         guard let v = JSON.Value.decode(b, into: &sink, limits: .default) else { return nil }
-        let text = TOML.encode(RawValue(v), into: &sink).toArray()
+        let text = Array(TOML.encode(RawValue(v), into: &sink))
         switch shape {
         case "nested-3": return { (try? DocNested.parse(toml: text))?.items.count }
         default: return { (try? Doc5.parse(toml: text))?.items.count }

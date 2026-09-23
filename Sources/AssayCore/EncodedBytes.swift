@@ -19,7 +19,7 @@
 //
 // It is `~Copyable` because it owns a heap allocation and must free it exactly once. That is
 // the cost of the design and it is a real one: an `EncodedBytes` cannot be stored in two
-// places, put in an `Array`, or captured by an escaping closure. `toArray()` is the way out
+// places, put in an `Array`, or captured by an escaping closure. `Array(_:)` is the way out
 // for a caller who needs those things, and it copies, visibly, where the caller asked for it.
 //
 // `EncodeDiagnosis` deliberately keeps `[UInt8]`: that is the diagnostic path, callers store
@@ -31,7 +31,7 @@
 /// ```swift
 /// let bytes = try user.encodedJSON()
 /// bytes.withUnsafeBytes { try? socket.write($0) }   // no copy
-/// let array = try user.encodedJSON().toArray()      // one copy, where you asked for it
+/// let array = try Array(user.encodedJSON())      // one copy, where you asked for it
 /// ```
 @safe
 public struct EncodedBytes: ~Copyable {
@@ -91,14 +91,6 @@ public struct EncodedBytes: ~Copyable {
         return try unsafe body(UnsafeBufferPointer(start: storage, count: count))
     }
 
-    /// A copy, for a caller who needs a value type. The one place this design copies, and it
-    /// is where the caller asked for it.
-    @inlinable
-    public consuming func toArray() -> [UInt8] {
-        let out = unsafe withUnsafeBytes { unsafe Array($0) }
-        return out
-    }
-
     /// The bytes as text. Every writer emits valid UTF-8, so this cannot repair.
     @inlinable
     public func text() -> String {
@@ -107,5 +99,22 @@ public struct EncodedBytes: ~Copyable {
 
     deinit {
         unsafe storage?.deallocate()
+    }
+}
+
+/// `Array(try value.encodedJSON())` — the copy, spelled the way Swift spells a conversion.
+///
+/// This was Array(`EncodedBytes)` until 2026-09-23. The API Design Guidelines put a
+/// non-mutating conversion on the destination type as an initialiser (`Array(someSequence)`,
+/// `String(someCharacters)`), and `toArray()` is the Objective-C spelling of the same idea.
+/// Renamed while the package is pre-1.0 and it costs one line in a CHANGELOG rather than a
+/// deprecation cycle.
+///
+/// It is `consuming` because `EncodedBytes` owns its allocation: the copy is made and the
+/// original is freed, which is exactly what a caller asking for an `Array` wants.
+extension Array where Element == UInt8 {
+    @inlinable
+    public init(_ bytes: consuming EncodedBytes) {
+        self = unsafe bytes.withUnsafeBytes { unsafe Array($0) }
     }
 }

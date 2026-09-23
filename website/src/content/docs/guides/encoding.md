@@ -20,13 +20,13 @@ let text  = try article.jsonText()     // String
 
 ```swift
 try article.encodedJSON().withUnsafeBytes { try socket.write($0) }   // no copy
-let array = try article.encodedJSON().toArray()                      // one copy, you asked
+let array = Array(try article.encodedJSON())                      // one copy, you asked
 let string = try article.encodedJSON().text()                        // UTF-8, no repair
 ```
 
 That is why it is `~Copyable`. It frees the buffer exactly once. So you cannot store it
 twice, put it in an array, or capture it in an escaping closure. Want any of those? Call
-`toArray()` and pay for the copy where you can see it.
+`Array(_:)` and pay for the copy where you can see it.
 
 `EncodeDiagnosis.bytes` stays a plain `[UInt8]`, deliberately. That is the diagnostic path.
 You store it, pass it around, show it to someone — one copy is a fair price for an ordinary

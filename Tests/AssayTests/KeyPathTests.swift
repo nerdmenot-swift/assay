@@ -363,13 +363,13 @@ struct KeyPathEncodeTests {
     @Test("round-trip through JSON")
     func roundTripJSON() throws {
         let c = EncCard(name: "Ada", avatar: nil, views: 7, id: "x")
-        #expect(try EncCard.parse(json: Array(c.encodedJSON().toArray())) == c)
+        #expect(try EncCard.parse(json: Array(Array(c.encodedJSON()))) == c)
     }
 
     @Test("round-trip through YAML")
     func roundTripYAML() throws {
         let c = EncCard(name: "Ada", avatar: "a.png", views: 0, id: "x")
-        #expect(try EncCard.parse(yaml: c.encodedYAML().toArray()) == c)
+        #expect(try EncCard.parse(yaml: Array(c.encodedYAML())) == c)
     }
 }
 

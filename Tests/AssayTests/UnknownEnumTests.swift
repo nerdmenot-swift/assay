@@ -65,7 +65,7 @@ struct UnknownEnumTests {
     func encodeKnown() throws {
         for s in [Status.active, .suspended] {
             let v = Envelope(status: s)
-            #expect(try Envelope.parse(json: v.encodedJSON().toArray()) == v)
+            #expect(try Envelope.parse(json: Array(v.encodedJSON())) == v)
         }
     }
 
@@ -97,8 +97,8 @@ struct UnknownEnumTests {
     @Test("the refusal reaches every format, not just JSON")
     func allFormats() throws {
         let good = Envelope(status: .active)
-        #expect(try Envelope.parse(yaml: good.encodedYAML().toArray()) == good)
-        #expect(try Envelope.parse(xml: good.encodedXML().toArray()) == good)
+        #expect(try Envelope.parse(yaml: Array(good.encodedYAML())) == good)
+        #expect(try Envelope.parse(xml: Array(good.encodedXML())) == good)
 
         let bad = Envelope(status: .other("x"))
         #expect(!bad.diagnoseEncodeYAML().isValid, "YAML must refuse it too")

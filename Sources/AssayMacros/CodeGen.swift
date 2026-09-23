@@ -730,7 +730,7 @@ extension SchemaMacro {
             if let \(elt) = reader.\(call) {
             \(pad)        \(target) = [\(elt)]
             \(pad)    } else {
-            \(pad)    
+            \(pad)
             """
             singleClose = "    }\n        \(pad)"
         }

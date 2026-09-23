@@ -126,7 +126,7 @@ extension RawEncodableSchema {
         let raw = _assayEncodeRaw(into: &sink, at: [])
         let bytes = YAML.encode(raw)
         guard sink.isValid else {
-            throw AssayError(issues: sink.issues, source: SourceBytes(bytes.toArray()),
+            throw AssayError(issues: sink.issues, source: SourceBytes(Array(bytes)),
                              sourceName: "<encoded.yaml>")
         }
         return bytes
@@ -136,7 +136,7 @@ extension RawEncodableSchema {
     public func diagnoseEncodeYAML() -> EncodeDiagnosis {
         var sink = IssueSink()
         let raw = _assayEncodeRaw(into: &sink, at: [])
-        return EncodeDiagnosis(bytes: YAML.encode(raw).toArray(),
+        return EncodeDiagnosis(bytes: Array(YAML.encode(raw)),
                                issues: sink.issues, warnings: sink.warnings)
     }
 

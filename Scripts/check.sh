@@ -46,6 +46,7 @@ warnings() {
     if [ -n "$w" ]; then printf '%s\n' "$w"; return 1; fi
 }
 
+step "soundness"                      bash Scripts/soundness.sh
 step "build (warning-free, forced)"   warnings
 step "tests"                          swift test
 step "documented examples"            swift Scripts/check-doc-examples.swift

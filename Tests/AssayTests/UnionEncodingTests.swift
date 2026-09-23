@@ -94,7 +94,7 @@ struct UnionEncodingTests {
     func taggedRoundTrip() throws {
         for value in [EncEvent.click(EncClick(x: 3, y: 4)),
                       .pageView(EncPageView(url: "/a", referrer: "/b"))] {
-            #expect(try EncEvent.parse(json: value.encodedJSON().toArray()) == value)
+            #expect(try EncEvent.parse(json: Array(value.encodedJSON())) == value)
         }
     }
 
@@ -102,18 +102,18 @@ struct UnionEncodingTests {
     func nestedInStructs() throws {
         let e = EncEnvelope(id: "e1", payload: .click(EncClick(x: 1, y: 2)))
         #expect(try e.jsonText() == #"{"id":"e1","payload":{"type":"click","x":1,"y":2}}"#)
-        #expect(try EncEnvelope.parse(json: e.encodedJSON().toArray()) == e)
+        #expect(try EncEnvelope.parse(json: Array(e.encodedJSON())) == e)
 
         let b = EncBatch(events: [.click(EncClick(x: 1, y: 2)),
                                   .pageView(EncPageView(url: "/z", referrer: nil))])
-        #expect(try EncBatch.parse(json: b.encodedJSON().toArray()) == b)
+        #expect(try EncBatch.parse(json: Array(b.encodedJSON())) == b)
     }
 
     @Test("a union inside a union writes one object with both tags")
     func unionInsideUnion() throws {
         let v = EncOuter.inner(.click(EncClick(x: 7, y: 8)))
         #expect(try v.jsonText() == #"{"type":"inner","sub":"click","x":7,"y":8}"#)
-        #expect(try EncOuter.parse(json: v.encodedJSON().toArray()) == v)
+        #expect(try EncOuter.parse(json: Array(v.encodedJSON())) == v)
     }
 
     /// `docs/UNIONS.md` §5's cost, pinned rather than left to be discovered: a variant that
@@ -125,7 +125,7 @@ struct UnionEncodingTests {
     func variantDeclaringTheTag() throws {
         let v = EncCarrying.carrier(EncTagCarrier(type: "custom", x: 1))
         #expect(try v.jsonText() == #"{"type":"carrier","type":"custom","x":1}"#)
-        #expect(try EncCarrying.parse(json: v.encodedJSON().toArray()) == v)
+        #expect(try EncCarrying.parse(json: Array(v.encodedJSON())) == v)
     }
 }
 
@@ -162,11 +162,11 @@ struct UntaggedEncodingTests {
     @Test("round trip: untagged")
     func untaggedRoundTrip() throws {
         for v in [EncStringOrNumber.text("hi"), .number(3.5)] {
-            #expect(try EncStringOrNumber.parse(json: v.encodedJSON().toArray()) == v)
+            #expect(try EncStringOrNumber.parse(json: Array(v.encodedJSON())) == v)
         }
         for v in [EncFigure.point(EncPoint(x: 1, y: 2)),
                   .line(EncLine(from: "a", to: "b"))] {
-            #expect(try EncFigure.parse(json: v.encodedJSON().toArray()) == v)
+            #expect(try EncFigure.parse(json: Array(v.encodedJSON())) == v)
         }
     }
 

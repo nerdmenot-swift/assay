@@ -134,7 +134,7 @@ d.render(.problemDetails) // RFC 9457, for an HTTP body
 ```swift
 @Schema(encodes: true) struct T { … }
 
-try value.encodedJSON()          // EncodedBytes (~Copyable; .withUnsafeBytes/.text()/.toArray())
+try value.encodedJSON()          // EncodedBytes — ~Copyable; withUnsafeBytes, text(), Array(_:)
 try value.jsonText()             // String
 try value.encodedYAML()          // AssayYAML
 try value.encodedXML()           // AssayXML

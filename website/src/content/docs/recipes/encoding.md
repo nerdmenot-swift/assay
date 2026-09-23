@@ -58,7 +58,7 @@ XML:
 `jsonText()`, `yamlText()`, `tomlText()` and `xmlText()` give you a `String`;
 `encodedJSON()` and friends give you `EncodedBytes`, which owns the buffer the writer wrote
 and hands it over without copying it. Use `withUnsafeBytes` to write it somewhere, `text()`
-for a `String`, or `toArray()` when you need a plain `[UInt8]` and can pay for the copy. All
+for a `String`, or `Array(_:)` when you need a plain `[UInt8]` and can pay for the copy. All
 throw.
 
 Note `notes` is absent from every output rather than written as null. TOML has no null at

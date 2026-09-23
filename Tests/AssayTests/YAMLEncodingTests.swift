@@ -71,7 +71,7 @@ struct YAMLEncodingTests {
             amount: -3
         """
         let original = try YEnc.parse(yaml: yaml)
-        let encoded = try original.encodedYAML().toArray()
+        let encoded = try Array(original.encodedYAML())
         let again = try YEnc.parse(yaml: encoded)
         #expect(again == original, "round-trip must be identity; got:\n\(String(decoding: encoded, as: UTF8.self))")
     }
@@ -111,7 +111,7 @@ struct YAMLEncodingTests {
         let v = YEnc(name: "n", count: 0, ratio: 0, active: false, note: nil,
                      tags: [], counts: ["true": 1, "123": 2, "a: b": 3, "ok": 4],
                      nested: YEncInner(id: "i", amount: 0), items: [])
-        let again = try YEnc.parse(yaml: v.encodedYAML().toArray())
+        let again = try YEnc.parse(yaml: Array(v.encodedYAML()))
         #expect(again.counts == v.counts, "dangerous keys must survive")
     }
 
@@ -132,11 +132,11 @@ struct YAMLEncodingTests {
             let v = YEncInner(id: "x", amount: d)
             let d2 = v.diagnoseEncodeYAML()
             #expect(d2.isValid, "YAML can spell \(d); it must not be reported")
-            #expect(try YEncInner.parse(yaml: v.encodedYAML().toArray()).amount == d)
+            #expect(try YEncInner.parse(yaml: Array(v.encodedYAML())).amount == d)
         }
         let nan = YEncInner(id: "x", amount: .nan)
         #expect(nan.diagnoseEncodeYAML().isValid)
-        #expect(try YEncInner.parse(yaml: nan.encodedYAML().toArray()).amount.isNaN)
+        #expect(try YEncInner.parse(yaml: Array(nan.encodedYAML())).amount.isNaN)
     }
 
     @Test("encoding is stable — twice gives identical bytes")
@@ -144,7 +144,7 @@ struct YAMLEncodingTests {
         let v = YEnc(name: "n", count: 1, ratio: 2, active: true, note: "x",
                      tags: ["b", "a"], counts: ["z": 1, "a": 2],
                      nested: YEncInner(id: "i", amount: 3), items: [])
-        #expect(try v.encodedYAML().toArray() == v.encodedYAML().toArray())
+        #expect(try Array(v.encodedYAML()) == Array(v.encodedYAML()))
     }
 
     @Test("optionals write null and round-trip to nil")
@@ -152,7 +152,7 @@ struct YAMLEncodingTests {
         let v = YEnc(name: "n", count: 0, ratio: 0, active: false, note: nil,
                      tags: [], counts: [:], nested: YEncInner(id: "i", amount: 0), items: [])
         #expect(try v.yamlText().contains("note: null"))
-        #expect(try YEnc.parse(yaml: v.encodedYAML().toArray()) == v)
+        #expect(try YEnc.parse(yaml: Array(v.encodedYAML())) == v)
     }
 
     @Test("the output is block style — the reason to choose YAML at all")

@@ -162,7 +162,7 @@ struct UUIDFieldTests {
     @Test("round-trip is exact on the value, on every format")
     func roundTrip() throws {
         let v = UUIDHolder(id: Self.expected, name: "a")
-        #expect(try UUIDHolder.parse(json: v.encodedJSON().toArray()) == v)
+        #expect(try UUIDHolder.parse(json: Array(v.encodedJSON())) == v)
         #expect(try UUIDHolder.parse(yaml: v.yamlText()) == v)
         #expect(try UUIDHolder.parse(toml: v.tomlText()) == v)
         #expect(try UUIDHolder.parse(xml: Array(v.xmlText().utf8)) == v)

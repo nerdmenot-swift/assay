@@ -173,7 +173,7 @@ extension XMLEncodableSchema {
         _assayEncodeXML(into: &w, into: &sink, at: [], element: root ?? Self._assayXMLRoot)
         let bytes = w.finish()
         guard sink.isValid else {
-            throw AssayError(issues: sink.issues, source: SourceBytes(bytes.toArray()),
+            throw AssayError(issues: sink.issues, source: SourceBytes(Array(bytes)),
                              sourceName: "<encoded.xml>")
         }
         return bytes
@@ -185,7 +185,7 @@ extension XMLEncodableSchema {
         var sink = IssueSink()
         var w = XMLWriter(pretty: pretty, declaration: declaration)
         _assayEncodeXML(into: &w, into: &sink, at: [], element: root ?? Self._assayXMLRoot)
-        return EncodeDiagnosis(bytes: w.finish().toArray(), issues: sink.issues,
+        return EncodeDiagnosis(bytes: Array(w.finish()), issues: sink.issues,
                                warnings: sink.warnings)
     }
 

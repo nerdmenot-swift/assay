@@ -13,6 +13,13 @@ stable for two minor versions with no entry under **Breaking**.
 
 ### Breaking
 
+- **`EncodedBytes.toArray()` is now `Array(_:)`.** `Array(try value.encodedJSON())` rather
+  than `try value.encodedJSON().toArray()`. The API Design Guidelines put a non-mutating
+  conversion on the destination type as an initialiser — `Array(someSequence)`,
+  `String(someCharacters)` — and `toArray()` is the Objective-C spelling of the same idea.
+  The initialiser is `consuming`, so the copy is made and the original freed, which is what a
+  caller asking for an `Array` wants. Renamed now because it costs a line here rather than a
+  deprecation cycle later.
 - **`encodedJSON()`, `encodedYAML()`, `encodedXML()` and `encodedTOML()` return
   `EncodedBytes`, not `[UInt8]`.** The writers own the buffer they write into, so a write is
   a store rather than an `Array` append with a uniqueness check behind it — 36,004 of those

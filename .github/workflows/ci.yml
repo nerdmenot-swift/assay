@@ -85,22 +85,47 @@ jobs:
       - name: Test
         run: swift test --explicit-target-dependency-import-check error
 
-  # iOS, build only. A package cannot be *tested* on a simulator without a scheme and a
-  # destination, but it can be built for the platform, which is what catches an accidental
-  # AppKit or process-level dependency.
-  ios:
-    name: Build (iOS)
+  # EVERY APPLE PLATFORM THE MANIFEST DECLARES, build only. A package cannot be *tested* on
+  # a simulator without a scheme and a destination, but it can be built for the platform,
+  # which is what catches an accidental AppKit or process-level dependency.
+  #
+  # It was iOS alone until 2026-09-23, while `platforms:` declared iOS, tvOS, watchOS and
+  # visionOS — so three of the four floors the package promises were never compiled against.
+  # A declared floor is a promise about a platform; an unbuilt one is a guess. The iOS leg
+  # itself had never run at all until 2026-08-22 (it wanted a self-hosted runner), and when
+  # it finally did it failed immediately on availability, which is precisely the failure
+  # mode an unbuilt platform hides.
+  apple:
+    name: Build (${{ matrix.platform }})
     runs-on: macos-15
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [iOS, tvOS, watchOS, visionOS]
     steps:
       - uses: actions/checkout@v4
       - name: Select a toolchain new enough for the package
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+      # visionOS is not installed on every macos-15 image. Skip it explicitly when its SDK
+      # is absent rather than failing the job on a runner-image detail — a red leg that
+      # means "the image changed" teaches the reader to ignore red legs.
+      - name: Is the SDK present
+        id: sdk
+        run: |
+          set -euo pipefail
+          if xcodebuild -showsdks | grep -qi '${{ matrix.platform }}'; then
+            echo "present=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=no" >> "$GITHUB_OUTPUT"
+            echo "::warning::no ${{ matrix.platform }} SDK on this image — skipping"
+          fi
       # The scheme is DISCOVERED, not hard-coded. Xcode generates `<package>-Package` for
       # a SwiftPM package, but that name is a convention rather than a guarantee, and a
       # workflow that guesses it fails with "scheme not found" — which reads like a broken
       # build rather than a broken workflow.
-      - name: Build for iOS
+      - name: Build for ${{ matrix.platform }}
+        if: steps.sdk.outputs.present == 'yes'
         run: |
           set -euo pipefail
           SCHEME=$(xcodebuild -list -json | python3 -c \
@@ -109,7 +134,7 @@ jobs:
              print(next(s for s in w["schemes"] if s.endswith("-Package")))')
           echo "scheme: $SCHEME"
           xcodebuild -scheme "$SCHEME" \
-            -destination 'generic/platform=iOS' \
+            -destination 'generic/platform=${{ matrix.platform }}' \
             -skipMacroValidation \
             build
 

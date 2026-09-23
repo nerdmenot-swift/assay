@@ -67,6 +67,11 @@ private func _assayWithData<T>(
             // buffer keeps the two doors' reports identical on empty input, which a test
             // pins — the alternative was an issue code that only the `Data` door could
             // produce.
+            // The `unsafe` here is REQUIRED by Swift 6.3.3, which the zero-warnings gate
+            // runs, and called unnecessary by the newer compiler in Xcode 27 — the two
+            // disagree about this one expression, and no placement satisfies both. It stays
+            // spelled for the pinned toolchain; the gate will point at this line the day the
+            // pin moves.
             return unsafe withUnsafeTemporaryAllocation(of: UInt8.self, capacity: 1) { tmp in
                 let value = unsafe body(tmp.baseAddress!, 0, &sink)
                 return Diagnosis(sink: sink, value: value,

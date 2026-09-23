@@ -59,7 +59,7 @@ extension RawDecodable {
         guard let raw = __assayTOMLDocument(bytes, into: &sink, limits: limits) else {
             return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
-        var __rootPath: [PathComponent] = []
+        var __rootPath: [PathStep] = []
         let value = Self._assay(from: raw, into: &sink, at: &__rootPath)
         return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }
@@ -159,7 +159,7 @@ extension ContextualRawDecodable {
         guard let raw = __assayTOMLDocument(bytes, into: &sink, limits: limits) else {
             return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
         }
-        var __rootPath: [PathComponent] = []
+        var __rootPath: [PathStep] = []
         let value = Self._assay(from: raw, into: &sink, at: &__rootPath, context: context)
         return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
     }

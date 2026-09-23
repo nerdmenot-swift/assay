@@ -174,7 +174,7 @@ extension SchemaMacro {
             nonisolated public static func _assay(
                 from reader: inout Assay.AssayReader,
                 into sink: inout Assay.IssueSink,
-                at path: inout [Assay.PathComponent]
+                at path: inout [Assay.PathStep]
             ) -> \(typeName)? {
                 reader.beginValue()
                 let __start = reader.byteOffset
@@ -193,7 +193,7 @@ extension SchemaMacro {
             nonisolated public static func _assay(
                 from raw: Assay.RawValue,
                 into sink: inout Assay.IssueSink,
-                at path: inout [Assay.PathComponent]
+                at path: inout [Assay.PathStep]
             ) -> \(typeName)? {
                 guard case .string(let __s) = raw else {
                     Assay.RawValue.mismatchAt(&sink, path, "string", raw)
@@ -223,7 +223,7 @@ extension SchemaMacro {
                 nonisolated public func _assayEncode(
                     into w: inout Assay.JSONWriter,
                     into sink: inout Assay.IssueSink,
-                    at path: inout [Assay.PathComponent]
+                    at path: inout [Assay.PathStep]
                 ) {
                 \(guardExpr)    w.write(_assayWire)
                 }
@@ -235,7 +235,7 @@ extension SchemaMacro {
                 body += """
                 nonisolated public func _assayEncodeRaw(
                     into sink: inout Assay.IssueSink,
-                    at path: [Assay.PathComponent]
+                    at path: [Assay.PathStep]
                 ) -> Assay.RawValue {
                 \(guardExprValue)    return .string(_assayWire)
                 }
@@ -250,7 +250,7 @@ extension SchemaMacro {
                 nonisolated public func _assayEncodeXML(
                     into w: inout Assay.XMLWriter,
                     into sink: inout Assay.IssueSink,
-                    at path: [Assay.PathComponent],
+                    at path: [Assay.PathStep],
                     element __name: String
                 ) {
                 \(guardExpr)    w.element(__name, _assayWire)

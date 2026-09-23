@@ -24,7 +24,7 @@ extension AssayReader {
     @_documentation(visibility: internal)
     @inlinable
     public mutating func _decodeDate(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         _ formats: [DateFormat]
     ) -> Double? {
         beginValue()
@@ -48,7 +48,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeDateOrNull(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         _ formats: [DateFormat]
     ) -> Double?? {
         beginValue()
@@ -60,7 +60,7 @@ extension AssayReader {
     @usableFromInline
     mutating func dateFromText(
         _ text: String, _ formats: [DateFormat], _ sink: inout IssueSink,
-        _ path: [PathComponent], _ key: StaticString, valueStart: Int
+        _ path: [PathStep], _ key: StaticString, valueStart: Int
     ) -> Double? {
         var primary: DateParseFailure? = nil
         for (i, format) in formats.enumerated() {
@@ -86,7 +86,7 @@ extension AssayReader {
     @usableFromInline
     mutating func dateFromNumber(
         _ value: Double, _ formats: [DateFormat], _ sink: inout IssueSink,
-        _ path: [PathComponent], _ key: StaticString, valueStart: Int
+        _ path: [PathStep], _ key: StaticString, valueStart: Int
     ) -> Double? {
         var primary: DateParseFailure? = nil
         for (i, format) in formats.enumerated() where format.acceptsNumber {
@@ -111,7 +111,7 @@ extension AssayReader {
     @inline(never)
     @usableFromInline
     mutating func reportInvalidDate(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         _ formats: [DateFormat], received: String, failure: DateParseFailure, caretAt: Int
     ) {
         sink.add(Issue(
@@ -129,7 +129,7 @@ extension AssayReader {
     @inline(never)
     @usableFromInline
     mutating func warnDateFallback(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         matched: DateFormat, primary: DateFormat
     ) {
         sink.add(warning: Warning(
@@ -162,7 +162,7 @@ extension RawValue {
     @_documentation(visibility: internal)
     @inlinable
     public func _assayDate(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         _ formats: [DateFormat]
     ) -> Double? {
         switch self {
@@ -199,7 +199,7 @@ extension RawValue {
     @usableFromInline
     func numberDate(
         _ value: Double, _ formats: [DateFormat], _ sink: inout IssueSink,
-        _ path: [PathComponent], _ key: StaticString, received: String
+        _ path: [PathStep], _ key: StaticString, received: String
     ) -> Double? {
         var primary: DateParseFailure? = nil
         for (i, format) in formats.enumerated() where format.acceptsNumber {
@@ -226,7 +226,7 @@ extension RawValue {
     @inline(never)
     @usableFromInline
     static func reportInvalidDate(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         _ formats: [DateFormat], received: String, failure: DateParseFailure
     ) {
         sink.add(Issue(
@@ -243,7 +243,7 @@ extension RawValue {
     @inline(never)
     @usableFromInline
     static func warnDateFallback(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         matched: DateFormat, primary: DateFormat
     ) {
         sink.add(warning: Warning(

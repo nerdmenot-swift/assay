@@ -42,12 +42,12 @@ public struct SourceSpan: Sendable, Hashable {
 }
 
 /// One step in the path to a value: `.key("services")`, `.index(2)`.
-public enum PathComponent: Sendable, Hashable {
+public enum PathStep: Sendable, Hashable {
     case key(String)
     case index(Int)
 }
 
-extension Array where Element == PathComponent {
+extension Array where Element == PathStep {
     /// `services[2].healthCheck.timeoutSeconds`
     public var pathDescription: String {
         var out = ""
@@ -90,7 +90,7 @@ public enum IssueValue: Sendable, Hashable {
 /// A hard failure.
 public struct Issue: Sendable, Hashable {
     public var code: IssueCode
-    public var path: [PathComponent]
+    public var path: [PathStep]
     public var params: [String: IssueValue]
     /// What was actually there, rendered for humans. Nil when there was nothing.
     public var received: String?
@@ -98,7 +98,7 @@ public struct Issue: Sendable, Hashable {
 
     public init(
         code: IssueCode,
-        path: [PathComponent] = [],
+        path: [PathStep] = [],
         params: [String: IssueValue] = [:],
         received: String? = nil,
         location: SourceSpan? = nil
@@ -115,13 +115,13 @@ public struct Issue: Sendable, Hashable {
 /// that was ignored. Only ever surfaced through `diagnose`.
 public struct Warning: Sendable, Hashable {
     public var code: IssueCode
-    public var path: [PathComponent]
+    public var path: [PathStep]
     public var params: [String: IssueValue]
     public var location: SourceSpan?
 
     public init(
         code: IssueCode,
-        path: [PathComponent] = [],
+        path: [PathStep] = [],
         params: [String: IssueValue] = [:],
         location: SourceSpan? = nil
     ) {
@@ -266,7 +266,7 @@ extension IssueSink {
     /// after the fact, on the path that already failed, so a clean decode pays nothing.
     @inline(never)
     @_documentation(visibility: internal)
-    public mutating func _insert(since checkpoint: Int, _ c: PathComponent, at position: Int) {
+    public mutating func _insert(since checkpoint: Int, _ c: PathStep, at position: Int) {
         var i = checkpoint
         while i < issues.count {
             let p = position < issues[i].path.count ? position : issues[i].path.count
@@ -287,7 +287,7 @@ extension IssueSink {
 /// honours `@Key(_:or:)` reports through here so the warning is the same on all of them.
 @inline(never)
 public func _assayAliasMatched(
-    _ sink: inout IssueSink, _ path: [PathComponent], _ field: StaticString, _ alias: StaticString
+    _ sink: inout IssueSink, _ path: [PathStep], _ field: StaticString, _ alias: StaticString
 ) {
     sink.add(warning: Warning(code: .aliasMatched,
                               path: path + [.key(String(describing: field))],

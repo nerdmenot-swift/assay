@@ -30,7 +30,7 @@ extension Rule.Storage {
     @usableFromInline
     func applyString(
         _ v: String, _ override: String?, _ field: StaticString,
-        _ span: SourceSpan?, _ path: [PathComponent], _ sink: inout IssueSink
+        _ span: SourceSpan?, _ path: [PathStep], _ sink: inout IssueSink
     ) {
         // Grapheme clusters, via the shortcut in FormatValidators.characterCount, and
         // computed ONLY in the three arms that need it. Hoisting it above the switch reads
@@ -126,7 +126,7 @@ extension Rule.Storage {
     @usableFromInline
     func applyRegex(
         _ p: CompiledPattern, to v: String, _ override: String?, _ field: StaticString,
-        _ span: SourceSpan?, _ path: [PathComponent], _ sink: inout IssueSink
+        _ span: SourceSpan?, _ path: [PathStep], _ sink: inout IssueSink
     ) {
         // Every branch reports exactly what it reported before this was compiled once
         // instead of per value — same three codes, same params, same messages. Only the
@@ -157,7 +157,7 @@ extension Rule.Storage {
     @usableFromInline
     func applyNumber(
         _ v: Double, isInteger: Bool, _ override: String?, _ field: StaticString,
-        _ span: SourceSpan?, _ path: [PathComponent], _ sink: inout IssueSink
+        _ span: SourceSpan?, _ path: [PathStep], _ sink: inout IssueSink
     ) {
         switch kind {
         case .min(let n):
@@ -250,7 +250,7 @@ extension Rule.Storage {
     @usableFromInline
     func applyCollectionCount(
         _ count: Int, _ override: String?, _ field: StaticString,
-        _ span: SourceSpan?, _ path: [PathComponent], _ sink: inout IssueSink
+        _ span: SourceSpan?, _ path: [PathStep], _ sink: inout IssueSink
     ) {
         switch kind {
         case .min(let n):
@@ -300,7 +300,7 @@ extension Rule.Storage {
     @usableFromInline
     func emit(
         _ sink: inout IssueSink, _ code: IssueCode, _ field: StaticString,
-        _ span: SourceSpan?, _ path: [PathComponent], _ override: String?,
+        _ span: SourceSpan?, _ path: [PathStep], _ override: String?,
         _ params: [String: IssueValue], _ received: String?
     ) {
         var params = params
@@ -347,7 +347,7 @@ func _assayEachRule(_ rules: [Rule], _ body: (Rule.Storage) -> Void) {
 @inlinable
 public func _assayValidate(
     _ v: String, _ rules: [Rule], override: String?, field: StaticString,
-    at span: SourceSpan?, path: [PathComponent], _ sink: inout IssueSink
+    at span: SourceSpan?, path: [PathStep], _ sink: inout IssueSink
 ) {
     _assayEachRule(rules) { $0.applyString(v, override, field, span, path, &sink) }
 }
@@ -355,7 +355,7 @@ public func _assayValidate(
 @inlinable
 public func _assayValidate(
     _ v: Int64, _ rules: [Rule], override: String?, field: StaticString,
-    at span: SourceSpan?, path: [PathComponent], _ sink: inout IssueSink
+    at span: SourceSpan?, path: [PathStep], _ sink: inout IssueSink
 ) {
     _assayEachRule(rules) {
         $0.applyNumber(Double(v), isInteger: true, override, field, span, path, &sink)
@@ -365,7 +365,7 @@ public func _assayValidate(
 @inlinable
 public func _assayValidate(
     _ v: UInt64, _ rules: [Rule], override: String?, field: StaticString,
-    at span: SourceSpan?, path: [PathComponent], _ sink: inout IssueSink
+    at span: SourceSpan?, path: [PathStep], _ sink: inout IssueSink
 ) {
     _assayEachRule(rules) {
         $0.applyNumber(Double(v), isInteger: true, override, field, span, path, &sink)
@@ -375,7 +375,7 @@ public func _assayValidate(
 @inlinable
 public func _assayValidate(
     _ v: Double, _ rules: [Rule], override: String?, field: StaticString,
-    at span: SourceSpan?, path: [PathComponent], _ sink: inout IssueSink
+    at span: SourceSpan?, path: [PathStep], _ sink: inout IssueSink
 ) {
     _assayEachRule(rules) {
         $0.applyNumber(v, isInteger: false, override, field, span, path, &sink)
@@ -386,7 +386,7 @@ public func _assayValidate(
 @inlinable
 public func _assayValidate(
     _ v: [String], _ rules: [Rule], override: String?, field: StaticString,
-    at span: SourceSpan?, path: [PathComponent], _ sink: inout IssueSink
+    at span: SourceSpan?, path: [PathStep], _ sink: inout IssueSink
 ) {
     _assayEachRule(rules) { r in
         if let inner = r.eachRules {
@@ -428,7 +428,7 @@ public func _assayValidate(
 @inlinable
 public func _assayValidate(
     _ v: [Int], _ rules: [Rule], override: String?, field: StaticString,
-    at span: SourceSpan?, path: [PathComponent], _ sink: inout IssueSink
+    at span: SourceSpan?, path: [PathStep], _ sink: inout IssueSink
 ) {
     _assayEachRule(rules) { r in
         if let inner = r.eachRules {
@@ -471,7 +471,7 @@ public func _assayValidate(
 @inlinable
 public func _assayValidate(
     _ v: [Double], _ rules: [Rule], override: String?, field: StaticString,
-    at span: SourceSpan?, path: [PathComponent], _ sink: inout IssueSink
+    at span: SourceSpan?, path: [PathStep], _ sink: inout IssueSink
 ) {
     _assayEachRule(rules) { r in
         if let inner = r.eachRules {
@@ -504,7 +504,7 @@ public func _assayValidate(
 @inlinable
 public func _assayValidate<T>(
     countOf v: [T], _ rules: [Rule], override: String?, field: StaticString,
-    at span: SourceSpan?, path: [PathComponent], _ sink: inout IssueSink
+    at span: SourceSpan?, path: [PathStep], _ sink: inout IssueSink
 ) {
     _assayEachRule(rules) {
         $0.applyCollectionCount(v.count, override, field, span, path, &sink)

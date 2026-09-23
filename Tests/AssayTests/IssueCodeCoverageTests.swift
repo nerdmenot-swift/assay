@@ -451,7 +451,7 @@ struct AsyncCheckFormTests {
     func bothReport() async {
         let d = await Signup.diagnose(
             json: Array(#"{"email":"taken@x.com","name":"taken@x.com"}"#.utf8))
-        // Compare paths as values: `PathComponent` is Equatable, and its `description`
+        // Compare paths as values: `PathStep` is Equatable, and its `description`
         // is a debug rendering that is not a contract.
         #expect(d.issues.count == 2, "\(d.issues.map(\.message))")
         let email = d.issues.first { $0.path == [.key("email")] }

@@ -427,7 +427,7 @@ public struct JSONWriter: ~Copyable {
     /// conforming parser accepts. Both are worse than saying so.
     @inlinable
     public mutating func write(
-        _ v: Double, _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ v: Double, _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) {
         guard v.isFinite else {
             unrepresentable(&sink, path, key, v)
@@ -460,7 +460,7 @@ public struct JSONWriter: ~Copyable {
 
     @inlinable
     public mutating func write(
-        _ v: Float, _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ v: Float, _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) {
         write(Double(v), &sink, path, key)
     }
@@ -468,7 +468,7 @@ public struct JSONWriter: ~Copyable {
     @inline(never)
     @usableFromInline
     mutating func unrepresentable(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString, _ v: Double
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ v: Double
     ) {
         sink.add(Issue(
             code: .unrepresentableValue,
@@ -481,7 +481,7 @@ public struct JSONWriter: ~Copyable {
 
     /// `RawValue` — what `@Extras` holds, and what dictionary fields of open shape carry.
     public mutating func write(
-        _ v: RawValue, _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ v: RawValue, _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) {
         switch v {
         case .null:            writeNull()
@@ -504,7 +504,7 @@ public struct JSONWriter: ~Copyable {
     }
 
     public mutating func write(
-        _ v: JSON.Value, _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ v: JSON.Value, _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) {
         switch v {
         case .null:            writeNull()
@@ -534,7 +534,7 @@ public struct JSONWriter: ~Copyable {
     /// round-trip hold.
     public mutating func writeDate(
         _ seconds: Double, _ formats: [DateFormat],
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) {
         switch formats.first ?? .iso8601 {
         case .unixSeconds:
@@ -585,7 +585,7 @@ public func _assayRawDate(_ seconds: Double, _ formats: [DateFormat]) -> RawValu
 @inline(never)
 public func _assayUnknownNotEncodable(
     _ typeName: String, _ value: String,
-    _ sink: inout IssueSink, _ path: [PathComponent]
+    _ sink: inout IssueSink, _ path: [PathStep]
 ) {
     sink.add(Issue(
         code: .unknownNotEncodable,

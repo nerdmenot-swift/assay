@@ -65,14 +65,14 @@ extension ContextualJSONAssayable {
     @available(*, unavailable, message: "this type declared @Schema(context:), so it can only be decoded with a context — but it is nested inside a type that declared none. Add the same `context:` to the outer @Schema, or drop it from this one. (A macro reads a type's NAME, so it cannot detect this at expansion.)")
     public nonisolated static func _assay(
         from reader: inout AssayReader, into sink: inout IssueSink,
-        at path: inout [PathComponent]
+        at path: inout [PathStep]
     ) -> Self? { nil }
 }
 
 extension ContextualRawDecodable {
     @available(*, unavailable, message: "this type declared @Schema(context:), so it can only be decoded with a context — but it is nested inside a type that declared none. Add the same `context:` to the outer @Schema, or drop it from this one. (A macro reads a type's NAME, so it cannot detect this at expansion.)")
     public nonisolated static func _assay(
-        from raw: RawValue, into sink: inout IssueSink, at path: inout [PathComponent]
+        from raw: RawValue, into sink: inout IssueSink, at path: inout [PathStep]
     ) -> Self? { nil }
 }
 
@@ -100,7 +100,7 @@ extension ContextualJSONAssayable {
         var reader = unsafe AssayReader(base: base, count: count, limits: limits)
 
         reader.advanceBy(unsafe UTF8Validation.bomLength(base, count))
-        var path: [PathComponent] = []
+        var path: [PathStep] = []
         let v = Self._assay(from: &reader, into: &sink, at: &path, context: context)
 
         // TRAILING CONTENT IS ONLY MEANINGFUL AFTER A VALUE PARSED. When decode failed the

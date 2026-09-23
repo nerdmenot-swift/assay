@@ -229,7 +229,7 @@ extension SchemaMacro {
 
         nonisolated public static func _assayAsyncChecks(
             _ __value: \(typeName),
-            at path: [Assay.PathComponent]\(ctxParam)
+            at path: [Assay.PathStep]\(ctxParam)
         ) async -> [Assay.Issue] {
             await withTaskGroup(of: Assay.Issues<\(typeName)>.self) { group in
         \(tasks)

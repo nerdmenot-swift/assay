@@ -518,7 +518,7 @@ pointer.
 
 **Paths are not materialized on the happy path.** pydantic-core stores path components in reverse
 order, appending as the error propagates outward, so no path exists until an error does. Assay's
-`[PathComponent]` should be built the same way — the macro knows the static path prefix at each
+`[PathStep]` should be built the same way — the macro knows the static path prefix at each
 site, so the component can be a compile-time constant appended only in the failure branch.
 
 Three rules the generated code must obey or all of this evaporates:

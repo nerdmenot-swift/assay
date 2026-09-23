@@ -73,7 +73,7 @@ extension RawDecodable {
             guard let raw = format.decode(bytes, &sink, limits), sink.isValid else {
                 return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
             }
-            var path: [PathComponent] = []
+            var path: [PathStep] = []
             let value = Self._assay(from: raw, into: &sink, at: &path)
             return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
         }
@@ -120,7 +120,7 @@ extension RawDecodable where Self: JSONAssayable {
             guard let raw = format.decode(bytes, &sink, limits), sink.isValid else {
                 return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes), sourceName: sourceName)
             }
-            var path: [PathComponent] = []
+            var path: [PathStep] = []
             let value = Self._assay(from: raw, into: &sink, at: &path)
             return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes), sourceName: sourceName)
         }
@@ -148,7 +148,7 @@ extension ContextualRawDecodable {
                 return Diagnosis(sink: sink, value: nil, source: SourceBytes(bytes),
                                  sourceName: sourceName)
             }
-            var path: [PathComponent] = []
+            var path: [PathStep] = []
             let value = Self._assay(from: raw, into: &sink, at: &path, context: context)
             return Diagnosis(sink: sink, value: value, source: SourceBytes(bytes),
                              sourceName: sourceName)

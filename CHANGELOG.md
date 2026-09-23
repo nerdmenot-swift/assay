@@ -13,6 +13,14 @@ stable for two minor versions with no entry under **Breaking**.
 
 ### Breaking
 
+- **`PathComponent` is now `PathStep`.** `issue.path` is `[PathStep]`, and the cases are
+  unchanged — `.key("email")`, `.index(3)`. Vapor exports a `PathComponent` of its own for
+  routing, so an app with both imported could not write the bare name as a type: Swift
+  reports "'PathComponent' is ambiguous for type lookup". Pattern matches and inferred uses
+  were never affected, which is why it took a collision audit to notice. Renamed rather than
+  documented because almost nobody spells this type — the macro emits it fully qualified, and
+  users read `issue.path` — so the rename costs one line in a migration and removes a
+  collision permanently.
 - **`EncodedBytes.toArray()` is now `Array(_:)`.** `Array(try value.encodedJSON())` rather
   than `try value.encodedJSON().toArray()`. The API Design Guidelines put a non-mutating
   conversion on the destination type as an initialiser — `Array(someSequence)`,

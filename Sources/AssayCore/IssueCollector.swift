@@ -53,13 +53,13 @@ public struct Issues<Root>: @unchecked Sendable {
             params: params))
     }
 
-    func fieldPath(_ keyPath: PartialKeyPath<Root>?) -> [PathComponent] {
+    func fieldPath(_ keyPath: PartialKeyPath<Root>?) -> [PathStep] {
         guard let kp = keyPath, let name = names[kp] else { return [] }
         return [.key(name)]
     }
 
     /// Called by generated code after the check returns.
-    public func merge(into sink: inout IssueSink, at path: [PathComponent]) {
+    public func merge(into sink: inout IssueSink, at path: [PathStep]) {
         for var issue in collected {
             issue.path = path + issue.path
             sink.add(issue)

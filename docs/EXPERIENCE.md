@@ -178,7 +178,7 @@ config.json:118:22: error: services[2].healthCheck.timeoutSeconds must be positi
 
 ```swift
 for issue in d.issues {
-    issue.path       // [PathComponent] — .key("services"), .index(2), .key("timeoutSeconds")
+    issue.path       // [PathStep] — .key("services"), .index(2), .key("timeoutSeconds")
     issue.code       // IssueCode — .tooSmall, .typeMismatch, .missing, .custom("company_domain")
     issue.params     // [String: IssueValue] — ["minimum": .int(1), "inclusive": .bool(true)]
     issue.received   // what was actually there

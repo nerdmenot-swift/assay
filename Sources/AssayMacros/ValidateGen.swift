@@ -80,7 +80,7 @@ extension SchemaMacro {
         \(skipNote(fields))nonisolated public static func _assayCheck(
             _ __result: \(typeName),
             into sink: inout Assay.IssueSink,
-            at path: [Assay.PathComponent]\(ctxParam)
+            at path: [Assay.PathStep]\(ctxParam)
         ) {
         \(out)}
         """

@@ -69,7 +69,7 @@ extension SchemaMacro {
         nonisolated public func _assayEncodeXML(
             into w: inout Assay.XMLWriter,
             into sink: inout Assay.IssueSink,
-            at path: [Assay.PathComponent],
+            at path: [Assay.PathStep],
             element __name: String
         ) {
             w.beginElement(__name)

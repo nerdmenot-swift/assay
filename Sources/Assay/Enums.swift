@@ -26,7 +26,7 @@ extension JSONAssayable where Self: RawRepresentable, RawValue == String {
     public static func _assay(
         from reader: inout AssayReader,
         into sink: inout IssueSink,
-        at path: inout [PathComponent]
+        at path: inout [PathStep]
     ) -> Self? {
         reader.beginValue()
         let start = reader.byteOffset
@@ -47,7 +47,7 @@ extension JSONAssayable where Self: RawRepresentable & CaseIterable, RawValue ==
     public static func _assay(
         from reader: inout AssayReader,
         into sink: inout IssueSink,
-        at path: inout [PathComponent]
+        at path: inout [PathStep]
     ) -> Self? {
         reader.beginValue()
         let start = reader.byteOffset
@@ -69,7 +69,7 @@ extension RawDecodable where Self: RawRepresentable, RawValue == String {
     public static func _assay(
         from raw: AssayCore.RawValue,
         into sink: inout IssueSink,
-        at path: inout [PathComponent]
+        at path: inout [PathStep]
     ) -> Self? {
         guard case .string(let s) = raw else {
             AssayCore.RawValue.mismatchAt(&sink, path, "string", raw)
@@ -87,7 +87,7 @@ extension RawDecodable where Self: RawRepresentable & CaseIterable, RawValue == 
     public static func _assay(
         from raw: AssayCore.RawValue,
         into sink: inout IssueSink,
-        at path: inout [PathComponent]
+        at path: inout [PathStep]
     ) -> Self? {
         guard case .string(let s) = raw else {
             AssayCore.RawValue.mismatchAt(&sink, path, "string", raw)
@@ -108,7 +108,7 @@ extension JSONAssayable where Self: RawRepresentable, RawValue == Int {
     public static func _assay(
         from reader: inout AssayReader,
         into sink: inout IssueSink,
-        at path: inout [PathComponent]
+        at path: inout [PathStep]
     ) -> Self? {
         reader.beginValue()
         let start = reader.byteOffset
@@ -129,7 +129,7 @@ extension RawDecodable where Self: RawRepresentable, RawValue == Int {
     public static func _assay(
         from raw: AssayCore.RawValue,
         into sink: inout IssueSink,
-        at path: inout [PathComponent]
+        at path: inout [PathStep]
     ) -> Self? {
         guard case .int(let i) = raw, let n = Int(exactly: i) else {
             AssayCore.RawValue.mismatchAt(&sink, path, "integer", raw)
@@ -148,7 +148,7 @@ extension RawDecodable where Self: RawRepresentable, RawValue == Int {
 @inline(never)
 private func _unknownVariant(
     _ sink: inout IssueSink,
-    _ path: [PathComponent],
+    _ path: [PathStep],
     received: String,
     options: [String]?,
     span: SourceSpan?

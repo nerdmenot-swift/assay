@@ -431,7 +431,7 @@ public struct AssayReader: ~Copyable {
     /// malformed document from a position where no single token was expected.
     @inline(never)
     public mutating func reportMalformed(
-        _ sink: inout IssueSink, _ path: [PathComponent], expected: StaticString? = nil
+        _ sink: inout IssueSink, _ path: [PathStep], expected: StaticString? = nil
     ) {
         var params: [String: IssueValue] = [:]
         if let e = expected { params["expected"] = .string("\(e)") }
@@ -455,7 +455,7 @@ public struct AssayReader: ~Copyable {
     /// replaced every later issue in the document.
     @inline(never)
     public mutating func _mismatch(
-        _ sink: inout IssueSink, _ path: [PathComponent], from start: Int, expected: String
+        _ sink: inout IssueSink, _ path: [PathStep], from start: Int, expected: String
     ) {
         cursor = start
         reportTypeMismatch(&sink, path, expected: expected)
@@ -465,7 +465,7 @@ public struct AssayReader: ~Copyable {
     @inline(never)
     public mutating func reportTypeMismatch(
         _ sink: inout IssueSink,
-        _ path: [PathComponent],
+        _ path: [PathStep],
         expected: String
     ) {
         sink.add(Issue(
@@ -667,7 +667,7 @@ extension AssayReader {
     @inlinable
     public func _aliasMatched(
         _ key: KeyRange, _ alias: StaticString, _ sink: inout IssueSink,
-        _ path: [PathComponent], _ field: StaticString
+        _ path: [PathStep], _ field: StaticString
     ) -> Bool {
         guard keyMatches(key, alias) else { return false }
         _assayAliasMatched(&sink, path, field, alias)
@@ -690,7 +690,7 @@ extension AssayReader {
     public mutating func report(
         _ sink: inout IssueSink,
         _ code: IssueCode,
-        _ path: [PathComponent] = [],
+        _ path: [PathStep] = [],
         params: [String: IssueValue] = [:],
         span: SourceSpan? = nil
     ) {

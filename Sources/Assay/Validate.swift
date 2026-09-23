@@ -61,13 +61,13 @@ public import AssayCore
 public protocol Validatable: Sendable {
     /// Run every rule and cross-field check against `value`. Generated.
     nonisolated static func _assayCheck(
-        _ value: Self, into sink: inout IssueSink, at path: [PathComponent])
+        _ value: Self, into sink: inout IssueSink, at path: [PathStep])
 }
 
 /// The contextual counterpart, for `@Schema(context:)`. See `ContextualJSONAssayable`.
 public protocol ContextualValidatable: ContextualAssayable {
     nonisolated static func _assayCheck(
-        _ value: Self, into sink: inout IssueSink, at path: [PathComponent],
+        _ value: Self, into sink: inout IssueSink, at path: [PathStep],
         context: AssayContext)
 }
 
@@ -139,10 +139,10 @@ extension Validatable {
     ///     }
     ///
     /// Any path shape works — `[.key("trips.parquet"), .index(91_824)]` names the file as
-    /// well — because a `PathComponent` array is exactly what every other issue carries.
+    /// well — because a `PathStep` array is exactly what every other issue carries.
     @inlinable
     public static func diagnose(
-        _ value: Self, at path: [PathComponent], limits: Limits = .default
+        _ value: Self, at path: [PathStep], limits: Limits = .default
     ) -> Validation {
         var sink = IssueSink(limits: limits)
         Self._assayCheck(value, into: &sink, at: path)
@@ -159,7 +159,7 @@ extension Validatable {
     /// The throwing form of `diagnose(_:at:)`.
     @inlinable
     public static func validate(
-        _ value: Self, at path: [PathComponent], limits: Limits = .default
+        _ value: Self, at path: [PathStep], limits: Limits = .default
     ) throws(AssayError) {
         try diagnose(value, at: path, limits: limits).check()
     }
@@ -180,7 +180,7 @@ extension Validatable {
         // the obvious spelling and allocates per row; this is worth ~16 ns of the ~90 the
         // loop costs. Nothing retains the buffer — an Issue stores `path + [...]`, a fresh
         // array — so it stays uniquely referenced and the assignment is in place.
-        var path: [PathComponent] = [.index(0)]
+        var path: [PathStep] = [.index(0)]
         for (i, v) in values.enumerated() {
             path[0] = .index(i)
             Self._assayCheck(v, into: &sink, at: path)

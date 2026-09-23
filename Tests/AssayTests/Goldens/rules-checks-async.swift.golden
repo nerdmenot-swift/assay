@@ -19,7 +19,7 @@ nonisolated static let __assayKeyTable: [UInt8] = {
 nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
-    at path: inout [Assay.PathComponent]
+    at path: inout [Assay.PathStep]
 ) -> GoldenRules? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
@@ -238,7 +238,7 @@ nonisolated public static func _assay(
 nonisolated public static func _assayCheck(
     _ __result: GoldenRules,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: [Assay.PathStep]
 ) {
         Assay._assayValidate(__result.a, Self.__assayRules_0_0, override: nil, field: "a", at: nil, path: path, &sink)
         Assay._assayValidate(__result.t, Self.__assayRules_1_0, override: nil, field: "t", at: nil, path: path, &sink)
@@ -251,7 +251,7 @@ nonisolated public static func _assayCheck(
 
 nonisolated public static func _assayAsyncChecks(
     _ __value: GoldenRules,
-    at path: [Assay.PathComponent]
+    at path: [Assay.PathStep]
 ) async -> [Assay.Issue] {
     await withTaskGroup(of: Assay.Issues<GoldenRules>.self) { group in
         group.addTask {

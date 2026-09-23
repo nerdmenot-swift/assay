@@ -9,7 +9,7 @@ extension GoldenAllFormats: Assay.JSONAssayable, Assay.RawDecodable {nonisolated
 nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
-    at path: inout [Assay.PathComponent]
+    at path: inout [Assay.PathStep]
 ) -> GoldenAllFormats? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
@@ -167,7 +167,7 @@ nonisolated public static func _assay(
 nonisolated public static func _assay(
     from raw: Assay.RawValue,
     into sink: inout Assay.IssueSink,
-    at path: inout [Assay.PathComponent]
+    at path: inout [Assay.PathStep]
 ) -> GoldenAllFormats? {
     guard case .mapping(let __members) = raw else {
         Assay.RawValue._notAnObject(&sink, path, raw)

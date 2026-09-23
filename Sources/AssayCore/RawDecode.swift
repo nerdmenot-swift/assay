@@ -38,7 +38,7 @@ extension RawValue {
 
     @inlinable
     public func _assayString(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> String? {
         if case .string(let s) = self { return s }
@@ -58,7 +58,7 @@ extension RawValue {
 
     @inlinable
     public func _assayInt(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Int? {
         if case .int(let i) = self, let n = Int(exactly: i) { return n }
@@ -71,7 +71,7 @@ extension RawValue {
 
     @inlinable
     public func _assayInt64(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Int64? {
         if case .int(let i) = self { return i }
@@ -84,7 +84,7 @@ extension RawValue {
 
     @inlinable
     public func _assayInt32(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Int32? {
         if case .int(let i) = self, let n = Int32(exactly: i) { return n }
@@ -97,7 +97,7 @@ extension RawValue {
 
     @inlinable
     public func _assayUInt(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> UInt? {
         if case .int(let i) = self, let n = UInt(exactly: i) { return n }
@@ -110,7 +110,7 @@ extension RawValue {
 
     @inlinable
     public func _assayInt8(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Int8? {
         if case .int(let i) = self, let n = Int8(exactly: i) { return n }
@@ -123,7 +123,7 @@ extension RawValue {
 
     @inlinable
     public func _assayInt16(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Int16? {
         if case .int(let i) = self, let n = Int16(exactly: i) { return n }
@@ -136,7 +136,7 @@ extension RawValue {
 
     @inlinable
     public func _assayUInt8(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> UInt8? {
         if case .int(let i) = self, let n = UInt8(exactly: i) { return n }
@@ -149,7 +149,7 @@ extension RawValue {
 
     @inlinable
     public func _assayUInt16(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> UInt16? {
         if case .int(let i) = self, let n = UInt16(exactly: i) { return n }
@@ -162,7 +162,7 @@ extension RawValue {
 
     @inlinable
     public func _assayUInt32(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> UInt32? {
         if case .int(let i) = self, let n = UInt32(exactly: i) { return n }
@@ -175,7 +175,7 @@ extension RawValue {
 
     @inlinable
     public func _assayUInt64(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> UInt64? {
         if case .int(let i) = self, let n = UInt64(exactly: i) { return n }
@@ -188,7 +188,7 @@ extension RawValue {
 
     @inlinable
     public func _assayDouble(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Double? {
         switch self {
@@ -205,7 +205,7 @@ extension RawValue {
 
     @inlinable
     public func _assayFloat(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Float? {
         _assayDouble(&sink, path, key, coerce: coerce, at: span).map(Float.init)
@@ -215,7 +215,7 @@ extension RawValue {
 
     @inlinable
     public func _assayBool(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         coerce: Bool = false, at span: SourceSpan? = nil
     ) -> Bool? {
         if case .bool(let b) = self { return b }
@@ -258,7 +258,7 @@ extension RawValue {
     @inline(never)
     @usableFromInline
     static func mismatch(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         _ expected: String, _ found: RawValue, _ span: SourceSpan? = nil
     ) {
         sink.add(Issue(
@@ -276,7 +276,7 @@ extension RawValue {
     /// `""` and must not add a segment. The empty key is free to mean that: `@Key("")` is
     /// refused at expansion, and an `@XML(.text)` field's primary key is its own name.
     @usableFromInline
-    static func keyed(_ path: [PathComponent], _ key: StaticString) -> [PathComponent] {
+    static func keyed(_ path: [PathStep], _ key: StaticString) -> [PathStep] {
         key.utf8CodeUnitCount == 0 ? path : path + [.key(String(describing: key))]
     }
 
@@ -298,7 +298,7 @@ extension RawValue {
 
     @inline(never)
     public static func _missing(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) {
         sink.add(Issue(code: .missing, path: path + [.key(String(describing: key))]))
     }
@@ -307,7 +307,7 @@ extension RawValue {
 
     @inline(never)
     public static func _notAnObject(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ found: RawValue
+        _ sink: inout IssueSink, _ path: [PathStep], _ found: RawValue
     ) {
         sink.add(Issue(code: .typeMismatch, path: path,
                        params: ["expected": .string("object")],
@@ -329,7 +329,7 @@ extension RawValue {
     @_documentation(visibility: internal)
     @inline(never)
     public static func _unknownKey(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ name: String,
+        _ sink: inout IssueSink, _ path: [PathStep], _ name: String,
         known: [String], reject: Bool, span: SourceSpan? = nil
     ) {
         var params: [String: IssueValue] = [:]
@@ -368,7 +368,7 @@ public protocol Assayable: Sendable {}
 @_documentation(visibility: internal)
 @inlinable @inline(__always)
 public func _assayPushed<T>(
-    _ path: inout [PathComponent], _ key: String, _ body: (inout [PathComponent]) -> T?
+    _ path: inout [PathStep], _ key: String, _ body: (inout [PathStep]) -> T?
 ) -> T? {
     path.append(.key(key))
     defer { path.removeLast() }
@@ -383,8 +383,8 @@ public func _assayPushed<T>(
 @_documentation(visibility: internal)
 @inlinable @inline(__always)
 public func _assayElement<T>(
-    _ path: inout [PathComponent], _ sink: inout IssueSink, _ key: String, _ index: Int,
-    _ body: (inout [PathComponent], inout IssueSink) -> T?
+    _ path: inout [PathStep], _ sink: inout IssueSink, _ key: String, _ index: Int,
+    _ body: (inout [PathStep], inout IssueSink) -> T?
 ) -> T? {
     path.append(.key(key))
     let mark = sink.checkpoint()
@@ -401,8 +401,8 @@ public func _assayElement<T>(
 @_documentation(visibility: internal)
 @inlinable
 public func _assaySequence<T>(
-    _ path: inout [PathComponent], _ v: RawValue,
-    _ element: (RawValue, inout [PathComponent]) -> T?
+    _ path: inout [PathStep], _ v: RawValue,
+    _ element: (RawValue, inout [PathStep]) -> T?
 ) -> [T]? {
     guard case .sequence(let xs) = v else { return nil }
     var out: [T] = []
@@ -422,8 +422,8 @@ public func _assaySequence<T>(
 @_documentation(visibility: internal)
 @inlinable
 public func _assaySequence<T>(
-    _ path: inout [PathComponent], _ key: String, _ v: RawValue,
-    _ element: (RawValue, inout [PathComponent]) -> T?
+    _ path: inout [PathStep], _ key: String, _ v: RawValue,
+    _ element: (RawValue, inout [PathStep]) -> T?
 ) -> [T]? {
     guard case .sequence = v else { return nil }
     path.append(.key(key))
@@ -435,8 +435,8 @@ public func _assaySequence<T>(
 @_documentation(visibility: internal)
 @inlinable
 public func _assayMapping<T>(
-    _ path: inout [PathComponent], _ key: String, _ v: RawValue,
-    _ value: (RawValue, inout [PathComponent]) -> T?
+    _ path: inout [PathStep], _ key: String, _ v: RawValue,
+    _ value: (RawValue, inout [PathStep]) -> T?
 ) -> [String: T]? {
     guard case .mapping = v else { return nil }
     path.append(.key(key))
@@ -450,8 +450,8 @@ public func _assayMapping<T>(
 @_documentation(visibility: internal)
 @inlinable
 public func _assayMapping<T>(
-    _ path: inout [PathComponent], _ v: RawValue,
-    _ value: (RawValue, inout [PathComponent]) -> T?
+    _ path: inout [PathStep], _ v: RawValue,
+    _ value: (RawValue, inout [PathStep]) -> T?
 ) -> [String: T]? {
     guard case .mapping(let ms) = v else { return nil }
     var out: [String: T] = [:]
@@ -468,8 +468,8 @@ public func _assayMapping<T>(
 @_documentation(visibility: internal)
 @inlinable @inline(__always)
 public func _assayPushed<T>(
-    _ path: inout [PathComponent], _ component: PathComponent,
-    _ body: (inout [PathComponent]) -> T?
+    _ path: inout [PathStep], _ component: PathStep,
+    _ body: (inout [PathStep]) -> T?
 ) -> T? {
     path.append(component)
     defer { path.removeLast() }
@@ -483,7 +483,7 @@ public protocol RawDecodable: Assayable {
     static func _assay(
         from raw: RawValue,
         into sink: inout IssueSink,
-        at path: inout [PathComponent]
+        at path: inout [PathStep]
     ) -> Self?
 }
 
@@ -491,7 +491,7 @@ extension RawValue {
     /// Type mismatch at a path that already names the field — the enum decode case.
     @inline(never)
     public static func mismatchAt(
-        _ sink: inout IssueSink, _ path: [PathComponent],
+        _ sink: inout IssueSink, _ path: [PathStep],
         _ expected: String, _ found: RawValue
     ) {
         sink.add(Issue(code: .typeMismatch, path: path,
@@ -503,7 +503,7 @@ extension RawValue {
     @_documentation(visibility: internal)
     @inline(never)
     public static func _mismatchPublic(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString,
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString,
         _ expected: String, _ found: RawValue, _ span: SourceSpan? = nil
     ) {
         mismatch(&sink, path, key, expected, found, span)

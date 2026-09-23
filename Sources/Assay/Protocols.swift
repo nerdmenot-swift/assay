@@ -29,7 +29,7 @@ public protocol JSONEncodableSchema: Assayable {
     nonisolated func _assayEncode(
         into w: inout JSONWriter,
         into sink: inout IssueSink,
-        at path: inout [PathComponent]
+        at path: inout [PathStep]
     )
 }
 
@@ -44,7 +44,7 @@ public protocol JSONEncodableSchema: Assayable {
 public protocol RawEncodableSchema: Assayable {
     nonisolated func _assayEncodeRaw(
         into sink: inout IssueSink,
-        at path: [PathComponent]
+        at path: [PathStep]
     ) -> RawValue
 }
 
@@ -71,7 +71,7 @@ public protocol XMLEncodableSchema: Assayable {
     nonisolated func _assayEncodeXML(
         into w: inout XMLWriter,
         into sink: inout IssueSink,
-        at path: [PathComponent],
+        at path: [PathStep],
         element name: String
     )
     /// The default root element name — the type's own name.
@@ -119,7 +119,7 @@ public protocol ContextualJSONAssayable: ContextualAssayable {
     nonisolated static func _assay(
         from reader: inout AssayReader,
         into sink: inout IssueSink,
-        at path: inout [PathComponent],
+        at path: inout [PathStep],
         context: AssayContext
     ) -> Self?
 }
@@ -130,7 +130,7 @@ public protocol ContextualRawDecodable: ContextualAssayable {
     nonisolated static func _assay(
         from raw: RawValue,
         into sink: inout IssueSink,
-        at path: inout [PathComponent],
+        at path: inout [PathStep],
         context: AssayContext
     ) -> Self?
 }
@@ -157,7 +157,7 @@ extension JSONAssayable {
     @inlinable
     public nonisolated static func _assay<C>(
         from reader: inout AssayReader, into sink: inout IssueSink,
-        at path: inout [PathComponent], context: C
+        at path: inout [PathStep], context: C
     ) -> Self? {
         _assay(from: &reader, into: &sink, at: &path)
     }
@@ -168,7 +168,7 @@ extension RawDecodable {
     @inlinable
     public nonisolated static func _assay<C>(
         from raw: RawValue, into sink: inout IssueSink,
-        at path: inout [PathComponent], context: C
+        at path: inout [PathStep], context: C
     ) -> Self? {
         _assay(from: raw, into: &sink, at: &path)
     }
@@ -193,14 +193,14 @@ public protocol JSONAssayable: Assayable {
     nonisolated static func _assay(
         from reader: inout AssayReader,
         into sink: inout IssueSink,
-        at path: inout [PathComponent]
+        at path: inout [PathStep]
     ) -> Self?
 }
 
 
 /// Conformance generated when a schema declares any `@AsyncCheck`.
 public protocol AsyncCheckAssayable: Assayable {
-    static func _assayAsyncChecks(_ value: Self, at path: [PathComponent]) async -> [Issue]
+    static func _assayAsyncChecks(_ value: Self, at path: [PathStep]) async -> [Issue]
 }
 
 
@@ -208,7 +208,7 @@ public protocol AsyncCheckAssayable: Assayable {
 /// §10 — `await ctx.users.exists(email:)` — cannot be written without this.
 public protocol ContextualAsyncCheckAssayable: ContextualAssayable {
     static func _assayAsyncChecks(
-        _ value: Self, at path: [PathComponent], context: AssayContext) async -> [Issue]
+        _ value: Self, at path: [PathStep], context: AssayContext) async -> [Issue]
 }
 
 // MARK: - The nominal-type assertion

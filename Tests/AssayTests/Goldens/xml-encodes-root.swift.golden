@@ -9,7 +9,7 @@ extension GoldenXML: Assay.JSONAssayable, Assay.RawDecodable, Assay.JSONEncodabl
 nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
-    at path: inout [Assay.PathComponent]
+    at path: inout [Assay.PathStep]
 ) -> GoldenXML? {
     guard reader.tryConsume(0x7B) else {
         reader.reportTypeMismatch(&sink, path, expected: "object")
@@ -132,7 +132,7 @@ nonisolated public static func _assay(
 nonisolated public static func _assay(
     from raw: Assay.RawValue,
     into sink: inout Assay.IssueSink,
-    at path: inout [Assay.PathComponent]
+    at path: inout [Assay.PathStep]
 ) -> GoldenXML? {
     guard case .mapping(let __members) = raw else {
         Assay.RawValue._notAnObject(&sink, path, raw)
@@ -220,7 +220,7 @@ nonisolated public static func _assay(
 nonisolated public func _assayEncodeMembers(
     into w: inout Assay.JSONWriter,
     into sink: inout Assay.IssueSink,
-    at path: inout [Assay.PathComponent]
+    at path: inout [Assay.PathStep]
 ) {
         w._key(separated: ",\"id\":")
         w.write(self.id)
@@ -237,7 +237,7 @@ nonisolated public func _assayEncodeMembers(
 nonisolated public func _assayEncode(
     into w: inout Assay.JSONWriter,
     into sink: inout Assay.IssueSink,
-    at path: inout [Assay.PathComponent]
+    at path: inout [Assay.PathStep]
 ) {
     w.beginObject()
     self._assayEncodeMembers(into: &w, into: &sink, at: &path)
@@ -246,7 +246,7 @@ nonisolated public func _assayEncode(
 
 nonisolated public func _assayEncodeRaw(
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent]
+    at path: [Assay.PathStep]
 ) -> Assay.RawValue {
     var __m: [Assay.RawValue.Member] = []
     __m.reserveCapacity(3)
@@ -261,7 +261,7 @@ nonisolated public static var _assayXMLRoot: String { "r" }
 nonisolated public func _assayEncodeXML(
     into w: inout Assay.XMLWriter,
     into sink: inout Assay.IssueSink,
-    at path: [Assay.PathComponent],
+    at path: [Assay.PathStep],
     element __name: String
 ) {
     w.beginElement(__name)

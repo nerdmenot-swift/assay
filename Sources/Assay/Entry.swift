@@ -101,7 +101,7 @@ extension JSONAssayable {
         reader.advanceBy(unsafe UTF8Validation.bomLength(base, count))
         // One path buffer for the whole decode: nested schemas push and pop on it (see
         // `JSONAssayable`), so it never allocates on a clean document.
-        var path: [PathComponent] = []
+        var path: [PathStep] = []
         let v = Self._assay(from: &reader, into: &sink, at: &path)
 
         // Trailing content is an error, not a shrug.
@@ -225,7 +225,7 @@ extension JSONEncodableSchema {
     public func encodedJSON(pretty: Bool = false) throws -> EncodedBytes {
         var sink = IssueSink()
         var w = JSONWriter(pretty: pretty)
-        var path: [PathComponent] = []
+        var path: [PathStep] = []
         _assayEncode(into: &w, into: &sink, at: &path)
         let bytes = w.finish()
         guard sink.isValid else {
@@ -245,7 +245,7 @@ extension JSONEncodableSchema {
     public func diagnoseEncodeJSON(pretty: Bool = false) -> EncodeDiagnosis {
         var sink = IssueSink()
         var w = JSONWriter(pretty: pretty)
-        var path: [PathComponent] = []
+        var path: [PathStep] = []
         _assayEncode(into: &w, into: &sink, at: &path)
         // `EncodeDiagnosis.bytes` stays `[UInt8]` on purpose — see `EncodedBytes`'s header —
         // so this path, and only this path, copies.

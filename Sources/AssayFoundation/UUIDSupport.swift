@@ -97,7 +97,7 @@ extension UUID {
     }
 
     @usableFromInline
-    static func _assayReport(_ sink: inout IssueSink, _ path: [PathComponent],
+    static func _assayReport(_ sink: inout IssueSink, _ path: [PathStep],
                              received: String?) {
         sink.add(Issue(code: .typeMismatch, path: path,
                        params: ["expected": .string("uuid")],
@@ -116,7 +116,7 @@ extension UUID {
     nonisolated public static func _assay(
         from reader: inout AssayReader,
         into sink: inout IssueSink,
-        at path: inout [PathComponent]
+        at path: inout [PathStep]
     ) -> UUID? {
         reader.beginValue()
         let start = reader.byteOffset
@@ -138,7 +138,7 @@ extension UUID {
     nonisolated public static func _assay(
         from raw: RawValue,
         into sink: inout IssueSink,
-        at path: inout [PathComponent]
+        at path: inout [PathStep]
     ) -> UUID? {
         guard case .string(let text) = raw else {
             RawValue.mismatchAt(&sink, path, "uuid", raw)

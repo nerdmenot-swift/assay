@@ -27,7 +27,7 @@ nonisolated public var _assayIsUnknown: Bool {
 nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
-    at path: inout [Assay.PathComponent]
+    at path: inout [Assay.PathStep]
 ) -> GoldenOpen? {
     reader.beginValue()
     let __start = reader.byteOffset
@@ -41,7 +41,7 @@ nonisolated public static func _assay(
 nonisolated public func _assayEncode(
     into w: inout Assay.JSONWriter,
     into sink: inout Assay.IssueSink,
-    at path: inout [Assay.PathComponent]
+    at path: inout [Assay.PathStep]
 ) {
     w.write(_assayWire)
 }

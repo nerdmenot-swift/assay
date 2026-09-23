@@ -28,7 +28,7 @@ extension AssayReader {
     /// the path is threaded `inout` — see `_scanJSONValue`.
     public mutating func scanJSONValue(
         _ sink: inout IssueSink,
-        _ path: [PathComponent] = []
+        _ path: [PathStep] = []
     ) -> JSON.Value? {
         var p = path
         var hints = _ShapeHints()
@@ -38,7 +38,7 @@ extension AssayReader {
     @usableFromInline
     mutating func _scanJSONValue(
         _ sink: inout IssueSink,
-        _ path: inout [PathComponent],
+        _ path: inout [PathStep],
         _ hints: inout _ShapeHints
     ) -> JSON.Value? {
         skipWhitespace()
@@ -80,7 +80,7 @@ extension AssayReader {
     @usableFromInline
     mutating func scanJSONNumber(
         _ sink: inout IssueSink,
-        _ path: inout [PathComponent]
+        _ path: inout [PathStep]
     ) -> JSON.Value? {
         if let i = scanInt64() { return .int(i) }
         if let d = scanDouble() { return .double(d) }
@@ -100,7 +100,7 @@ extension AssayReader {
     @usableFromInline
     mutating func scanJSONArray(
         _ sink: inout IssueSink,
-        _ path: inout [PathComponent],
+        _ path: inout [PathStep],
         _ hints: inout _ShapeHints
     ) -> JSON.Value? {
         guard tryConsume(0x5B) else { reportMalformed(&sink, path, expected: "'['"); return nil }
@@ -134,7 +134,7 @@ extension AssayReader {
     @usableFromInline
     mutating func scanJSONObject(
         _ sink: inout IssueSink,
-        _ path: inout [PathComponent],
+        _ path: inout [PathStep],
         _ hints: inout _ShapeHints
     ) -> JSON.Value? {
         guard tryConsume(0x7B) else { reportMalformed(&sink, path, expected: "'{'"); return nil }
@@ -279,7 +279,7 @@ extension JSON.Value {
         }
         var reader = unsafe AssayReader(base: base, count: count, limits: limits)
         reader.advanceBy(unsafe UTF8Validation.bomLength(base, count))
-        var path: [PathComponent] = []
+        var path: [PathStep] = []
         var hints = _ShapeHints()
         guard let v = reader._scanJSONValue(&sink, &path, &hints) else { return nil }
         reader.skipWhitespace()

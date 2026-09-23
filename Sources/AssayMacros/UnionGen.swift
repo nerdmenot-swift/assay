@@ -221,7 +221,7 @@ extension SchemaMacro {
         nonisolated public static func _assay(
             from reader: inout Assay.AssayReader,
             into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathComponent]
+            at path: inout [Assay.PathStep]
         ) -> \(typeName)? {
             // The whole reader state, not just the cursor: the scan enters a container and a
             // malformed document can leave that unbalanced. docs/UNIONS.md §1.
@@ -319,7 +319,7 @@ extension SchemaMacro {
         nonisolated public static func _assay(
             from reader: inout Assay.AssayReader,
             into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathComponent]
+            at path: inout [Assay.PathStep]
         ) -> \(typeName)? {
             let __mark = reader.mark
             let __ck = sink.checkpoint()
@@ -389,7 +389,7 @@ extension SchemaMacro {
         nonisolated public func _assayEncodeMembers(
             into w: inout Assay.JSONWriter,
             into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathComponent]
+            at path: inout [Assay.PathStep]
         ) {
             switch self {
         \(arms)    }
@@ -398,7 +398,7 @@ extension SchemaMacro {
         nonisolated public func _assayEncode(
             into w: inout Assay.JSONWriter,
             into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathComponent]
+            at path: inout [Assay.PathStep]
         ) {
             w.beginObject()
             self._assayEncodeMembers(into: &w, into: &sink, at: &path)
@@ -444,7 +444,7 @@ extension SchemaMacro {
         nonisolated public func _assayEncode(
             into w: inout Assay.JSONWriter,
             into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathComponent]
+            at path: inout [Assay.PathStep]
         ) {
             switch self {
         \(arms)    }

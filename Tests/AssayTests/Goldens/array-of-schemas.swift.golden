@@ -8,7 +8,7 @@ extension GoldenArrayOfSchemas: Assay.JSONAssayable {nonisolated static let __as
 nonisolated public static func _assay(
     from reader: inout Assay.AssayReader,
     into sink: inout Assay.IssueSink,
-    at path: inout [Assay.PathComponent]
+    at path: inout [Assay.PathStep]
 ) -> GoldenArrayOfSchemas? {
     Assay._assayRequireJSON(GoldenArrayElement.self)
     guard reader.tryConsume(0x7B) else {

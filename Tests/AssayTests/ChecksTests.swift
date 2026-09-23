@@ -251,7 +251,7 @@ struct EnumTests {
         let bytes = Array("404".utf8)
         let v: StatusCode? = bytes.withUnsafeBufferPointer { buf in
             var r = AssayReader(base: buf.baseAddress!, count: buf.count)
-            var __p: [PathComponent] = []
+            var __p: [PathStep] = []
             return StatusCode._assay(from: &r, into: &sink, at: &__p)
         }
         #expect(v == .notFound)

@@ -60,7 +60,7 @@ struct RewindTests {
             let mark = sink.checkpoint()
 
             // Branch 1: wrong shape — `b` is a String, not an Int.
-            var __p1: [PathComponent] = []
+            var __p1: [PathStep] = []
             let first = RewindInner._assay(from: &reader, into: &sink, at: &__p1)
             #expect(first == nil, "branch 1 must fail on this document")
             #expect(sink.checkpoint() > mark, "and must have reported something")
@@ -71,7 +71,7 @@ struct RewindTests {
             #expect(sink.checkpoint() == mark, "the failed branch's issues are gone")
 
             // Branch 2: right shape.
-            var __p2: [PathComponent] = []
+            var __p2: [PathStep] = []
             let second = RewindAlt._assay(from: &reader, into: &sink, at: &__p2)
             return second
         }
@@ -100,7 +100,7 @@ struct RewindTests {
             // depth budget of four, a leak of even one level per attempt exhausts it long
             // before the twentieth.
             for _ in 0..<20 {
-                var __p3: [PathComponent] = []
+                var __p3: [PathStep] = []
                 _ = RewindPair._assay(from: &reader, into: &sink, at: &__p3)
                 reader.restore(m)
                 sink.rollback(to: issueMark)
@@ -108,7 +108,7 @@ struct RewindTests {
 
             // The valid document that follows, on the same reader.
             reader.seek(to: bad.utf8.count)
-            var __p4: [PathComponent] = []
+            var __p4: [PathStep] = []
             return RewindPair._assay(from: &reader, into: &sink, at: &__p4)
         }
         #expect(ok == RewindPair(x: RewindInner(a: 1, b: 2)), """
@@ -134,13 +134,13 @@ struct RewindTests {
             let m = reader.mark
             let issueMark = sink.checkpoint()
             for _ in 0..<20 {
-                var __p5: [PathComponent] = []
+                var __p5: [PathStep] = []
                 _ = RewindArray._assay(from: &reader, into: &sink, at: &__p5)
                 reader.restore(m)
                 sink.rollback(to: issueMark)
             }
             reader.seek(to: bad.utf8.count)
-            var __p6: [PathComponent] = []
+            var __p6: [PathStep] = []
             return RewindArray._assay(from: &reader, into: &sink, at: &__p6)
         }
         #expect(ok == RewindArray(xs: [1, 2]), """
@@ -170,13 +170,13 @@ struct RewindTests {
             let start = reader.byteOffset
             let issueMark = sink.checkpoint()
             for _ in 0..<20 {
-                var __p7: [PathComponent] = []
+                var __p7: [PathStep] = []
                 _ = RewindArray._assay(from: &reader, into: &sink, at: &__p7)
                 reader.seek(to: start)          // cursor only — no depth restore
                 sink.rollback(to: issueMark)
             }
             reader.seek(to: bad.utf8.count)
-            var __p8: [PathComponent] = []
+            var __p8: [PathStep] = []
             return RewindArray._assay(from: &reader, into: &sink, at: &__p8)
         }
         #expect(ok == RewindArray(xs: [1, 2]), """
@@ -194,12 +194,12 @@ struct RewindTests {
             let start = reader.byteOffset
             let mark = sink.checkpoint()
             for _ in 0..<5 {
-                var __p9: [PathComponent] = []
+                var __p9: [PathStep] = []
                 _ = RewindInner._assay(from: &reader, into: &sink, at: &__p9)
                 reader.seek(to: start)
                 sink.rollback(to: mark)
             }
-            var __p10: [PathComponent] = []
+            var __p10: [PathStep] = []
             _ = RewindAlt._assay(from: &reader, into: &sink, at: &__p10)
             return sink.checkpoint()
         }
@@ -219,7 +219,7 @@ struct RewindTests {
             _ = reader.skipValue(&sink)
             let afterSkip = reader.byteOffset
             reader.seek(to: start)
-            var __p11: [PathComponent] = []
+            var __p11: [PathStep] = []
             let v = RewindAlt._assay(from: &reader, into: &sink, at: &__p11)
             return (afterSkip > start, v)
         }

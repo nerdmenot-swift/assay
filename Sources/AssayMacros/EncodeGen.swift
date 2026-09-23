@@ -108,14 +108,14 @@ extension SchemaMacro {
         nonisolated public func _assayEncodeMembers(
             into w: inout Assay.JSONWriter,
             into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathComponent]
+            at path: inout [Assay.PathStep]
         ) {
         \(lines)}
 
         nonisolated public func _assayEncode(
             into w: inout Assay.JSONWriter,
             into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathComponent]
+            at path: inout [Assay.PathStep]
         ) {
             w.beginObject()
             self._assayEncodeMembers(into: &w, into: &sink, at: &path)

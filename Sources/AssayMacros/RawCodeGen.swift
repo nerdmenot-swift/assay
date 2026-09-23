@@ -142,7 +142,7 @@ extension SchemaMacro {
         nonisolated public static func _assay(
             from raw: Assay.RawValue,
             into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathComponent]\(ctxParam)
+            at path: inout [Assay.PathStep]\(ctxParam)
         ) -> \(typeName)? {
         \(requires)    guard case .mapping(let __members) = raw else {
                 Assay.RawValue._notAnObject(&sink, path, raw)

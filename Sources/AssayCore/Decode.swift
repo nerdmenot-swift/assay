@@ -28,7 +28,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeString(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
         , _ element: Int = -1
     ) -> String? {
         beginValue()
@@ -41,7 +41,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeInt(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
         , _ element: Int = -1
     ) -> Int? {
         beginValue()
@@ -54,7 +54,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeInt64(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
         , _ element: Int = -1
     ) -> Int64? {
         beginValue()
@@ -67,7 +67,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeInt32(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
         , _ element: Int = -1
     ) -> Int32? {
         beginValue()
@@ -80,7 +80,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeUInt(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
         , _ element: Int = -1
     ) -> UInt? {
         beginValue()
@@ -93,7 +93,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeDouble(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
         , _ element: Int = -1
     ) -> Double? {
         beginValue()
@@ -106,7 +106,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeFloat(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
         , _ element: Int = -1
     ) -> Float? {
         beginValue()
@@ -119,7 +119,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeBool(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
         , _ element: Int = -1
     ) -> Bool? {
         beginValue()
@@ -151,7 +151,7 @@ extension AssayReader {
     ///   EMPTY key, so a sentinel spelled that way has a real collision waiting in it.
     mutating func failed(
         _ sink: inout IssueSink,
-        _ path: [PathComponent],
+        _ path: [PathStep],
         _ key: StaticString,
         _ expected: String,
         _ element: Int = -1
@@ -195,7 +195,7 @@ extension AssayReader {
     @_documentation(visibility: internal)
     @inline(never)
     public mutating func _missingRequired(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) {
         sink.add(Issue(code: .missing, path: path + [.key(String(describing: key))]))
     }
@@ -222,7 +222,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeStringOrNull(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> String?? {
         beginValue()
         if scanNull() { return .some(nil) }
@@ -235,7 +235,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeIntOrNull(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> Int?? {
         beginValue()
         if scanNull() { return .some(nil) }
@@ -248,7 +248,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeInt64OrNull(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> Int64?? {
         beginValue()
         if scanNull() { return .some(nil) }
@@ -261,7 +261,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeInt32OrNull(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> Int32?? {
         beginValue()
         if scanNull() { return .some(nil) }
@@ -274,7 +274,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeUIntOrNull(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> UInt?? {
         beginValue()
         if scanNull() { return .some(nil) }
@@ -287,7 +287,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeDoubleOrNull(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> Double?? {
         beginValue()
         if scanNull() { return .some(nil) }
@@ -300,7 +300,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeFloatOrNull(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> Float?? {
         beginValue()
         if scanNull() { return .some(nil) }
@@ -313,7 +313,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeBoolOrNull(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> Bool?? {
         beginValue()
         if scanNull() { return .some(nil) }
@@ -326,7 +326,7 @@ extension AssayReader {
     @_documentation(visibility: internal)
     @inline(never)
     public mutating func _nullNotAllowed(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString, _ expected: String
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ expected: String
     ) {
         sink.add(Issue(
             code: .typeMismatch,
@@ -355,7 +355,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeIntCoercing(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> Int? {
         beginValue()
         if let v = scanInt64(), let n = Int(exactly: v) { return n }
@@ -369,7 +369,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeInt64Coercing(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> Int64? {
         return _decodeIntCoercing(&sink, path, key).map(Int64.init)
     }
@@ -378,7 +378,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeInt32Coercing(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> Int32? {
         guard let v = _decodeIntCoercing(&sink, path, key) else { return nil }
         guard let n = Int32(exactly: v) else {
@@ -392,7 +392,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeUIntCoercing(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> UInt? {
         guard let v = _decodeIntCoercing(&sink, path, key) else { return nil }
         guard let n = UInt(exactly: v) else {
@@ -410,7 +410,7 @@ extension AssayReader {
     @inline(never)
     @usableFromInline
     mutating func overflowed(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString, _ value: Int
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString, _ value: Int
     ) {
         sink.add(Issue(
             code: .numberOverflow,
@@ -423,7 +423,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeDoubleCoercing(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> Double? {
         beginValue()
         if let d = scanDouble() { return d }
@@ -436,7 +436,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeFloatCoercing(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> Float? {
         beginValue()
         return _decodeDoubleCoercing(&sink, path, key).map(Float.init)
@@ -446,7 +446,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeBoolCoercing(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> Bool? {
         beginValue()
         if let b = scanBool() { return b }
@@ -471,7 +471,7 @@ extension AssayReader {
 
     @inlinable
     public mutating func _decodeStringCoercing(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> String? {
         beginValue()
         if let s = scanString() { return s }

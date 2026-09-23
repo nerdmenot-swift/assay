@@ -34,7 +34,7 @@ extension AssayReader {
     @_documentation(visibility: internal)
     @inlinable
     public mutating func _scanDiscriminator(
-        _ sink: inout IssueSink, _ key: StaticString, _ path: [PathComponent]
+        _ sink: inout IssueSink, _ key: StaticString, _ path: [PathStep]
     ) -> String? {
         guard tryConsume(0x7B) else {
             reportTypeMismatch(&sink, path, expected: "object")
@@ -83,7 +83,7 @@ extension AssayReader {
     @_documentation(visibility: internal)
     @inline(never)
     public mutating func _unknownVariant(
-        _ sink: inout IssueSink, _ path: [PathComponent],
+        _ sink: inout IssueSink, _ path: [PathStep],
         _ key: StaticString, _ received: String, _ known: [String]
     ) {
         var params: [String: IssueValue] = [
@@ -116,7 +116,7 @@ extension AssayReader {
     @_documentation(visibility: internal)
     @inlinable
     public mutating func _chargeUnionAttempt(
-        _ sink: inout IssueSink, _ path: [PathComponent]
+        _ sink: inout IssueSink, _ path: [PathStep]
     ) -> Bool {
         unionAttempts &+= 1
         if unionAttempts > limits.maxUnionAttempts {
@@ -128,7 +128,7 @@ extension AssayReader {
 
     @inline(never)
     @usableFromInline
-    mutating func reportUnionBudget(_ sink: inout IssueSink, _ path: [PathComponent]) {
+    mutating func reportUnionBudget(_ sink: inout IssueSink, _ path: [PathStep]) {
         sink.add(Issue(
             code: .unionBudgetExhausted,
             path: path,
@@ -144,7 +144,7 @@ extension AssayReader {
     @_documentation(visibility: internal)
     @inline(never)
     public mutating func _noVariantMatched(
-        _ sink: inout IssueSink, _ path: [PathComponent],
+        _ sink: inout IssueSink, _ path: [PathStep],
         _ typeName: StaticString, _ closest: String, _ known: [String]
     ) {
         sink.add(Issue(

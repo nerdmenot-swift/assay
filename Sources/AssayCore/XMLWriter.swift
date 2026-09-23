@@ -251,7 +251,7 @@ public struct XMLWriter: ~Copyable {
     /// round trip — `NaN` decodes as the string "NaN". Reported, like JSON's.
     @inlinable
     public mutating func doubleText(
-        _ v: Double, _ sink: inout IssueSink, _ path: [PathComponent], _ key: StaticString
+        _ v: Double, _ sink: inout IssueSink, _ path: [PathStep], _ key: StaticString
     ) -> String {
         guard v.isFinite else {
             sink.add(Issue(
@@ -286,7 +286,7 @@ public func _assayXMLDate(_ seconds: Double, _ formats: [DateFormat]) -> String 
 /// generated code uses for arrays, so the two agree.
 public func _assayEncodeRawXML(
     _ v: RawValue, named name: String, into w: inout XMLWriter,
-    into sink: inout IssueSink, at path: [PathComponent]
+    into sink: inout IssueSink, at path: [PathStep]
 ) {
     switch v {
     case .null:          w.beginElement(name); w.endElement(name)

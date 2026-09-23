@@ -125,7 +125,7 @@ struct IntegerWidthTests {
             .init(key: "u32", value: .int(4294967295)), .init(key: "u64", value: .int(42)),
         ])
         var sink = IssueSink(limits: .default)
-        var rootPath: [PathComponent] = []
+        var rootPath: [PathStep] = []
         let v = try #require(Widths._assay(from: raw, into: &sink, at: &rootPath))
         #expect(sink.issues.isEmpty)
         #expect(v.u32 == UInt32.max)
@@ -140,7 +140,7 @@ struct IntegerWidthTests {
             .init(key: "u32", value: .int(0)), .init(key: "u64", value: .int(0)),
         ])
         var sink = IssueSink(limits: .default)
-        var rootPath: [PathComponent] = []
+        var rootPath: [PathStep] = []
         #expect(Widths._assay(from: raw, into: &sink, at: &rootPath) == nil)
         #expect(sink.issues.first?.path == [.key("u8")])
     }

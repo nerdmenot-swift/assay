@@ -44,7 +44,7 @@ public final class AssayerPlan: Sendable {
         /// Anything, unvalidated — the escape hatch and the dynamic case's leaf.
         case raw
         /// A `@Schema` type's generated body, reached as a leaf. See `Assayer.schema(_:)`.
-        case schema(@Sendable (RawValue, inout IssueSink, [PathComponent]) -> RawValue?)
+        case schema(@Sendable (RawValue, inout IssueSink, [PathStep]) -> RawValue?)
         indirect case array(AssayerPlan)
         indirect case object([Field])
         indirect case optional(AssayerPlan)
@@ -84,7 +84,7 @@ extension AssayerPlan {
     ///   schema can, so this is a denial-of-service surface the static door does not have.
     ///   Closed here rather than later.
     public func run(
-        _ raw: RawValue, _ sink: inout IssueSink, _ path: [PathComponent],
+        _ raw: RawValue, _ sink: inout IssueSink, _ path: [PathStep],
         _ limits: Limits, _ depth: Int = 0
     ) -> RawValue? {
         guard depth < limits.maxDepth else {
@@ -210,7 +210,7 @@ extension AssayerPlan {
 
     @inline(never)
     static func mismatch(
-        _ sink: inout IssueSink, _ path: [PathComponent], _ expected: String, _ found: RawValue
+        _ sink: inout IssueSink, _ path: [PathStep], _ expected: String, _ found: RawValue
     ) -> RawValue? {
         RawValue.mismatchAt(&sink, path, expected, found)
         return nil

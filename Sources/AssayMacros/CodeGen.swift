@@ -195,7 +195,7 @@ extension SchemaMacro {
         nonisolated public static func _assay(
             from reader: inout Assay.AssayReader,
             into sink: inout Assay.IssueSink,
-            at path: inout [Assay.PathComponent]\(ctxParam)
+            at path: inout [Assay.PathStep]\(ctxParam)
         ) -> \(typeName)? {
         \(requires)\(groups.isEmpty ? "" : """
             let __pathDepth = path.count

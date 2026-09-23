@@ -149,7 +149,7 @@ public enum Renderer {
 
     private static func renderOne(
         severity: String, severityColor: String,
-        path: [PathComponent], message: String, location: SourceSpan?,
+        path: [PathStep], message: String, location: SourceSpan?,
         index: LineIndex?, source: SourceBytes, sourceName: String,
         bold: String, reset: String, into out: inout String
     ) {
@@ -245,7 +245,7 @@ public enum Renderer {
     }
 
     private static func entry(
-        _ code: IssueCode, _ path: [PathComponent], _ message: String,
+        _ code: IssueCode, _ path: [PathStep], _ message: String,
         _ params: [String: IssueValue], _ received: String?,
         _ location: SourceSpan?, _ index: LineIndex?
     ) -> String {

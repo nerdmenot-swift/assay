@@ -73,7 +73,7 @@ extension SchemaMacro {
         return """
         nonisolated public func _assayEncodeRaw(
             into sink: inout Assay.IssueSink,
-            at path: [Assay.PathComponent]
+            at path: [Assay.PathStep]
         ) -> Assay.RawValue {
             var __m: [Assay.RawValue.Member] = []
             __m.reserveCapacity(\(fields.count))

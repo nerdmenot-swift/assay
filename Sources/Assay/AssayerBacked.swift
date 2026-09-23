@@ -52,7 +52,7 @@ extension AssayerBacked {
     /// The `RawValue` path: YAML, XML, and any nested use inside another schema.
     @inlinable
     public nonisolated static func _assay(
-        from raw: RawValue, into sink: inout IssueSink, at path: inout [PathComponent]
+        from raw: RawValue, into sink: inout IssueSink, at path: inout [PathStep]
     ) -> Self? {
         let s = Self.assaySchema
         guard let out = s.plan.run(raw, &sink, path, .default) else { return nil }
@@ -76,7 +76,7 @@ extension AssayerBacked {
     /// measurement rather than a prediction. `docs/ASSAYER.md` records what is owed.
     @inlinable
     public nonisolated static func _assay(
-        from reader: inout AssayReader, into sink: inout IssueSink, at path: inout [PathComponent]
+        from reader: inout AssayReader, into sink: inout IssueSink, at path: inout [PathStep]
     ) -> Self? {
         guard let raw = RawValue._collectJSON(from: &reader, into: &sink, at: path) else {
             return nil

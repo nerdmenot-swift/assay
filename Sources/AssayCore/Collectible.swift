@@ -32,7 +32,7 @@ public protocol JSONCollectible {
     static func _collectJSON(
         from reader: inout AssayReader,
         into sink: inout IssueSink,
-        at path: [PathComponent]
+        at path: [PathStep]
     ) -> Self?
 }
 
@@ -41,7 +41,7 @@ extension JSON.Value: JSONCollectible {
     public static func _collectJSON(
         from reader: inout AssayReader,
         into sink: inout IssueSink,
-        at path: [PathComponent]
+        at path: [PathStep]
     ) -> JSON.Value? {
         reader.scanJSONValue(&sink, path)
     }
@@ -52,7 +52,7 @@ extension RawValue: JSONCollectible {
     public static func _collectJSON(
         from reader: inout AssayReader,
         into sink: inout IssueSink,
-        at path: [PathComponent]
+        at path: [PathStep]
     ) -> RawValue? {
         // JSON -> RawValue is total, so this cannot lose anything. The lossy projections
         // are YAML's and XML's.
@@ -90,7 +90,7 @@ extension AssayReader {
     @inline(never)
     public mutating func _reportUnknownKey(
         _ sink: inout IssueSink,
-        _ path: [PathComponent],
+        _ path: [PathStep],
         _ key: KeyRange,
         known: [String],
         reject: Bool
@@ -191,7 +191,7 @@ public func _assayCollect<T: JSONCollectible>(
     _ type: T.Type,
     from reader: inout AssayReader,
     into sink: inout IssueSink,
-    at path: [PathComponent]
+    at path: [PathStep]
 ) -> T? {
     T._collectJSON(from: &reader, into: &sink, at: path)
 }

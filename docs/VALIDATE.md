@@ -32,8 +32,8 @@ type with no rules gets no body and pays nothing — there is nothing to opt out
 static func validate(_ value: Self, limits: Limits = .default) throws(AssayError)
 static func diagnose(_ value: Self, limits: Limits = .default) -> Validation
 
-static func validate(_ value: Self, at path: [PathComponent], ...) throws(AssayError)
-static func diagnose(_ value: Self, at path: [PathComponent], ...) -> Validation
+static func validate(_ value: Self, at path: [PathStep], ...) throws(AssayError)
+static func diagnose(_ value: Self, at path: [PathStep], ...) -> Validation
 
 static func validate(_ values: some Sequence<Self>, ...) throws(AssayError)
 static func diagnose(_ values: some Sequence<Self>, ...) -> Validation
@@ -60,7 +60,7 @@ for row in reader.rows(of: Trip.self) {
 ```
 
 Any path shape works — `[.key("trips.parquet"), .index(91_824)]` names the file too —
-because a `PathComponent` array is exactly what every other issue carries.
+because a `PathStep` array is exactly what every other issue carries.
 
 ### A schema that only validates
 
@@ -200,7 +200,7 @@ Two things had to be right for that number, and neither was obvious:
   sequence, they live in a source package, and the call site is in the user's module —
   hard constraint 5's exact case. Without it the per-element loop runs through witness
   tables: **176 ns/row**, more than double, and the gap was the loop rather than the rules.
-- **One `[PathComponent]` array for the whole batch**, rewritten in place. The obvious
+- **One `[PathStep]` array for the whole batch**, rewritten in place. The obvious
   `[.index(i)]` inside the loop allocates per row.
 
 **Compile time.** `_assayCheck` is one line of generated code per rule attribute, reusing

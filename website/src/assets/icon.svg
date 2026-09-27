@@ -1,17 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Assay">
-  <!-- Neck: two bars, each kinked into a brace. The glyph Assay is spelled in. -->
-  <path d="M28.6 13.4 H25.4 V17.6 L22.2 21 L25.4 24.4 V27.4" fill="none" stroke="#c99a2e"
-        stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M35.4 13.4 H38.6 V17.6 L41.8 21 L38.6 24.4 V27.4" fill="none" stroke="#c99a2e"
-        stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-  <path fill="#c99a2e"
-        d="M25.9 26.6 L17.4 46.2 Q15.4 52.8 22.3 52.8 L41.7 52.8 Q48.6 52.8 46.6 46.2 L38.1 26.6 Z"/>
-  <!-- Liquid surface and the swift, knocked out of the glass. -->
-  <path d="M23.0 34.4 C26.6 32.0 29.8 34.6 33.2 34.0 C36.4 33.5 38.8 32.0 41.0 31.8"
-        fill="none" stroke="#1a1816" stroke-width="1.6" stroke-linecap="round"/>
-  <path fill="#1a1816" transform="rotate(22 31 41) translate(-0.8 1.4) scale(0.94) translate(1.9 2.6)" d="M37.2 32.8 C39.0 36.2 39.5 41.2 37.5 45.4 C37.1 46.3 36.6 46.8 36.2 46.5
-          C35.0 45.9 34.3 43.5 34.3 40.4 C34.3 37.2 35.6 34.4 37.2 32.8 Z
-          M36.9 44.9 Q29.8 47.8 22.4 45.3 Q29.6 45.3 35.7 42.6 Z
-          M35.7 40.6 Q29.4 43.4 23.8 40.0 Q30.3 40.9 34.6 38.3 Z
-          M35.6 36.4 Q30.8 38.4 26.6 34.7 Q31.5 36.0 36.4 32.9 Z"/>
+  <!-- A conical flask whose neck is a brace pair. One continuous outline at one weight,
+       a gold reagent line, and nothing else: earlier cuts put a swift or a caret in the
+       liquid and both turned to a smudge by 32 px, which is the size that decides whether
+       a mark works. The brace is the whole idea and it is the part that survives. -->
+  <path d="M19.6 40.6 C23.4 38.4 28.0 41.6 32.0 41.0 C36.0 40.4 40.0 38.4 44.4 40.6 L52.0 52.9 H12.0 Z" fill="#c99a2e"/>
+  <path d="M30.2 9 H27.2 V16 L21.6 21.2 L27.2 26.4 V29 L9.8 50.6 Q7.4 55 12.2 55 H51.8 Q56.6 55 54.2 50.6 L36.8 29 V26.4 L42.4 21.2 L36.8 16 V9 H33.8" fill="none" stroke="currentColor" stroke-width="3.4"
+        stroke-linecap="round" stroke-linejoin="miter" stroke-miterlimit="6"/>
 </svg>

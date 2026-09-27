@@ -1,34 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 134 44" role="img" aria-label="Assay">
-  <!-- The mark: a flask whose neck is a brace, with a swift in the liquid.
+  <!-- A conical flask whose neck is a brace pair, then the wordmark.
 
-       The bird and the liquid surface are KNOCKED OUT rather than painted, which is what
-       the mask is for: the page shows through them, so one drawing works on paper and on
-       ink with no theme switch. The gold is fixed — it is the brand colour, and it is the
-       one thing that makes the tab icon and this header the same object.
+       The glass is `currentColor`, so the header takes the page's text colour and one
+       drawing serves both themes; the gold is fixed, because it is what ties this to the
+       tab icon. Earlier cuts put a swift or a caret in the liquid — both turned to a
+       smudge well before 32 px, and the brace is the idea worth keeping anyway.
 
-       The box is tight to the ink (content ends at x=128) because it was 220 wide against
-       the same 7rem container, so 42% of the lockup was empty and the mark rendered at
-       about 17px. `textLength` pins the wordmark's width so tightening it cannot clip the
-       last letter when the webfont has not loaded and the fallback measures wider. -->
-  <mask id="assay-flask">
-    <g transform="translate(-6.37 -4.46) scale(0.823)">
-      <path d="M28.6 13.4 H25.4 V17.6 L22.2 21 L25.4 24.4 V27.4" fill="none" stroke="#fff"
-            stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M35.4 13.4 H38.6 V17.6 L41.8 21 L38.6 24.4 V27.4" fill="none" stroke="#fff"
-            stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-      <path fill="#fff"
-            d="M25.9 26.6 L17.4 46.2 Q15.4 52.8 22.3 52.8 L41.7 52.8 Q48.6 52.8 46.6 46.2 L38.1 26.6 Z"/>
-      <path d="M23.0 34.4 C26.6 32.0 29.8 34.6 33.2 34.0 C36.4 33.5 38.8 32.0 41.0 31.8"
-            fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round"/>
-      <path fill="#000" transform="rotate(22 31 41) translate(-0.8 1.4) scale(0.94) translate(1.9 2.6)"
-            d="M37.2 32.8 C39.0 36.2 39.5 41.2 37.5 45.4 C37.1 46.3 36.6 46.8 36.2 46.5
-               C35.0 45.9 34.3 43.5 34.3 40.4 C34.3 37.2 35.6 34.4 37.2 32.8 Z
-               M36.9 44.9 Q29.8 47.8 22.4 45.3 Q29.6 45.3 35.7 42.6 Z
-               M35.7 40.6 Q29.4 43.4 23.8 40.0 Q30.3 40.9 34.6 38.3 Z
-               M35.6 36.4 Q30.8 38.4 26.6 34.7 Q31.5 36.0 36.4 32.9 Z"/>
-    </g>
-  </mask>
-  <rect width="44" height="44" fill="#c99a2e" mask="url(#assay-flask)"/>
+       The box is tight to the ink (it ends at x=128). At 220 wide, against the same 7rem
+       container, 42% of the lockup was empty and the mark rendered about 17 px tall.
+       `textLength` pins the wordmark so tightening the box cannot clip the last letter
+       when the webfont has not loaded and the fallback measures wider. -->
+  <g transform="translate(-3.8 -3.1) scale(0.783)">
+    <path d="M19.6 40.6 C23.4 38.4 28.0 41.6 32.0 41.0 C36.0 40.4 40.0 38.4 44.4 40.6
+             L52.0 52.9 H12.0 Z" fill="#c99a2e"/>
+    <path d="M30.2 9 H27.2 V16 L21.6 21.2 L27.2 26.4 V29
+             L9.8 50.6 Q7.4 55 12.2 55 H51.8 Q56.6 55 54.2 50.6 L36.8 29
+             V26.4 L42.4 21.2 L36.8 16 V9 H33.8"
+          fill="none" stroke="currentColor" stroke-width="3.4"
+          stroke-linecap="round" stroke-linejoin="miter" stroke-miterlimit="6"/>
+  </g>
   <text x="48" y="31" textLength="80" lengthAdjust="spacingAndGlyphs"
         font-family="Bricolage Grotesque, Public Sans, sans-serif" font-weight="700"
         font-size="28" fill="currentColor">Assay</text>

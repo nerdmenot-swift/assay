@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Assay">
+  <rect width="64" height="64" rx="10" fill="#1a1816"/>
+  <!-- The 16 px cut: heavier strokes, no liquid line, two feathers instead of three. -->
+  <path d="M28.4 12.4 H24.8 V17.4 L21.2 21 L24.8 24.6 V27.4" fill="none" stroke="#c99a2e"
+        stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M35.6 12.4 H39.2 V17.4 L42.8 21 L39.2 24.6 V27.4" fill="none" stroke="#c99a2e"
+        stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path fill="#c99a2e"
+        d="M25.2 26.2 L15.8 46.6 Q13.6 53.6 21.2 53.6 L42.8 53.6 Q50.4 53.6 48.2 46.6 L38.8 26.2 Z"/>
+  <path fill="#1a1816" transform="rotate(22 31 41) translate(-0.8 1.2) scale(0.98) translate(0.6 0.8)" d="M37.4 32.4 C39.4 36.0 39.9 41.4 37.7 45.8 C37.2 46.8 36.7 47.3 36.2 47.0
+          C34.8 46.3 34.0 43.6 34.0 40.4 C34.0 37.0 35.6 34.0 37.4 32.4 Z
+          M37.1 44.9 Q29.4 48.2 21.6 45.5 Q29.3 45.5 35.9 42.4 Z
+          M35.9 40.3 Q29.0 43.6 23.0 39.8 Q30.0 40.9 34.7 37.9 Z"/>
+</svg>

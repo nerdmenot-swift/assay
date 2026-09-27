@@ -41,6 +41,12 @@ export default defineConfig({
       lastUpdated: true,
       pagination: true,
       head: [
+        // The SVG covers modern browsers at any size. The two PNGs are the simplified cut
+        // (`icon-small.svg`) — at 16 px the brace-kinked neck closes up, so that version
+        // drops the liquid line and a feather rather than rendering mush.
+        { tag: 'link', attrs: { rel: 'icon', href: '/favicon-32.png', sizes: '32x32' } },
+        { tag: 'link', attrs: { rel: 'icon', href: '/favicon-16.png', sizes: '16x16' } },
+        { tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' } },
         // Starlight writes og:title/description/url per page; it has no opinion about an
         // image, so a shared docs link rendered as a bare URL card. One image for the whole
         // site is the right granularity here — it says what the library does.

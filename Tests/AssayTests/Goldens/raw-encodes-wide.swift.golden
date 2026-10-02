@@ -1,0 +1,470 @@
+extension GoldenRawWide: Assay.JSONAssayable, Assay.RawDecodable, Assay.JSONEncodableSchema, Assay.RawEncodableSchema, Assay.XMLEncodableSchema {nonisolated static let __assayDateFormats_8: [Assay.DateFormat] = [.unixSeconds]
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenRawWide? {
+    Assay._assayRequireJSON(GoldenNested.self)
+    guard reader.tryConsume(0x7B) else {
+        reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
+        return nil
+    }
+    guard reader.enterContainer(&sink) else { return nil }
+    // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+    // anything ever failed?", which is wrong the moment one sink spans more than
+    // one decode — a driver collecting every issue from a result set would find
+    // one bad row silently discarding every good row after it.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: Int? = nil
+    var __f1: Double? = nil
+    var __f2: Bool? = nil
+    var __f3: String? = nil
+    var __f4: UInt16? = nil
+    var __f5: GoldenNested? = nil
+    var __f6: [GoldenNested]? = nil
+    var __f7: [String: Int]? = nil
+    var __f8: Date? = nil
+    var __presence: UInt64 = 0
+
+    if !reader.tryConsume(0x7D) {
+        while true {
+            guard let __key = reader.scanKey() else {
+                reader.reportMalformed(&sink, path, expected: "a key in double quotes")
+                reader.leaveContainer()
+                return nil
+            }
+            guard reader.expect(0x3A) else {
+                reader.reportMalformed(&sink, path, expected: "':' after the key")
+                reader.leaveContainer()
+                return nil
+            }
+                switch __key.len {
+                case 2:
+                        if reader.keyMatches(__key, "at") {
+                        __presence |= 256
+                        __f8 = reader._decodeDate(&sink, path, "at", Self.__assayDateFormats_8).map { Date(timeIntervalSince1970: $0) }
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 5:
+                        if reader.keyMatches(__key, "count") {
+                        __presence |= 1
+                        __f0 = reader._decodeInt(&sink, path, "count")
+                    } else                    if reader.keyMatches(__key, "ratio") {
+                        __presence |= 2
+                        __f1 = reader._decodeDouble(&sink, path, "ratio")
+                    } else                    if reader.keyMatches(__key, "label") {
+                        __presence |= 8
+                        if let __r = reader._decodeStringOrNull(&sink, path, "label") { __f3 = __r }
+                    } else                    if reader.keyMatches(__key, "width") {
+                        __presence |= 16
+                        __f4 = reader._decodeUInt16(&sink, path, "width")
+                    } else                    if reader.keyMatches(__key, "child") {
+                        __presence |= 32
+                        if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "child", "GoldenNested")
+                        } else {
+                            path.append(.key("child"))
+                            __f5 = GoldenNested._assay(
+                                from: &reader, into: &sink, at: &path)
+                            path.removeLast()
+                        }
+                    } else                    if reader.keyMatches(__key, "tally") {
+                        __presence |= 128
+                        if reader.tryConsume(0x7B) {
+                            var __dd7_0: [String: Int] = [:]
+                            __dd7_0.reserveCapacity(sink._shapeHint(197))
+                            if !reader.tryConsume(0x7D) {
+                                while true {
+                                    guard let __dk7_0 = reader.scanKey(), reader.expect(0x3A) else {
+                                        reader.reportMalformed(&sink, path, expected: "a key and ':'")
+                                        reader.leaveContainer()
+                                        return nil
+                                    }
+                                    let __dks7_0 = reader._keyString(__dk7_0)
+                                    let __dck7_0 = sink.checkpoint()
+                                    if let __de7_0 = reader._decodeInt(&sink, path, "tally") { __dd7_0[__dks7_0] = __de7_0 }
+                                    if sink.checkpoint() != __dck7_0 { sink._insertKey(since: __dck7_0, __dks7_0, at: path.count + 1) }
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x7D) else {
+                                    reader.reportMalformed(&sink, path, expected: "',' or '}'")
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            sink._noteShape(__dd7_0.count, 197)
+                            __f7 = __dd7_0
+                        } else if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "tally", "dictionary")
+                        } else {
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                            // whole-value mismatch on a collection reported an issue whose path
+                            // was EMPTY at the top level -- worse than the missing element index
+                            // this change set out to fix, and found by a test written for that.
+                            reader.reportTypeMismatch(&sink, path + [.key("tally")], expected: "object")
+                            _ = reader.skipValue(&sink)
+                        }
+
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 7:
+                        if reader.keyMatches(__key, "enabled") {
+                        __presence |= 4
+                        __f2 = reader._decodeBool(&sink, path, "enabled")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 8:
+                        if reader.keyMatches(__key, "children") {
+                        __presence |= 64
+                        if reader.tryConsume(0x5B) {
+                            var __arr6_0: [GoldenNested] = []
+                            var __ix6_0 = 0
+                            var __ap6_0 = path
+                            __ap6_0.append(.key("children"))
+                            __ap6_0.append(.index(0))
+                            if !reader.tryConsume(0x5D) {
+                                __arr6_0.reserveCapacity(sink._shapeHint(205))
+                                while true {
+                                __ap6_0[__ap6_0.count &- 1] = .index(__ix6_0)
+                                if let __e6_0 = GoldenNested._assay(
+                                    from: &reader, into: &sink, at: &__ap6_0) { __arr6_0.append(__e6_0) }
+                                    __ix6_0 &+= 1
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x5D) else {
+                                    reader.reportMalformed(&sink, path, expected: "',' or ']'")
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            sink._noteShape(__arr6_0.count, 205)
+                            __f6 = __arr6_0
+                        } else if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "children", "array")
+                        } else {
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                        // whole-value mismatch on a collection reported an issue whose path
+                        // was EMPTY at the top level -- worse than the missing element index
+                        // this change set out to fix, and found by a test written for that.
+                        reader.reportTypeMismatch(&sink, path + [.key("children")], expected: "array")
+                        _ = reader.skipValue(&sink)
+                        }
+
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                default:
+                    _ = reader.skipValue(&sink)
+                }
+            if reader.tryConsume(0x2C) { continue }
+            break
+        }
+        guard reader.tryConsume(0x7D) else {
+            reader.reportMalformed(&sink, path, expected: "',' or '}'")
+            reader.leaveContainer()
+            return nil
+        }
+    }
+    reader.leaveContainer()
+
+        if __presence & 1 == 0 {
+            reader._missingRequired(&sink, path, "count")
+        }
+        if __presence & 2 == 0 {
+            reader._missingRequired(&sink, path, "ratio")
+        }
+        if __presence & 4 == 0 {
+            reader._missingRequired(&sink, path, "enabled")
+        }
+        if __presence & 16 == 0 {
+            reader._missingRequired(&sink, path, "width")
+        }
+        if __presence & 32 == 0 {
+            reader._missingRequired(&sink, path, "child")
+        }
+        if __presence & 64 == 0 {
+            reader._missingRequired(&sink, path, "children")
+        }
+        if __presence & 128 == 0 {
+            reader._missingRequired(&sink, path, "tally")
+        }
+        if __presence & 256 == 0 {
+            reader._missingRequired(&sink, path, "at")
+        }
+
+
+        guard let __v0 = __f0 else { return nil }
+        guard let __v1 = __f1 else { return nil }
+        guard let __v2 = __f2 else { return nil }
+        guard let __v4 = __f4 else { return nil }
+        guard let __v5 = __f5 else { return nil }
+        guard let __v6 = __f6 else { return nil }
+        guard let __v7 = __f7 else { return nil }
+        guard let __v8 = __f8 else { return nil }
+    let __result = GoldenRawWide(count: __v0, ratio: __v1, enabled: __v2, label: __f3, width: __v4, child: __v5, children: __v6, tally: __v7, at: __v8)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}
+
+nonisolated public static func _assay(
+    from raw: Assay.RawValue,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenRawWide? {
+    Assay._assayRequireRaw(GoldenNested.self)
+    guard case .mapping(let __members) = raw else {
+        Assay.RawValue._notAnObject(&sink, path, raw)
+        return nil
+    }
+    // See the note in the JSON body: local validity, not global.
+    let __ck0 = sink.checkpoint()
+
+    var __sp0: Assay.SourceSpan? = nil
+    var __sp1: Assay.SourceSpan? = nil
+    var __sp2: Assay.SourceSpan? = nil
+    var __sp3: Assay.SourceSpan? = nil
+    var __sp4: Assay.SourceSpan? = nil
+    var __f0: Int? = nil
+    var __f1: Double? = nil
+    var __f2: Bool? = nil
+    var __f3: String? = nil
+    var __f4: UInt16? = nil
+    var __f5: GoldenNested? = nil
+    var __f6: [GoldenNested]? = nil
+    var __n6 = 0
+    var __f7: [String: Int]? = nil
+    var __f8: Date? = nil
+    var __presence: UInt64 = 0
+
+    for __m in __members {
+        let __k = __m.key
+        let __v = __m.value
+        switch __k.utf8.count {
+            case 2:
+                if __k == "at" {
+                    __presence |= 256
+                    __f8 = __v._assayDate(&sink, path, "at", Self.__assayDateFormats_8).map { Date(timeIntervalSince1970: $0) }
+                } else {
+                    break
+                }
+            case 5:
+                if __k == "count" {
+                    __presence |= 1
+                    __sp0 = __m.span
+                    __f0 = __v._assayInt(&sink, path, "count", at: __sp0)
+                } else if __k == "ratio" {
+                    __presence |= 2
+                    __sp1 = __m.span
+                    __f1 = __v._assayDouble(&sink, path, "ratio", at: __sp1)
+                } else if __k == "label" {
+                    __presence |= 8
+                    __sp3 = __m.span
+                    if !__v.isNull { __f3 = __v._assayString(&sink, path, "label", at: __sp3) }
+                } else if __k == "width" {
+                    __presence |= 16
+                    __sp4 = __m.span
+                    __f4 = __v._assayUInt16(&sink, path, "width", at: __sp4)
+                } else if __k == "child" {
+                    __presence |= 32
+                    if __v.isNull {
+                    Assay.RawValue._mismatchPublic(&sink, path, "child", "GoldenNested", __v)
+                } else {
+                    path.append(.key("child"))
+                    __f5 = GoldenNested._assay(from: __v, into: &sink, at: &path)
+                    path.removeLast()
+                }
+                } else if __k == "tally" {
+                    __presence |= 128
+                    if let __r = Assay._assayMapping(&path, "tally", __v, { __e0, path in __e0._assayInt(&sink, path, "") }) {
+                    __f7 = __r
+                } else if __v.isNull {
+                    Assay.RawValue._mismatchPublic(&sink, path, "tally", "object", __v)
+                }
+                } else {
+                    break
+                }
+            case 7:
+                if __k == "enabled" {
+                    __presence |= 4
+                    __sp2 = __m.span
+                    __f2 = __v._assayBool(&sink, path, "enabled", at: __sp2)
+                } else {
+                    break
+                }
+            case 8:
+                if __k == "children" {
+                    __presence |= 64
+                    if let __r = Assay._assaySequence(&path, "children", __v, { __e0, path in GoldenNested._assay(from: __e0, into: &sink, at: &path) }) {
+                    __f6 = __r
+                } else if __v.isNull {
+                    Assay.RawValue._mismatchPublic(&sink, path, "children", "array", __v)
+                } else {
+                    // One repeated sibling. Append, so `<tag>a</tag><tag>b</tag>`
+                    // accumulates across calls instead of the last one winning;
+                    // its index is how many siblings came before it.
+                    let __ix6 = __n6
+                    __n6 &+= 1
+                    if let __one6 = Assay._assayElement(&path, &sink, "children", __ix6, { path, sink in GoldenNested._assay(from: __v, into: &sink, at: &path) }) {
+                        if __f6 == nil { __f6 = [] }
+                        __f6?.append(__one6)
+                    }
+                }
+                } else {
+                    break
+                }
+            default:
+            break
+        }
+    }
+
+        if __presence & 1 == 0 {
+            Assay.RawValue._missing(&sink, path, "count")
+        }
+        if __presence & 2 == 0 {
+            Assay.RawValue._missing(&sink, path, "ratio")
+        }
+        if __presence & 4 == 0 {
+            Assay.RawValue._missing(&sink, path, "enabled")
+        }
+        if __presence & 16 == 0 {
+            Assay.RawValue._missing(&sink, path, "width")
+        }
+        if __presence & 32 == 0 {
+            Assay.RawValue._missing(&sink, path, "child")
+        }
+        if __presence & 64 == 0 {
+            Assay.RawValue._missing(&sink, path, "children")
+        }
+        if __presence & 128 == 0 {
+            Assay.RawValue._missing(&sink, path, "tally")
+        }
+        if __presence & 256 == 0 {
+            Assay.RawValue._missing(&sink, path, "at")
+        }
+
+
+        guard let __v0 = __f0 else { return nil }
+        guard let __v1 = __f1 else { return nil }
+        guard let __v2 = __f2 else { return nil }
+        guard let __v4 = __f4 else { return nil }
+        guard let __v5 = __f5 else { return nil }
+        guard let __v6 = __f6 else { return nil }
+        guard let __v7 = __f7 else { return nil }
+        guard let __v8 = __f8 else { return nil }
+    let __result = GoldenRawWide(count: __v0, ratio: __v1, enabled: __v2, label: __f3, width: __v4, child: __v5, children: __v6, tally: __v7, at: __v8)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}
+
+nonisolated public func _assayEncodeMembers(
+    into w: inout Assay.JSONWriter,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) {
+        w._key(separated: ",\"count\":")
+        w.write(self.count)
+        w._key(separated: ",\"ratio\":")
+        w.write(self.ratio, &sink, path, "ratio")
+        w._key(separated: ",\"enabled\":")
+        w.write(self.enabled)
+        w._key(separated: ",\"label\":")
+        if let __e3 = self.label {
+            w.write(__e3)
+        } else {
+            w.writeNull()
+        }
+        w._key(separated: ",\"width\":")
+        w.write(self.width)
+        w._key(separated: ",\"child\":")
+        path.append(.key("child"))
+        self.child._assayEncode(into: &w, into: &sink, at: &path)
+        path.removeLast()
+        w._key(separated: ",\"children\":")
+        w.beginArray()
+        var __ep6_8 = path
+        __ep6_8.append(.key("children"))
+        __ep6_8.append(.index(0))
+        var __en6_8 = 0
+        for __a6 in self.children {
+            __ep6_8[__ep6_8.count &- 1] = .index(__en6_8)
+            __en6_8 &+= 1
+            __a6._assayEncode(into: &w, into: &sink, at: &__ep6_8)
+        }
+        w.endArray()
+        w._key(separated: ",\"tally\":")
+        w.beginObject()
+        for __k7 in self.tally.keys.sorted() {
+            w.key(__k7)
+            w.write(self.tally[__k7]!)
+        }
+        w.endObject()
+        w._key(separated: ",\"at\":")
+        w.writeDate(self.at.timeIntervalSince1970, Self.__assayDateFormats_8, &sink, path, "at")
+}
+
+nonisolated public func _assayEncode(
+    into w: inout Assay.JSONWriter,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) {
+    w.beginObject()
+    self._assayEncodeMembers(into: &w, into: &sink, at: &path)
+    w.endObject()
+}
+
+nonisolated public func _assayEncodeRaw(
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathStep]
+) -> Assay.RawValue {
+    var __m: [Assay.RawValue.Member] = []
+    __m.reserveCapacity(9)
+        __m.append(.init(key: "count", value: .int(Int64(self.count))))
+        __m.append(.init(key: "ratio", value: .double(self.ratio)))
+        __m.append(.init(key: "enabled", value: .bool(self.enabled)))
+        __m.append(.init(key: "label", value: (self.label.map { __o in .string(__o) } ?? .null)))
+        __m.append(.init(key: "width", value: .int(Int64(self.width))))
+        __m.append(.init(key: "child", value: self.child._assayEncodeRaw(into: &sink, at: path + [.key("child")])))
+        __m.append(.init(key: "children", value: .sequence(self.children.map { __e6 in __e6._assayEncodeRaw(into: &sink, at: path + [.key("children")]) })))
+        __m.append(.init(key: "tally", value: .mapping(self.tally.keys.sorted().map { __k7 in .init(key: __k7, value: .int(Int64(self.tally[__k7]!))) })))
+        __m.append(.init(key: "at", value: Assay._assayRawDate(self.at.timeIntervalSince1970, Self.__assayDateFormats_8)))
+    return .mapping(__m)
+}
+
+nonisolated public static var _assayXMLRoot: String { "GoldenRawWide" }
+
+nonisolated public func _assayEncodeXML(
+    into w: inout Assay.XMLWriter,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathStep],
+    element __name: String
+) {
+    w.beginElement(__name)
+        w.element("count", self.count)
+        w.element("ratio", w.doubleText(Double(self.ratio), &sink, path, "ratio"))
+        w.element("enabled", self.enabled)
+        if let __o3 = self.label {
+            w.element("label", __o3)
+        }
+        w.element("width", self.width)
+        self.child._assayEncodeXML(into: &w, into: &sink, at: path + [.key("child")], element: "child")
+        for __e6 in self.children {
+            __e6._assayEncodeXML(into: &w, into: &sink, at: path + [.key("children")], element: "children")
+        }
+        w.beginElement("tally")
+        for __dk7 in self.tally.keys.sorted() {
+            w.element(__dk7, self.tally[__dk7]!)
+        }
+        w.endElement("tally")
+        w.element("at", Assay._assayXMLDate(self.at.timeIntervalSince1970, Self.__assayDateFormats_8))
+    w.endElement(__name)
+}}

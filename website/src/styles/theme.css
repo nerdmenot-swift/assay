@@ -23,6 +23,10 @@
   --assay-coral: #d9553a;
   --assay-gold: #c99a2e;
   --assay-cream: #f6f1e7;
+  /* The mark's bead. Brighter than --assay-gold on purpose: mustard on the accent red
+     is 2.10:1, under the 3:1 floor for a non-text element; this is 3.44:1. The mark's
+     braces take --assay-accent itself, so the logo cannot drift from the portal. */
+  --assay-amber: #ffc61a;
 }
 
 /* ---- light ---------------------------------------------------------------- */
@@ -182,7 +186,10 @@
 }
 
 .sl-markdown-content blockquote {
-  border-inline-start: 3px solid var(--assay-amber);
+  /* This read `var(--assay-amber)` when no such token existed, so the declaration was
+     invalid at computed-value time and the border fell back to currentColor. Amber is a
+     real token now — but a blockquote rule wants the muted gold, not the mark's bead. */
+  border-inline-start: 3px solid var(--assay-gold);
   background: var(--sl-color-gray-7);
   padding: 0.8rem 1rem;
   font-style: normal;

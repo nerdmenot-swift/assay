@@ -70,8 +70,17 @@ Against the alternatives, at 100 types × 10 fields on a clean module build:
 | `: Codable` | 2.20 s | 2.7× |
 | `@Schema` (JSON + RawValue bodies) | 11.31 s | **13.6×** |
 
-`@Schema` costs **5.1× what `Codable` costs**. That is the honest number and it belongs in
-the README, not buried here.
+**READ THE ARM BEFORE QUOTING THE RATIO.** The `@Schema` row above is the
+**`formats:`-opted-in** arm — both bodies — so the 5.1× it works out to against `Codable` is
+the cost of a type that parses YAML or XML as well. It is not the figure to put in a README,
+which is what this paragraph used to say.
+
+The **default** arm, JSON only, is what `Benchmarks/RESULTS.md`'s headline table carries and
+what the gate measures: **80.8 ms/type against `Codable`'s ~19 ms, which is 4.22×**. That is
+the number to quote, and §6 quotes it.
+
+The table above is also older than that figure: it puts `Codable` at 22.0 ms/type where the
+harness now reads ~19. Both arms moved; the shape of the finding did not.
 
 ### The finding that matters most
 
@@ -395,9 +404,17 @@ be worth saying.
 
 ## 6. The claim Assay can defend
 
-> `@Schema` costs about 80 ms per type at 10 fields, roughly 3.6× what `Codable` costs, on
+> `@Schema` costs about 81 ms per type at 10 fields, roughly 4.2× what `Codable` costs, on
 > a clean build. For a typical model layer of 40 types that is under 4 seconds. Here is
 > the harness; run it on your own types.
+
+That is the **default, JSON-only** arm, and it is the one `Benchmarks/RESULTS.md`'s headline
+table reports. A type that opts into `@Schema(formats:)` emits a second body and costs about
+5.1× instead — §1 has that arm, and the two are not interchangeable.
+
+It read 3.6× until 2026-10-02, derived from §1's older table rather than from the harness.
+The harness says 4.22×, because `Codable` itself got faster: the numerator barely moved and
+the denominator fell from ~22 ms to ~19.
 
 Checkable, falsifiable, survives CI, and does not decay. The same standard the runtime
 claims are held to.

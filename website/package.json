@@ -7,6 +7,7 @@
   "scripts": {
     "extract": "bun run scripts/extract.ts",
     "prose": "bun run scripts/prose.ts",
+    "og": "bun run scripts/og.ts",
     "dev": "bun run extract && astro dev",
     "build": "bun run extract && astro build",
     "preview": "astro preview",

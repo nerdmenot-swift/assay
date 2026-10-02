@@ -235,7 +235,11 @@ phase 1 without that number.
 
 `docs/COMPILE-TIME.md` is the third authoritative document. The short version:
 
-**`@Schema` costs ~80 ms per type at 10 fields — about 3.6× `Codable`.** The cost model is
+**`@Schema` costs ~81 ms per type at 10 fields — about 4.2× `Codable`**, JSON only; a type
+that opts into `@Schema(formats:)` emits a second body and costs ~5.1× instead. **Quote the
+arm.** This said 3.6× until 2026-10-02, derived from `COMPILE-TIME.md` §1's older table
+rather than from the harness; `Benchmarks/RESULTS.md`'s headline table reads 4.22×, because
+`Codable` itself got faster (~22 ms/type → ~19). The cost model is
 `9 ms fixed per type + 7.3 ms per field`, so it scales with **generated body size, not with the
 number of expansions**. The plugin round trip is the small term.
 

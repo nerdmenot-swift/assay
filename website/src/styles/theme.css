@@ -211,6 +211,13 @@
   text-transform: uppercase;
   color: var(--assay-muted);
   background: var(--sl-color-gray-7);
+  /* Gold's one real job on the page, and the tables are the right place for it: this site
+     keeps its measurements in tables, and gold is the assay colour — the bead in the mark.
+     It was a brand colour appearing nowhere but the logo and a blockquote rule, which is how
+     a mark ends up looking stuck on rather than belonging to the pages. Not the accent,
+     which means the caret, and not the sidebar's current-page marker, which means here. */
+  border-bottom-color: var(--assay-gold);
+  border-bottom-width: 2px;
 }
 /* Figures line up in columns wherever a table carries counts. */
 .sl-markdown-content td {

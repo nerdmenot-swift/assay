@@ -59,6 +59,15 @@ jobs:
             exit 1
           fi
 
+      # Reported, never gated. The script exits 0 whatever it finds, for the reason
+      # CLAUDE.md gives for not gating total malloc traffic: a number with no a-priori
+      # right answer fails CI on unrelated changes. A warmth floor is worse still, because
+      # it is gameable by sprinkling pronouns — which is the opposite of the goal. This is
+      # here so the numbers are in front of whoever opens the run, not to stop a merge.
+      - name: How the docs read (reported, not gated)
+        working-directory: website
+        run: bun run prose
+
   build:
     name: Build
     runs-on: ubuntu-latest

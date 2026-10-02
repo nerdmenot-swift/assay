@@ -3,9 +3,10 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
-  "description": "The Assay documentation site — assay.nerdmenot.in",
+  "description": "The Assay documentation site \u2014 assay.nerdmenot.in",
   "scripts": {
     "extract": "bun run scripts/extract.ts",
+    "prose": "bun run scripts/prose.ts",
     "dev": "bun run extract && astro dev",
     "build": "bun run extract && astro build",
     "preview": "astro preview",

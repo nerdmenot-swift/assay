@@ -202,3 +202,176 @@ struct NegotiationTests {
         #expect(v.count == 1)
     }
 }
+
+//===----------------------------------------------------------------------===//
+// The three overloads the suite above never reached. `Negotiate.swift` carries four entry
+// points, and the tests only ever used one of them — the `JSONAssayable` one — which is why
+// the file sat at 46.8% line coverage while looking well tested.
+//
+// It matters more here than it would elsewhere. This is the door that refuses a hostile
+// body BEFORE a parser sees it, and "no parser is entered" was asserted on exactly one of
+// the four paths that have to honour it.
+//===----------------------------------------------------------------------===//
+
+/// Deliberately has no `.json` in `formats:`, so it is `RawDecodable` and **not**
+/// `JSONAssayable`. That is the only way to reach the unconstrained overload: the
+/// constrained one absorbs every type that can decode JSON from bytes.
+@Schema(keys: .snakeCase, coerceScalars: true, formats: [.yaml, .xml])
+struct TreeOnlyBody: Equatable {
+    var name: String
+    @Validate(.min(1)) var count: Int
+}
+
+@Suite("Negotiation on a type with no JSON byte path")
+struct NegotiationTreeOnlyTests {
+
+    static let yaml = Array("name: api\ncount: 1\n".utf8)
+    static let xml = Array("<root><name>api</name><count>1</count></root>".utf8)
+
+    @Test("a YAML body negotiates and decodes through RawValue")
+    func yamlDecodes() throws {
+        let v = try TreeOnlyBody.parse(
+            body: Self.yaml, contentType: "application/yaml", accepting: [.yaml])
+        #expect(v == TreeOnlyBody(name: "api", count: 1))
+    }
+
+    @Test("an XML body does too, through the same overload")
+    func xmlDecodes() throws {
+        let v = try TreeOnlyBody.parse(
+            body: Self.xml, contentType: "application/xml", accepting: [.xml])
+        #expect(v == TreeOnlyBody(name: "api", count: 1))
+    }
+
+    /// `WireFormat.json` decodes through `RawValue` rather than the byte path here, because
+    /// the type has no byte path. Worth pinning: it is the one case where accepting `.json`
+    /// does *not* take the fast route, and it should still produce the same value.
+    @Test("accepting .json still works, via RawValue rather than the byte path")
+    func jsonThroughRawValue() throws {
+        let v = try TreeOnlyBody.parse(
+            body: Array(#"{"name":"api","count":1}"#.utf8),
+            contentType: "application/json", accepting: [.json])
+        #expect(v == TreeOnlyBody(name: "api", count: 1))
+    }
+
+    /// The load-bearing one, on this overload. `unsupportedNeverParses` above asserts it
+    /// for the JSON-capable type; this is the same claim for the tree-only path.
+    @Test("a refused media type never enters a parser on this path either")
+    func refusedNeverParses() {
+        let bomb = Array(
+            """
+            <?xml version="1.0"?>
+            <!DOCTYPE lol [<!ENTITY a "aaaaaaaaaa">
+             <!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">
+             <!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;">]>
+            <root><name>&c;</name><count>1</count></root>
+            """.utf8)
+        let d = TreeOnlyBody.diagnose(
+            body: bomb, contentType: "application/xml",
+            accepting: [.yaml])
+        #expect(d.value == nil)
+        #expect(d.issues.count == 1)
+        #expect(d.issues.first?.code == .unsupportedMediaType)
+    }
+
+    @Test("a malformed body of an accepted type reports a parse issue, not a media issue")
+    func malformedBody() {
+        let d = TreeOnlyBody.diagnose(
+            body: Array("name: [unclosed\n".utf8),
+            contentType: "application/yaml", accepting: [.yaml])
+        #expect(d.value == nil)
+        #expect(d.issues.allSatisfy { $0.code != .unsupportedMediaType })
+    }
+
+    /// The branch that is neither a negotiation failure nor a parse failure: the document
+    /// parsed, and then a rule refused it. It exercises the `sink.isValid` guard after a
+    /// successful `format.decode`, which nothing reached before.
+    @Test("a document that parses and then fails a rule reports the rule")
+    func parsesThenFailsARule() {
+        let d = TreeOnlyBody.diagnose(
+            body: Array("name: api\ncount: 0\n".utf8),
+            contentType: "application/yaml", accepting: [.yaml])
+        #expect(d.value == nil)
+        #expect(d.issues.count == 1)
+        #expect(d.issues.first?.code == .tooSmall)
+        #expect(d.issues.first?.path.pathDescription == "count")
+    }
+
+    @Test("the throwing form throws rather than returning a diagnosis")
+    func throwingFormThrows() {
+        #expect(throws: AssayError.self) {
+            try TreeOnlyBody.parse(
+                body: Self.yaml, contentType: "text/csv",
+                accepting: [.yaml])
+        }
+    }
+
+    @Test("a nil Content-Type is an issue here too — the bytes are never sniffed")
+    func nilContentType() {
+        let d = TreeOnlyBody.diagnose(body: Self.yaml, contentType: nil, accepting: [.yaml])
+        #expect(d.value == nil)
+        #expect(d.issues.count == 1)
+    }
+}
+
+@Suite("Negotiation on a contextual type")
+struct NegotiationContextTests {
+
+    static let ctx = TenantContext(availableRoles: ["admin", "member"], maximumSeats: 5)
+    static let json = Array(#"{"email":"a@b.com","role":"admin"}"#.utf8)
+
+    @Test("a contextual type negotiates and gets its context")
+    func decodesWithContext() throws {
+        let v = try Invitation.parse(
+            body: Self.json, contentType: "application/json",
+            accepting: [.json], context: Self.ctx)
+        #expect(v == Invitation(email: "a@b.com", role: "admin"))
+    }
+
+    @Test("a YAML body reaches the same contextual overload")
+    func yamlWithContext() throws {
+        let v = try Invitation.parse(
+            body: Array("email: a@b.com\nrole: member\n".utf8),
+            contentType: "application/yaml", accepting: [.yaml], context: Self.ctx)
+        #expect(v.role == "member")
+    }
+
+    /// The context has to actually arrive, or this overload is decoration. `owner` is not in
+    /// `availableRoles`, and only the check can know that.
+    @Test("the context's check runs, which is the whole point of the overload")
+    func contextCheckRuns() {
+        let d = Invitation.diagnose(
+            body: Array(#"{"email":"a@b.com","role":"owner"}"#.utf8),
+            contentType: "application/json", accepting: [.json], context: Self.ctx)
+        #expect(d.value == nil)
+        #expect(d.issues.count == 1)
+        #expect(d.issues.first?.path.pathDescription == "role")
+    }
+
+    @Test("a refused media type never enters a parser on the contextual path")
+    func refusedNeverParses() {
+        let d = Invitation.diagnose(
+            body: Array("<?xml version=\"1.0\"?><root/>".utf8),
+            contentType: "application/xml", accepting: [.json], context: Self.ctx)
+        #expect(d.value == nil)
+        #expect(d.issues.count == 1)
+        #expect(d.issues.first?.code == .unsupportedMediaType)
+    }
+
+    @Test("a malformed contextual body reports the parse failure")
+    func malformedBody() {
+        let d = Invitation.diagnose(
+            body: Array(#"{"email":"a@b.com","role":}"#.utf8),
+            contentType: "application/json", accepting: [.json], context: Self.ctx)
+        #expect(d.value == nil)
+        #expect(d.issues.allSatisfy { $0.code != .unsupportedMediaType })
+    }
+
+    @Test("the throwing contextual form throws")
+    func throwingFormThrows() {
+        #expect(throws: AssayError.self) {
+            try Invitation.parse(
+                body: Self.json, contentType: "text/csv",
+                accepting: [.json], context: Self.ctx)
+        }
+    }
+}

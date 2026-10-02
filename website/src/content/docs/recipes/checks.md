@@ -3,6 +3,10 @@ title: Checks and transforms
 description: Your own validation on one field or across several, and changing a field's type on the way in.
 ---
 
+A rule covers the shape of a value. When what you need is *your* logic — a reserved-name
+list, two fields that have to agree, a type the wire does not have — this is where you put
+it.
+
 ## One field, your own logic
 
 ```swift
@@ -29,8 +33,8 @@ u.json:1:14: error: username is reserved
 1 error
 ```
 
-Return `nil` to pass, a message to fail. The key path root is required — `\.username` has
-never compiled, because an attached macro's argument has no type to infer it from.
+Return `nil` to pass, a message to fail. You have to write the key path root — `\.username`
+has never compiled, because an attached macro's argument has no type to infer it from.
 
 There is no `.custom { }` rule for the same reason: a closure in an attribute has no type
 context.
@@ -60,11 +64,11 @@ r.json: error: end must be on or after start
 1 error
 ```
 
-The whole value, after every field has decoded and passed its own rules. `at:` puts the
-issue on the field a person should look at, which is what makes it show up next to the
-right input in a form.
+You get the whole value, after every field has decoded and passed its own rules. `at:` puts
+the issue on the field a person should look at, which is what makes it land next to the right
+input when you render a form.
 
-`issues.add(code:_:at:)` takes your own code when you want to branch on it later.
+`issues.add(code:_:at:)` takes a code of your own when you want to branch on it later.
 
 ## Change the type after decoding
 
@@ -90,15 +94,15 @@ Timeouts(tags: Set(["b", "a"]), timeoutSeconds: 1.5)
 ```
 
 The closure's **parameter** type is what gets decoded; the field keeps its own type. That
-is how `Set` becomes a legal field even though the macro refuses it directly, and how a
-wire value in milliseconds becomes seconds without a second property.
+is how `Set` becomes a legal field even though the macro refuses it directly, and how you
+take milliseconds off the wire and store seconds without keeping a second property.
 
 Transforms run last, after rules and checks.
 
 ## Transforms and encoding
 
-`@Inverse` is required once the type encodes, and the build fails naming the signature if
-it is missing. Otherwise a round trip would silently write something different:
+`@Inverse` is required once the type encodes, and the build fails naming the signature
+if it is missing. Otherwise a round trip would quietly write something different:
 
 ```json
 {"tags": ["b", "a", "b"], "timeout_seconds": 1500}
@@ -120,7 +124,7 @@ static func usernameIsFree(_ s: Handle, _ issues: inout Issues<Handle>) async { 
 One of these makes `parse` async **for that type**, by a compile-time count. The sync pass
 runs first and collects everything; the async checks run only if it was clean, and then
 concurrently. There is no point asking a database whether a username is taken when the
-username is four characters too short.
+username is already four characters too short.
 
 ## Next
 

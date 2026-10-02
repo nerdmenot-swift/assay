@@ -182,30 +182,66 @@ function walk(dir: string, out: string[] = []): string[] {
  * writing, and a sentence that says a number "was" something is history, not a claim, so an
  * exact-match gate would cry wolf constantly. The allowlist carries those; everything else
  * is worth a human glance.
+ *
+ * TWO THINGS THIS GOT WRONG AT FIRST, both found by a stale number it failed to catch.
+ *
+ * It only looked at decimals, so `about 6×` sailed past — and that was the superseded Date
+ * figure, replaced by 5.40× at the 2026-09-20 re-measure. Whole numbers are checked now, with
+ * a wider tolerance, because "about 6×" is a legitimate rounding of anything from 5.5 to 6.5
+ * and the question is only whether SOMETHING live is nearby.
+ *
+ * And it treated all of RESULTS.md as live. That file is a journal: it carries the original
+ * measurement next to the current one, so the stale 6.06× was "in RESULTS.md" and passed. Only
+ * the headline table counts now, which is what CLAUDE.md actually says is the source.
  */
 const HISTORICAL = new Set([
   '2.9', // encoding, before the writers owned their buffers — "it was 2.9× until…"
   '11.04', // YAML struct decode, before the direct RawValue door
+  // Live, but measured somewhere other than the headline table.
   '1.15', // @Key(path:) ship-or-refuse gate, written before the measurement
-  '1.14', // @Key(path:) mixed-shape arm, from COMPILE-TIME.md not RESULTS.md
-  '3.7', // @Schema vs Codable, default JSON-only arm: 81 ms / 22 ms
+  '1.14', // @Key(path:) mixed-shape arm — COMPILE-TIME.md
+  '0.97', // @Key(path:) against the nesting it saves — COMPILE-TIME.md
+  '1.01', // the other end of that range
+  '6.95', // the [String: T] dictionary worst case — CLAUDE.md
+  // Not Assay's numbers at all, and not ours to update.
+  '1.38', // ZippyJSON over Foundation, as ZippyJSON itself published it
+  // Not a measurement: a configured ceiling.
+  '32', // XML entity expansion bounded at 32× the input, with a 64 KB floor
 ])
 
+// A changelog's job is to say what was true at the time, so every superseded figure in it is
+// correct BECAUSE it is superseded. Checking it against today's numbers asks it to lie.
+const RATIO_EXEMPT = (slug: string) => slug === 'reference/changelog'
+
 function ratioCheck(pages: readonly { slug: string; file: string }[]): string[] {
-  let live: Set<string>
+  let live: number[]
   try {
-    live = new Set(readFileSync(RESULTS, 'utf8').match(/\d+\.\d+(?=×)/g) ?? [])
+    const all = readFileSync(RESULTS, 'utf8')
+    // The headline table ONLY — from its header row to the blank line that ends it. The rest
+    // of the file is a journal and carries superseded figures beside the current ones.
+    const start = all.indexOf('| arm | number | against | journal |')
+    const table = start < 0 ? all : all.slice(start, all.indexOf('\n\n', start))
+    live = [...table.matchAll(/(\d+(?:\.\d+)?)(?=×)/g)].map((m) => Number(m[1]))
   } catch {
     return ['RESULTS.md not readable — ratio check skipped']
   }
+  if (!live.length) return ['no headline table found in RESULTS.md — ratio check skipped']
+
   const flagged: string[] = []
   for (const { slug, file } of pages) {
+    if (RATIO_EXEMPT(slug)) continue
     const text = prose(readFileSync(file, 'utf8'))
-    for (const m of text.match(/\d+\.\d+(?=×)/g) ?? []) {
-      // A rounding of a live figure is fine: 3.6 for 3.61, 2.5 for 2.47.
-      const rounds = [...live].some((v) => Math.abs(Number(v) - Number(m)) < 0.05)
-      if (live.has(m) || rounds || HISTORICAL.has(m)) continue
-      flagged.push(`${slug}: ${m}× is not in RESULTS.md, not a rounding, not allowlisted`)
+    for (const m of text.matchAll(/(?<![\d.])(\d+(?:\.\d+)?)(?=×)/g)) {
+      const v = m[1]
+      if (HISTORICAL.has(v)) continue
+      // Tolerance scales with how precisely the page quoted the figure. "3.6×" claims one
+      // decimal, so 0.05 is right; "about 6×" claims none, so anything from 5.5 to 6.5 is an
+      // honest rounding and the only question is whether something live sits in that band.
+      // 0.051, not 0.05: 3.35 - 3.3 is 0.050000000000000266 in binary floating point,
+      // which flagged two correctly-rounded figures on the first run.
+      const tol = v.includes('.') ? 0.051 : 0.5
+      if (live.some((x) => Math.abs(x - Number(v)) <= tol)) continue
+      flagged.push(`${slug}: ${v}× has no figure within ${tol} in the RESULTS.md headline table`)
     }
   }
   return flagged

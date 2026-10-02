@@ -4,8 +4,8 @@ description: Five states, one declaration each. Required, optional, defaulted, s
 ---
 
 These examples are YAML, because a config file is where "what does absent mean" is a
-question people actually have. The declaration is the same whatever the format is — swap
-`parse(yaml:)` for `parse(json:)` and nothing else changes.
+question you actually have. The declaration is the same whatever format you hand it — swap
+`parse(yaml:)` for `parse(json:)` and nothing else about it changes.
 
 ## The five states
 
@@ -29,7 +29,8 @@ Everything optional absent:
 {{example:cb.presenceAbsent:yaml}}
 
 `defaulted` became `3` and `salvaged` became `0`. Note the warning: a fallback that fires
-always says so, because silently substituting a value is how data problems hide.
+always tells you so, because a silently substituted value is how a data problem hides for a
+month.
 
 ## Defaulted versus salvaged
 
@@ -37,19 +38,19 @@ The difference is what happens when the key is **present and wrong**.
 
 {{example:cb.presenceSalvaged:yaml}}
 
-`@Fallback` took the value and recorded it. A `= 0` default would have reported an error
-instead, because a default answers "absent", not "invalid".
+`@Fallback` took the value and recorded that it had. A `= 0` default would have reported an
+error instead, because a default answers "absent", not "invalid".
 
-Choose by whether a wrong value is survivable. For a score you display, yes. For a price
-you charge, no.
+Choose between them by asking whether a wrong value is survivable. For a score you display,
+it is. For a price you charge, it is not.
 
 ## Null is not absent
 
 {{example:cb.nullVsAbsent:yaml}}
 
-`null` for an optional is `nil` — the document said so explicitly and that is the same
-answer. `null` for an array with a default is an **error**, because `null` is not a list,
-and a default answers absence rather than a wrong type.
+`null` for an optional is `nil` — the document said so explicitly, and that is the same
+answer you wanted. `null` for an array with a default is an **error**, because `null` is not
+a list, and a default answers absence rather than a wrong type.
 
 ## Two spellings that will not compile
 
@@ -58,7 +59,8 @@ var x = 3               // no type annotation — the macro cannot see the type
 let y: Int = 3          // `let` with a value — nothing could ever assign it
 ```
 
-Both are hard errors with a message naming the fix. They look like defaults and are not.
+Both are hard errors, and both name the fix. They look like defaults and they are not, which
+is why you get told at build time rather than finding out from a document.
 
 ## Next
 

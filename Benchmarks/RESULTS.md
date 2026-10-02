@@ -424,7 +424,14 @@ Foundation's before timing.
 | 32k | 341 | 192,171 | 30,854 | **6.23×** |
 | 64k | 688 | 384,857 | 61,810 | **6.23×** |
 
-**Mean: 6.06×.** Both sides parse the same JSON around the dates, so this understates
+**Mean: 6.06×, as first measured on 2026-08-06.** The headline table at the top of this
+file says **5.40×**, and that is the current figure — re-measured 2026-09-20. Both numbers
+are real and the gap is mostly not Assay: a Foundation-relative ratio belongs to the OS
+that produced it, and the commit that published 6.06× measures 4.25× on this machine
+today. The table below is kept as the original run rather than restated, because that is
+what it is. **Quote the headline table, not this one.**
+
+Both sides parse the same JSON around the dates, so this understates
 the difference in the date path itself: Assay's is two dozen integer operations
 (Hinnant's algorithm), Foundation's `.iso8601` strategy goes through
 `ISO8601DateFormatter`. The ratio *rising* with size — opposite to the apimodel table —

@@ -15,6 +15,13 @@
  * sprinkle "you" and the metric rises while the writing gets worse. The number is an
  * instrument for a human to read, not a gate to satisfy.
  *
+ * PAGES WITH ALMOST NO PROSE ARE NOT SCORED FOR WARMTH. Below about 120 words the ratio is
+ * noise — one pronoun moves it by more than a point — and the only way to "fix" such a page
+ * is to add prose nobody asked for. start/cheatsheet is 75 words wrapped around code blocks
+ * and its own description reads "skim it, bookmark it, stop reading prose". Scoring it like a
+ * guide asks it to stop being a cheatsheet. Sentence length is still measured, since that one
+ * works at any size.
+ *
  * TARGETS ARE PER SEGMENT, which matters more than it sounds. A single target makes
  * reference/attributes — 84 words wrapped around a generated table — look broken when it is
  * doing exactly its job. A lookup page is not a teaching page and should not be scored like
@@ -58,6 +65,9 @@ const SEGMENTS: readonly Segment[] = [
   { name: 'reference', warmth: null, sentenceCeiling: 22 },
 ]
 const FALLBACK: Segment = { name: '(other)', warmth: null, sentenceCeiling: 22 }
+
+// Below this many words of prose, warmth is noise rather than signal.
+const MIN_PROSE_FOR_WARMTH = 120
 
 function segmentOf(slug: string): Segment {
   const top = slug.split('/')[0]
@@ -125,9 +135,14 @@ function measure(file: string, slug: string): Page {
     .map((s) => (s.match(WORD) ?? []).length)
     .filter((n) => n > 3)
   const second = words.filter((w) => SECOND_PERSON.has(w.toLowerCase())).length
+  const seg = segmentOf(slug)
   return {
     slug,
-    segment: segmentOf(slug),
+    // A page too short to score keeps its sentence ceiling and loses its warmth target.
+    segment:
+      words.length < MIN_PROSE_FOR_WARMTH && seg.warmth
+        ? { ...seg, warmth: null }
+        : seg,
     words: words.length,
     sentence: sentences.length ? sentences.reduce((a, b) => a + b, 0) / sentences.length : 0,
     warmth: words.length ? (second * 100) / words.length : 0,

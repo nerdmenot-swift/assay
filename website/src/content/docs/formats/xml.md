@@ -18,8 +18,8 @@ struct XMLDeployment {
 let deployment = try XMLDeployment.parse(xml: bytes)
 ```
 
-Note `coerceScalars: true`. XML is the one format that makes you say it, and the reason is
-the next section.
+Note `coerceScalars: true`. XML is the one format that makes you say it out loud, and the
+reason is the next section.
 
 ## XML has no types
 
@@ -27,7 +27,7 @@ Every leaf in an XML document is character data. There is no integer, no boolean
 `<replicas>3</replicas>` is the three-character string `"3"` and the format has no opinion
 beyond that.
 
-So a struct with an `Int` field decoding from XML has to agree that text may become a
+So if you want an `Int` field to decode from XML, you have to agree that text may become a
 number. Here is the same shape **without** the flag:
 
 ```swift
@@ -53,8 +53,8 @@ deploy.xml:1:59: error: replicas must be an integer, found "3"
 1 error
 ```
 
-That error is correct, and it is the library refusing to guess. The identical document
-through `XMLDeployment`, which differs only by the flag:
+That error is correct: it is the library refusing to guess on your behalf. The identical
+document through `XMLDeployment`, which differs only by the flag:
 
 ```text
 XMLDeployment(name: "api", image: "img:1", replicas: 3, region: "eu-west-1", healthCheck: nil)
@@ -65,11 +65,11 @@ which behaviour is being shown by which name is in the output.
 
 ### Coercion is opt-in
 
-`coerceScalars: true` is per type. `@Coerce` is the same thing per field, for when only one
-field should be tolerant. The policy is identical on every format: `"3"` becomes `3`,
+`coerceScalars: true` is per type. `@Coerce` is the same thing per field, for when you only
+want one field to be tolerant. The policy is identical on every format: `"3"` becomes `3`,
 `"true"` becomes `true`, and `"8080.5"` does **not** become an integer.
 
-**It is not inherited by nested types.** This one catches people, so here it is happening:
+**It is not inherited by nested types.** This one will catch you, so here it is happening:
 
 ```xml
 <cluster>
@@ -105,9 +105,9 @@ cluster.xml:4:57: error: servers[1].tls must be a boolean, found "false"
 ```
 
 `Cluster` said `coerceScalars: true`. `Server` did not, and `Server` is what those `port`
-and `tls` fields belong to. Every nested `@Schema` type decides for itself, because the
-alternative is a flag on an outer type silently changing how an inner type — possibly one
-you do not own — accepts data.
+and `tls` fields belong to. Every nested `@Schema` type decides for itself. The
+alternative is a flag on your outer type silently changing how an inner one accepts data,
+and that inner type may not even be yours.
 
 The fix is to say it on both:
 
@@ -137,8 +137,8 @@ of one.
 
 ## Placement
 
-XML is the only format here where the same value can live in three different places, so it
-is the only one with an attribute for saying which.
+XML is the only format here where one value can live in three different places, so it is the
+only one that asks you to say which.
 
 ```swift
 @Schema(coerceScalars: true, formats: [.xml])
@@ -168,7 +168,7 @@ Four things in that result:
 - `lang` came from an attribute that was present. Had it been absent you would have `"en"`,
   because presence rules work the same here as everywhere.
 - `body` is the element's own text, whitespace and all. XML does not normalise text content
-  and neither does Assay; `@Preprocess(.trim)` is there if you want it trimmed.
+  and neither does Assay; reach for `@Preprocess(.trim)` if you want it trimmed.
 - `tags` came out of a wrapper element, which is the other common way XML spells a list.
 
 **An unannotated field is a child element.** That is the safe default: an attribute cannot
@@ -195,9 +195,9 @@ item.xml: error: tags is required
 4 errors
 ```
 
-Without the annotation the root is not checked at all. That is deliberate rather than lazy:
-the root element is very often an unmodelled envelope somebody else chose, and failing on
-it by default would make the common case annoying.
+Leave the annotation off and the root is not checked at all. That is deliberate rather than
+lazy: the root is very often an unmodelled envelope somebody else chose for you, and failing
+on it by default would make the common case annoying.
 
 ## XXE is refused by construction
 
@@ -221,16 +221,16 @@ Two things happened. The external entity declaration was **ignored**, with a war
 so. Then the reference to it failed, because the entity does not exist.
 
 There is no flag for this, and that is the point. The parser has no code path that opens a
-file or a socket, so there is nothing to configure, nothing to forget, and no way for a
-future refactor to turn it back on. Compare with the usual advice for XML parsers, which is
-a list of options you must remember to set on every parser you construct.
+file or a socket, so you have nothing to configure, nothing to forget, and no way for a
+future refactor to turn it back on. Compare the usual advice for XML parsers: a list of
+options you must remember to set on every parser you construct.
 
 Billion laughs is handled by the same node budget as YAML's aliases. See
 [Limits](/reference/limits-and-security/).
 
 ## CDATA, comments and mixed content
 
-CDATA is text. It is the escape hatch for content full of angle brackets, and it arrives as
+CDATA is text. It is your escape hatch for content full of angle brackets, and it arrives as
 the characters it holds:
 
 ```swift
@@ -246,7 +246,7 @@ Note(title: "T", body: "<b>raw</b> & unescaped")
 ```
 
 Comments are preserved in the value model and skipped by the schema path, which is the only
-sensible split: a comment is not data, but a tool walking the tree may well want it.
+sensible split: a comment is not data, but a tool of yours walking the tree may well want it.
 
 ## When the XML is wrong
 
@@ -284,17 +284,17 @@ child[attribute: "a"]    → 1
 child.children.count     → 2   (text + comment)
 ```
 
-`name.local` is the local name and `name.namespaceURI` is the resolved URI, not the prefix —
-prefixes are a document-local spelling and two documents can use different ones for the
-same namespace. The child count of two is the text node plus the comment, in document order,
+`name.local` is the local name and `name.namespaceURI` is the resolved URI rather than the
+prefix. Prefixes are a document-local spelling, and two documents can use different ones for
+the same namespace. The child count of two is the text node plus the comment, in document order,
 because that order is sometimes the only thing that distinguishes valid markup from
 nonsense.
 
 ## A note on speed
 
-Assay's XML parser measures about 2.5× Foundation's `XMLParser` on macOS. On Linux it
-measures 0.96× — parity — because `FoundationXML` there is libxml2, and matching a mature C
-parser while building a full tree its SAX interface never builds is a fine result to stop at.
+Assay's XML parser measures about 2.5× Foundation's `XMLParser` on macOS. On Linux you get
+0.96× — parity — because `FoundationXML` there is libxml2, and matching a mature C parser
+while building a full tree its SAX interface never builds is a fine place to stop.
 
 "Faster than Foundation's XML" is therefore a macOS-only sentence, so it is not one this
 site says without the platform attached. [Performance](/reference/performance/) has the

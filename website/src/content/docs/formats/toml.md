@@ -16,13 +16,13 @@ struct Deployment {
 let deployment = try Deployment.parse(toml: text)
 ```
 
-The parser passes **all 710 documents** of the official `toml-test` suite: 210 valid ones
+The parser passes **all 710 documents** of the official `toml-test` suite — 210 valid ones
 decoded to the exact expected value, 501 invalid ones refused. That runs in CI on every
 commit, with toml++ as a differential oracle beside it.
 
 ## Typed on the wire
 
-TOML is the opposite of YAML. The grammar decides the type, so there is nothing to resolve
+TOML is the opposite of YAML. The grammar decides the type, so you have nothing to resolve
 and nothing to coerce:
 
 | written | is |
@@ -34,8 +34,8 @@ and nothing to coerce:
 | `1979-05-27` | a local date |
 | `0xDEAD_BEEF` | an integer, in hex, with readable underscores |
 
-You will never need `coerceScalars` for TOML, and a type mismatch here is a genuine
-mismatch rather than an ambiguity somebody has to adjudicate.
+You will never need `coerceScalars` for TOML. A type mismatch here is a genuine mismatch
+rather than an ambiguity somebody has to adjudicate for you.
 
 It also means the parser can be strict about literals that look fine but are not:
 
@@ -55,8 +55,8 @@ deploy.toml:3:12: error: invalid number literal
 1 error
 ```
 
-`01` is not a TOML integer. Leading zeros are forbidden by the grammar, because they are how
-octal gets confused with decimal in every language that allows them.
+`01` is not a TOML integer. The grammar forbids leading zeros, because they are how octal
+gets confused with decimal in every language that allows them.
 
 ## Tables and arrays of tables
 
@@ -71,7 +71,7 @@ struct Cluster {
 }
 ```
 
-`[[servers]]` is an array of tables. Each header appends an element:
+`[[servers]]` is an array of tables. Each header you write appends an element:
 
 ```toml
 name = "eu-prod"
@@ -106,15 +106,15 @@ labels = {tier = "prod"}
 Cluster(name: "eu-prod", servers: [Server(host: "a.internal", port: 8080, tls: true)], labels: ["tier": "prod"])
 ```
 
-Both spellings land in the same struct, because your schema does not care how the file was
-laid out. Dotted keys are the third spelling and define a *table* rather than an array of
+Both spellings land in the same struct, because your schema does not care how whoever wrote
+the file laid it out. Dotted keys are the third spelling and define a *table* rather than an array of
 them, so `labels.tier = "prod"` is the one-line form of the `[labels]` section above.
 
 ## Redefinition is an error
 
-This is the rule TOML exists to enforce and the mistake people actually make: writing the
-same table header twice, usually after a copy-paste, usually in a file long enough that you
-do not notice.
+This is the rule TOML exists to enforce, and the mistake you are actually likely to make.
+Writing the same table header twice, usually after a copy-paste, usually in a file long
+enough that you do not notice.
 
 ```toml
 name = "x"
@@ -139,17 +139,17 @@ cluster.toml:6:2: error: table 'labels' is already defined
 
 Most of the difficulty in a TOML parser is here rather than in the tokens. The rule Assay
 implements is "every value except an open table is closed once parsed", plus one origin tag
-per table recording whether it came from a header, from dotted keys, or from being implied
-by a deeper header. Those three cases have different rules about what may extend them
-later, which is why the tag exists.
+per table. The tag records whether it came from a header, from dotted keys, or from being
+implied by a deeper header — three cases with different rules about what may extend them
+later, which is why it exists.
 
-An inline table is closed the moment its brace shuts, so `a = {x = 1}` followed by
-`a.y = 2` is an error as well. That is the spec, and it is a good rule: an inline table is a
-value, not a section.
+An inline table closes the moment its brace shuts, so `a = {x = 1}` followed by `a.y = 2` is
+an error too. That is the spec, and it is a good rule. An inline table is a value, not a
+section.
 
 ## Four kinds of date-time
 
-TOML is the only format here with dates in the grammar, and it has four of them:
+TOML is the only format here with dates in the grammar, and it gives you four of them:
 
 | spelling | kind |
 |---|---|
@@ -179,11 +179,10 @@ seen_at = 1700000000
 Entry(name: "release", createdAt: 1979-05-27 07:32:00 +0000, seenAt: 2023-11-14 22:13:20 +0000)
 ```
 
-Under the hood a TOML date-time projects to an RFC 3339 string before it reaches your
-schema, which is exactly what a `Date` field already knows how to parse. So the date support
-you get is the same date support every other format gets, including
-[`@DateFormat`](/guides/dates/) candidate chains and the `.before` / `.after` / `.between`
-rules.
+Underneath, a TOML date-time projects to an RFC 3339 string before it reaches your schema —
+exactly what a `Date` field already knows how to parse. So you get the same date support
+every other format gets, [`@DateFormat`](/guides/dates/) candidate chains and the
+`.before` / `.after` / `.between` rules included.
 
 A date that parses as a shape but is not a real day is refused by the parser:
 
@@ -207,8 +206,8 @@ entry.toml:2:14: error: invalid date-time
 
 ## TOML has no null
 
-There is no way to write one, so encoding has a rule: a `nil` optional is **omitted**, and
-any other null is reported rather than silently dropped. See
+There is no way to write one, so encoding has a rule. A `nil` optional is **omitted**, and
+any other null is reported to you rather than silently dropped. See
 [Encoding](/guides/encoding/) for what round-trips and what cannot.
 
 ## When you do not know the shape
@@ -232,16 +231,16 @@ t["lt"]?.dateTime  → localTime(07:32:00)
 t["hex"]?.int      → 3735928559
 ```
 
-`TOML.DateTime` is an enum with those four cases. The hex literal is an ordinary integer by
-the time you read it — the radix was a spelling, not a type.
+`TOML.DateTime` is an enum with those four cases. By the time you read it the hex literal is
+an ordinary integer — the radix was a spelling, not a type.
 
 ## A note on speed
 
-TOML is a tree decoder, like YAML and XML, so the argument that makes Assay's JSON path fast
-does not apply. The numbers were parity with C when this parser shipped and are better than that now:
-roughly 4.1× toml++ at building the tree, and 6.6× TOMLKit's `Codable` decoder end to end.
-Both moved when the struct door stopped building a `TOML.Node` table it only projected and
-dropped.
+TOML is a tree decoder like YAML and XML, so the argument that makes Assay's JSON path fast
+does not apply here. The numbers were parity with C when this parser shipped and are better
+now: roughly **4.1× toml++** at building the tree, and **6.6× TOMLKit's `Codable` decoder**
+end to end. Both moved when the struct door stopped building a `TOML.Node` table it only
+projected and threw away.
 
 That second number is the familiar shape — the gap is the `Codable` boundary, not the
 parser. [Performance](/reference/performance/) has the rest.

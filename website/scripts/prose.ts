@@ -43,13 +43,18 @@ interface Segment {
 // `warmth: null` means the segment is not scored for second person at all, rather than
 // scored and forgiven. The distinction shows up in the summary: an unscored page can never
 // be "off-voice", so it never appears in the count a human is trying to drive down.
+// The upper bound is 3.4 and not the 3.0 first written here, because 3.0 was a guess and
+// the exemplars outvoted it: guides/presence measures 3.38 and guides/dates 3.30, and those
+// are the two pages this voice was set FROM. A ceiling that excludes your own best pages is
+// measuring the wrong thing. 3.4 is where they sit; past it the prose starts addressing the
+// reader instead of telling them something.
 const SEGMENTS: readonly Segment[] = [
-  { name: 'start', warmth: [2.4, 3.0], sentenceCeiling: 20 },
-  { name: 'guides', warmth: [2.4, 3.0], sentenceCeiling: 20 },
-  { name: 'recipes', warmth: [2.4, 3.0], sentenceCeiling: 20 },
-  // Format pages carry more spec detail than a guide, so the same warmth target would
-  // force padding. A little lower, still clearly addressed to a reader.
-  { name: 'formats', warmth: [2.0, 2.8], sentenceCeiling: 20 },
+  { name: 'start', warmth: [2.4, 3.4], sentenceCeiling: 20 },
+  { name: 'guides', warmth: [2.4, 3.4], sentenceCeiling: 20 },
+  { name: 'recipes', warmth: [2.4, 3.4], sentenceCeiling: 20 },
+  // Format pages carry more spec detail than a guide, so the same floor would force
+  // padding. A little lower, still clearly addressed to a reader.
+  { name: 'formats', warmth: [2.0, 3.0], sentenceCeiling: 20 },
   { name: 'reference', warmth: null, sentenceCeiling: 22 },
 ]
 const FALLBACK: Segment = { name: '(other)', warmth: null, sentenceCeiling: 22 }
@@ -236,6 +241,7 @@ console.log('-'.repeat(WIDTH))
 
 let currentSegment = ''
 const offVoice: Page[] = []
+const overWarm: Page[] = []
 const tooLong: Page[] = []
 const noNumber: Page[] = []
 
@@ -253,6 +259,14 @@ for (const p of measured) {
   if (p.segment.warmth && p.warmth < p.segment.warmth[0]) {
     flags.push('COLD')
     offVoice.push(p)
+  }
+  // The range has two ends, and leaving the upper one unmeasured is how a rewrite sails
+  // past it: four recipes went 0.54 -> 4.2 in one pass and nothing here said so. Over the
+  // ceiling is not a worse failure than under it, but it is the same kind — prose bent
+  // toward a number instead of toward a reader.
+  if (p.segment.warmth && p.warmth > p.segment.warmth[1]) {
+    flags.push('OVER')
+    overWarm.push(p)
   }
   if (p.sentence > p.segment.sentenceCeiling) {
     flags.push('LONG')
@@ -290,12 +304,20 @@ const scored = measured.filter((p) => p.segment.warmth)
 console.log('')
 console.log(`teaching pages scored for voice: ${scored.length}`)
 console.log(`  off-voice (below the warmth floor): ${offVoice.length}`)
+console.log(`  over the warmth ceiling:            ${overWarm.length}`)
 console.log(`  over the sentence ceiling:          ${tooLong.length}`)
 console.log(`  carrying no performance number:     ${noNumber.length}`)
 
 if (offVoice.length) {
   console.log('\ncoldest first — these are where a rewrite buys the most:')
   for (const p of [...offVoice].sort((a, b) => a.warmth - b.warmth).slice(0, 12)) {
+    console.log(`  ${num(p.warmth, 5, 2)}  ${pad(p.slug, W_PAGE)}→ edit ${p.generated ?? '(hand-written page)'}`)
+  }
+}
+
+if (overWarm.length) {
+  console.log('\nover the ceiling — trim, do not add:')
+  for (const p of [...overWarm].sort((a, b) => b.warmth - a.warmth)) {
     console.log(`  ${num(p.warmth, 5, 2)}  ${pad(p.slug, W_PAGE)}→ edit ${p.generated ?? '(hand-written page)'}`)
   }
 }

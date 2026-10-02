@@ -3,9 +3,11 @@ title: Dates
 description: ISO-8601 by default, unix time, HTTP dates, patterns, candidate chains, and rules about when.
 ---
 
-The documents here are TOML, which is the only format with date-times in its grammar —
-`iso` below is a native value, not a string. Everything on this page works the same from
-JSON, YAML, XML and property lists, where a date is text.
+The documents here are TOML, the only format with date-times in its grammar. `iso` below is a
+native value rather than a string.
+
+Everything on this page behaves the same from JSON, YAML, XML or a property list. There a
+date is just text, and you write the declaration identically.
 
 ## The formats
 
@@ -34,9 +36,9 @@ either = 1700000000
 Timestamps(iso: 2026-09-11 12:00:00 +0000, epoch: 2023-11-14 22:13:20 +0000, httpDate: 2026-10-21 07:28:00 +0000, day: 2026-01-31 00:00:00 +0000, either: 2023-11-14 22:13:20 +0000)
 ```
 
-Several formats in one attribute is a **candidate chain**: tried in order, first that
-parses wins. Useful for an API mid-migration, and for a field that has always been
-inconsistent.
+Several formats in one attribute is a **candidate chain**: tried in order, first that parses
+wins. Reach for it when you are reading an API mid-migration, or a field that has never been
+consistent about it.
 
 `.unixMillis` is there too.
 
@@ -60,8 +62,8 @@ d.toml: error: either must be an ISO-8601 date, or unix timestamp (seconds) — 
 3 errors
 ```
 
-Each failure names the field and shows what was there. A chain reports once for the field
-rather than once per candidate, because four messages about one value is noise.
+Each failure names the field and shows you what was actually there. A chain reports once for
+the field rather than once per candidate, because four messages about one value is noise.
 
 ## Rules about when
 
@@ -89,11 +91,11 @@ d.toml:2:13: error: effective must be between 2020-01-01 and 2030-01-01
 2 errors
 ```
 
-Bounds are ISO-8601 strings parsed **once, at expansion**, so a malformed bound is a build
-error rather than a surprise per document.
+Bounds are ISO-8601 strings parsed **once, at expansion**, so a bound you typed wrong is a
+build error rather than a surprise once per document.
 
-There is no `.past` or `.future`, deliberately: they need a clock, and a rule that depends
-on when you run it is a rule you cannot test.
+There is no `.past` or `.future`, deliberately. They need a clock, and a rule whose answer
+depends on when you run it is a rule you cannot test.
 
 ## No ICU, and no Foundation in the core
 
@@ -102,8 +104,8 @@ The parsers are arithmetic and return epoch seconds; the macro emits
 which is why this works the same on Linux, Windows and WebAssembly — and why it measures
 about **5.4× `JSONDecoder` with `.iso8601`**.
 
-`.pattern` is the one to be careful with on a size budget: an arbitrary UTS-35 pattern
-needs a real formatter, and on some platforms that means ICU.
+`.pattern` is the one to watch if you are on a size budget. An arbitrary UTS-35 pattern needs
+a real formatter, and on some platforms that means ICU.
 
 ## Next
 

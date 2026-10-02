@@ -3,6 +3,10 @@ title: Enums
 description: Closed sets that need no macro, open ones that survive a new case, a field that is sometimes one and sometimes many, and turning a struct into a constrained scalar.
 ---
 
+A vocabulary comes in three flavours and they want different declarations: one you control,
+one somebody upstream will add to without telling you, and one that is really a scalar
+wearing a struct.
+
 ## A closed set
 
 ```swift
@@ -14,20 +18,20 @@ struct Label: Equatable { var colour: Colour; var priority: Priority }
 ```
 
 YAML here, because a closed vocabulary is usually something a person types by hand.
-`RawDecodable` is the conformance that makes these work outside JSON; drop it and
+`RawDecodable` is the conformance that makes these work outside JSON — drop it and
 `parse(yaml:)` will not compile for a type with an enum field.
 
 {{example:cb.enumClosed:yaml}}
 
-No macro on the enum. Declare the conformance and the implementation comes from a protocol
-extension, for any `RawRepresentable` with a `String` or `Int` raw value. Add
-`RawDecodable` as well if the type decodes from YAML, XML, TOML or a plist.
+You put no macro on the enum. Declare the conformance and the implementation arrives from a
+protocol extension, for any `RawRepresentable` with a `String` or `Int` raw value. Add
+`RawDecodable` too if your type decodes from YAML, XML, TOML or a plist.
 
 `CaseIterable` is optional and pays for itself:
 
 {{example:cb.enumBad:yaml}}
 
-The first field lists what it would have accepted; the second, without `CaseIterable`,
+The first field tells you what it would have accepted. The second, without `CaseIterable`,
 cannot.
 
 ## A set that will grow
@@ -48,8 +52,8 @@ default, and log what is actually arriving. Without this, one new value upstream
 decode failure for every record that has it.
 
 Encoding refuses to write an unrecognised variant unless you opt in with
-`@Unknown(roundTrips: true)` — writing back a value you did not understand is a decision,
-not a default.
+`@Unknown(roundTrips: true)`. Writing back a value you never understood is a decision, not a
+default.
 
 ## Sometimes one, sometimes many
 
@@ -60,8 +64,8 @@ struct Post: Equatable { @OneOrMany var tags: [String] }
 
 {{example:cb.oneOrMany:json}}
 
-Both documents decode. The attribute lands on the JSON path, where the choice is genuine.
-On the other formats the tolerance is already there and cannot be removed: XML spells a
+Both documents decode. The attribute lands on the JSON path, where the choice is genuine. On
+the other formats the tolerance is already there and cannot be taken away: XML spells a
 sequence as repeated sibling elements, which is indistinguishable from a single scalar at
 that layer.
 
@@ -85,7 +89,8 @@ same path, same parameters. That equivalence is the feature: a wrapper is not a 
 validation mechanism wearing the first one's vocabulary.
 
 The wrapped type is `String`, `Int64`, `Double` or `Bool`, because a macro sees a token and
-not a type.
+not a type. It costs you about 1.80× the plain field and rule it is sugar for, which is the
+price of the distinct type.
 
 ## Next
 

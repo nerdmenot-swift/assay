@@ -4,7 +4,7 @@ description: Turn a diagnosis into one message per field, in your own wording, r
 ---
 
 A form needs the opposite shape from a log line. Not a report about a document, but a
-message attached to a field, in your product's voice, translatable.
+message attached to a field, in your product's voice, ready to translate.
 
 ```swift
 @Schema(keys: .snakeCase, unknownKeys: .warn)
@@ -46,8 +46,8 @@ func fieldErrors(_ d: Diagnosis<Registration>) -> [(String, String)] {
 
 {{example:recipe.form.errors:json}}
 
-Four problems, four fields, one pass. Nobody fixes their username, resubmits, and learns
-about their password.
+Four problems, four fields, one pass. Nobody fixes their username, resubmits, and only then
+learns about their password.
 
 ## Why switch on the code and not the message
 
@@ -58,7 +58,7 @@ The parameters are the other half: `minimum` is the number the rule was built wi
 value, so your own sentence can interpolate it instead of parsing it back out of a string.
 That is the whole reason issues are a code plus parameters rather than a rendered string.
 
-For a real product, the `switch` becomes a lookup:
+For a real product that `switch` becomes a lookup:
 
 ```swift
 NSLocalizedString("error.\(issue.code.codeString)", comment: "")
@@ -66,7 +66,8 @@ NSLocalizedString("error.\(issue.code.codeString)", comment: "")
                           with: issue.params["minimum"]?.displayString ?? "")
 ```
 
-A key per code, which is a small closed set, rather than a key per field per rule.
+That is a key per code — a small closed set — rather than a key per field per rule, which is
+the difference between a translation file you maintain and one you dread.
 
 ## Nested fields
 
@@ -85,15 +86,14 @@ Split on `.` and `[` if your form identifies inputs some other way. The path is 
 
 {{out:recipe.form.json}}
 
-Same information, already shaped: path, code, message, params, and the byte offsets. Useful
-when the client rendering the form is not the process that decoded the body.
+Same information, already shaped: path, code, message, params, and the byte offsets. Reach
+for it when the client rendering the form is not the process that decoded the body.
 
 ## Warnings are not errors
 
 `unknownKeys: .warn` means an unexpected field in the submission is reported without
-failing anything. Those arrive in `d.warnings`, not `d.issues`, and should not be shown
-next to an input — nobody typed them. Log them; they usually mean a client and a server
-have drifted.
+failing anything. Those arrive in `d.warnings` rather than `d.issues`, and you should not put them next to an
+input — nobody typed them. Log them instead. They usually mean a client and a server have drifted.
 
 ## Next
 

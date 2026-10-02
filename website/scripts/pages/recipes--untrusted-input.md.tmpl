@@ -3,8 +3,8 @@ title: A file you do not trust
 description: Budgets for size, nesting and expansion, an accepting list with no default, and what each one actually stops.
 ---
 
-The defaults are generous, because most callers are decoding their own data. A public
-endpoint taking files from strangers should say what it will accept.
+The defaults are generous, because most of the time you are decoding your own data. The
+moment you are taking files from strangers, say what you will accept.
 
 ```swift
 @Schema(keys: .snakeCase, formats: .all)
@@ -22,15 +22,15 @@ Three numbers, three different attacks.
 
 {{example:recipe.untrusted.mediaType:text}}
 
-That is an entity-expansion attempt in XML, offered to an endpoint accepting only JSON. It
-produced one issue and **never entered an XML parser**, because `accepting:` is checked
-before anything reads the body.
+That is an entity-expansion attempt in XML, offered to an endpoint of yours accepting only
+JSON. It produced one issue and **never entered an XML parser**, because `accepting:` is
+checked before anything reads the body.
 
 This is why that argument is required and has no default. The cheapest defence against a
-parser's edge cases is not reaching the parser. A server opts in, at the call site, in
-writing, to each format a request can reach.
+parser's edge cases is not reaching the parser, so you opt in at the call site, in writing,
+to each format a request can reach.
 
-Worth knowing even so: had XML been on the list, the entity would have been refused anyway.
+Worth knowing even so: had you listed XML, the entity would have been refused anyway.
 Assay's XML parser has no code path that fetches an external entity, so
 [XXE](/formats/xml/#xxe-is-refused-by-construction) is not a flag you can forget to set.
 
@@ -38,25 +38,26 @@ Assay's XML parser has no code path that fetches an external entity, so
 
 {{example:recipe.untrusted.depth:text}}
 
-`maxDepth` guards the stack. A recursive-descent parser meeting twenty thousand open
-brackets traps rather than returning an error, and on WebAssembly the stack is small enough
-that it happens sooner than you would think.
+`maxDepth` guards the stack. A recursive-descent parser meeting twenty thousand open brackets
+traps rather than handing you an error, and if you ship to WebAssembly the stack is small
+enough that it happens sooner than you would think.
 
-This example goes through the value model on purpose. A schema bounds its own nesting by
-being a declaration — the types stop somewhere. A document whose shape you do not know is
+This example goes through the value model on purpose. Your schema bounds its own nesting just
+by being a declaration — your types stop somewhere. A document whose shape you do not know is
 bounded only by whoever sent it, which is exactly when the limit earns its place.
 
 ## Size
 
 {{example:recipe.untrusted.size:text}}
 
-Checked before a byte is parsed, so an oversized body costs a comparison rather than a
-parse.
+Checked before a byte is parsed, so an oversized body costs you a comparison rather than a
+parse. XML entity expansion is bounded the same way but by *ratio* — **32× the input**, with
+a 64 KB floor — because the honest limit on expansion is the size of what was sent.
 
 ## The attacks a depth limit does not catch
 
-Two shapes are small on disk, shallow, and enormous once expanded. Depth cannot see either,
-because the expansion is in the breadth.
+Two shapes are small on disk, shallow, and enormous once expanded. Depth cannot see either of
+them, because the expansion is in the breadth.
 
 **Alias expansion in YAML.** A few nested anchors, each referring to the one before. 331
 bytes reached 11.4 million nodes before the budget that stops it existed. The guard charges
@@ -67,15 +68,15 @@ under a kilobyte, 10³⁰ nodes. No cycle, every reference to a real distinct ob
 depth of ten. Same answer: a node budget, because a real document cannot describe more
 nodes than it has bytes to describe them with.
 
-Both are built byte by byte in the test suite rather than described. A test that asserts a
-limit exists without constructing the input it bounds is a test that keeps passing when the
-limit is deleted.
+Both are built byte by byte in the test suite rather than described, and you can go read
+them. A test that asserts a limit exists without constructing the input it bounds is a test
+that keeps passing when the limit is deleted.
 
 ## Issue budget
 
-`maxIssues` bounds the report, not the parse. A hostile file can be wrong in a million
-places, and collecting a million issues — each retaining a source span — is its own denial
-of service.
+`maxIssues` bounds the report rather than the parse. A hostile file can be wrong in a million
+places, and collecting a million issues — each retaining a source span — is its own denial of
+service against you.
 
 ```swift
 let d = Upload.diagnose(json: bytes, limits: strict)
@@ -104,9 +105,9 @@ try Upload.parse(body: bytes, contentType: ct, accepting: [.json], limits: publi
 ## What the limits do not cover
 
 Everything above bounds what the **decoder** does: bytes read, nesting entered, expansion
-allowed, issues kept. None of it bounds code that you supply and the decoder calls.
+allowed, issues kept. None of it bounds code you supply and the decoder calls.
 
-Two of those exist, and the first is a genuine denial of service.
+Two of those exist, and the first one is a genuine denial of service you can walk into.
 
 **A `.regex` rule runs your pattern**, and Swift's `Regex` backtracks. A pattern like
 `^(a+)+$` against a long run of `a` takes exponential time, and no byte or depth limit sees

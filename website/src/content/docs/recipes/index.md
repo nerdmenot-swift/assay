@@ -4,11 +4,11 @@ description: Every feature as a small runnable example. A declaration, a documen
 ---
 
 One page per topic, one short example per thing you might want. Each is a declaration, a
-document and what the library printed for it — nothing else, because a reader looking up
-"how do I do X" should not have to read a paragraph first.
+document, and what the library printed for it. Nothing else: when you are looking up "how do
+I do X" you should not have to read a paragraph first.
 
-The [guides](/guides/presence/) are where the reasoning lives. These are where the shape
-lives.
+The [guides](/guides/presence/) are where the reasoning lives. Come here when you want the
+shape and want it now.
 
 ## The map
 
@@ -25,7 +25,7 @@ lives.
 | [Encoding](/recipes/encoding/) | Writing all four formats, round-trip, JSON Schema |
 | [Unknown shapes](/recipes/unknown-shapes/) | Value models, and schemas with no declaration |
 
-Then, when you want a whole job rather than one feature:
+Then, when what you have is a whole job rather than one feature:
 
 | | |
 |---|---|
@@ -40,7 +40,8 @@ Then, when you want a whole job rather than one feature:
 Every example on these pages is a real program in this site's build: it compiles against
 the package, runs, and the page shows what it printed. Nothing is illustrative.
 
-That is not only a promise about accuracy. It has found four bugs so far — a handler
-answering 415 with a body claiming 422, a documented path that did not work, a caret that
-went missing on four formats, and an example in the guides that does not compile. Examples
-that have to run are a test suite with a readership.
+That is not only a promise about accuracy. It has found four bugs so far. A handler answering
+415 with a body claiming 422. A documented path that did not work. A caret that went missing
+on four formats. An example in the guides that would not compile.
+
+Examples that have to run are a test suite with a readership.

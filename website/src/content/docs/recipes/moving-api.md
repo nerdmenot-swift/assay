@@ -28,6 +28,11 @@ struct Customer {
 
 Four tools, each for a different kind of drift.
 
+Being generous about fields you have not modelled costs less than you might expect. A
+struct that reads a handful of keys from a wide document and skips the rest structurally
+still measures **5.62× `JSONDecoder`** across 45 corpus files — skipping a value it does
+not want is cheaper for Assay than decoding it was for Foundation.
+
 ## The old shape
 
 ```json

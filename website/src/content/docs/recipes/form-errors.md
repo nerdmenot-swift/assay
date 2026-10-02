@@ -4,7 +4,7 @@ description: Turn a diagnosis into one message per field, in your own wording, r
 ---
 
 A form needs the opposite shape from a log line. Not a report about a document, but a
-message attached to a field, in your product's voice, translatable.
+message attached to a field, in your product's voice, ready to translate.
 
 ```swift
 @Schema(keys: .snakeCase, unknownKeys: .warn)
@@ -55,8 +55,8 @@ age: must be between 13 and 120
 password: needs at least 8 characters
 ```
 
-Four problems, four fields, one pass. Nobody fixes their username, resubmits, and learns
-about their password.
+Four problems, four fields, one pass. Nobody fixes their username, resubmits, and only then
+learns about their password.
 
 ## Why switch on the code and not the message
 
@@ -67,7 +67,7 @@ The parameters are the other half: `minimum` is the number the rule was built wi
 value, so your own sentence can interpolate it instead of parsing it back out of a string.
 That is the whole reason issues are a code plus parameters rather than a rendered string.
 
-For a real product, the `switch` becomes a lookup:
+For a real product that `switch` becomes a lookup:
 
 ```swift
 NSLocalizedString("error.\(issue.code.codeString)", comment: "")
@@ -75,7 +75,8 @@ NSLocalizedString("error.\(issue.code.codeString)", comment: "")
                           with: issue.params["minimum"]?.displayString ?? "")
 ```
 
-A key per code, which is a small closed set, rather than a key per field per rule.
+That is a key per code — a small closed set — rather than a key per field per rule, which is
+the difference between a translation file you maintain and one you dread.
 
 ## Nested fields
 
@@ -96,15 +97,14 @@ Split on `.` and `[` if your form identifies inputs some other way. The path is 
 {"source":"register.json","valid":false,"issues":[{"path":"username","code":"too_small","message":"must be at least 3 characters","params":{"minimum":3,"unit":"characters"},"received":"jo","offset":13,"length":4,"line":1,"column":14},{"path":"email","code":"invalid_email","message":"must be a valid email address","received":"jo@localhost","offset":28,"length":14,"line":1,"column":29},{"path":"age","code":"not_in_range","message":"must be between 13 and 120","params":{"maximum":120,"minimum":13},"received":"11","offset":51,"length":2,"line":1,"column":52},{"path":"password","code":"too_small","message":"must be at least 8 characters","params":{"minimum":8,"unit":"characters"},"received":"short","offset":67,"length":7,"line":1,"column":68}],"warnings":[]}
 ```
 
-Same information, already shaped: path, code, message, params, and the byte offsets. Useful
-when the client rendering the form is not the process that decoded the body.
+Same information, already shaped: path, code, message, params, and the byte offsets. Reach
+for it when the client rendering the form is not the process that decoded the body.
 
 ## Warnings are not errors
 
 `unknownKeys: .warn` means an unexpected field in the submission is reported without
-failing anything. Those arrive in `d.warnings`, not `d.issues`, and should not be shown
-next to an input — nobody typed them. Log them; they usually mean a client and a server
-have drifted.
+failing anything. Those arrive in `d.warnings` rather than `d.issues`, and you should not put them next to an
+input — nobody typed them. Log them instead. They usually mean a client and a server have drifted.
 
 ## Next
 

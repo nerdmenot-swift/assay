@@ -114,7 +114,7 @@ finding as the JSON thesis, arrived at from the other direction.
 
 ## Compile time is the second axis
 
-`@Schema` costs about **81 ms per type at ten fields** — roughly 4.2× `Codable`. The cost
+`@Schema` costs about **81 ms per type at ten fields** — roughly 3.7× `Codable`. The cost
 model is `9 ms fixed per type + 7.3 ms per field`, so it scales with generated body size
 rather than with the number of expansions.
 

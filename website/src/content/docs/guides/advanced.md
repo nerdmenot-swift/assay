@@ -3,11 +3,11 @@ title: Advanced
 description: Transforms, wrappers, contexts, runtime schemas, and the types the macro refuses on purpose.
 ---
 
-Things you will not need on day one, in roughly the order people reach for them.
+Things you will not need on day one, in roughly the order you are likely to reach for them.
 
 ## Transform
 
-Decode one type, keep another:
+Decode one type, keep another one:
 
 ```swift
 @Transform({ (s: String) in URL(string: s) })
@@ -15,11 +15,11 @@ Decode one type, keep another:
 var link: URL?
 ```
 
-The wire type comes from the closure's parameter; the field's type is what you declared.
-Transform runs **last** in the pipeline — after decoding and after rules — so the rules see
+The wire type comes from your closure's parameter; the field's type is whatever you declared.
+Transform runs **last** in the pipeline — after decoding and after rules — so your rules see
 the wire value. A `nil` result is an issue on that field.
 
-`@Inverse` is only needed with `encodes: true`, and its absence there is a build error
+You only need `@Inverse` with `encodes: true`, and leaving it out there is a build error
 rather than a silently missing round trip.
 
 ## Coerce
@@ -30,12 +30,13 @@ rather than a silently missing round trip.
 ```
 
 `"8080"` decodes into an `Int`. The rules are written down and boring: `"8080.5"` is not an
-integer, `"true"`/`"yes"`/`"on"`/`"1"` are `true`. XML needs this (every leaf is text) and
-CSV usually does.
+integer, `"true"`/`"yes"`/`"on"`/`"1"` are `true`. You need it for XML, where every leaf is
+text, and usually for CSV.
 
 ## One or many
 
-APIs that send a scalar when there is one item and an array when there are several:
+For the APIs that send you a scalar when there is one item and an array when there are
+several:
 
 ```swift
 @OneOrMany var tags: [String]      // accepts "swift" and ["swift", "ios"]
@@ -48,7 +49,7 @@ indistinguishable from a scalar at that layer.
 
 ## Wrapping a scalar
 
-A type that *is* a constrained string or number:
+For a type of yours that *is* a constrained string or number:
 
 ```swift
 @Wraps(String.self, .min(3), .isLowercase)
@@ -58,14 +59,15 @@ struct Handle { let value: String }
 struct Profile { var handle: Handle }
 ```
 
-A `Handle` field and `@Validate(.min(3), .isLowercase) var handle: String` produce
-**identical issues** — that equivalence is the feature. The wrapped type must be `String`,
-`Int64`, `Double` or `Bool`, because a macro sees a token.
+A `Handle` field and `@Validate(.min(3), .isLowercase) var handle: String` hand you
+**identical issues** — that equivalence is the feature. It costs about 1.80× the plain field
+and rule it sugars, which is what you pay for a type the compiler keeps apart. The wrapped
+type must be `String`, `Int64`, `Double` or `Bool`, because a macro sees a token.
 
 ## Contexts
 
-When decoding needs something from outside the document — a tenant, a base URL, a feature
-flag:
+When your decoding needs something from outside the document — a tenant, a base URL, a
+feature flag:
 
 ```swift
 @Schema(context: AppContext.self)
@@ -87,8 +89,8 @@ not use one.
 
 ## Schemas with no declaration
 
-When the shape is known at runtime — a form built from a database, a config schema shipped
-by a server:
+When you only learn the shape at runtime — a form built from a database, a config schema
+shipped by a server:
 
 ```swift
 let schema = Assayer<User>(
@@ -101,14 +103,14 @@ let schema = Assayer<User>(
 let user = try schema.parse(json: data)
 ```
 
-Same rules, same issues, same renderers as the macro path. It is also what `@Wraps` is
-built on. Slower than the macro — there is a plan being interpreted rather than concrete
-code — and that is the trade.
+Same rules, same issues, same renderers you get from the macro path. It is also what `@Wraps`
+is built on. Slower than the macro — there is a plan being interpreted rather than concrete
+code — and that is the trade you are making.
 
 ## Types the macro refuses
 
-These are compile errors with a message naming the fix, rather than something that compiles
-and behaves oddly.
+Each of these is a compile error naming the fix, rather than something that compiles and then
+behaves oddly on you.
 
 | You wrote | Why not | Instead |
 |---|---|---|
@@ -136,9 +138,8 @@ A closed set of strings or integers needs no macro at all:
 enum Status: String, JSONAssayable, CaseIterable { case active, archived }
 ```
 
-Declare the conformance and the implementation comes from a protocol extension, for any
-`RawRepresentable` with a `String` or `Int` raw value. There is nothing to write in the
-body. Add `RawDecodable` too if the type decodes from YAML, XML, TOML or a plist, and
+Declare the conformance and the implementation arrives from a protocol extension, for any
+`RawRepresentable` with a `String` or `Int` raw value. You write nothing in the body. Add `RawDecodable` too if the type decodes from YAML, XML, TOML or a plist, and
 `CaseIterable` to make the error list the values it would have accepted.
 
 (This example said `Codable` until 2026-09-11, which does not compile as a field —
@@ -153,8 +154,8 @@ try User.validate(user)          // throws with everything
 User.diagnose(user)              // never throws
 ```
 
-The schema's rules against a value something else produced. This is the seam for a fast
-custom reader: decode at your own speed in your own module, then let Assay run the rules.
+The schema's rules against a value something else produced. This is the seam for a fast reader
+of your own: decode at your speed in your module, then let Assay run the rules.
 About 37 ns per value, or 46 ns per row over a batch — a tenth of what a full decode costs.
 The batch form takes a sequence and puts the element index in the path, so an issue reads
 `[250003].email`.
@@ -166,9 +167,9 @@ The batch form takes a sequence and puts the element index in the path, so an is
 Article.jsonSchema(for: .input)
 ```
 
-A JSON Schema 2020-12 descriptor. `.input` describes what `parse` accepts, `.output` what
-the value looks like after transforms — genuinely different once transforms exist, which is
-a correction Zod shipped in v4.
+A JSON Schema 2020-12 descriptor. `.input` describes what `parse` accepts, `.output` what your
+value looks like after transforms — genuinely different once you have transforms, which is a
+correction Zod shipped in v4.
 
 ## Bytes, strings and `Data`
 

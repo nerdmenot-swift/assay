@@ -3,7 +3,8 @@ title: Encoding
 description: The pipeline run backwards, with round-trip as a stated law and a closed list of exceptions.
 ---
 
-Encoding is opt-in, for the same reason formats are — generated code is not free:
+Encoding is opt-in, for the same reason formats are: generated code is not free, and you
+should only pay for the writers you want.
 
 ```swift
 @Schema(encodes: true)
@@ -24,17 +25,17 @@ let array = Array(try article.encodedJSON())                      // one copy, y
 let string = try article.encodedJSON().text()                        // UTF-8, no repair
 ```
 
-That is why it is `~Copyable`. It frees the buffer exactly once. So you cannot store it
-twice, put it in an array, or capture it in an escaping closure. Want any of those? Call
-`Array(_:)` and pay for the copy where you can see it.
+That is why it is `~Copyable`: it frees the buffer exactly once, so you cannot store it
+twice, put it in an array, or capture it in an escaping closure. If you want any of those,
+call `Array(_:)` and pay for the copy somewhere you can see it.
 
 `EncodeDiagnosis.bytes` stays a plain `[UInt8]`, deliberately. That is the diagnostic path.
 You store it, pass it around, show it to someone — one copy is a fair price for an ordinary
 value.
 
-Adding it costs about 5% of the type's compile time. The design note that justified making
-it opt-in guessed it would roughly double the per-field code; the code does double, the
-compile time does not follow it. The 5% is measured.
+Adding it costs you about 5% of the type's compile time. The design note that justified
+making it opt-in guessed it would roughly double the per-field code; the code does double,
+the compile time does not follow it. The 5% is measured.
 
 ## Every format you decode from
 
@@ -56,8 +57,8 @@ regression is visible.
 
 ## Errors on the way out
 
-Encoding can fail. `nan` has no JSON spelling, TOML has no null, an `@Extras` key can
-collide with a declared one. Same two verbs:
+Encoding can fail. `nan` has no JSON spelling, TOML has no null, and an `@Extras` key can
+collide with one you declared. You get the same two verbs:
 
 ```swift
 let bytes = try value.encodedJSON()       // throws AssayError
@@ -73,8 +74,8 @@ d.warnings
 > For any `v` produced by `parse`, `parse(encode(v))` produces a value equal to `v` —
 > except in four cases, listed below.
 
-Stating it as a law with a **closed** exception list is the point. It turns round-trip from
-a property nobody tests into one with a test suite and three documented holes.
+Stating it as a law with a **closed** exception list is the point. It turns round-trip from a
+property nobody tests into one you can rely on, with a test suite and four documented holes.
 
 The exceptions:
 
@@ -90,11 +91,11 @@ The exceptions:
 
 ## What gets written
 
-**Defaults are written.** A field that defaulted encodes with its value, because the
-encoder targets the document `parse` would accept, and that document has the key.
+**Defaults are written.** A field that defaulted encodes with its value, because the encoder
+targets the document `parse` would accept, and that document has the key in it.
 
-**`@Extras` are written back**, sorted by key so the output is stable. A collected key that
-collides with a declared one is reported rather than silently duplicated.
+**`@Extras` are written back**, sorted by key so your output is stable. A collected key that
+collides with one you declared is reported rather than silently duplicated.
 
 **Optionals are written as explicit `null`** in JSON, YAML and XML — `nil` decoded from an
 absent key or a null, and null round-trips both. TOML is the exception, below.
@@ -103,7 +104,7 @@ absent key or a null, and null round-trips both. TOML is the exception, below.
 
 ## Transforms need an inverse
 
-If a field transforms on the way in, encoding needs to know how to go back:
+If a field of yours transforms on the way in, encoding needs to know how to go back:
 
 ```swift
 @Transform({ (s: String) in URL(string: s) })

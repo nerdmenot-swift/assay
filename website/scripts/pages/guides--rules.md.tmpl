@@ -3,7 +3,9 @@ title: Rules
 description: Validating what you decoded, in the same pass, checked against your field's type when you build.
 ---
 
-A rule turns "this decoded" into "this is usable".
+A rule is what turns "this decoded" into "this is usable". You attach them to the property,
+they run in the same pass as the decode, and they cost you about 37 ns for a whole type's
+worth — roughly a tenth of what decoding the value cost.
 
 ```swift
 @Schema(keys: .snakeCase)
@@ -16,14 +18,14 @@ struct Deployment {
 }
 ```
 
-Two things happen here that are worth naming.
+Two things happen here that are worth your attention.
 
 **The rule is checked against the field's type at compile time.** `.email` on an `Int` does
 not build — you get a message written for that mistake, not a runtime surprise in
 production.
 
-**A rule failure renders exactly like a decode failure**, because to whoever reads it they
-are the same thing: the data is wrong, here is where.
+**A rule failure renders exactly like a decode failure**, because to whoever reads it
+they are the same thing: the data is wrong, here is where.
 
 {{out:hero}}
 
@@ -41,8 +43,9 @@ are the same thing: the data is wrong, here is where.
 @Validate(.finite) var score: Double          // rejects nan and infinity
 ```
 
-`.min` and `.max` mean different things by type, deliberately: character count on a
-`String`, element count on an array, magnitude on a number. The message says which —
+`.min` and `.max` mean different things depending on the type you put them on, deliberately:
+character count on a `String`, element count on an array, magnitude on a number. The message
+says which —
 `must be at least 3 characters` versus `must be at least 3 items` versus `must be at
 least 3`.
 
@@ -81,8 +84,8 @@ value changed, that is `@Preprocess(.trim, .lowercase)`, which runs before the r
 The four format validators are hand-written rather than delegated, and each has a reason.
 `UUID(uuidString:)` has two different C implementations picked by platform — a UUID your
 Mac accepts can be rejected on Linux. Nothing in Foundation validates an email at all. So
-`.uuid`, `.email`, `.url` and `.hostname` behave bit-identically everywhere, which is
-worth more than the fifteen lines each costs.
+`.uuid`, `.email`, `.url` and `.hostname` behave bit-identically on every platform you ship
+to, which is worth more than the fifteen lines each one costs.
 
 ### Sets
 
@@ -90,7 +93,7 @@ worth more than the fifteen lines each costs.
 @Validate(.oneOf(["draft", "published", "archived"])) var status: String
 ```
 
-For a closed set you control, an enum is usually better — see
+For a closed set you control, you usually want an enum instead — see
 [Advanced](/guides/advanced/#enums).
 
 ### Dates
@@ -101,11 +104,11 @@ For a closed set you control, an enum is usually better — see
 @Validate(.between("2020-01-01", "2030-01-01")) var effective: Date
 ```
 
-Bounds are ISO-8601 strings, parsed once at expansion. A malformed bound is reported when
-you build, not when the rule runs.
+Bounds are ISO-8601 strings, parsed once at expansion. A bound you typed wrong is reported
+when you build, not when the rule runs.
 
-`.past` and `.future` do not exist, deliberately: they need a clock, and a rule that
-depends on when it runs makes a test that passes today fail in a year.
+`.past` and `.future` do not exist, deliberately: they need a clock, and a rule that depends
+on when it runs gives you a test that passes today and fails in a year.
 
 ### Combining
 
@@ -117,11 +120,12 @@ extension Rule {
 @Validate(.slug) var handle: String
 ```
 
-`.all` names a combination so it can live in one place.
+`.all` names a combination so it lives in one place.
 
 ## Custom messages
 
-A string literal after the rules replaces the message for every rule in that attribute:
+Put a string literal after the rules and it replaces the message for every rule in that
+attribute:
 
 ```swift
 @Validate(.min(12), .regex("[0-9]"), "must be 12+ characters with a digit")
@@ -151,7 +155,7 @@ locale decisions on your behalf.
 
 ## Coercing
 
-Some sources send numbers as strings. Say so, per type or per field:
+Some sources will send you numbers as strings. Say so, per type or per field:
 
 ```swift
 @Schema(coerceScalars: true)
@@ -161,9 +165,9 @@ struct Config { var port: Int }         // "8080" decodes
 struct Config { @Coerce var port: Int } // just this one
 ```
 
-The rules are written down and boring: `"8080"` is an `Int`, `"8080.5"` is not.
-`"true"`, `"yes"`, `"on"` and `"1"` are `true`. XML needs this — every leaf in an XML
-document is text — and CSV usually does.
+The rules are written down and boring: `"8080"` is an `Int`, `"8080.5"` is not. `"true"`,
+`"yes"`, `"on"` and `"1"` are `true`. You need it for XML — every leaf in an XML document is
+text — and usually for CSV.
 
 ## What a rule is, underneath
 

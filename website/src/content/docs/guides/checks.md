@@ -3,7 +3,8 @@ title: Checks
 description: Logic a rule cannot express — one field, across fields, or asking a database.
 ---
 
-A rule is a value: `.min(3)`, `.email`. When what you need is a *function*, that is a check.
+A rule is a value: `.min(3)`, `.email`. When what you need is a *function* of your own, that
+is a check.
 
 ## One field
 
@@ -19,14 +20,14 @@ struct Signup {
 }
 ```
 
-Return `nil` for fine, or the message for not fine. The key path says which field the issue
-is reported on, so it renders with that field's caret:
+Return `nil` for fine, or the message for not fine. Your key path says which field the issue
+lands on, so it renders with that field's caret:
 
 ```
 error: email must be a company address
 ```
 
-The parameter type must be the field's type. If it is not, the macro says so when you
+Your parameter type has to be the field's type. If it is not, the macro tells you when you
 build, naming both.
 
 **The key path needs its root.** `\Signup.email`, not `\.email`. An attached macro's
@@ -50,24 +51,23 @@ struct DateRange {
 }
 ```
 
-No key path on the attribute; the function takes the whole value and an issue collector,
-and reports wherever it likes. Inside the function `\.end` is enough — there *is* a
-contextual type here.
+No key path on the attribute. Your function takes the whole value and an issue collector, and
+reports wherever you like. Inside it `\.end` is enough — there *is* a contextual type here.
 
-The signature must be exactly `(Self, inout Issues<Self>)`. Anything else gets a
-diagnostic naming the shape it expected.
+The signature has to be exactly `(Self, inout Issues<Self>)`. Anything else gets you a
+diagnostic naming the shape it wanted.
 
 ## Machine-readable codes
 
-`issues.add("…")` uses the message as the code, which is right for a one-off. When
-something downstream needs to branch on it:
+`issues.add("…")` uses the message as the code, which is right for a one-off. When something
+downstream needs to branch on it:
 
 ```swift
 issues.add(code: "password_is_email", "must not be your email address", at: \.password)
 ```
 
-Now `issue.code == .custom("password_is_email")` and the message is still there for
-humans. Same for translation: match the code, render your own words.
+Now `issue.code == .custom("password_is_email")`, and the message is still there for humans.
+Translation works the same way: match on the code, render your own words.
 
 ## Asking something slow
 
@@ -89,7 +89,7 @@ One `@AsyncCheck` anywhere in the type makes `parse` and `diagnose` async **for 
 decided by counting attributes at compile time. A type without one stays synchronous, so
 you never `await` a schema that has nothing to await.
 
-Three things happen in a fixed order, and the order is the useful part:
+Three things happen in a fixed order, and the order is the part worth knowing:
 
 1. Everything synchronous runs first and collects **all** of its issues.
 2. Async checks run **only if the sync pass was clean.** Spending a database round trip to
@@ -107,7 +107,7 @@ preprocess → coerce → decode → field rules → cross-field checks → tran
 ```
 
 Cross-field checks see the constructed value, so every field has already decoded and passed
-its own rules. That is why a check can assume `start` and `end` are both `Int`s rather than
+its own rules. That is why your check can assume `start` and `end` are both `Int`s instead of
 re-deriving it.
 
 ## Rules about checks
@@ -116,8 +116,8 @@ re-deriving it.
 the macro — a macro only sees the declaration it is attached to — so that is a compile
 error with a message rather than a rule that silently never runs.
 
-**A failing check means the row/value is not produced.** Like any other issue: `diagnose`
-gives you `nil` for the value plus the issues, `parse` throws.
+**A failing check means no value is produced.** Like any other issue: `diagnose` hands you
+`nil` for the value plus the issues, `parse` throws.
 
 **Checks run on every path.** JSON, YAML, XML, TOML and `validate(_:)` on a value something
 else produced.

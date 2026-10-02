@@ -3,10 +3,10 @@ title: Keys
 description: Naming, renaming, aliases, paths into nested objects, and what to do with keys you did not declare.
 ---
 
-Your properties are camelCase. The wire is whatever the wire is. This page is how you
-reconcile the two.
+Your properties are camelCase. The wire is whatever the wire is. This page is how you get
+the two to agree without giving up either.
 
-All of it happens at compile time. A key style, a rename, an alias, a path into a nested
+All of it happens at compile time, before you run anything. A key style, a rename, an alias, a path into a nested
 object — none of them cost you anything at run time, because the macro has already turned
 them into the byte comparisons the decoder does anyway.
 

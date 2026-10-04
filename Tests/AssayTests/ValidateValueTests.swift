@@ -438,3 +438,86 @@ struct CallerSuppliedPathTests {
                 == ExternallyDecoded.diagnose(bad).issues.map(\.path.pathDescription))
     }
 }
+
+// MARK: - Async checks against a constructed value
+//
+// `Validate.swift`'s four async forms had never been called by a test. That is not a
+// formality: they share a NAME with the sync forms and are picked by overload resolution
+// from an `await`, and `@Schema(context:)` already shipped one bug of exactly this shape —
+// the SYNC `diagnose` ran for an `await` call and every async check was silently skipped.
+// A test that only asserted "no issues for a good value" would pass against that bug, so
+// each test below uses a value that ONLY the async check can refuse.
+
+@Suite("Validating a constructed value: async checks")
+struct ValidateAsyncTests {
+
+    static let free = AsyncSignup(email: "free@example.com")
+    static let taken = AsyncSignup(email: "taken@example.com")
+    static let malformed = AsyncSignup(email: "not-an-email")
+
+    @Test("await diagnose runs the async check — the sync overload would call this valid")
+    func asyncCheckRuns() async {
+        #expect(await AsyncSignup.diagnose(Self.free).isValid)
+
+        let v = await AsyncSignup.diagnose(Self.taken)
+        #expect(v.issues.map(\.code) == [.custom("already_registered")])
+        #expect(v.issues.first?.path.pathDescription == "email")
+    }
+
+    @Test("without await, the same call is the sync pass and does not see it")
+    func syncFormStillExists() {
+        // Stated rather than left implicit: the two forms differ in what they check, and a
+        // caller in a synchronous context gets the rules only.
+        let v: Validation = AsyncSignup.diagnose(Self.taken)
+        #expect(v.isValid)
+    }
+
+    @Test("a value that fails a rule never reaches the async check")
+    func skippedOnSyncFailure() async {
+        let v = await AsyncSignup.diagnose(Self.malformed)
+        #expect(v.issues.map(\.code) == [.invalidEmail])
+    }
+
+    @Test("await validate throws what the async check found")
+    func throwing() async {
+        await #expect(throws: Never.self) { try await AsyncSignup.validate(Self.free) }
+        do {
+            try await AsyncSignup.validate(Self.taken)
+            Issue.record("expected a throw")
+        } catch {
+            #expect(error.issues.map(\.code) == [.custom("already_registered")])
+        }
+    }
+
+    @Test("a batch runs every element's async check and names the row")
+    func batch() async {
+        let rows = [Self.free, Self.taken, Self.free, Self.taken]
+        let v = await AsyncSignup.diagnose(rows)
+        // Concurrent, so the ORDER of issues is not a contract; the set of rows is.
+        #expect(Set(v.issues.map(\.path.pathDescription)) == ["[1].email", "[3].email"])
+        #expect(v.issues.count == 2)
+    }
+
+    @Test("a batch with one rule failure runs no async checks at all")
+    func batchSkippedOnSyncFailure() async {
+        let v = await AsyncSignup.diagnose([Self.taken, Self.malformed])
+        #expect(v.issues.map(\.code) == [.invalidEmail])
+        #expect(v.issues.first?.path.pathDescription == "[1].email")
+    }
+
+    @Test("the throwing batch form")
+    func batchThrowing() async {
+        await #expect(throws: Never.self) {
+            try await AsyncSignup.validate([Self.free, Self.free])
+        }
+        await #expect(throws: AssayError.self) {
+            try await AsyncSignup.validate([Self.free, Self.taken])
+        }
+    }
+
+    @Test("the law holds through the async door: what parses, validates")
+    func law() async throws {
+        let parsed = try await AsyncSignup.parse(json: #"{"email":"free@example.com"}"#)
+        #expect(await AsyncSignup.diagnose(parsed).isValid)
+    }
+}

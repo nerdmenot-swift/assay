@@ -78,14 +78,19 @@ struct BPlistBuilder {
     }
 
     static func bigArray(_ refs: [Int], refSize: Int) -> [UInt8] {
-        // The 0xF escape: an int object marker carrying the real count.
-        var out: [UInt8] = [0xAF, 0x11, UInt8(refs.count)]
+        // The 0xF escape: an int object marker carrying the real count. The marker's low
+        // nibble is the EXPONENT of the width — 0x10 is one byte, 0x11 two — and this wrote
+        // 0x11 before a one-byte count and 0x12 before a two-byte one until 2026-10-04.
+        // Nothing called it, so nothing noticed: the honest count escape had no unit test.
+        var out: [UInt8]
         if refs.count > 255 {
             out = [
-                0xAF, 0x12,
+                0xAF, 0x11,
                 UInt8(truncatingIfNeeded: refs.count >> 8),
                 UInt8(truncatingIfNeeded: refs.count)
             ]
+        } else {
+            out = [0xAF, 0x10, UInt8(refs.count)]
         }
         for r in refs { out += beBytes(r, refSize) }
         return out

@@ -296,7 +296,7 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
     public static func nonNegative(or message: String? = nil) -> Rule {
         Rule(.nonNegative, message: message)
     }
-    /// Divisible by `n`. Reports `not_multiple` with `divisor`.
+    /// Divisible by `n`. Reports `not_multiple` with `multipleOf`.
     public static func multipleOf(_ n: Int, or message: String? = nil) -> Rule {
         Rule(.multipleOf(Double(n)), message: message)
     }

@@ -1,8 +1,8 @@
 {
   "stats": {
     "version": "0.1.0",
-    "tests": 957,
-    "suites": 171,
+    "tests": 1020,
+    "suites": 187,
     "codes": 118,
     "formats": [
       "JSON",

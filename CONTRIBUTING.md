@@ -88,7 +88,7 @@ is visible instead of being whatever the last command happened to return.
 It leaves out the two slow gates on purpose. Individually:
 
 ```sh
-swift test                                      # 872 tests, macro expansion included
+swift test                                      # 1,020 tests, macro expansion included
 
 cd Benchmarks
 swift run -c release CorpusGen                  # the corpus, deterministic
@@ -123,6 +123,42 @@ Which instrument for which question:
 - **`count.sh`** — the exact one. Instructions, retains, releases, allocations and uniqueness
   checks per call, under Callgrind and DHAT. Deterministic run to run, which is why it gates
   and wall clock does not.
+
+## Coverage
+
+```sh
+swift test --enable-code-coverage
+xcrun llvm-cov report .build/debug/AssayPackageTests.xctest/Contents/MacOS/AssayPackageTests \
+    -instr-profile .build/debug/codecov/default.profdata Sources
+```
+
+**98.4% of 18,195 library lines** on 2026-10-04, from `swift test` alone — not `DiffFuzz`, not
+the toml-test suite. It is reported and not gated: a coverage ratchet has no a-priori right
+answer and fails on unrelated changes, the same argument that keeps total malloc traffic out
+of CI.
+
+Two things about reading the number.
+
+**The macro is only covered by in-process expansion.** A `@Schema` type compiled into the test
+target is expanded by the compiler's plugin process, which the profile does not see. An emitter
+arm counts as covered when a golden (`Tests/AssayTests/GoldenFixtures.swift`) or an
+`expandSchemaForTesting` call reaches it. So a new emitter branch needs a golden even if a
+runtime test already exercises what it emits — which is also the only test that pins the
+emitted text.
+
+**What is not covered, and why.** Listed so nobody rediscovers it:
+
+| | lines | reason |
+|---|---|---|
+| `AssayMacros/Plugin.swift`, `MarkerMacros.swift` | 56 | run only inside the compiler plugin; in-process expansion calls `SchemaMacro` directly |
+| `Rules.swift`, the `regex_unavailable` arms | 6 | behind `#available(macOS 13, …)`, which is always true where the tests run |
+| `DataParsing.swift`, the empty-`Data` arm | 6 | guards a nil base address that `Data()` does not produce here; kept because another platform's may |
+| `XMLPlist.swift`, `plist_too_deep` | 5 | the XML parser's own depth limit always fires first; kept as the second line |
+| `AssayerPlan.swift`, the `.schema` node | 1 | no constructor builds one yet (`Assayer.schema(_:)` is not in this increment) |
+| `_assayPushed` (two overloads), `AssayReader.find` | 15 | public, with no caller left in the library or the macro. Removing them is an API break, so it is a decision for a changelog entry, not for a test |
+
+The rest is single lines: a `default:` that a preceding check makes unreachable, a
+`guard` whose failure needs a `String` that is not contiguous UTF-8.
 
 ## Documentation
 

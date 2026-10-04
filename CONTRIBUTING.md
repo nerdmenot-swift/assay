@@ -132,7 +132,7 @@ xcrun llvm-cov report .build/debug/AssayPackageTests.xctest/Contents/MacOS/Assay
     -instr-profile .build/debug/codecov/default.profdata Sources
 ```
 
-**98.7% of 18,195 library lines** on 2026-10-04, from `swift test` alone — not `DiffFuzz`, not
+**98.8% of 18,167 library lines** on 2026-10-04, from `swift test` alone — not `DiffFuzz`, not
 the toml-test suite. It is reported and not gated: a coverage ratchet has no a-priori right
 answer and fails on unrelated changes, the same argument that keeps total malloc traffic out
 of CI.
@@ -156,8 +156,6 @@ emitted text.
 | `XMLPlist.swift`, `plist_too_deep` | 5 | the XML parser's own depth limit always fires first; kept as the second line |
 | `MappedFile.swift`, `cannotStat` | 2 | `fstat` on a descriptor that just opened does not fail on demand |
 | `JSONWriter.swift`, the non-contiguous `String` arm | 2 | needs a bridged `NSString`; native strings are always contiguous UTF-8 |
-| `AssayerPlan.swift`, the `.schema` node | 1 | no constructor builds one yet (`Assayer.schema(_:)` is not in this increment) |
-| `_assayPushed` (two overloads), `AssayReader.find` | 15 | public, with no caller left in the library or the macro. Removing them is an API break, so it is a decision for a changelog entry, not for a test |
 
 The rest is single lines: a `default:` that a preceding check makes unreachable, a
 `guard` whose failure needs a `String` that is not contiguous UTF-8.

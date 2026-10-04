@@ -32,8 +32,9 @@
 //
 // TWO LAWS KEEP THE DOORS FROM BECOMING REDUNDANT:
 //
-//   1. No `Assayer` constructor rebuilds a `@Schema` type's fields. `Assayer.schema(User.self)`
-//      exists only as a LEAF that calls the generated body, so a dynamic schema can embed a
+//   1. No `Assayer` constructor rebuilds a `@Schema` type's fields. `Assayer.schema(User.self)`,
+//      when it is built, is only a LEAF that calls the generated body, so a dynamic schema can
+//      embed a
 //      static one and it is impossible to express a declared struct as a hand-built
 //      combinator with subtly different semantics.
 //   2. Once a conformance is installed, the type is used through the ordinary door.

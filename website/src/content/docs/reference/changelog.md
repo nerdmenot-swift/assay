@@ -79,6 +79,14 @@ stable for two minor versions with no entry under **Breaking**.
   expecting instead of the bare `is not a well-formed document`. A caller with no single
   expected token passes nothing and gets the old sentence.
 
+- **Three public members with no caller are gone.** `AssayReader.find(_:from:)`,
+  `AssayReader.byteCount`, and the two `_assayPushed` overloads. Nothing in the library, the
+  macro's output or the benchmarks called any of them: generated `RawValue` bodies call
+  `_assayElement`, `_assaySequence` and `_assayMapping` and no longer `_assayPushed`, and the
+  two reader members were never part of a hand-written-decoder surface. A type
+  using `@Schema` is unaffected — it re-expands on the next build. Found by listing every
+  line no test could reach and asking why; removed before 1.0 rather than carried past it.
+
 ### Changed
 
 - **The efficiency campaign: every verb does less work, measured by exact counters rather

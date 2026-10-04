@@ -43,8 +43,6 @@ public final class AssayerPlan: Sendable {
         case bool([Rule])
         /// Anything, unvalidated — the escape hatch and the dynamic case's leaf.
         case raw
-        /// A `@Schema` type's generated body, reached as a leaf. See `Assayer.schema(_:)`.
-        case schema(@Sendable (RawValue, inout IssueSink, [PathStep]) -> RawValue?)
         indirect case array(AssayerPlan)
         indirect case object([Field])
         indirect case optional(AssayerPlan)
@@ -133,9 +131,6 @@ extension AssayerPlan {
                 return Self.mismatch(&sink, path, "boolean", raw)
             }
             return raw
-
-        case .schema(let decode):
-            return decode(raw, &sink, path)
 
         case .optional(let inner):
             if case .null = raw { return raw }

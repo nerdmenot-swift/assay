@@ -109,7 +109,7 @@ struct InoutPathTests {
     }
 
     /// The RawValue path (YAML, TOML, XML) takes the path `inout` too, since 2026-09-19:
-    /// push and pop around a nested field, `_assayPushed` inside an element expression.
+    /// push and pop around a nested field, `_assayElement` inside an element expression.
     @Test("the RawValue path does not leak either (via YAML)")
     func rawPath() {
         func paths<T: RawDecodable>(_ t: T.Type, _ yaml: String) -> [String] {

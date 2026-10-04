@@ -429,10 +429,6 @@ struct LineIndex {
     /// Total buffer length, so the final (newline-less) line has a real end offset.
     @usableFromInline var byteCount: Int
 
-    init(_ base: UnsafePointer<UInt8>, _ count: Int) {
-        unsafe self.init(base, count, indexingThrough: count)
-    }
-
     /// Index only as far as the render will reach.
     ///
     /// A full index over the whole buffer is what the mmap path must not pay: a 10 GB

@@ -172,7 +172,7 @@ Full table, method and caveats: [`Benchmarks/RESULTS.md`](Benchmarks/RESULTS.md)
 
 This is the part the author enjoys more than is strictly healthy.
 
-- **1,046 tests**, 190 suites, 98.7% line coverage.
+- **1,046 tests**, 190 suites, 98.8% line coverage.
 - **Differential oracles** — every format decoded twice, once by Assay and once by the
   incumbent: `JSONSerialization`, Yams/libyaml, Foundation's `XMLParser`, toml++,
   `PropertyListDecoder`. Disagreement fails the build. Two real parser bugs found on the

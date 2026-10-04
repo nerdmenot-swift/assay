@@ -140,11 +140,6 @@ public struct AssayReader: ~Copyable {
         SourceSpan(lo: valueStart, len: cursor - valueStart)
     }
 
-    @inlinable @inline(__always)
-    mutating func advance(_ n: Int = 1) {
-        cursor &+= n
-    }
-
     // MARK: - Whitespace
 
     /// yyjson orders its structural dispatch so the whitespace test comes *last*, which
@@ -554,9 +549,6 @@ extension AssayReader {
     }
 
     @inlinable
-    public var byteCount: Int { count }
-
-    @inlinable
     public mutating func advance(by n: Int) { cursor &+= n }
 
     @inlinable
@@ -678,17 +670,6 @@ extension AssayReader {
         guard keyMatches(key, alias) else { return false }
         _assayAliasMatched(&sink, path, field, alias)
         return true
-    }
-
-    /// Scan forward to the next occurrence of `byte`, returning its absolute offset.
-    @inlinable
-    public func find(_ needle: UInt8, from start: Int) -> Int? {
-        var i = start
-        while i < count {
-            if unsafe base[i] == needle { return i }
-            i &+= 1
-        }
-        return nil
     }
 
     /// Report an arbitrary issue at the cursor. Cold.

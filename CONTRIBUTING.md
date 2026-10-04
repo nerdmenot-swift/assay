@@ -88,7 +88,7 @@ is visible instead of being whatever the last command happened to return.
 It leaves out the two slow gates on purpose. Individually:
 
 ```sh
-swift test                                      # 1,020 tests, macro expansion included
+swift test                                      # 1,046 tests, macro expansion included
 
 cd Benchmarks
 swift run -c release CorpusGen                  # the corpus, deterministic
@@ -132,7 +132,7 @@ xcrun llvm-cov report .build/debug/AssayPackageTests.xctest/Contents/MacOS/Assay
     -instr-profile .build/debug/codecov/default.profdata Sources
 ```
 
-**98.4% of 18,195 library lines** on 2026-10-04, from `swift test` alone — not `DiffFuzz`, not
+**98.7% of 18,195 library lines** on 2026-10-04, from `swift test` alone — not `DiffFuzz`, not
 the toml-test suite. It is reported and not gated: a coverage ratchet has no a-priori right
 answer and fails on unrelated changes, the same argument that keeps total malloc traffic out
 of CI.
@@ -154,6 +154,8 @@ emitted text.
 | `Rules.swift`, the `regex_unavailable` arms | 6 | behind `#available(macOS 13, …)`, which is always true where the tests run |
 | `DataParsing.swift`, the empty-`Data` arm | 6 | guards a nil base address that `Data()` does not produce here; kept because another platform's may |
 | `XMLPlist.swift`, `plist_too_deep` | 5 | the XML parser's own depth limit always fires first; kept as the second line |
+| `MappedFile.swift`, `cannotStat` | 2 | `fstat` on a descriptor that just opened does not fail on demand |
+| `JSONWriter.swift`, the non-contiguous `String` arm | 2 | needs a bridged `NSString`; native strings are always contiguous UTF-8 |
 | `AssayerPlan.swift`, the `.schema` node | 1 | no constructor builds one yet (`Assayer.schema(_:)` is not in this increment) |
 | `_assayPushed` (two overloads), `AssayReader.find` | 15 | public, with no caller left in the library or the macro. Removing them is an API break, so it is a decision for a changelog entry, not for a test |
 

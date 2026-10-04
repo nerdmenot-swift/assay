@@ -710,4 +710,56 @@ struct RefusalCoverageTests {
         #expect(expansion.contains("\"default\""))
         #expect(!expansion.contains("\"`default`\""))
     }
+
+    @Test("declarations the macro steps over rather than treating as fields")
+    func steppedOver() {
+        // A method inside an @Inline'd struct is not a field and not an error.
+        let (expansion, d) = expandSchemaForTesting(
+            """
+            @Schema struct S {
+                struct P { var x: Int; func helper() {} }
+                @Inline var p: P
+                var a: Int
+            }
+            """)
+        #expect(d.isEmpty, "\(d)")
+        #expect(expansion.contains("\"x\"") && expansion.contains("\"a\""))
+        #expect(!expansion.contains("helper"))
+
+        // A tuple binding IS an error, and says what to write instead.
+        let tuple = expandSchemaForTesting("@Schema struct S { var (b, c): (Int, Int) }")
+        #expect(tuple.diagnostics.first?.contains("is a tuple") == true)
+    }
+
+    @Test("a described date with a text format is a string; with a unix one, a number")
+    func describedDateFormats() {
+        let (expansion, d) = expandSchemaForTesting(
+            """
+            @Schema(describes: true) struct S {
+                @DateFormat(.rfc9110) var a: Date
+                @DateFormat(.unixMillis) var b: Date
+            }
+            """)
+        #expect(d.isEmpty, "\(d)")
+        #expect(expansion.contains(".date(numeric: false)"))
+        #expect(expansion.contains(".date(numeric: true)"))
+    }
+
+    @Test("a field check written with a rootless key path still names its field")
+    func rootlessKeyPath() {
+        // `\.a` does not compile in a real attribute (there is no Root to infer), but the
+        // macro reads tokens, and reading this one as field `a` is what lets it report the
+        // type mismatch below instead of "no such field".
+        let d = expandSchemaForTesting(
+            "@Schema struct S { var a: Int; @Check(\\.a) static func f(_ v: String) -> String? { nil } }"
+        ).diagnostics
+        #expect(d.count == 1, "\(d)")
+        #expect(d.first?.contains("a") == true)
+    }
+
+    @Test("@Schema on an enum with no @Unknown case and no discriminator")
+    func plainEnum() {
+        let d = expandSchemaForTesting("@Schema enum E { case a, b }").diagnostics
+        #expect(d.contains { $0.contains("@Unknown") }, "\(d)")
+    }
 }

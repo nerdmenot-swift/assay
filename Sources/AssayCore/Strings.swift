@@ -4,7 +4,6 @@
 
 //===----------------------------------------------------------------------===//
 // Strings — the second-biggest win, obtained by not creating them.
-// docs/PERFORMANCE.md §5.
 //
 // Two Swift-specific traps this file is built around:
 //

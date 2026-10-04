@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `@Wraps`, built 2026-09-08. EXPERIENCE §8, ROADMAP §6.
+// `@Wraps`, built 2026-09-08. EXPERIENCE §8.
 //
 // The load-bearing test here is `identicalToAValidatedField`: `@Validate(.email)` on a
 // `String` field and a `@Wraps`-generated `EmailAddress` field must produce BYTE-IDENTICAL

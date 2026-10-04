@@ -5,7 +5,7 @@
 //===----------------------------------------------------------------------===//
 // The reader: a cursor over a contiguous UTF-8 buffer.
 //
-// Design constraints this file exists to satisfy (docs/PERFORMANCE.md §3.3, §8.4):
+// Design constraints this file exists to satisfy:
 //   * Holds only transitively trivial things — a pointer, two Ints. A struct containing
 //     a String/Array/closure/class is NOT ARC-free, and "structs are ARC-free" is
 //     folklore.
@@ -15,11 +15,10 @@
 //     variable — a data-dependent parser cursor is definitionally not one.
 //
 // PHASE-1 DEVIATION, deliberate and documented:
-// docs/PERFORMANCE.md §3.3 specifies a `RawSpan`-backed `~Escapable` reader. This uses a
-// raw pointer behind a safe façade instead, following the recommendation in
-// docs/research/perf-swift-codegen.md §4.6 / §10 item 20. The reason recorded there was
-// that `@_lifetime` is experimental and a `~Escapable` type "would put a feature gate on
-// the whole library".
+// The original design specified a `RawSpan`-backed `~Escapable` reader. This uses a raw
+// pointer behind a safe façade instead. The reason recorded at the time was that
+// `@_lifetime` is experimental and a `~Escapable` type would put a feature gate on the
+// whole library.
 //
 // **That half is measurably wrong, as of Swift 6.3.3 (checked 2026-08-19).** A client
 // package consumes a `~Escapable` public type and calls its methods with no
@@ -554,7 +553,7 @@ extension AssayReader {
     @inlinable
     public mutating func seek(to offset: Int) { cursor = offset }
 
-    /// Everything a rewind has to put back. `ROADMAP.md` §5 says unions need `seek(to:)` and
+    /// Everything a rewind has to put back. The roadmap said unions need `seek(to:)` and
     /// `IssueSink.rollback(to:)`; **that list is one short**, and the reason is narrower than
     /// it first looks — `Tests/AssayTests/RewindTests.swift` establishes both halves.
     ///

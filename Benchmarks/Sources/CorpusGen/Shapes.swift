@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// Assay benchmark corpus generator — docs/PERFORMANCE.md §12.2.
+// Assay benchmark corpus generator.
 //
 // Why this exists: the standard JSON corpus (twitter/canada/citm) is megabyte-scale,
 // contains no dates, no unknown keys, no absent optionals, and no invalid inputs at all.
@@ -48,8 +48,8 @@ let HEX = Array("0123456789abcdef")
 
 // MARK: - Value generators
 
-/// 1–6 digits: IDs, counts, status codes. §6.1 says this is the band that matters and
-/// that the SWAR eight-digit trick is a loss here.
+/// 1–6 digits: IDs, counts, status codes. The design's position is that this is the band
+/// that matters and that the SWAR eight-digit trick is a loss here.
 func vInt(_ r: inout SplitMix64) -> JSON { .int(r.int(in: 0...999_999)) }
 
 /// 13 digits — epoch millis, the one common width where SWAR would win.
@@ -81,7 +81,8 @@ func vUUID(_ r: inout SplitMix64) -> JSON {
 }
 
 /// ISO-8601. Nothing in the entire standard corpus contains a date; every real API
-/// payload is full of them. §6.3 calls this the highest win-to-effort ratio available.
+/// payload is full of them. The design rated a hand-written date parser the highest
+/// win-to-effort ratio available.
 func vDate(_ r: inout SplitMix64) -> JSON {
     func two(_ v: Int) -> String { v < 10 ? "0\(v)" : "\(v)" }
     return .string(
@@ -197,7 +198,7 @@ func optionalsAbsent(_ r: inout SplitMix64, _ target: Int) -> JSON {
 }
 
 /// Half the payload keys are NOT in the schema. Extremely common in real APIs and
-/// completely unmeasured in every published JSON benchmark (§4.4).
+/// completely unmeasured in every published JSON benchmark.
 func unknownKeys(_ r: inout SplitMix64, _ target: Int) -> JSON {
     guard case .object(let pairs) = mixed(&r, target) else { return .object([]) }
     var merged: [JSON.Member] = []

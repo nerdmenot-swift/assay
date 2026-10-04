@@ -5,8 +5,8 @@
 //===----------------------------------------------------------------------===//
 // What every arm shares: the timer, the table padding, the corpus location.
 //
-// `measure` is minimum-of-5 rounds (docs/PERFORMANCE.md §12.4: the minimum is the least
-// noisy estimator for a deterministic workload on a machine with other things running).
+// `measure` is minimum-of-5 rounds (the minimum is the least noisy estimator for a
+// deterministic workload on a machine with other things running).
 // These were top-level declarations in `main.swift`, which made them MainActor-isolated
 // globals that every other file reached into; here they are ordinary nonisolated
 // functions and constants.

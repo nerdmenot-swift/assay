@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `@Schema(context:)` — the entry points. EXPERIENCE.md §10, ROADMAP.md §8.
+// `@Schema(context:)` — the entry points. EXPERIENCE.md §10.
 //
 // ```swift
 // @Schema(context: AppContext.self)
@@ -88,8 +88,8 @@ extension ContextualJSONAssayable {
 
     /// The shared decode core, `Entry.swift`'s with a context threaded through. Kept
     /// verbatim rather than factored: the only difference is one argument to `_assay`, and
-    /// a shared generic core would need a closure over an `inout` reader — `PERFORMANCE.md`
-    /// §7's rule 9, no closures capturing the hot path.
+    /// a shared generic core would need a closure over an `inout` reader, and the rule is
+    /// no closures capturing the hot path.
     public static func _decode(
         base: UnsafePointer<UInt8>,
         count: Int,

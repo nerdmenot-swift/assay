@@ -24,9 +24,9 @@ import ucrt
 // So these exercise the path-based API and write files with POSIX. The URL overloads are
 // one-line wrappers over the same primitives.
 
-// docs/STREAMING.md §3.5. The claim being tested: an mmap'd file satisfies §5.4's
-// "single contiguous buffer that does not change underneath the parse" literally, so a
-// document larger than RAM parses with no change to the decoder at all.
+// The claim being tested: an mmap'd file satisfies the decoder's requirement — a single
+// contiguous buffer that does not change underneath the parse — literally, so a document
+// larger than RAM parses with no change to the decoder at all.
 
 @Schema(keys: .snakeCase)
 struct MappedItem {

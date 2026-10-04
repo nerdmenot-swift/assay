@@ -10,8 +10,7 @@
 
 # Generated corpus. Regenerate with:  cd Benchmarks && swift run -c release CorpusGen
 # Deterministic and seeded, so the files are reproducible from the generator.
-# Tracked decision: the GENERATOR is the artifact, not its output
-# (docs/PERFORMANCE.md §12.2 — "publish the generator, not just the files").
+# Tracked decision: the GENERATOR is the artifact, not its output.
 Benchmarks/Corpus/files/
 Benchmarks/Corpus/manifest.json
 

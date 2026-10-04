@@ -225,7 +225,7 @@ anything. What the number is for is watching it: if it grows, the fix is known �
 scalar-element array decode to monomorphic runtime primitives, one per element type, exactly
 as `scalarCall` already does for plain fields. That would make `@OneOrMany` free instead of
 costly and would very likely *lower* per-field cost for every existing `[String]` and `[Int]`
-field. `ROADMAP.md` §5 records it.
+field. It is not built.
 
 ## 5. The other axes
 
@@ -319,7 +319,7 @@ producing multi-term expressions with inferred literals would be where this chan
 
 ### 5.5 `describes: true` — a predicted HIGH risk that did not arrive
 
-`ROADMAP.md` §11 flagged `jsonSchema(for:)` as high compile-time risk before it was built, on
+The roadmap flagged `jsonSchema(for:)` as high compile-time risk before it was built, on
 the explicit grounds that a per-field descriptor is "an array literal, the exact shape rule 1
 was written about". Measured with a `describes` arm added to `gen_types.sh` for the purpose —
 `describes: true` on top of the rule-carrying arm, which is the shape the feature is for:
@@ -341,9 +341,9 @@ Rule 1 remains right; the descriptor simply is not the shape it warns about.
 
 ### 5.6 `encodes: true` — measured 2026-09-10, and the opt-in's stated reason is weaker than it sounded
 
-`ROADMAP.md` §1 and `EncodeGen.swift` both justify making encoding opt-in on compile time:
+The roadmap and `EncodeGen.swift` both justified making encoding opt-in on compile time:
 "emitting an encoder for every type would roughly double the per-field code every user pays."
-Until now no arm measured it, and §1 quoted a number ("the compile-time gate is unmoved at
+Until now no arm measured it, and the roadmap quoted a number ("the compile-time gate is unmoved at
 ~87 ms") that no harness here had produced. `gen_types.sh` has an `encodes` mode now, and
 `measure.sh` reports it beside `describes`.
 

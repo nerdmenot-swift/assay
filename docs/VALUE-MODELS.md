@@ -106,7 +106,7 @@ array nor an object, and importing JSON vocabulary into it is the same transplan
 §1. But the obvious spellings are unavailable.
 
 **`XMLNode`, `XMLElement` and `XMLDocument` are all taken by Foundation** (macOS and Mac
-Catalyst only — see `cross-platform-audit.md` §4, confirmed via Apple's DocC API). On
+Catalyst only, confirmed via Apple's DocC API). On
 macOS, `import Foundation` plus `import AssayXML` would make every one of them ambiguous.
 
 This is precisely the case the project has already ruled on. `EXPERIENCE.md` §0:
@@ -156,8 +156,8 @@ extension JSON {
 
 Ordered members rather than a `Dictionary`, for two reasons that agree: the RFC leaves
 duplicate keys undefined and silently dropping one is the worst available answer, and a
-`Dictionary` costs a SipHash per key on construction — the exact overhead
-`PERFORMANCE.md` §1.2 identifies as Foundation's largest structural cost.
+`Dictionary` costs a SipHash per key on construction — Foundation's largest structural
+cost.
 
 Numbers split `.int`/`.double` rather than retaining source bytes. This forfeits JSON's
 nominal arbitrary precision; see open question 1.

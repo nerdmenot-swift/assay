@@ -186,7 +186,7 @@ extension SchemaMacro {
 
         // NOT @inlinable, and that is deliberate rather than an omission.
         //
-        // docs/PERFORMANCE.md §8.2 requires @inlinable on Assay's *runtime primitives*,
+        // @inlinable is required on Assay's *runtime primitives* (CLAUDE.md, hard constraint 5),
         // because those live in the Assay module and must reach the user's SILModule to
         // specialize. This body is different: it is already emitted into the user's
         // module and is already concrete and monomorphic, so there is nothing for

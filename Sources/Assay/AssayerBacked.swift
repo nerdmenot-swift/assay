@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// The narrow protocol ROADMAP §7 suspected might cover the domain-type case on its own.
+// The narrow protocol the roadmap suspected might cover the domain-type case on its own.
 // It does — and it does not compete with `Assayer<T>`, it is the requirement `Assayer`
 // fills. Ship both; they are one feature.
 //

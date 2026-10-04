@@ -129,7 +129,7 @@ extension Rule.Storage {
     /// than the stdlib `Regex` floor the rule reports `regex_unavailable` rather than
     /// silently passing — a validator that stops validating is worse than one that
     /// refuses. On Linux, Windows and Wasm the engine ships with the toolchain and the
-    /// check is inert. (cross-platform-audit.md §3; EXPERIENCE.md §20 question 3.)
+    /// check is inert. (EXPERIENCE.md §20 question 3.)
     @usableFromInline
     func applyRegex(
         _ p: CompiledPattern, to v: String, _ override: String?, _ field: StaticString,

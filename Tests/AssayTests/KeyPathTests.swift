@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `@Key(path:)`, built 2026-09-08. EXPERIENCE §4, ROADMAP §3.
+// `@Key(path:)`, built 2026-09-08. EXPERIENCE §4.
 //
 // The suite that matters here is `PresenceMatrix`: the five presence states crossed with the
 // three ways a path can fail. A half-implementation passes the happy path and every simple

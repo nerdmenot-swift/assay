@@ -7,7 +7,7 @@ touches before you write it.
 | If you are changing… | Read first |
 |---|---|
 | the API's shape | [`docs/EXPERIENCE.md`](docs/EXPERIENCE.md) |
-| anything in a hot path | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md), [`docs/EFFICIENCY.md`](docs/EFFICIENCY.md) |
+| anything in a hot path | [`docs/EFFICIENCY.md`](docs/EFFICIENCY.md), and the hard constraints in [`CLAUDE.md`](CLAUDE.md) |
 | the macro's output | [`docs/COMPILE-TIME.md`](docs/COMPILE-TIME.md) — build time is a gate here |
 | a parser's accept/reject behaviour | [`docs/CONFORMANCE.md`](docs/CONFORMANCE.md) |
 | something listed as deferred | [`ROADMAP.md`](ROADMAP.md) — the deferral reason is the conversation |

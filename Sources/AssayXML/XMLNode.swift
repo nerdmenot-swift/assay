@@ -6,12 +6,12 @@
 // XML.Node — the full-fidelity XML model. docs/VALUE-MODELS.md §4.
 //
 // NAMING. The obvious spellings are unavailable: `XMLNode`, `XMLElement` and
-// `XMLDocument` are all taken by Foundation (macOS and Mac Catalyst only — see
-// cross-platform-audit.md §4). On macOS, `import Foundation` plus `import AssayXML` would
-// make every one ambiguous. This is precisely the case EXPERIENCE.md §0 already ruled on
-// when it chose `Assayer<T>` over `Schema<T>` because SwiftData exports a `Schema`. Same
-// rule, same answer: namespace them. `XML.Element` and `Foundation.XMLElement` are
-// different identifiers, so the ambiguity never arises.
+// `XMLDocument` are all taken by Foundation (macOS and Mac Catalyst only). On macOS,
+// `import Foundation` plus `import AssayXML` would make every one ambiguous. This is
+// precisely the case EXPERIENCE.md §0 already ruled on when it chose `Assayer<T>` over
+// `Schema<T>` because SwiftData exports a `Schema`. Same rule, same answer: namespace
+// them. `XML.Element` and `Foundation.XMLElement` are different identifiers, so the
+// ambiguity never arises.
 //
 // SHAPE. XML has neither an object nor an array, and modelling it with JSON vocabulary is
 // the transplant error the design note rejects. What it has:
@@ -32,11 +32,10 @@
 // per EXPERIENCE.md §7.
 //
 // THE PARSER IS `XMLParser.swift`, hand-written, and the reason it is hand-written is worth
-// keeping: cross-platform-audit.md §4 concluded Foundation's `XMLParser` cannot back this
-// model, because its lineNumber/columnNumber are valid only during delegate callbacks and
-// carry no byte ranges, so it cannot produce the carets §3 promises. The prescription was a
-// hand-written scanner; that is what shipped, and it has since been optimised 1.89× (see
-// `Benchmarks/RESULTS.md`).
+// keeping: Foundation's `XMLParser` cannot back this model, because its
+// lineNumber/columnNumber are valid only during delegate callbacks and carry no byte
+// ranges, so it cannot produce the carets EXPERIENCE.md §3 promises. The prescription was
+// a hand-written scanner; that is what shipped, and it has since been optimised 1.89×.
 //===----------------------------------------------------------------------===//
 
 public import AssayCore

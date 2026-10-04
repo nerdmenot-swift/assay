@@ -99,7 +99,7 @@ public protocol ContextualAssayable: Assayable {
 /// `AppContext` is a real type in the check — no casting, no optionals, no `userInfo`
 /// dictionary.
 ///
-/// **Why this is no longer deferred.** `ROADMAP.md` §8 held it back for having no users, and
+/// **Why this is no longer deferred.** The roadmap held it back for having no users, and
 /// an API shaped for imagined users is shaped wrong. That argument aged: `@Check` shipped, so
 /// a cross-field rule needing a tenant ID has exactly one option today — a global or a
 /// `static var`, in a library whose types are `Sendable` and whose whole posture is against

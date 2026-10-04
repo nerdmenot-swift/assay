@@ -133,9 +133,8 @@ the methodological mistake is more useful than the patch.
 ## Where the long versions live
 
 The repository carries the engineering record these pages are drawn from —
-`docs/EXPERIENCE.md` (the API design), `docs/PERFORMANCE.md` (the strategy),
-`docs/COMPILE-TIME.md`, `docs/UNIONS.md`, `docs/ROWS.md`, `docs/CONFORMANCE.md`,
-`Benchmarks/RESULTS.md` (every number with its journal), and `docs/research/` (seven
-research passes, each ending in an explicit "do not assert these" section).
+`docs/EXPERIENCE.md` (the API design), `docs/EFFICIENCY.md` (the ledger),
+`docs/COMPILE-TIME.md`, `docs/UNIONS.md`, `docs/CONFORMANCE.md`, and
+`Benchmarks/RESULTS.md` (the current numbers and how to read them).
 
 They are written for maintainers, not for a first read. This site is the first read.

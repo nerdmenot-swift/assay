@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// Carets for YAML and XML. ROADMAP §12, now closed.
+// Carets for YAML and XML. now closed.
 //
 // The caret is this library's headline claim, and until now two of the three formats did
 // not get one where it counts. A YAML *syntax* error always carried a span, because the

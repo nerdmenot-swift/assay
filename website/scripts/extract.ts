@@ -289,7 +289,7 @@ writeFileSync(
   perfTmpl.replace(
     '{{TABLE}}',
     // A struck-through row is a note to the repository's own readers, not to someone
-    // choosing a decoder. The journal keeps the record; the site keeps the numbers.
+    // choosing a decoder. RESULTS.md says how to read them; the site keeps the numbers.
     numbers()
       .filter((r) => !r.arm.startsWith('~~'))
       .map((r) => `| ${r.arm} | **${r.number}** | ${r.against} |`)

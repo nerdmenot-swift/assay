@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `Assayer<T>` and `AssayerBacked`, built 2026-09-08. ROADMAP §7, docs/ASSAYER.md.
+// `Assayer<T>` and `AssayerBacked`, built 2026-09-08. docs/ASSAYER.md.
 //
 // The load-bearing test in this file is `wrapperIsAnOrdinaryField`. The design's whole claim
 // is that a conforming type is ALREADY a nested schema type as far as the macro is

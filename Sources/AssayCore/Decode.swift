@@ -6,8 +6,8 @@
 // Per-type decode entry points.
 //
 // These exist so that generated per-field code is *one call*, which is how the macro
-// satisfies docs/PERFORMANCE.md §8.3: "Emit many medium-sized functions, not one giant
-// flat body." Escape analysis budgets `1_000_000 / estimatedFunctionSize` and divides
+// emits many medium-sized functions rather than one giant flat body (CLAUDE.md, hard
+// constraint 4). Escape analysis budgets `1_000_000 / estimatedFunctionSize` and divides
 // that by ten again for ARC queries; when the budget is exhausted the analysis bails,
 // and bailing is indistinguishable from "it escapes" — the retains stay, with no
 // diagnostic. A 60-field struct flattened into one enormous decode function may silently

@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `parse(plist:)` — EXPERIENCE.md §1, ROADMAP.md §10.
+// `parse(plist:)` — EXPERIENCE.md §1.
 //
 //     @Schema(formats: .all)
 //     struct Settings { var name: String; var retries: Int }

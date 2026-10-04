@@ -3,9 +3,9 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `Assayer<T>` — the runtime value API. docs/ASSAYER.md, ROADMAP §7.
+// `Assayer<T>` — the runtime value API. docs/ASSAYER.md.
 //
-// THE OPEN QUESTION, AND ITS ANSWER. ROADMAP §7 held this back not on difficulty but on
+// THE OPEN QUESTION, AND ITS ANSWER. The roadmap held this back not on difficulty but on
 // whether it belongs in a 1.0 at all: "shipping it means committing to maintaining two
 // front doors forever, and the domain-type use case that motivates half of it might be
 // covered by a narrower protocol."

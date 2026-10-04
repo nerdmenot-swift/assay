@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// Whole-buffer UTF-8 validation, once, up front. docs/PERFORMANCE.md §5.4.
+// Whole-buffer UTF-8 validation, once, up front.
 //
 // The measured case for doing it this way rather than per-string: serde_json calls
 // `str::from_utf8` per string and it costs **1.65x** on twitter.json (from_slice 2.2895ms

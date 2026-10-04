@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `@XML(root:)`, built 2026-09-08. ROADMAP §4 deferred it on one open decision — what the
+// `@XML(root:)`, built 2026-09-08. The roadmap deferred it on one open decision — what the
 // default is when unannotated — and the answer is the asymmetry these tests pin: encoding
 // always writes a root, decoding only checks one you declared.
 //===----------------------------------------------------------------------===//

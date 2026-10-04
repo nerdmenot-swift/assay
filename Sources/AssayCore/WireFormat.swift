@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// A wire format, as a VALUE. `ROADMAP.md` §9, `EXPERIENCE.md` §12.
+// A wire format, as a VALUE. `EXPERIENCE.md` §12.
 //
 // WHY A VALUE AND NOT AN OVERLOAD SET, which is the design decision content negotiation
 // actually turns on. `parse(body:contentType:accepting:)` has to live somewhere that can

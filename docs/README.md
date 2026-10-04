@@ -13,7 +13,6 @@ tutorial.
 | | what it is for |
 |---|---|
 | [`EXPERIENCE.md`](EXPERIENCE.md) | The API, and the case for every part of it. Written before the implementation; the table in `../CLAUDE.md` says which parts exist. |
-| [`PERFORMANCE.md`](PERFORMANCE.md) | The strategy: what makes a Swift decoder slow, which of it a macro can delete, and the two phases retired without building. |
 | [`EFFICIENCY.md`](EFFICIENCY.md) | The ledger. One row per idea, each decided by a counter rather than an opinion, including the ones that lost. |
 | [`COMPILE-TIME.md`](COMPILE-TIME.md) | Why build time is a gate here and not a footnote. |
 
@@ -29,29 +28,18 @@ tutorial.
 | [`PLIST.md`](PLIST.md) | Both plist flavours, and the two amplification attacks no depth limit catches. |
 | [`VALUE-MODELS.md`](VALUE-MODELS.md) | Five value models, and why unifying them would lose information. |
 | [`CONFORMANCE.md`](CONFORMANCE.md) | What each parser accepts and refuses, and the harness that holds it there. |
-| [`STREAMING.md`](STREAMING.md) | Why streaming is out of scope. Written out in full so it stays a decision. |
 
 ## Elsewhere in the repository
 
-- [`../Benchmarks/RESULTS.md`](../Benchmarks/RESULTS.md) — every measurement this project has
-  taken, in a journal, including the mistakes made taking them. The current numbers are the
-  table at the top.
-- [`../ROADMAP.md`](../ROADMAP.md) — what is deferred and why, plus the full record of two
-  features that were built, measured and then removed.
+- [`../Benchmarks/RESULTS.md`](../Benchmarks/RESULTS.md) — the current numbers, and how to
+  read them: what each comparison is unfair about, and in whose favour.
+- [`../ROADMAP.md`](../ROADMAP.md) — what is not built, what is half built, and what was
+  decided against.
 - [`../CLAUDE.md`](../CLAUDE.md) — the working context: what is built, what is only designed,
   the hard constraints on generated code, and a list of premises that turned out to be false.
-- [`../Experiments/`](../Experiments/) — four standalone experiments with their own results.
-  The jump-table one settled a fear that turned out to be misplaced.
-
-## `research/`
-
-Seven pre-implementation research passes, ~6,500 lines, each ending in an explicit
-"do not assert these" list.
-
-Read them as **archaeology, not documentation.** They were written before anything compiled,
-several of their premises have since been measured false, and `CLAUDE.md` keeps the corrected
-list. They are here because throwing away the reasoning that produced a design makes the
-design look like luck.
+- [`../Experiments/`](../Experiments/) — three standalone experiments with their own results:
+  the jump-table lowering, the compile-time budget, and the static ARC audit. The last two
+  are CI gates.
 
 ## A note on the numbers in here
 

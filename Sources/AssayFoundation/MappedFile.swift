@@ -5,10 +5,10 @@
 //===----------------------------------------------------------------------===//
 // A memory-mapped file.
 //
-// docs/STREAMING.md §3.5. The reason this is worth having, precisely:
+// The reason this is worth having, precisely:
 //
-// PERFORMANCE.md §5.4 requires "a single contiguous buffer that does not change underneath
-// the parse". An mmap'd file satisfies that *literally* — the virtual address range is
+// The decoder requires a single contiguous buffer that does not change underneath the
+// parse. An mmap'd file satisfies that *literally* — the virtual address range is
 // contiguous, while physical residency is not, because the kernel demand-loads pages and
 // evicts them under pressure.
 //
@@ -120,9 +120,8 @@ public final class MappedFile: @unchecked Sendable {
     /// Map a filesystem path read-only.
     ///
     /// The path-based spelling is the primitive and the `URL` one wraps it, not the other
-    /// way round: `URL` carries availability quirks of its own (see
-    /// cross-platform-audit.md §0 on `URL(string:)`), and a caller who already has a path
-    /// should not have to round-trip through one.
+    /// way round: `URL` carries availability quirks of its own, and a caller who already
+    /// has a path should not have to round-trip through one.
     public static func open(path: String) throws -> MappedFile {
 
         #if os(Windows) || os(WASI)

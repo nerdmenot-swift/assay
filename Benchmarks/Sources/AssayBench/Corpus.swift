@@ -3,8 +3,8 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// The full corpus sweep — all 81 files of docs/PERFORMANCE.md §12.2, not the two shapes
-// the falsification check needed.
+// The full corpus sweep — all 81 files of the benchmark corpus `CorpusGen` generates, not
+// the two shapes the falsification check needed.
 //
 // Three passes, because one number cannot answer three questions:
 //
@@ -15,7 +15,7 @@
 //   so a fixed struct necessarily consumes a prefix and skips the rest. That is not a
 //   defect in the measurement, it is the single most common real shape: a client struct
 //   against a verbose server response. Both decoders do the same work, and the skip path
-//   is what §13.2's structural skip exists for.
+//   is what the unknown-key structural skip exists for.
 //
 //   GENERIC VALUE — JSON.Value vs JSONSerialization over every positive file. No struct,
 //   no macro, no key dispatch: the value model on its own, where Assay has none of its

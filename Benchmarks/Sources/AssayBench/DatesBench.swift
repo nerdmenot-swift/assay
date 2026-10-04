@@ -3,7 +3,8 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// Date decoding — PERFORMANCE.md §13.2's unclaimed win, claimed or falsified here.
+// Date decoding — one of the unclaimed wins named in the build order (`CLAUDE.md`),
+// claimed or falsified here.
 //
 // The claim: a hand-written ISO-8601 parser is integer arithmetic (Hinnant's
 // days-from-civil), while Foundation's `.iso8601` decoding strategy goes through

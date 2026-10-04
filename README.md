@@ -211,20 +211,14 @@ the ones worth reading in the repository:
 | | |
 |---|---|
 | [`docs/EXPERIENCE.md`](docs/EXPERIENCE.md) | the API, and the argument for every part of it |
-| [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) | the strategy, and what was retired unbuilt |
 | [`docs/EFFICIENCY.md`](docs/EFFICIENCY.md) | the ledger: one row per idea, decided by a counter |
 | [`docs/COMPILE-TIME.md`](docs/COMPILE-TIME.md) | why build time is a gate and not a footnote |
 | [`docs/ENCODING.md`](docs/ENCODING.md) | round-trip as a law, with a closed exception list |
 | [`docs/VALIDATE.md`](docs/VALIDATE.md) · [`UNIONS.md`](docs/UNIONS.md) · [`TOML.md`](docs/TOML.md) · [`PLIST.md`](docs/PLIST.md) · [`ASSAYER.md`](docs/ASSAYER.md) | one feature each, in depth |
 | [`docs/CONFORMANCE.md`](docs/CONFORMANCE.md) | what each parser accepts and refuses, and how that is held |
 | [`docs/VALUE-MODELS.md`](docs/VALUE-MODELS.md) | five value models and why they are not one |
-| [`docs/STREAMING.md`](docs/STREAMING.md) | why streaming is out of scope, in full |
-| [`Benchmarks/RESULTS.md`](Benchmarks/RESULTS.md) | every measurement, with the mistakes made getting there |
-| [`ROADMAP.md`](ROADMAP.md) | what is deferred, what was removed, and why |
-
-`docs/research/` holds the seven pre-implementation research passes. They are a historical
-record, each ending in an explicit "do not assert these" list, and several of their premises
-have since been measured false — read them as archaeology, not as documentation.
+| [`Benchmarks/RESULTS.md`](Benchmarks/RESULTS.md) | the current numbers, and how to read them |
+| [`ROADMAP.md`](ROADMAP.md) | what is not built, what is half built, and what was decided against |
 
 ## Reproduce anything
 

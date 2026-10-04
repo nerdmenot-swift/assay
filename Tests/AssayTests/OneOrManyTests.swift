@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `@OneOrMany`, built 2026-09-08. EXPERIENCE §9, ROADMAP §5.
+// `@OneOrMany`, built 2026-09-08. EXPERIENCE §9.
 //
 // Building this surfaced something undeclared: the `RawValue` path ALREADY accepts a single
 // value where an array is declared, so `tags: swift` decodes from YAML and is a type

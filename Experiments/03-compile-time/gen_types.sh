@@ -17,7 +17,7 @@
 #
 # `describes` adds @Schema(describes: true) to the VALIDATED arm, which is the shape that
 # feature is for — a descriptor with no rules to describe is the cheap case, and measuring the
-# cheap case would say nothing. ROADMAP §11 flagged this as HIGH compile-time risk before it
+# cheap case would say nothing. This was flagged as a HIGH compile-time risk before it
 # was built, on the grounds that a per-field array literal is the exact shape rule 1 was
 # written about; this arm is how that prediction gets checked instead of assumed.
 #
@@ -30,7 +30,7 @@
 #
 # `encodes` is `@Schema(encodes: true)` — a type that writes as well as reads. Added
 # 2026-09-10 with union encoding, and for the same reason `arrays` and `paths` were: no arm
-# measured it. Encoding roughly doubles the per-field generated code, `ROADMAP.md` §1 quoted
+# measured it. Encoding roughly doubles the per-field generated code, the roadmap quoted
 # a number for it ("unmoved at ~87 ms") that no harness here had produced, and union encoding
 # then added a per-TYPE wrapper to every encoding type. Measured: ~5% over `schema`, and the
 # wrapper is under half a millisecond per type (docs/COMPILE-TIME.md §5.6).

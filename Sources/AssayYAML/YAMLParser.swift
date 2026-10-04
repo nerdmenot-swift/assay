@@ -5,12 +5,12 @@
 //===----------------------------------------------------------------------===//
 // A hand-written, pure-Swift YAML parser producing YAML.Node.
 //
-// WHY HAND-WRITTEN. perf-swift-libraries.md §5 measures the alternative: Yams allocates a
-// `Tag` class per node (each holding two strong refs), a `String` per scalar eagerly, an
-// `Event` class per libyaml event, runs `Dictionary(grouping:)` per mapping purely to
-// detect duplicate keys, and does O(N·K) mapping lookup with a Tag allocation per probe.
-// It is "the largest available headroom anywhere in the Swift survey". Vendoring libyaml
-// also means vendoring C, with the Windows `__declspec(dllimport)` trap and the Android /
+// WHY HAND-WRITTEN. The alternative is costly: Yams allocates a `Tag` class per node
+// (each holding two strong refs), a `String` per scalar eagerly, an `Event` class per
+// libyaml event, runs `Dictionary(grouping:)` per mapping purely to detect duplicate
+// keys, and does O(N·K) mapping lookup with a Tag allocation per probe. It was the
+// largest available headroom among the Swift libraries surveyed. Vendoring libyaml also
+// means vendoring C, with the Windows `__declspec(dllimport)` trap and the Android /
 // Wasm / static-musl breakage that comes with it.
 //
 // SCOPE, stated rather than discovered. YAML 1.2 is enormous and this covers the subset a

@@ -5,7 +5,7 @@
 //===----------------------------------------------------------------------===//
 // A hand-written, pure-Swift XML parser producing XML.Document.
 //
-// WHY HAND-WRITTEN. cross-platform-audit.md §4 rules out every alternative:
+// WHY HAND-WRITTEN. Every alternative is ruled out:
 //   * `XMLDocument` is macOS + Mac Catalyst only, so a cross-Apple-platform library
 //     cannot use it at all.
 //   * `XMLParser` exposes `lineNumber`/`columnNumber` only *during* delegate callbacks,

@@ -3,11 +3,10 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// The falsification check. docs/PERFORMANCE.md §14, phase 1:
-//
-//   "Benchmark against Foundation on the corpus of §12.2 and count allocations. If this
-//    does not comfortably clear ZippyJSON's 1.38x, the thesis is wrong and everything
-//    below is moot."
+// The falsification check. This benchmark's stated condition, from phase 1 of the build
+// order (`CLAUDE.md`, "Falsification condition"): benchmark against Foundation on the
+// corpus `CorpusGen` generates and count allocations. If a scalar Swift decoder does not
+// comfortably clear ZippyJSON's 1.38x, the thesis is wrong and the SIMD/C work is moot.
 //
 // ZippyJSON bolted simdjson onto Codable and got 1.38x average over Foundation, 1.04x on
 // the most API-shaped payload in its own set. Assay's claim is that the parser was never
@@ -152,7 +151,7 @@ func runFalsification() -> FalsificationResult? {
     print(
         mean > 1.38
             ? "PASS — clears the falsification condition."
-            : "FAIL — thesis not supported; SIMD/C work is moot per PERFORMANCE.md §14.")
+            : "FAIL — thesis not supported; SIMD/C work is moot.")
 
     //===----------------------------------------------------------------------===//
     // The full corpus sweep, the allocation gate, and the negative path. Everything above

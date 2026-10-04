@@ -175,8 +175,8 @@ renderer has always handled that — a missing-field issue has never had a span 
 
 ## 4. Cost
 
-Measured on this machine; see `Benchmarks/RESULTS.md` for the tables and the honesty rules
-that apply to every ratio in this repository.
+Measured on this machine; `Benchmarks/RESULTS.md` carries the current figure, and
+`CLAUDE.md` the honesty rules that apply to every ratio in this repository.
 
 **Validating costs what the rules cost, and nothing else.** Decoding a six-field document
 through a schema with rules and through the same schema without them differ by 94 ns;

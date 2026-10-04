@@ -5,8 +5,8 @@
 //===----------------------------------------------------------------------===//
 // The owed comparison: Assay against a SIMD-tier C parser.
 //
-// Every published Assay ratio is against Foundation, and docs/PERFORMANCE.md has said
-// from the start that this one is owed and that the float-dense arm is where a scalar
+// Every published Assay ratio is against Foundation, and the design has said from the
+// start that this one is owed and that the float-dense arm is where a scalar
 // Swift decoder with no Eisel-Lemire *should lose*. A library that only ever publishes
 // the comparisons it wins has not measured anything; it has marketed.
 //
@@ -260,7 +260,7 @@ func runSIMDBaselineBenchmarks(corpusDir: URL, sizes: [String]) {
 
     // ---- The float arm, called out on its own ----
     print("")
-    print("float-dense use case — the arm PERFORMANCE.md predicted Assay would lose.")
+    print("float-dense use case — the arm the design predicted Assay would lose.")
     print("yyjson carries a bespoke fast float parser; Assay has a bounded Clinger path.")
     print(
         pad("shape", 18, right: true) + pad("size", 7) + pad("bytes", 9)

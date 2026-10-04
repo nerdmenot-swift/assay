@@ -5,11 +5,11 @@
 //===----------------------------------------------------------------------===//
 // Where the time actually goes — the measurement that gates phases 4 and 5.
 //
-// `docs/PERFORMANCE.md` §14 makes SIMD (phase 4) and C (phase 5) conditional on numbers,
-// and this is the number they are conditional on. Amdahl, applied honestly: the most a
-// vectorised UTF-8 validator can win is the share of decode time that validator occupies,
-// so measuring that share bounds the entire SIMD/C opportunity before a line of it is
-// written.
+// The build order made SIMD (phase 4) and C (phase 5) conditional on numbers, and this is
+// the number they were conditional on; both phases were since retired unbuilt (`CLAUDE.md`,
+// "Build order"). Amdahl, applied honestly: the most a vectorised UTF-8 validator can win
+// is the share of decode time that validator occupies, so measuring that share bounds the
+// entire SIMD/C opportunity before a line of it is written.
 //
 // Three timings over the same bytes:
 //

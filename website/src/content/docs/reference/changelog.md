@@ -207,7 +207,7 @@ that distinguish it:
   is small, and a decoder that also owns column stores is two libraries wearing one name.
   It cost ~1,900 lines and doubled the expansion cost of any type that used it.
   `T.validate(_:)` is the answer for a fast external reader: it decodes at its own speed in
-  its own module, and Assay runs the rules afterwards. `ROADMAP.md` has the full record; if
+  its own module, and Assay runs the rules afterwards. `ROADMAP.md` keeps the short record; if
   it returns it will be a separate package.
 - **The value model is 2.1× faster** (2026-09-11): `JSON.Value.parse` allocated a path
   array per value in the document, for a diagnostic path nothing reads unless the document
@@ -247,5 +247,5 @@ rules `.trimmed`/`.lowercased` → `.isTrimmed`/`.isLowercase` (they never norma
 
 Known limitations at this release, deliberately deferred with reasons in
 `ROADMAP.md`: unions have no YAML/XML path, `@Key(path:)` refuses index segments,
-`StandardSchema` waits on a third package, no streaming (a decision, not a gap —
-`docs/STREAMING.md`), `.past`/`.future` date rules pending a clock seam.
+`StandardSchema` waits on a third package, no incremental parsing of a single document (a
+decision, not a gap), `.past`/`.future` date rules pending a clock seam.

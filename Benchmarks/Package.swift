@@ -37,8 +37,8 @@ let package = Package(
     ],
     targets: [
         // The corpus generator. No dependency on Assay — it must be runnable before the
-        // library builds, and it is a published artifact in its own right
-        // (docs/PERFORMANCE.md §12.2: "publish the generator, not just the files").
+        // library builds, and it is a published artifact in its own right: the generator
+        // is published, not just the files it writes.
         .executableTarget(
             name: "CorpusGen",
             path: "Sources/CorpusGen",
@@ -46,7 +46,7 @@ let package = Package(
         ),
         // yyjson (MIT, ibireme/yyjson) — vendored into the BENCHMARK package only, never
         // the library. It is the fastest general-purpose C DOM parser and one of the two
-        // baselines docs/PERFORMANCE.md names as owed. -O3 and the assertion/UTF-8
+        // baselines this project has said it owes. -O3 and the assertion/UTF-8
         // switches match how yyjson's own benchmarks build it, so the comparison is
         // against its intended configuration rather than a hobbled one.
         .target(

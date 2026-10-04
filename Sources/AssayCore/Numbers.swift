@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// Numbers. docs/PERFORMANCE.md §6.
+// Numbers.
 //
 // Two decisions, both against the obvious instinct:
 //
@@ -119,7 +119,7 @@ extension AssayReader {
 
     /// Scan a JSON number into a `Double`.
     ///
-    /// Three tiers, per docs/research/perf-dispatch-and-hot-path.md §2.6:
+    /// Three tiers:
     ///
     ///   (a) **Clinger fast path.** If the significand fits in 2^53 and the decimal
     ///       exponent is within ±22, one multiply or divide against an exactly-representable

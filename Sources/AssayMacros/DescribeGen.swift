@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `@Schema(describes: true)` — the descriptor body. EXPERIENCE.md §14, ROADMAP.md §11.
+// `@Schema(describes: true)` — the descriptor body. EXPERIENCE.md §14.
 //
 // This file is deliberately SMALL, and that is the whole design decision. The obvious
 // implementation emits the JSON Schema text from the macro; this one emits a value naming what

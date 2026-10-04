@@ -355,7 +355,7 @@ extension SchemaMacro {
     /// which it did not, until the kitchen-sink test forced the question.
     ///
     /// compactMap's closure is non-escaping, so using `&sink` inside it is statically
-    /// enforced exclusivity, not a box — the constraint from PERFORMANCE.md §7 holds.
+    /// enforced exclusivity, not a box — CLAUDE.md's hard constraint 3 holds.
     static func rawElementExpr(
         _ type: String, _ v: String, coerce: Bool, depth: Int = 0,
         dateFormatsRef: String = "Assay.DateFormat.defaultFormats", ctx: String = ""
@@ -473,10 +473,10 @@ extension SchemaMacro {
     ///
     /// A SECOND PASS over the members, deliberately, and the reason it is not the single-pass
     /// discipline the JSON body holds to is that there is nothing to be single-pass *about*:
-    /// the tree is already built and in memory. `PERFORMANCE.md`'s one-pass rule is about not
-    /// re-reading BYTES. `first(where:)` over an already-materialised member array is a walk
-    /// of a few pointers, and writing a fused version would mean threading path state through
-    /// the length-bucketed switch to save nothing measurable.
+    /// the tree is already built and in memory. The one-pass rule is about not re-reading
+    /// BYTES. `first(where:)` over an already-materialised member array is a walk of a few
+    /// pointers, and writing a fused version would mean threading path state through the
+    /// length-bucketed switch to save nothing measurable.
     ///
     /// The three failure shapes are the JSON body's three, and they have to be: a schema that
     /// reported a missing intermediate differently depending on the wire format would make

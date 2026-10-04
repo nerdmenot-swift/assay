@@ -7,8 +7,8 @@
 //
 // THE GATE WAS WRITTEN BEFORE THE NUMBER, which is the only way a ship-or-refuse rule means
 // anything: **if `@Key(path:)` is not within 1.15x of the nested-`@Schema` alternative, it
-// does not ship** — `ROADMAP.md` §3's stated fallback ("the honest answer is a nested @Schema
-// type") would then still be the right answer, and shipping a slower spelling of it would be
+// does not ship** — the fallback stated beforehand (a nested @Schema type) would then
+// still be the right answer, and shipping a slower spelling of it would be
 // selling convenience with an unmentioned bill.
 //
 // WHAT IS COMPARED, and it is deliberately the *whole* decode rather than a path microbench.
@@ -141,7 +141,7 @@ func runKeyPathBenchmarks() -> Bool {
         passed
             ? String(format: "GATE PASSED — %.2fx of the nested alternative (limit 1.15x)", ratio)
             : String(
-                format: "GATE FAILED — %.2fx, over the 1.15x limit. ROADMAP §3's fallback stands.",
+                format: "GATE FAILED — %.2fx, over the 1.15x limit. The fallback stands.",
                 ratio))
     return passed
 }

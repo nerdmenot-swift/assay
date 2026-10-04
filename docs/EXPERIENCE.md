@@ -18,7 +18,7 @@ Windows, Android and Wasm; a competitive read of serde, Pydantic, Zod v4, Valibo
 Ecto and garde; and a naming review. Everything in the first edition that could not compile
 was removed.
 
-No internals. No parser design, no ARC, no SIL, no benchmark tables — those live in `PERFORMANCE.md`, `EFFICIENCY.md` and `../Benchmarks/RESULTS.md`. This is only what a developer sees, types and reads.
+No internals. No parser design, no ARC, no SIL, no benchmark tables — those live in `EFFICIENCY.md` and `../Benchmarks/RESULTS.md`. This is only what a developer sees, types and reads.
 
 ---
 
@@ -194,7 +194,7 @@ issue.message                                  // "must be at least 1"
 issue.code, issue.params                       // what a translator needs: the code and its parameters
 ```
 
-**`message(locale:)` is not built** (`ROADMAP.md` §15) — this document promised it for some
+**`message(locale:)` is not built** (`ROADMAP.md`) — this document promised it for some
 time, and an audit on 2026-09-10 found it had never existed. What exists is the seam it was
 going to sit on: every code is named (`IssueCode+Names.swift`), every code's parameters are
 data, and the `.json` renderer emits both, so a consumer localises by branching on `code`
@@ -291,7 +291,7 @@ Pydantic's `AliasPath`. It saves you from declaring three throwaway structs to r
 
 When a path misses, *the path names the segment that failed and the caret points at the innermost thing that existed*. Three different failures get three different reports: `{"id":"x"}` says `profile` is missing — once, not once per field under it; `{"profile":42}` is a type mismatch at `profile`; `{"profile":{}}` says `profile.display_name` is missing. A missing intermediate is **absence**, so an optional stays nil and a default applies; a wrong-typed one is an **error** even when everything under it is optional.
 
-The first edition also showed `@Key(path: "meta.tags[0]")`. **That is refused**, with a diagnostic saying so: indexing an array is a different operation from walking a key — it needs the element counted during the array's own decode, and it needs a fourth answer for "the array was shorter than that", which is neither absence nor a mismatch. `ROADMAP.md` §13.
+The first edition also showed `@Key(path: "meta.tags[0]")`. **That is refused**, with a diagnostic saying so: indexing an array is a different operation from walking a key — it needs the element counted during the array's own decode, and it needs a fourth answer for "the array was shorter than that", which is neither absence nor a mismatch. `ROADMAP.md`.
 
 ### Flattening
 
@@ -378,7 +378,7 @@ The same mechanism means `.min(1)` is polymorphic in the way people already expe
 Strings — `.min` `.max` `.length` `.notEmpty` `.regex` `.email` `.url` `.uuid` `.hostname` `.prefix` `.suffix` `.contains` `.oneOf` `.isTrimmed` `.isLowercase` `.ascii`
 Numbers — `.min` `.max` `.range` `.positive` `.negative` `.nonNegative` `.multipleOf` `.finite`
 Collections — `.count` `.notEmpty` `.unique` `.each(...)`
-Dates — `.before` `.after` `.between` (`.past` and `.future` need a clock the core does not have — `ROADMAP.md` §2)
+Dates — `.before` `.after` `.between` (`.past` and `.future` need a clock the core does not have — `ROADMAP.md`)
 Optionals — rules apply to the wrapped value; `nil` skips them.
 
 ### The custom escape hatch moved
@@ -668,7 +668,7 @@ tokens, not conformances — and that is the one round-trip exception the untagg
 
 Borrowed from `serde_with`, which exists because these two shapes account for a startling proportion of real-world API weirdness.
 
-**`@OneOrMany` shipped 2026-09-08. `@PickFirst` was CUT, and cannot be built as spelled** — the macro would need to know `StringOrInt`'s branches and it sees a token. The sound spelling is an untagged union, `@Schema(discriminator: .untagged)` in §9 below, which *is* pick-first by definition and **shipped 2026-09-09**. `ROADMAP.md` §5.
+**`@OneOrMany` shipped 2026-09-08. `@PickFirst` was CUT, and cannot be built as spelled** — the macro would need to know `StringOrInt`'s branches and it sees a token. The sound spelling is an untagged union, `@Schema(discriminator: .untagged)` in §9 below, which *is* pick-first by definition and **shipped 2026-09-09**. `ROADMAP.md`.
 
 ---
 
@@ -743,7 +743,7 @@ Declaring a context makes `parse(json:context:)` the *only* signature. You canno
 
 This differs from what the first edition settled on, which was a type-erased context threaded through `ParseState`, and the difference is deliberate rather than an oversight: they operate at different layers. The macro knows the context type at compile time and should use it.
 
-**Built 2026-09-08 — the macro half.** The erased form for the runtime `Assayer<T>` value API is *not* built, and "both exist" was a claim this document made before either did. `ROADMAP.md` §8 records the reasoning: an erased context has no users, and building one would be designing for an imagined user twice over, once for the API and once for the erasure.
+**Built 2026-09-08 — the macro half.** The erased form for the runtime `Assayer<T>` value API is *not* built, and "both exist" was a claim this document made before either did. `ROADMAP.md` records the reasoning: an erased context has no users, and building one would be designing for an imagined user twice over, once for the API and once for the erasure.
 
 Two things the implementation settled that this section did not say. **Every check takes the context**, cross-field and field forms alike (`static func f(_ x: String, _ ctx: AppContext) -> String?`) — a macro reads a token, not a signature, so a per-check opt-in is not something it could see. And **a contextual type may contain a context-free one, but not the reverse**: a plain `@Schema` type with a contextual field is a compile error, because there is no context to pass it. The message names the fix. This is the same class of limitation as `@Check` in an extension — the macro cannot see what another type declared, in this module or any other.
 
@@ -893,8 +893,8 @@ fields — no intermediate document, no dictionary per object. That is where the
 5.5× over Foundation comes from.
 
 **YAML and XML go through their own full-fidelity model, then a projection.** Bytes →
-`YAML.Node` / `XML.Document` → `RawValue` → your struct. That is a DOM hop, and
-`PERFORMANCE.md` §1.3 measures a DOM at 2–7× against direct-to-struct.
+`YAML.Node` / `XML.Document` → `RawValue` → your struct. That is a DOM hop, and a DOM costs
+2–7× against direct-to-struct in published measurements of other decoders.
 
 Three reasons that trade is accepted rather than fought:
 
@@ -1010,9 +1010,8 @@ an explicit directory mount to work at all. Keeping them in a separate layer mea
 stays usable where they don't exist, and the byte-taking overloads are always available.
 
 **`parse(mmapped:)` is how Assay reads a file larger than memory**, and it needed no
-change to the decoder at all. `PERFORMANCE.md` §5.4 requires "a single contiguous buffer
-that does not change underneath the parse", and a memory-mapped file satisfies that
-literally: the address range is contiguous while physical residency is not, because the
+change to the decoder at all. The decoder requires a single contiguous buffer that does not
+change underneath the parse, and a memory-mapped file satisfies that literally: the address range is contiguous while physical residency is not, because the
 kernel demand-loads and evicts pages.
 
 Measured on a 387 MB document, extracting one top-level field:
@@ -1026,8 +1025,8 @@ The honest boundary, also measured: decoding *all* 8,000,000 records costs 1.067
 footprint read against 661 MB mapped — still exactly the file size apart. **mmap removes
 the input from your accountable memory and does nothing about the output**, which is dirty
 anonymous memory however it arrived. So it bounds the *input*, not the total: it will not
-decode a 10 GB file into a 10 GB value on a 4 GB machine. `docs/STREAMING.md` has the rest,
-including why incremental parsing of a document arriving over a *socket* is refused.
+decode a 10 GB file into a 10 GB value on a 4 GB machine. `ROADMAP.md` records why
+incremental parsing of a document arriving over a *socket* is refused.
 
 ---
 
@@ -1127,7 +1126,7 @@ The macro already has everything needed to emit JSON Schema — the field names,
 
 It emits a **descriptor**, not text: the rule-to-keyword mapping lives once in `AssayCore` rather than once per type in your build, which is why the measured cost is ~5% on top of a rule-carrying type instead of the large number that design was expected to produce.
 
-And it will sometimes describe **more** than the type accepts, never less. Where a rule has no exact JSON Schema 2020-12 keyword — `.isTrimmed`, `.isLowercase`, the date bounds — it becomes prose in `description` rather than an approximate `pattern`, because a schema that is too strict makes a correct client unusable and its author has no way to tell that the schema is at fault. `ROADMAP.md` §11 lists every such case.
+And it will sometimes describe **more** than the type accepts, never less. Where a rule has no exact JSON Schema 2020-12 keyword — `.isTrimmed`, `.isLowercase`, the date bounds — it becomes prose in `description` rather than an approximate `pattern`, because a schema that is too strict makes a correct client unusable and its author has no way to tell that the schema is at fault. `ROADMAP.md` lists every such case.
 
 `Encodable` conformance synthesis moves out of the refusals for the same reason: it is a strictly easier problem than a full encoder, it is what people actually ask for, and the key renaming information needed to do it correctly is already there.
 
@@ -1146,7 +1145,7 @@ Nothing like it exists in Swift. Every framework that wants validation either in
 
 Publishing that package — separately, with no dependency on Assay, and with Assay merely being one conformer — is high-leverage. If it works, other libraries implement it and Assay benefits.
 
-**It does not cost "almost nothing", and the first edition said it did.** A SwiftPM dependency is resolved by every consumer of the package that declares it, so "Assay conforms to StandardSchema" and "Assay does not depend on StandardSchema" cannot both hold in one package: declaring the dependency makes every Assay user resolve and link it, which is the outcome this idea exists to avoid. The conformance needs a **third** package — `StandardSchema`, `Assay`, and a small adapter depending on both. That is the standard shape and it is not hard, but it is two more repositories rather than a weekend, and it is why this is the one thing in this document still unbuilt. `ROADMAP.md` §11.
+**It does not cost "almost nothing", and the first edition said it did.** A SwiftPM dependency is resolved by every consumer of the package that declares it, so "Assay conforms to StandardSchema" and "Assay does not depend on StandardSchema" cannot both hold in one package: declaring the dependency makes every Assay user resolve and link it, which is the outcome this idea exists to avoid. The conformance needs a **third** package — `StandardSchema`, `Assay`, and a small adapter depending on both. That is the standard shape and it is not hard, but it is two more repositories rather than a weekend, and it is why this is the one thing in this document still unbuilt. `ROADMAP.md`.
 
 ```swift
 extension Article: StandardSchema.Validatable {}   // that's the whole conformance
@@ -1388,9 +1387,9 @@ T.jsonSchema(for: .input)
 
 Everything in the first edition's open questions about the macro shape, the `@Wraps` spelling and async parsing has been resolved and is written into the sections above. These are the ones that remain.
 
-**1. ~~Does `diagnose` need a streaming form?~~ Answered: no.** [`docs/STREAMING.md`](STREAMING.md) works the question through and closes it — the issue cap already covers the memory concern that motivates it, and it complicates the primary API for a rare case. That document also records what a streaming *decode* would cost, separately, and why it is out of scope rather than deferred.
+**1. ~~Does `diagnose` need a streaming form?~~ Answered: no.** The issue cap already covers the memory concern that motivates it, and it complicates the primary API for a rare case. What a streaming *decode* would cost is a separate question, and [`ROADMAP.md`](../ROADMAP.md) records why incremental parsing is decided against while record streams are merely unbuilt.
 
-**2. How much does `@Inline` cost at the diagnostic level?** Flattening means two structs' keys share a namespace, so a collision is possible, and a compile-time error is the right answer. The cost is not "expensive across module boundaries", which is how this was first written — an attached macro never sees another type's members **in any module**, including one declared three lines above, because there is no lexical peer access and no compile-time string evaluation. So the question is not what detection costs but whether a spelling exists in which detection is possible at all. `ROADMAP.md` §3 carries the current answer.
+**2. How much does `@Inline` cost at the diagnostic level?** Flattening means two structs' keys share a namespace, so a collision is possible, and a compile-time error is the right answer. The cost is not "expensive across module boundaries", which is how this was first written — an attached macro never sees another type's members **in any module**, including one declared three lines above, because there is no lexical peer access and no compile-time string evaluation. So the question is not what detection costs but whether a spelling exists in which detection is possible at all. `ROADMAP.md` carries the current answer.
 
 **3. Should `.regex` fail closed on platforms without a regular expression engine?** Right now the plan is that it works everywhere the library is claimed to support. If a stripped-down environment ever lacks one, the choice is between a rule that always passes, a rule that always fails, and a hard build error. Build error, probably.
 

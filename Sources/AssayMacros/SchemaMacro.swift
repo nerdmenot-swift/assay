@@ -5,7 +5,7 @@
 //===----------------------------------------------------------------------===//
 // @Schema — the attached macro.
 //
-// What it emits, and why each choice is forced (docs/PERFORMANCE.md §3.2, §8.2, §8.3):
+// What it emits, and why each choice is forced:
 //
 //   * Into an *extension*, not the type body. A macro that emits an `init` into the type
 //     silently deletes the memberwise initializer Swift would have synthesised. Emitting

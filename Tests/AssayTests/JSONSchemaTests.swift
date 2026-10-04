@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `jsonSchema(for:)`, built 2026-09-09. EXPERIENCE §14, ROADMAP §11.
+// `jsonSchema(for:)`, built 2026-09-09. EXPERIENCE §14.
 //
 // The load-bearing suite is `SchemaIsNotTooStrict`. A generated JSON Schema has one failure
 // mode that matters far more than the others: **describing the type as stricter than it is.**

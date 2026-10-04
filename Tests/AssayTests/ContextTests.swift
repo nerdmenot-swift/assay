@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `@Schema(context:)`, built 2026-09-08. EXPERIENCE §10, ROADMAP §8.
+// `@Schema(context:)`, built 2026-09-08. EXPERIENCE §10.
 //
 // The load-bearing tests here are the two the design turns on:
 //
@@ -243,7 +243,7 @@ struct ContextTests {
 // MARK: - `@AsyncCheck` with a context
 //
 // §10's own motivating example — `await ctx.users.exists(email:)` — which is the concrete
-// reason ROADMAP §8's "no users" argument stopped holding: `@AsyncCheck` shipped without any
+// reason the roadmap's "no users" argument stopped holding: `@AsyncCheck` shipped without any
 // way to reach the thing it was documented as reaching.
 
 struct DirectoryContext: Sendable {

@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// Hand-rolled format validators. cross-platform-audit.md §0 and §10 force every one:
+// Hand-rolled format validators. Cross-platform behaviour forces every one:
 //
 //   * `.uuid`  — `UUID(uuidString:)` has TWO different C implementations selected by
 //     platform; the non-Darwin one is sscanf-based with libc-dependent edge cases. A UUID

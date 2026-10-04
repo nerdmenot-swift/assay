@@ -6,7 +6,7 @@
 // The XML property list flavour, projected onto `RawValue`.
 //
 // This one IS mostly a projection, which is why it is a fifth the size of `BinaryPlist.swift`
-// — and the contrast is the point `ROADMAP.md` §10 missed when it called plists "mechanically
+// — and the contrast is the point the roadmap missed when it called plists "mechanically
 // the smallest item on this list". One of the two flavours is; the other is a random-access
 // object graph with two amplification attacks.
 //

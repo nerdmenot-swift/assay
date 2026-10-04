@@ -9,8 +9,8 @@
 # exact expected value, re-baselined only in a reviewed commit, rather than a percentage
 # drift against a noisy stored baseline.
 #
-# Wall clock is normally the wrong thing to gate on, and docs/PERFORMANCE.md §12.4 says so
-# for the *runtime* benchmarks. Compile time is the exception: the quantity users care
+# Wall clock is normally the wrong thing to gate on, and the *runtime* benchmarks are not
+# gated on it. Compile time is the exception: the quantity users care
 # about IS wall clock, there is no allocation-count proxy for it, and the signal here is
 # large (a regression that matters is tens of percent, not single digits).
 #

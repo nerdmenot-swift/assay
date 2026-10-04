@@ -77,8 +77,8 @@ error: initializer 'init(identifier:displayName:…)' is internal and cannot be
 ```
 
 SE-0193 restricts `@inlinable` bodies to ABI-public declarations, and a public struct's
-memberwise initializer is *internal*. The annotation was also pointless: `PERFORMANCE.md`
-§8.2 requires `@inlinable` on Assay's **runtime primitives**, which cross into the user's
+memberwise initializer is *internal*. The annotation was also pointless: the performance
+design requires `@inlinable` on Assay's **runtime primitives**, which cross into the user's
 module — but the generated body is *already in* the user's module and already concrete, so
 inlinability buys nothing there. Removed.
 

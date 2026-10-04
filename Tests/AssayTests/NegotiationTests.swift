@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `parse(body:contentType:accepting:)`, built 2026-09-08. ROADMAP §9.
+// `parse(body:contentType:accepting:)`, built 2026-09-08.
 //
 // The design was settled years before the code — `accepting:` required, no default, because
 // an unbounded format guess on untrusted input is how you get XXE and billion-laughs. These

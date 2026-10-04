@@ -23,7 +23,7 @@
 //
 // Neither side pays for the other. This is deliberately NOT a decode path — two attempts
 // to make one general enough to serve such readers were built, measured, and removed;
-// ROADMAP.md's "Decoding from rows and columns" records both.
+// ROADMAP.md's "Decoding from rows and column stores" records both.
 //
 // WHAT RUNS, AND WHAT CANNOT. The governing law is
 //

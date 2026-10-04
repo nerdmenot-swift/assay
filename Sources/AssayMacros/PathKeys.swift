@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `@Key(path: "profile.display_name")` — EXPERIENCE.md §4, ROADMAP.md §3.
+// `@Key(path: "profile.display_name")` — EXPERIENCE.md §4.
 //
 // ```swift
 // @Schema
@@ -15,7 +15,7 @@
 // ```
 //
 // A PATH IS A TREE OF THE EXISTING DISPATCH TABLE, which is the whole design and the answer
-// to ROADMAP §3's second open question ("whether it can share the dispatch machinery or needs
+// to the roadmap's second open question ("whether it can share the dispatch machinery or needs
 // a second pass"). It shares it completely. `profile` is an ordinary top-level key: it gets
 // one arm in the same window-dispatch table every other key gets an arm in. That arm descends
 // into the object and dispatches on the second segment. Two fields under `profile` are ONE
@@ -31,7 +31,7 @@
 // ten arms anyway, so the table would buy nothing at runtime and cost real time at compile.
 // The outer table is shared with the keys that were always there, so it is free.
 //
-// WHERE THE CARET GOES — ROADMAP §3's first open question, answered as three cases because
+// WHERE THE CARET GOES — the roadmap's first open question, answered as three cases because
 // they are three different failures and reporting them alike is what this library exists not
 // to do. **The path names the segment that failed; the caret points at the innermost thing
 // that existed.**

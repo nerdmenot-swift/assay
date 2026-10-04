@@ -225,8 +225,8 @@ extension RawValue {
         return nil
     }
 
-    /// No `location`: the node trees drop byte offsets when they are built. That is
-    /// ROADMAP.md §12, not a decision made here.
+    /// No `location`: the node trees drop byte offsets when they are built. That is a known
+    /// gap (`ROADMAP.md`, "Carets on the `RawValue` path"), not a decision made here.
     @inline(never)
     @usableFromInline
     static func reportInvalidDate(

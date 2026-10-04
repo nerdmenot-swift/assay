@@ -3,9 +3,9 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `parse(plist:)`, built 2026-09-09. EXPERIENCE §1, ROADMAP §10.
+// `parse(plist:)`, built 2026-09-09. EXPERIENCE §1.
 //
-// The suite that matters is `PlistAmplification`. `ROADMAP.md` §10 called plists
+// The suite that matters is `PlistAmplification`. The roadmap called plists
 // "mechanically the smallest item on this list", and the reason that was wrong is that a
 // binary plist is a random-access OBJECT GRAPH with two attacks no existing limit covered:
 // a reference cycle (an array holding itself), and shared-object amplification (ten arrays

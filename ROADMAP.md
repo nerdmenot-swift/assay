@@ -1,912 +1,77 @@
 # Roadmap
 
-What `docs/EXPERIENCE.md` specifies but this repository does not yet implement, with the reason
-each one was deferred rather than cut. Nothing here is abandoned; several items are one
-afternoon's work sitting behind a decision that has not been made carefully enough yet.
-
-The ordering is by what a user is most likely to reach for and be surprised is missing.
+What is not built, what is only half built, and what was decided against. Everything that
+shipped is in [`CHANGELOG.md`](CHANGELOG.md) and described in `docs/`; this file is only the
+remainder. The record of how each item got here is in this file's git history.
 
 ---
 
-## 1. Encoding
+## Not built
 
-**Status: BUILT 2026-08-09 for JSON, YAML and XML.** `EXPERIENCE.md` §14,
-semantics in [`docs/ENCODING.md`](docs/ENCODING.md).
+### Index segments in `@Key(path:)`
 
-```swift
-@Schema(encodes: true) struct Article { var title: String }
-let bytes = try article.encode()            // throws AssayError, all issues
-let d = article.diagnoseEncode()            // partial bytes + issues, same renderers
-```
+`@Key(path: "meta.tags[0]")` is refused at expansion with a diagnostic naming the
+alternative; the dot form ships. It is not a missing segment type, it is a different
+operation. Walking a key asks a mapping for a name; indexing asks an array for its *n*-th
+element, which means counting during the array's own decode loop. And the caret rules need a
+fourth answer — "the array was shorter than that" — which is neither absence nor a type
+mismatch. Until then: declare the array and take the element in Swift, or use a nested
+`@Schema` type.
 
-Opt-in, because generated body size dominates expansion cost and a decode-only type must not
-pay for an encoder it never calls — the gated decode-only arm is unmoved, since it does not
-declare `encodes:` at all.
+### `message(locale:)`
 
-**What that costs was finally measured 2026-09-10**, and it is smaller than the sentence
-above implies: `encodes: true` is **~5%** — 82.2 ms/type against the decode-only arm's 78.0
-at 10 fields, 156.7 against 150.1 at 20. The generated code does roughly double; the compile
-time does not follow it, because the encode body is one concrete `w.write` per field with
-nothing for the type checker to explore. Opt-in stays — 5% of every type in a model layer is
-real, and a decode-only type should pay nothing — but "it would double your build" was never
-the number. `docs/COMPILE-TIME.md` §5.6.
-
-All six semantics questions were answered, accepted and implemented. The sixth
-(`@Unknown(roundTrips:)`) was blocked on `@Unknown` existing at all; `@Unknown` shipped
-2026-08-09 (§6), and encoding now refuses an unrecognised variant unless `roundTrips: true`.
-
-YAML encodes through the `RawValue` seam — the decode pipeline run backwards. XML does not,
-and cannot: placement is not expressible in `RawValue`, so XML has a generated body with
-`@XML(.attribute)` / `.text` / `.wrapped` baked into the emitted calls. Both XML defaults
-were settled by surveying Jackson, Go, .NET, serde-xml-rs and pydantic-xml rather than by
-taste — see `docs/ENCODING.md`.
-
-Round-trip is a stated law with a closed exception list, tested in
-`Tests/AssayTests/EncodingTests.swift`.
-
-This is the largest single gap, and it is deliberate: a decoder that also encodes has to answer
-questions a decoder does not — what a `@Fallback` writes back, whether an `@Unknown` enum case
-round-trips (either exactly right or a security hole, depending on who is asking), what
-`@Transform` means in reverse when the closure has no inverse. Answering those badly and then
-living with the answers is worse than not shipping them.
-
-What matters is that the door is held open at real cost: **every piece of placement information
-is preserved rather than consumed during decoding.** `@Key` renames, `@XML` element-vs-attribute
-placement and `@DateFormat` patterns are all stored in the generated schema even though the
-decode path does not read them back. That is why encoding is additive later instead of a
-redesign, and it is being paid for now.
-
-**Was blocked on:** deciding the semantics questions in [`docs/ENCODING.md`](docs/ENCODING.md),
-in writing, before any code. That document enumerates six questions (this section originally
-named three and miscounted them as five), and **all six were accepted and implemented on
-2026-08-09** — its own header says so. The paragraph that stood here described them as
-"proposals awaiting a yes or no" for some weeks after they had been answered and built.
-
----
-
-## 2. `Date`, and `@DateFormat`
-
-**Status: implemented 2026-08-06**, measured at **5.40× over Foundation's `.iso8601`
-strategy** on the `uuids-and-dates` corpus shape (`Benchmarks/RESULTS.md`), with a
-2,279-instant exact differential against Foundation in DiffFuzz.
-
-```swift
-var created: Date                                  // ISO 8601, the default
-@DateFormat(.unixSeconds)          var ts: Date
-@DateFormat(.rfc9110)              var expires: Date   // all 3 forms RFC 9110 requires
-@DateFormat(.pattern("yyyy-MM-dd")) var day: Date      // checked at compile time
-@DateFormat(.iso8601, .unixMillis) var updated: Date   // candidate chain; fallback warns
-```
-
-The blocking question — where the epoch conversion lives, given the core's no-Foundation
-rule — dissolved once the conversion was recognised as *arithmetic*, not calendar lookup:
-Hinnant's days-from-civil is a handful of integer operations, so the parsers live in
-`AssayCore/DateParser.swift` and return epoch seconds as `Double`. The macro emits
-`Date(timeIntervalSince1970:)` **into the user's module**, where `var created: Date` had
-already forced a Foundation flavour into scope. No protocol, no retroactive conformance,
-no `AssayFoundation` requirement — and the seam is pinned by a test that decodes into a
-local stub `Date`.
-
-Rules `.before` / `.after` / `.between` ship with it, type-checked at expansion, bounds
-parsed once at rule construction, violations rendered as dates.
-
-**Still deferred, with reasons:**
-
-- **`.past` / `.future` rules.** They need "now", the core has no clock, and a clock seam
-  is a design decision (injected? ambient? testable how?) that deserves its own pass.
-- **Full UTS-35 patterns** (locale month names, eras). Deliberately excluded from the
-  core forever — `EXPERIENCE.md` §11's ICU-cost argument — and still unbuilt in the
-  Foundation-dependent layer where it would be an opt-in.
-- ~~**Date *encoding***~~ — **built 2026-08-09** with the rest of encoding (§1). The
-  preserved `@DateFormat` placement data is what made it additive rather than a redesign,
-  which was the whole bet §1 describes.
-
----
-
-## 3. `@Inline` and `@Key(path:)` — both BUILT 2026-09-08
-
-`EXPERIENCE.md` §4.
-
-### `@Key(path:)` — BUILT 2026-09-08
-
-```swift
-@Schema
-struct Card {
-    @Key(path: "profile.display_name") var displayName: String
-    @Key(path: "profile.avatar")       var avatar: String?
-    @Key(path: "meta.stats.views")     var views: Int
-    var id: String
-}
-```
-
-Both open questions are answered, and the answers are in
-`Sources/AssayMacros/PathKeys.swift` beside the code rather than here.
-
-**Where the caret goes.** *The path names the segment that failed; the caret points at the
-innermost thing that existed.* Three cases, because there are three failures:
-
-| document | reports |
-|---|---|
-| `{"id":"x"}` | `.missing` at `profile` — **once for the group**, not once per field under it |
-| `{"profile":42}` | `.typeMismatch` at `profile`, caret on the `42` |
-| `{"profile":{}}` | `.missing` at `profile.display_name` — the full path |
-
-And the half the question did not name, which the five presence states force: **a missing
-intermediate is absence** (an optional stays nil, a default applies, `@Fallback` fires), while
-**a wrong-typed intermediate is an error even when every field under it is optional**, because
-`missing != wrong` is law everywhere else here.
-
-**What it costs.** It shares the dispatch machinery completely; there is no second pass.
-`profile` is an ordinary top-level key with one arm in the same window-dispatch table every
-other key uses, and that arm descends. Two fields under one prefix are **one arm**, not two.
-
-Measured against the fallback this section used to recommend, with the ship-or-refuse rule
-written before the number — *within 1.15× of the nested-`@Schema` alternative or it does not
-ship*:
-
-```
-shape              bytes   nested ns    paths ns     ratio
-4 leaves             170         419         411     0.98x
-+3 plain keys        208           -         469     1.14x
-```
-
-**0.97–1.01× over four runs** (`Benchmarks/Sources/AssayBench/KeyPathBench.swift`). Read that
-as "the walk costs no more than the nesting" rather than "paths are faster": the nested arm
-also materialises two structs the caller then reaches through, and that asymmetry favours
-paths. Compile time is reported, not gated, like the `arrays` arm beside it: **101 ms/type**
-for a type where *every* field is behind a path, against 72 ms for the flat scalar arm.
-
-**The inner dispatch is a linear chain, not a second window table**, which is a deliberate
-departure from the shape sketched above. A window table is 256 bytes of array literal and
-`COMPILE-TIME.md` rule 1 is that never emitting one bought 16% of expansion time; a group
-holds one to three fields, and `Experiments/01-jump-table` measured that LLVM gives a balanced
-binary search tree below ten arms anyway. The table would buy nothing at runtime and cost real
-time at compile.
-
-**Encoding merges prefixes.** Two paths sharing `profile` write one nested object, because
-`{"profile.name": ...}` is a document this schema cannot read back and that would break
-`ENCODING.md`'s round-trip law for every path field at once.
-
-**One thing found by reading the expansion rather than by a test.** The sparse key-table
-emitter writes every entry differing from a sentinel, and the sentinel was the field count —
-which stops equalling the arm count the moment two fields share a prefix. The result still
-decoded correctly (the `default:` arm catches it) and every test passed, while the expansion
-carried a **253-assignment table literal**, the exact cost rule 1 exists to prevent. A
-compile-time regression with no runtime symptom is invisible to a test suite.
-
-**Index segments are refused**, with a diagnostic naming the alternative. `EXPERIENCE.md` §4
-advertises `meta.tags[0]`; it is not built. Walking a key and indexing an array are different
-operations — an index needs the element counted during the array's own decode, and every rule
-in the table above would need a fourth answer for "the array was shorter than that". That is a
-feature, not a segment type; it is listed in §14 rather than half-built here.
-
-### `@Inline` — BUILT 2026-09-08
-
-```swift
-@Schema
-struct Response {
-    struct Pagination { var page: Int; @Key("per_page") var perPage: Int }
-    @Inline var pagination: Pagination
-    var items: [Item]
-}
-```
-
-**The recorded blocker was the wrong blocker, and correcting it is what built the feature.**
-It said detection "across module boundaries where the macro cannot see the other type's
-members may be expensive or impossible". An attached macro receives the syntax of the
-declaration it is attached to and nothing else — it cannot see another type's members in
-**any** module, including one declared three lines above in the same file. There is no
-lexical peer access and no compile-time string evaluation with which to compare two key sets.
-The question was never what detection costs; it was whether a spelling exists in which it is
-possible at all.
-
-**Requiring the inlined type to be nested is that spelling.** Verified rather than assumed:
-`DeclGroupSyntax.memberBlock.members` contains the nested `StructDeclSyntax`, and walking it
-yields each member *with its attributes* — the probe read `perPage` and its
-`@Key("per_page")` back out.
-
-- **Collision detection is total and at expansion**, falling out of the duplicate-key check
-  that already ran. No module asymmetry to be silent about.
-- **Unknown-key handling works through the inline** — the claim serde's runtime `flatten`
-  cannot make — because the flattened keys are in the outer type's known-key set.
-- **Runtime cost is zero.** One dispatch table, one presence mask, one pass; only the
-  memberwise initialiser reassembles the nested value, and a test asserts an inlined type
-  decodes identically to the flat equivalent, including on a missing key.
-- Compile time unmoved at 65.8 ms, and it should be *negative* for a type that would
-  otherwise be two — flattening deletes a second type's fixed cost, which is
-  `docs/COMPILE-TIME.md` §4's own advice made literal.
-
-An optional inline is refused: with the keys at this level, "all absent" and "some absent"
-are indistinguishable and there is no honest answer for which means nil. A non-nested type
-gets a diagnostic that says why, not just what.
-
-Building it merged the two near-identical construction blocks in `CodeGen` and `RawCodeGen`
-into one helper. They were copies, and adding group reconstruction to one and not the other
-is exactly the drift that makes a feature work on JSON and silently not on YAML — which the
-multi-format test caught on its first run.
-
----
-
-## 4. Format-specific placement: `@XML` — and XML arrays
-
-**Status: BUILT 2026-08-09.** `@XML(.attribute)`, `@XML(.text)` and `@XML(.wrapped)` all
-exist, checked at expansion (an `.attribute` on an array, or a `.wrapped` on a scalar, is a
-compile error). `@XML(root:)` **shipped 2026-09-08**; the deferred decision was what the default should be
-when unannotated, and the answer is an asymmetry: encoding always writes a root (the
-declared name, or the type's), decoding checks one only if you declared it. A root element
-is very often a wrapper the schema does not model — `<soap:Envelope>`, `<response>` — so
-checking one nobody asked for would refuse documents that are fine; but if you wrote it
-down you asserted a fact about the wire, and a mismatch is an **issue**, not a warning.
-Matched on the local name, consistent with the projection.
-
-**The array bug this uncovered is also fixed.** `[T]` fields did not decode from XML at all
-before 2026-08-09, in any shape — see below for what was wrong.
-
-**What that bug was, and it is fixed in both shapes.** `[T]` fields did not decode from XML
-at all: the projection produced a `.mapping` with repeated keys where the schema path expected
-a `.sequence`. Repeated members were preserved (a `Dictionary` would have dropped them), so
-the information was there and ungrouped. Both spellings now work, and they work differently
-on purpose — verified 2026-09-08:
-
-```swift
-var tags: [String]                  // <tags>a</tags><tags>b</tags>  — repeated siblings
-@XML(.wrapped) var tags: [String]   // <tags><item>a</item></tags>   — a wrapper element
-```
-
-Repeated siblings need no annotation because that is simply how XML spells a sequence. The
-wrapper form does need one, and that is the right asymmetry: `<tags>` containing `<item>`
-elements is indistinguishable from a nested object without the schema saying which it means.
-
-This matters for encoding beyond being a bug: `docs/ENCODING.md` question 5 commits the
-encoder to targeting `.input` — writing the document `parse` accepts — so an XML encoder
-cannot emit an array shape the XML decoder refuses. **XML encoding is therefore blocked on
-two decisions, not one**, and they are listed in `docs/ENCODING.md`'s "what remains".
-
-```swift
-@XML(.attribute) var id: String
-@XML(.element)   var title: String
-@XML(.text)      var body: String
-```
-
-Without these, XML decoding maps elements to fields by name and cannot distinguish an attribute
-from a child element. That covers a real slice of documents and not the interesting half.
-
-**Was blocked on:** a decision about the default when unannotated, recorded above.
-
-One implementation note worth carrying to `@Schema(context:)`, which has the same shape: the
-obvious way to make a check optional per type — a no-op on the wide protocol, shadowed by a
-real one on a constrained extension — **does not work**. Overloads resolve from the static
-type, and inside `extension RawDecodable` the compiler does not know `Self: XMLRooted`, so
-the no-op wins for every type including the ones that opted in. It compiles, runs, and checks
-nothing. A metatype cast (`Self.self as? any XMLRooted.Type`), once per document, does work.
-
----
-
-## 5. Shape-tolerance attributes — `@OneOrMany` BUILT, `@PickFirst` CUT
-
-### `@OneOrMany` — built 2026-09-08
-
-```swift
-@OneOrMany var tags: [String]     // "swift" and ["swift"] both decode
-```
-
-**Building it surfaced an undeclared asymmetry.** The `RawValue` path already accepted a
-single value where an array was declared, so `tags: swift` decoded from YAML and was a type
-mismatch as JSON — the same declaration meaning different things per format, which
-`EXPERIENCE.md` §12 explicitly refuses for `coerceScalars`.
-
-It **cannot** simply be made strict, and that is the finding. XML spells a sequence as
-repeated sibling elements, each arriving as its own decode call with the same key, so the raw
-path appends rather than assigns. At that layer a lone `<tag>a</tag>` is indistinguishable
-from `tags: swift` — there is nothing to branch on. Strictness there would break every XML
-array.
-
-So the attribute lands where the tolerance is a genuine choice (the JSON byte path), and the
-asymmetry is stated as a contract with a test pinning it rather than left to be discovered.
-**Closing it properly means grouping repeated members into a `.sequence` in the XML
-projection**, which §4 records as deliberately not done — the members are preserved ungrouped,
-so the information is there. That is the change this waits on, and it is its own.
-
-Encoding always writes an array: the tolerant shape is input-only, which keeps
-`docs/ENCODING.md`'s round-trip law intact.
-
-### `@PickFirst` — cut, and this section's stated blocker was wrong
-
-It said `@PickFirst` "needs a sum-type story first, which is item 6". Item 6 is
-`@Wraps`/`@Unknown`, and **`@Unknown` is a catch-all case on a string enum, not a union** — it
-was never the prerequisite.
-
-The real one is `@Schema(discriminator:)`, which `EXPERIENCE.md` §9 specifies and which is
-absent from this roadmap and from the code entirely. And `@PickFirst var id: StringOrInt`
-cannot be built as spelled regardless: the macro would need `StringOrInt`'s branches and sees
-a token. The sound spelling is an untagged union — `@Schema(discriminator: .untagged)` — which
-*is* pick-first by definition. `CLAUDE.md`'s governing principle exactly: a different
-construct, not a transliteration.
-
-### Unions — BOTH FORMS BUILT 2026-09-09
-
-`EXPERIENCE.md` §9 specifies `@Schema(discriminator: "type")` and `discriminator: .untagged`.
-Neither existed when this section was written, and neither was listed here — a gap in the
-roadmap itself, found while cutting `@PickFirst`.
-
-They force the one thing the decode body was designed never to do: **rewind**. A
-discriminated union must find the tag before choosing a branch (the `"type"` key may appear
-last); an untagged one must try branches and back out, which is exponential under nesting
-without a budget.
-
-**`docs/UNIONS.md` is the design pass this asked for, and the tagged form is built.**
-
-**"Both primitives already exist" was one short.** `seek(to:)` and `IssueSink.rollback(to:)`
-do exist; `depth` is a third piece of state and `seek` does not restore it. Measured rather
-than reasoned (`Tests/AssayTests/RewindTests.swift`): an *ordinary* failure is balanced — a
-body that hits a type mismatch scans to the closing brace, calls `leaveContainer`, and only
-then returns nil — so twenty failed branches leave the reader usable. A **malformed container**
-was not: the arm for an unterminated array returned from inside the enclosing object without
-unwinding it, so each attempt cost a depth level and twenty attempts against a budget of four
-failed the twenty-first decode.
-
-**Fixed at source**, one `leaveContainer()` per collection and path-group error arm. The first
-instinct was to leave it and let the union boundary paper over it, on the grounds that nothing
-else could observe the leak and that the extra lines would cost compile time; the measured cost
-is nil (`arrays` 99.2 ms against 101.6 before, which is noise), and "nothing observes it today"
-is how several of this week's other bugs were made. `AssayReader.Mark`/`restore(_:)` stays as
-the complete rewind — a union driver should not depend on every *future* emitter staying
-balanced — and the source invariant has its own test, asserted with `seek(to:)` alone.
-
-**Why tagged first, and why the split is not arbitrary.** Three of `UNIONS.md`'s four hard
-questions do not apply to a discriminated union: once the tag is read exactly one branch is
-possible, so there is no composed failure to report, no backtracking to bound, and no
-round-trip exception. That is also `EXPERIENCE.md` §9's own argument for preferring a tag.
-
-**Untagged followed the same day**, and needed all three of the questions tagged skipped.
-`UNIONS.md` §6 has the full account; the two findings worth surfacing here:
-
-- **Producing the composed report means running the winning branch twice.** The measuring pass
-  rolls every branch back, so by the time "closest" is known its issues are gone. Snapshotting
-  each branch's issues instead is an allocation per branch on *every* decode, including the
-  ones that succeed immediately; replaying costs one extra decode of one branch, only after
-  the union has already failed.
-- **The budget is not refunded by a rewind**, or it bounds nothing — a `Mark` restores where
-  the reader *is*, not work already done. And a failing union inside an array makes fewer
-  attempts than expected, because `arrayDecode` breaks on the first element that will not
-  decode; a test written with a budget of three never reached it.
-
-**Encoding followed 2026-09-10**, for both forms and exactly as `UNIONS.md` §4 specified it:
-the tagged form writes the payload's object with the tag added (tag first, spelled from the
-case name through `keys:`), the untagged form writes the payload alone. Three things it cost,
-all in `UNIONS.md` §4:
-
-- **Every encoding type's braces had to be split off.** The union cannot write a variant's
-  fields — the payload is a token — and if the variant writes its own braces there is nowhere
-  to put the tag. `@Schema(encodes: true)` now emits `_assayEncodeMembers` plus a three-line
-  `_assayEncode` wrapper, which is a constant per type and not per field. The alternative,
-  popping the variant's closing brace back off the writer's buffer and appending the tag, was
-  free at compile time and rejected: it puts the tag last, and `_scanDiscriminator` would then
-  pre-scan every key of every document this library wrote. Measured on both sides: **under
-  half a millisecond per type, and not growing with fields.** The same run finally measured
-  `encodes: true` itself — **~5%**, against a stated justification that said it would roughly
-  double the per-field cost. `docs/COMPILE-TIME.md` §5.6.
-- **The round-trip law gains its fourth exception**, and only for the untagged form: two
-  variants whose *types* accept the same documents. The macro refuses the same payload token
-  twice and cannot see the rest. `docs/ENCODING.md` §5.
-- **A refusal that was not refusing, and three that were missing.** `formats: .all` sets the
-  RawValue bit and the JSON one, and the guard tested only `formats.json` — so `.all` emitted
-  a JSON-only body, which is the trap the refusal was written to prevent. Wiring `encodes:`
-  through the same guard also turned up `sources:`, `describes:` and `context:` being read
-  past and silently ignored on a union; all three are refused now. `context:` is the one that
-  needed it — the other two eventually produce a type-checker error at a call site, while a
-  contextual union would stay non-contextual with no error anywhere and never pass its
-  context to a check.
-
-The duplicate-payload check *is* built and always was — decoding needs it too, since
-`case a(Int), b(Int)` makes `b` unreachable whether or not anything is encoded.
-
-## 6. `@Wraps` and `@Unknown` — BOTH BUILT
-
-`@Unknown` shipped 2026-08-09. **`@Wraps` shipped 2026-09-08**, and it waited for
-`Assayer<T>` for a concrete reason rather than by accident: before `AssayerBacked` existed a
-wrapper had to hand-write `_assay` twice — bytes and `RawValue` — so this macro would have
-emitted two decode bodies per wrapper, a real compile-time cost on a type whose whole job is
-to hold one scalar.
-
-It now emits a `static let assaySchema` and nothing else; the bodies come from
-`AssayerBacked`'s `@inlinable` defaults, which exist once in `Assay` rather than once per
-wrapper. That is sugar over a hand-writable spelling, which is the layering the rest of the
-library uses.
-
-```swift
-@Wraps(String.self, .email)
-struct EmailAddress {}
-```
-
-- **`init?(_:)` and the decoder run the same rule array**, which is what makes "this type
-  cannot hold an invalid value" true rather than nearly true.
-- **The wrapped type is restricted** to `String`, `Int64`, `Double`, `Bool`. A macro sees a
-  type's name and nothing else, so it cannot emit a reader for one it does not recognise;
-  anything else gets a diagnostic naming the alternative.
-- **Rules are type-checked at expansion** by the same `RuleTypeCheck` `@Validate` uses, so
-  `.email` on an `Int64` wrapper is a compile error in both places for the same reason.
-- `Equatable`/`Hashable`/`CustomStringConvertible` are *declared* and synthesised — the macro
-  cannot check that `String` is `Equatable`, so letting the type checker do it is the only
-  sound route.
-
-The test that matters is that a wrapper and `@Validate(.email)` on a plain `String` produce
-**identical issues** — same code, path and params. A wrapper is not a second validation
-mechanism; it is the same one, reached differently.
-
-## 7. `Assayer<T>` — BUILT 2026-09-08
-
-**The open question is answered: it is one front door with two receivers.** The static verbs
-are spelled on a type, these on a value; same `Diagnosis`, same codes, same renderers. It
-exists for two things `@Schema` cannot express — a schema with no declaration, and a type
-that *is* a constrained scalar rather than an object.
-
-The narrower protocol this section suspected might cover the domain-type case does cover it,
-and does not compete: `AssayerBacked` is the requirement, `Assayer` is the value that fills
-it. Both shipped.
-
-**No macro change.** `CodeGen.swift` already emits `Base._assay(...)` for any unrecognised
-token, so a conforming type is already a nested schema type; the checkpoint test passes with
-`Sources/AssayMacros/` untouched, and the compile-time gate is unmoved at 67.4 ms.
-
-Deliberately not in the first increment, with reasons in `docs/ASSAYER.md`:
-`Assayer.schema(_:)` as a leaf, a bytes-driven interpreter, and scratch reuse — whose
-premise in `CLAUDE.md`'s build order is **stale**, since a `Sendable` schema value cannot own
-mutable scratch.
-
-## 8. `@Schema(context:)` — BUILT 2026-09-08
-
-```swift
-@Schema(context: TenantContext.self)
-struct Invitation {
-    var email: String
-    var role: String
-
-    @Check
-    static func roleIsAllowed(_ i: Invitation, _ ctx: TenantContext,
-                              _ issues: inout Issues<Invitation>) {
-        if !ctx.availableRoles.contains(i.role) { issues.add("is not available", at: \.role) }
-    }
-}
-
-let invite = try Invitation.parse(json: data, context: tenant)
-```
-
-**Why the deferral stopped holding**, since "no users, and an API shaped for imagined users is
-an API shaped wrong" was the right call when it was made. `@Check` shipped in the meantime, so
-a cross-field rule needing a tenant ID has exactly one option today — a global or a `static
-var`, in a library whose types are `Sendable` and whose entire posture is against ambient
-state. And `@AsyncCheck`'s own motivating example in `EXPERIENCE.md` §10,
-`await ctx.users.exists(email:)`, could not be written at all. That is a hole a shipped
-feature created, not an imagined user.
-
-**The macro half only.** The type-erased runtime context §10 describes for `Assayer<T>` is
-still not built and is not on the way: that one would be designing for an imaginary user
-twice over, once for the API and once for the erasure.
-
-**"You cannot forget to pass it" is enforced, not advised.** A contextual type conforms to
-`ContextualJSONAssayable` and *not* to `JSONAssayable`, so `parse(json:)` does not exist for
-it. A defaulted `context: C? = nil` on the existing entry point would have made §10's sentence
-false and handed the checks an optional to unwrap — `userInfo` again with better syntax.
-
-**Every check takes the context, uniformly** — cross-field and field forms both. The macro
-reads a token, not a signature, so a per-check opt-in is not something it could see; getting
-it wrong is an ordinary "cannot convert" at the call site, which names both types.
-
-**Zero cost to types that declare none.** The context type is threaded through code generation
-as a string that is empty in the overwhelming case, so a context-free expansion is
-byte-for-byte what it was before this existed — verified by dumping one and grepping for
-`context`, not assumed. The gate measured 71 ms/type against 100.
-
-**Three things it cost, all overload resolution, all the same lesson.**
-
-1. A plain `@Schema` type containing a contextual one cannot work — there is no context to
-   pass — and the macro cannot detect it, because it sees the token `Membership` and not what
-   `Membership` declared. The bare error was "no exact matches in call to `_assay`", pointing
-   into an expansion nobody wrote. An `@available(*, unavailable)` overload turns it into a
-   sentence naming the fix: what the macro cannot detect, overload resolution can, because it
-   runs after the type checker knows what `Membership` is.
-2. `AssayContext` is declared once on a root `ContextualAssayable` rather than four times.
-   Four copies compile and leave a type conforming to two of them with two same-named
-   associated types a constrained extension cannot equate. The generated body also spells
-   `typealias AssayContext = ...` rather than relying on inference across the refinement,
-   which stops working as soon as a second conformance is in play.
-3. **The async door silently resolved to the synchronous one.** The constrained extension had
-   the `[UInt8]` overload of `diagnose` and not the `String` one, so
-   `await T.diagnose(json: "...", context: c)` had exactly one candidate — the sync overload —
-   and compiled, ran, and skipped every async check. Caught only by a test asserting that a
-   taken email was rejected.
-
-Point 3 is the third time this shape has bitten this library, after `@XML(root:)` and the
-absorbing overload in point 1. The lesson each time: **an overload that is merely not selected
-produces no diagnostic at all.** A feature whose correctness depends on which overload wins
-needs a test that fails when the wrong one does.
-
----
-
-## 9. Content negotiation — BUILT 2026-09-08
-
-```swift
-let user = try User.parse(body: bytes,
-                          contentType: request.headers["Content-Type"],
-                          accepting: [.json])
-```
-
-`accepting:` is **required, with no default**, as specified. What was actually missing was
-not the code but a place to put it: `Assay` cannot depend on `AssayYAML` (the dependency runs
-the other way), and `AssayYAML` cannot host a json+yaml+xml entry point without depending on
-`AssayXML` too. One overload per combination is 2^n entry points.
-
-**Formats are values.** `WireFormat` carries a media-type predicate and a decoder into
-`RawValue`; `AssayCore` vends `.json`, `AssayYAML` vends `.yaml`, `AssayXML` vends `.xml`,
-each in the module that owns its parser. The dependency moves to the call site, where it
-already exists — a caller writing `accepting: [.json, .yaml]` has imported `AssayYAML`.
-
-Decided while building:
-
-- **RFC 6839 structured suffixes are honoured.** `application/vnd.github.v3+json` is JSON.
-  Not a nicety: most versioned APIs spell their content type that way, and a negotiator that
-  misses it rejects all of them.
-- **`charset` is checked, never transcoded.** The core has no converter; `iso-8859-1` is
-  refused rather than quietly read as UTF-8.
-- **No sniffing, ever** — not even when the bytes are obviously JSON and JSON is accepted. A
-  missing or unparseable `Content-Type` is an issue.
-- **`unsupported_media_type` is its own code**, so a server maps it to 415 rather than 400.
-- **A `.json` match routes to the byte path**, via an overload constrained on `JSONAssayable`.
-  Without it, adding negotiation to a service would quietly move every JSON request onto the
-  tree path — the boundary this library exists to delete.
-
-The load-bearing test is that a rejected media type never reaches a parser: a billion-laughs
-XML payload offered to `accepting: [.json]` produces exactly one issue, from negotiation, and
-the XML parser is never entered.
-
-## 10. Property lists — BUILT 2026-09-09
-
-`EXPERIENCE.md` §1, and the full account is in [`docs/PLIST.md`](docs/PLIST.md).
-
-**The deferral above said "mechanically the smallest item on this list". It was wrong in both
-halves, and the half it got wrong is the half with a security surface.**
-
-It is not one format. The XML flavour *is* the projection this section described, and reuses
-`AssayXML`'s parser — which matters beyond not writing a second one, because every XML plist
-ever written carries a `<!DOCTYPE ... SYSTEM "http://www.apple.com/DTDs/...">` and a reader
-that resolved it would be the textbook XXE. That parser refuses external entities by
-construction, so the refusal is inherited rather than reimplemented.
-
-**The binary flavour is not a projection, it is a parser** — a random-access object graph
-steered by a 32-byte trailer at the *end* of the file, where containers hold references and
-every value is reached by index through an offset table. Closer to reading an object file than
-a document. Nothing about the YAML or XML path applies, and it carries two amplification
-attacks that **no existing limit covered**:
-
-- **Reference cycles.** An array whose element ref points at itself. There is no syntax that
-  prevents it — a cycle is a well-formed graph. Closed by a *visiting set on the reference
-  path*, pushed and popped, deliberately not a global "seen" set: an object referenced twice
-  from two branches is **shared**, which is legal and which Foundation's own writer produces
-  by deduplicating repeated values.
-- **Shared-object amplification.** Ten arrays of a thousand references each — under a kilobyte
-  on disk, 10^30 nodes materialised, **no cycle**, and `maxDepth` does not fire because the
-  depth is ten. The plist spelling of billion-laughs. Closed by a node budget charged per
-  materialised node: a real document cannot materialise more nodes than it has bytes to
-  describe them with.
-
-Both bombs are constructed byte by byte in `Tests/AssayTests/PlistTests.swift`. A test that
-asserts a limit exists without building the input it bounds keeps passing when the limit is
-deleted.
-
-**A fuzz arm found a trap on its first run.** `Int(someUInt64)` traps above `Int.max`, and the
-object count, top-object index and offset-table address are all read as `UInt64` straight out
-of the file — so a malformed document crashed instead of reporting. In every other format Assay
-reads, a flipped byte gives a parse error a few bytes later; in a binary plist the trailer is
-the map everything else is read through, so one byte redirects every subsequent read. That is
-why the arm exists: 12,090 mutated, truncated and random documents per run, weighted towards
-the trailer, in `Benchmarks/Sources/DiffFuzz/PlistOracle.swift`, beside a differential that
-decodes 22 documents **Foundation wrote**.
-
-Settled decisions, each with its reasoning in `docs/PLIST.md`: `<data>` becomes a base64
-`.string` rather than a new `RawValue.data` case (which would break every exhaustive switch in
-this package and in user code, for one format's one type — and it makes both flavours produce
-the identical tree); a binary date is the stored `.double` in seconds since 2001-01-01 and an
-XML date is the ISO-8601 text, because converting either would mean choosing an epoch inside a
-Foundation-free core; a UID is an `.int`, since a keyed archive is a different format that
-happens to be written in a plist.
-
-**Two flavours behind one `parse(plist:)`, and that is not sniffing.** The caller already said
-the format is "property list"; binary and XML are two encodings of the one format they named,
-and the discriminator is eight exact magic bytes at offset zero rather than a recognised shape.
-`parse(binaryPlist:)` and `parse(xmlPlist:)` exist for a caller who needs to require one.
-
-Writing plists is not built — no subtlety there, it has simply not been asked for.
-
----
-
-## 11. `jsonSchema(for:)` — BUILT 2026-09-09. `StandardSchema` — blocked on a repository
-
-`EXPERIENCE.md` §§14–15.
-
-### `jsonSchema(for:)` — BUILT
-
-```swift
-@Schema(keys: .snakeCase, describes: true)
-struct Article {
-    @Validate(.min(1), .max(120)) var title: String
-    @Validate(.url) var link: String
-    var tags: [String] = []
-    var summary: String?
-}
-
-let doc = Article.jsonSchema(for: .input)     // JSON Schema 2020-12
-print(Article.jsonSchemaText())               // ready to paste into an OpenAPI spec
-```
-
-**A DESCRIPTOR, NOT DOCUMENT TEXT, and that choice is the feature.** The obvious
-implementation emits the schema string from the macro, and it is wrong for a measured reason:
-cost tracks generated body size, so emitting text would put the whole rule-to-keyword mapping
-— `.min` becomes `minLength` on a String, `minimum` on a number, `minItems` on an array — into
-every user's expansion, once per type. The macro emits a small value naming what it already
-knows; `AssayCore/JSONSchemaRender.swift` renders it once, at runtime.
-
-**The predicted HIGH compile-time risk did not materialise, and the design is why.** This
-section previously flagged the descriptor as "an array literal, the exact shape rule 1 was
-written about". Measured, with a `describes` arm added to `gen_types.sh` for the purpose:
-**94.6 ms/type against the rule-carrying arm's 90.0 — about 5%.** The reason is specific
-rather than lucky: the descriptor *references* the `__assayRules_i_j` statics the validator
-already holds, so a field with three rules contributes one identifier and not three literals.
-
-**The one rule the renderer holds: describe MORE than the type accepts, never less.** The two
-errors are not symmetric — a schema that under-documents costs a reader some guessing, while a
-schema that is too strict makes a correct client unusable with no way for its author to
-discover that the schema is at fault. So a rule with no *exact* 2020-12 equivalent goes into
-`description` prose rather than an approximate keyword:
-
-- `.isTrimmed` / `.isLowercase` are **assertions**, not normalisations — Assay reports
-  `not_trimmed`, it does not trim. An earlier version of the renderer said the opposite in a
-  comment and a test caught it. A `pattern` could express them only approximately (`isTrimmed`
-  is space/tab/CR/LF, ECMA-262's `\s` is wider; `.isLowercase` is full Unicode case folding),
-  and an approximate pattern could be *narrower* than the real check.
-- `.before`/`.after`/`.between` hold epoch seconds while the wire form is a date **string**, so
-  `minimum` would compare the wrong things and 2020-12 has no keyword for the real constraint.
-- An **alias** is described under both keys and required under neither — 2020-12 cannot say
-  "exactly one of these", and requiring either would reject a document that used the other.
-- `additionalProperties: false` **only** for `unknownKeys: .reject`. `.warn` and `.collect`
-  still accept the document.
-
-**`.input` vs `.output` differ exactly where `@Transform` is**, which is the distinction Zod
-added in v4 after shipping the single-document version and finding it wrong.
-
-**Nested types use the metatype trick.** `Author.self` as an `any SchemaDescribing.Type` makes
-the *type checker* verify a conformance the macro cannot see, so a nested type that forgot
-`describes: true` is a compile error naming the real problem rather than a schema that
-silently describes it as `{}`. (The columnar path used the same device, and was the place it
-was worked out; that path is gone and this is where the technique now lives.)
-
-**Two combinations are refused at expansion** rather than described wrongly: `@Key(path:)`
-(JSON Schema's `properties` map is flat, and a field living at `profile.name` would have to be
-described either as a top-level key no document has or as a nested shape this type does not
-read) and `@XML` placement (an attribute is not a JSON property).
-
-### `StandardSchema` — NOT BUILT, and the blocker is a repository rather than a design
-
-`EXPERIENCE.md` §15 proposes publishing it "separately, with no dependency on Assay, and with
-Assay merely being one conformer", and calls it "the highest-leverage thing available, and it
-costs almost nothing."
-
-**Those two sentences cannot both be true, and §15 reads as though they are.** A SwiftPM
-dependency is resolved by every consumer of the package that declares it. If `Assay` declares
-a dependency on `StandardSchema`, then `StandardSchema` is no longer something Assay merely
-conforms to — every Assay user resolves and links it, which is exactly the "hard-code a
-dependency" outcome the proposal exists to avoid. If it does not, the conformance has nowhere
-to live.
-
-The resolution is a **third package**: `StandardSchema` (zero dependencies, the protocol),
-`Assay` (unchanged), and `AssaySchemaAdapter` (depends on both, and holds the one-line
-conformance). That is the standard shape for this problem and it is not expensive — but it is
-**two more repositories**, not a weekend, and it cannot be done from inside this one. It is
-recorded here so the cost is visible before someone starts.
-
-The half that was actually load-bearing — a machine-readable description of a schema — is
-`jsonSchema(for:)` above, and it ships.
-
----
-
-## 12. Source spans for YAML and XML
-
-**Status: BUILT 2026-08-13.** Schema issues on YAML and XML now carry a caret, as JSON's
-always have.
-
-The gap was structural rather than an oversight. JSON decodes from bytes with the cursor in
-hand, so a rule violation reports the offset it is standing on. YAML and XML parse to a node
-model, project it to `RawValue`, and decode from that — and the byte offset was gone by the
-time a `@Validate` rule ran. The same failure rendered with a caret through JSON and without
-one through YAML, which is the wrong way round for the library's headline feature.
-
-`RawValue.Member` now carries an optional `span`, filled by whichever parser knows the
-offset. YAML records it per mapping pair, XML per element content and per attribute value —
-inside the quotes, so a schema issue underlines the value and not the name. Every one of
-those fields is **excluded from `==` and `hash`**, so two documents differing only in
-whitespace stay equal; a span is provenance, not value.
-
-Two things it cost, both measured:
-
-- **~2% on YAML** (`YAML.parse` 6.86x over Yams to 6.69x; struct decode 11.50x to 11.27x),
-  and nothing on XML or JSON. The first implementation cost **25%** by scanning forward from
-  the value looking for a trailing comment, which is O(value) per pair; scanning backward
-  from the end and stopping at the previous newline is O(one line) and got it back.
-- Two guards keep the backward scan correct without tracking quote state: a value ending in
-  a quote is a quoted scalar whose `#` is content, and a walk that reaches a newline is
-  looking at a multi-line value that cannot have a trailing comment.
-
-**Still without spans:** elements inside a sequence or dictionary value. `Member.span` is
-per mapping member, which is the granularity a schema field needs — "the value at this key".
-An `@Validate` rule on an array *element* reports with a path and no caret, exactly as it did
-before.
-
-## 13. Index segments in `@Key(path:)`
-
-**Status: not implemented, and deliberately not folded into §3.** `EXPERIENCE.md` §4
-advertises `@Key(path: "meta.tags[0]")`; the macro refuses it with a diagnostic naming the
-alternative.
-
-It is not a missing segment type, it is a different operation. Walking a key asks a mapping
-for a name; indexing asks an array for its *n*-th element, which means counting during the
-array's own decode loop rather than dispatching on a key. And every rule in §3's caret table
-needs a fourth answer — "the array was shorter than that" — which is neither absence (the
-array was there) nor a type mismatch (the elements are the right type). Half-building it
-would mean shipping a path spelling whose failure mode had no defined report.
-
-Until then: declare the array and take the element in Swift, or use a nested `@Schema` type.
-
----
-
-## 15. `message(locale:)`
-
-**Status: not built, and until 2026-09-10 three documents said it was.** `EXPERIENCE.md`
-§3, `README.md` and `CLAUDE.md` all showed `issue.message(locale: "de_DE")`; no such
-function has ever existed. Found by the audit, which set out to test it.
-
-What exists is the seam: every code is a named constant with documented parameters
+Every issue code is a named constant with documented parameters
 (`Sources/AssayCore/IssueCode+Names.swift`), and the `.json` renderer emits both, so a
-consumer localises today by branching on `code` and formatting `params`. What is deferred is
-the library-side catalogue — a `stringsdict`-backed lookup belongs in `AssayFoundation`, and
-nobody has asked for a translation yet, so building the table would be designing for an
-imagined user. The settled parts of the design stand: an identifier `String`, not a `Locale`
-(`EXPERIENCE.md` §13), and English derived from `code` + `params` as the fallback.
+consumer localises today by branching on `code` and formatting `params`. What is not built is
+the library-side catalogue. It belongs in `AssayFoundation`, and nobody has asked for a
+translation yet. The settled parts of the design: an identifier `String`, not a `Locale`, and
+English derived from `code` + `params` as the fallback. A stub that took the parameter and
+returned English was considered and refused — it is the "accepted and ignored" shape
+`SchemaRefusals.swift` exists to remove.
 
-A stub that took the parameter and returned English was considered and refused: it is the
-"accepted and ignored" shape `SchemaRefusals.swift` exists to remove.
+### `StandardSchema`
 
----
+Blocked on a repository, not a design. "Assay conforms to it" and "Assay does not depend on
+it" cannot both hold inside one package: if `Assay` declares the dependency, every Assay user
+resolves and links it. The resolution is a third package — `StandardSchema` (the protocol,
+zero dependencies), `Assay` (unchanged), and an adapter depending on both that holds the
+one-line conformance. That is two more repositories. The half that was load-bearing, a
+machine-readable description of a schema, is `jsonSchema(for:)` and ships.
 
-## 14. Streaming
+### Record streams and large top-level arrays
 
-**Status: out of scope, documented in `docs/STREAMING.md`.**
+NDJSON / JSON Lines, and iterating the elements of a `[{…}, {…}, …]` document one record at
+a time. Both fit the design, because both keep exactly one record resident: the async
+boundary goes at the record boundary, never inside a decode. Multi-document YAML already
+works this way (`parseAll(yaml:)`). Neither JSON form is built.
 
-Not deferred — decided against, with the reasoning written down. `diagnose` returning issues
-incrementally for very large documents is `EXPERIENCE.md` §20's first open question, and the
-issue cap already covers the memory concern that motivates it.
+For a single document larger than memory, the answer already exists and is better than
+streaming would be: `parse(mmapped:)`.
 
----
+### Smaller things
 
-## Windows: diagnosed, and the first hypothesis was wrong
-
-**Recorded because the wrong guess is the useful part.** `swift test` on Windows ended in
-`error: fatalError` with no source location. This document previously blamed expansion size,
-reasoning that Windows threads default to a 1 MB stack against Unix's 8 MB and that
-swift-syntax walks generated source recursively — which is a coherent story, matches a note
-already in `ci.yml` about WebAssembly needing a 16 MB stack, and is **not what was happening**.
-
-A throwaway diagnostic workflow settled it in two runs by asking three questions at once:
-
-1. Does the library build? **Yes.**
-2. Does a minimal package containing one large `formats: .all, encodes: true` type build?
-   **Yes** — so expansion size is not the trigger and the stack theory is dead.
-3. What does a verbose test-target build actually print?
-
-Question 3 gave nothing on the first attempt, because the generated decode bodies emit
-hundreds of "trailing closure is confusable" warnings and a 120-line tail was every one of
-them and none of the error. Rebuilding with `-suppress-warnings` produced a single line:
-
-```
-MappedFileTests.swift:51:9: error: '_open' is unavailable: Variadic function is unavailable
-```
-
-`_open` is variadic in ucrt — `int _open(const char*, int, ...)` — and Swift cannot import a
-C variadic function. The cause was a Windows shim added days earlier in the belief it was the
-portable spelling; it had never been compiled on Windows because Windows had never been
-tested. The fix replaces POSIX `open`/`write`/`close`/`unlink` with `fopen`/`fwrite`/
-`fclose`/`remove`, which are not variadic, are C89, and exist under exactly those names on
-Darwin, Glibc, Musl and ucrt alike — so the platform branching disappeared rather than
-gaining a third arm.
-
-Two things worth keeping from this:
-
-- **`error: fatalError` is SwiftPM saying "a compile subprocess died", nothing more.** It
-  carries no location and no stack. The same message appeared while verifying this fix on
-  Linux, where the cause was `signal 9` — four stray containers competing for a 4 GiB VM.
-  Two entirely different causes, one message. Treat it as "something died, go find out
-  what", and suppress warnings before theorising: the actual Windows diagnostic was an
-  ordinary unavailability error buried under hundreds of them.
-- **A plausible mechanism is not evidence.** The stack story explained the symptom, cited a
-  real platform difference, and was wrong. It cost one diagnostic run to disprove and would
-  have cost far more to act on.
-
-## Known behavioural gaps found by the pre-release audit
-
-| gap | state |
-|---|---|
-| **A skipped value's contents are not validated** | `skipValue` checks a value's EXTENT — matching brackets, string state, depth — and never what is inside it. `{"known": 1, "unknown": NaN}` decodes through a schema; `JSON.Value.parse` refuses it. Deliberate: skipping is what makes the prefix path 6.3x, and validating a value to discard it spends what skipping saves. Stated so it is a contract rather than a surprise — `T.parse(json:)` validates the structure and the fields it declares, not the whole document. |
-| ~~**Compiled regexes are not cached**~~ | **Fixed 2026-09-08, 28×.** The pattern is compiled once at `Rule` construction — where `.before(_:)` already parses its ISO bound — rather than once per validated value. `.regex` went 12,427 ns → 439; `.each(.regex)` over 20 elements went 12,427 ns/element → 514. The stated blocker ("a cache needs synchronisation the validation path has none of") was real but pointed at the wrong fix: no cache is needed, and the synchronisation problem is that `Regex` carries **no `Sendable` conformance** while `Rule` must be `Sendable` to be a `static let` element. `CompiledPattern` is `@unchecked Sendable` and earns it — the initialiser warms the matching program with a throwaway match while the instance is still local, and a task-group test runs under `--sanitize=thread`. A global pattern→`Regex` cache was rejected: it hashes per value, needs a lock on a path documented as allocation-free, and grows unbounded. **There was no `.regex` row in the per-rule benchmark table** until this change, which is part of why the cost survived so long — it never appeared in the table anyone read. |
-| ~~**Anchors defined in flow style are not recorded**~~ | **Fixed 2026-09-08.** `[&a x, *a]` resolves. Two things came out of it. The Yams/libyaml differential rejected the first version on its first run: it recorded `&q *p` as an alias, and an anchor on an alias is not YAML — an alias is a reference to an already-anchored node, not a node of its own. Block style had accepted that since anchors existed, silently discarding the anchor so a later `*q` failed with "undefined alias" and named the wrong problem; both paths now refuse it with `yaml_anchor_on_alias`. And the obvious rewrite — one `var node` with a shared exit — cost **3.3%** on the YAML node-parse arm by turning four tail calls into an Optional round-trip, so the unanchored path is left byte-for-byte as it was and the duplication is deliberate. **Flow tags (`[!!str 1]`) are the same shape and remain unhandled** — consuming them changes how documents that currently parse `!!str x` as a plain scalar behave, which is its own change. |
-| ~~**YAML indentless block sequences were not parsed — and one form was MIS-parsed**~~ | **Fixed 2026-09-19, the day it was found** (by the portable scaling test, whose fixture used the form). A mapping value's block sequence may sit at the KEY's column (YAML 1.2 §8.2.1) — how Kubernetes, GitHub Actions and compose files are written. The mapping loop treated `nextColumn <= indent` as an empty value, so the dash line came back as a KEY: `items:\n- a` was refused and **`items:\n- name: x` parsed as `{items: "", "- name": "x"}`**. Now a sequence (and only a sequence — a mapping at that column is a sibling) is accepted there, including under properties (`items: &l` then the sequence). The Yams oracle agrees on nine new `indentless-*` corpus documents, including a two-level Kubernetes shape; it had never seen the form, which is why it never caught this. |
-| ~~**`diagnose` stopped collecting at the first wrong-typed container**~~ | **Fixed 2026-09-19.** Found by the leak tests for the `inout` path, and it was on the committed code too. A field declared as an array, a nested schema, a dictionary or an enum that received a value of the wrong type reported the mismatch and LEFT THE VALUE IN PLACE. The caller then read it where it expected `,` or `}`, and one false `malformed_document` replaced every later issue in the document. That is the opposite of what `diagnose` promises. Scalars always resynchronised, which is why the `errors-*` fixtures (a number where a String is declared) never showed it. Every such arm now consumes the value, through one reader helper (`_mismatch`) where a rewind is needed; `InoutPathTests` pins all eight shapes. |
-| ~~**Array element indices were wrong after a failed element**~~ | **Fixed 2026-09-19**, same discovery. The generated element index was `arr.count`, the number decoded so far, so every element after a failed one was reported one too low: element 2 of `[bad, ok, bad]` came out as `items[1]`. A real position counter now, emitted only where something reads it. |
-| ~~**XML parsing near the default depth limit had almost no stack headroom on a worker thread**~~ | **Found and improved 2026-09-19**, when adding three locals to `parseElement` crashed the test suite with SIGBUS. Swift Testing runs tests on secondary threads, whose macOS default stack is 512 KB, and a DEBUG build's `parseElement` frame is roughly 7 KB. Measured on a 512 KB thread: the committed parser survived 64 levels (the default `maxDepth`) but died before 72. So a document at the limit, parsed on a background thread in a debug build, was a few locals from a crash. Attribute resolution and the shape-memory logic now live in `@inline(never)` helpers, as attribute scanning already did: **it now survives 80+ levels on the same thread.** Not fixed in general: the parser is still recursive, and a raised `maxDepth` still needs a larger stack. Release builds have much smaller frames. |
-| ~~**A document key written with a JSON escape never matched its field**~~ | **Fixed 2026-09-19, the day it was found** (by an encode test for keys containing a quote). The decoder matched keys on their RAW bytes: `scanKey` computed `KeyRange.simple` and nothing read it, so `{"a\/b": 1}` did not match `@Key("a/b")`, and Python's default `json.dumps` output (non-ASCII escaped as `\uXXXX`) had its `café` field reported MISSING. Now an escaped key is unescaped into a reader-owned scratch buffer on the cold side of `simple`, reusing the value unescaper, and every reader of key bytes goes through `_keyBytes`, which picks the source. `KeyEscapeTests` covers window and length-bucket dispatch, aliases, `@Key(path:)`, unknown-key names and an invalid escape. **Cost: none measurable** — median instruction change 0.00% across 105 cells (range −3.7% to +2.0%), no call or allocation counter moved. A first version that branched on `simple` in every key read cost +1.5% to +4.8% and made `array-10` lose a hoisted uniqueness check (4,000 → 26,000); storing the byte pointer in `KeyRange` once, in `scanKey`, removed both. |
+- **`.past` / `.future` date rules.** They need "now", the core has no clock, and a clock
+  seam (injected? ambient? testable how?) is a design decision of its own.
+- **Full UTS-35 date patterns** — locale month names, eras. Excluded from the core for good;
+  unbuilt in the Foundation layer, where it would be opt-in.
+- **Writing property lists.** No subtlety; not asked for.
+- **YAML tags in flow style** (`[!!str 1]`). Consuming them changes how documents that
+  currently read `!!str x` as a plain scalar behave, which is its own change.
+- **`Assayer.schema(_:)`** — a `@Schema` type as a leaf of a runtime schema. The plan
+  interprets to `RawValue` and `build` converts, so the leaf either decodes twice or `build`
+  takes the sink and the path. The second is right and is a signature change.
+- **A type-erased runtime context for `Assayer<T>`.** The macro half
+  (`@Schema(context:)`) ships; this would be designing for an imagined user.
 
 ---
 
-## Decoding from rows and columns — built, measured, REMOVED
+## Half built
 
-**Status: removed in full on 2026-09-11.** Two decode paths were built for this and neither
-survives. The idea is attractive enough to be proposed again, so both records stay here.
+### Carets on the `RawValue` path
 
-### The row protocol, withdrawn 2026-08-10 on its own numbers
-
-A `KeyedSource` protocol for decoding one record at a time from anything already parsed and
-addressable by key — database rows, CSV, plists, form data.
-
-- **The premise was false and unchecked.** It was justified by "the `RawValue` path costs an
-  allocation per value per record." `RawValue.mapping` is *one* allocation per record.
-- **It lost to the path it was meant to beat**: 311 ns/record against 95 ns for building a
-  `RawValue` and decoding through the tree path.
-- **It could not accept the borrowed rows it existed for.** A zero-copy row view is
-  `~Escapable`, and `Array` requires `Escapable`, so such a row cannot be an element of
-  anything, cannot be `Equatable`, and cannot outlive the scope that made it.
-- **Its cost landed per row in a driver**, where `@inlinable` is forbidden on generated
-  bodies (SE-0193) and the witness-table call stands: 1.6–4.7×.
-
-### The columnar path, removed 2026-09-11 for a different reason
-
-`ColumnarSource`, `ColumnDecodable`, `RowBatch`, `RowDecoder<T>` and `RowSink`, behind
-`@Schema(sources: true)`. This half won every technical argument the other half lost: a
-column store hands over whole arrays, so there is no per-row borrow, no per-row dispatch and
-no per-row presence ambiguity. It measured 11 ns/row, 6.6–7.1× the tree path, and the write
-side at 1.3 ns/row against 60 for a tree.
-
-**It was removed anyway, and the reason is a product one.** Nothing depended on it — not
-haul, not swizzle, neither of which referenced Assay at all. The audience for Parquet and
-Arrow decoding in Swift is small, the audience that would reach for *this* library to do it
-is smaller, and a decoder that also owns column stores is two libraries wearing one name.
-
-What it cost while it existed is worth recording, because it is the price of keeping a
-feature nobody had asked for:
-
-- ~1,900 lines across `AssayCore`, `Assay`, `AssayMacros` and `AssayFoundation`.
-- `sources: true` roughly doubled a type's expansion, 164 ms against 80 at ten fields.
-- Four test suites, a golden fixture, five benchmark arms, a differential oracle, a separate
-  benchmark target, three design documents and three website pages.
-- Three of the bugs found in the week before its removal were in it: `@Check` and
-  `@Transform` never ran on the batch path, a documented CSV route did not work at all, and
-  `ColumnDecodable` was recorded as free when it cost about 3 ns/row.
-
-**What replaces it.** `T.validate(_:)` — `docs/VALIDATE.md`. A specialised reader decodes at
-its own speed in its own module, and Assay runs the rules afterwards. That was always the
-better seam, and it is now the only one, which makes the answer to "I have a Parquet reader
-and I want Assay's rules" short and unambiguous.
-
-**If it comes back**, it should come back as a separate package that depends on Assay rather
-than as part of it, and only once something concrete needs it.
-
-## Carets on the RawValue path — PARTIAL, and the remaining half is known
-
-**Found 2026-09-11 by showing the recipe pages in YAML and TOML instead of JSON.**
-
-A schema issue carries a caret on the JSON path always, because the reader tracks byte
-offsets inherently. On the `RawValue` path — YAML, XML, TOML, property lists — a caret
-appears only when the macro decided the field "needs a span", and that decision is
-`f.needsSpan || rawScalarCall(...) != nil`: rules, checks, or a built-in scalar type.
-
-So these report with a caret on JSON and **without one** on every other format:
+A schema issue always carries a caret on the JSON path. On YAML, XML, TOML and property
+lists a caret appears only where the macro captured a span: a field with rules, checks, or a
+built-in scalar type. These report with a caret from JSON and without one elsewhere:
 
 | field | example |
 |---|---|
@@ -915,168 +80,78 @@ So these report with a caret on JSON and **without one** on every other format:
 | a `@Wraps` scalar | `contact must be a valid email address` |
 | any nested `@Schema` type | whatever it reports |
 
-Two of these were fixed on 2026-09-10 and 09-11 — a type mismatch on a scalar field, and an
-unknown key — and both were found the same way. This entry exists so the third is found on
-purpose rather than by accident.
+`Date` is cheap to fix — contained to `DateDecode.swift`. The other three report from inside
+`_assay(from: RawValue, into:, at:)`, a protocol requirement, so giving it a span changes a
+signature every conforming type uses; measure it first.
 
-**The two halves cost very differently.**
+Three related limits:
 
-`Date` is cheap: `_assayDate` takes no span, and threading one through it plus
-`reportInvalidDate`, `numberDate` and `mismatch` is contained to `DateDecode.swift` and one
-line of `rawNeedsSpan`.
-
-Enums, wrappers and nested types are not. They report from inside
-`_assay(from: RawValue, into:, at:)`, which is a protocol requirement — giving it a span
-changes the signature every conforming type and every generated body uses. That is a real
-piece of work, and it should be measured: `rawNeedsSpan` exists because capturing a span
-per field is not free, and widening it to "always" is the thing to benchmark first.
-
-One further limit, worth knowing before anyone starts: `RawValue.Member` carries the span of
-the **value**, so even where a caret appears it lands under the value rather than the key.
-For an unknown key the JSON body points at the key. Closing that needs a second span on
-every member.
-
-## Verification gaps
-
-Not features, but they are equally part of "done":
-
-| gap | what is missing |
-|---|---|
-| ~~**Windows**~~ | **Closed 2026-08-29.** The row below is what this said until then, and it is worth keeping visible: *"The CI leg is enabled and has never run — the repository has no remote. Cannot be built from macOS either, so every Windows claim is unverified."* A remote exists, `Test (Windows)` runs on `windows-latest` on every push and gates, and it found a real bug on its first green-to-red transition — `_open` is variadic in ucrt and Swift cannot import C variadics, in a shim that had never been compiled on Windows because Windows had never been tested. |
-| ~~**x86-64 Linux performance**~~ | **Closed 2026-08-20.** Measured on a GitHub-hosted runner via `.github/workflows/benchmark.yml`: **struct decode 10.89×**, the best of the three platforms, and XML **1.39×** over libxml2-backed Foundation. It also found an x86-64-only crash — a struct-returning libc call declared with `@_silgen_name` — that macOS and aarch64 Linux both ran green. `Experiments/01-jump-table`'s threshold is now measured on both architectures and is **not** target-independent: a table appears at N ≥ 4 for `UInt8` on x86-64 against N ≥ 10 on arm64. |
-| ~~**SIMD decoder comparison**~~ | **Closed 2026-08-08 for yyjson, 2026-09-09 for ZippyJSON.** Against yyjson (hand-tuned C, `-O3`): **0.65×** on the use-case arm, **0.78×** float-dense, **0.06×** DOM-vs-DOM — the predicted loss arrived and is published. Against **ZippyJSON**, which is the decoder `CLAUDE.md`'s falsification condition is stated against and was until now a *citation* rather than a measurement: **Assay is 3.0× faster**, scalar Swift against simdjson-underneath, because the only structural difference is a `KeyedDecodingContainer`. ZippyJSON measures 1.65–1.96× over Foundation here — *better* than the 1.38× it was cited at — so the comparison is not flattering Assay by hobbling it. simdjson itself is still not measured directly (C++, needs an interop shim) and answers the parser question yyjson already answered. |
-| ~~**Multi-megabyte documents**~~ | **Closed 2026-09-09.** `LargeDocBench.swift`, 0.2–8.3 MB: **6.90× → 6.60×**, throughput flat at ~700 MB/s. Still not a target band — `PERFORMANCE.md` §14's "no advantage claimed here" stands — but "we do not optimise for it" and "we have not looked" are different sentences and only one was true. A prediction written into the harness *before* the run, that the ratio must shrink towards 1.0 as allocation came to dominate both decoders, was **wrong**, and is recorded rather than edited out. The reading that survives is stronger: the advantage is per-VALUE, not per-document, so identical output allocation cancels rather than converging. |
-| ~~**`[String: T]` dictionary fields**~~ | **Closed 2026-08-07** — implemented on both decode paths, recursive, non-String keys diagnosed at expansion. The "worst case" measured **6.95× over Foundation** (`Benchmarks/RESULTS.md`); the predicted narrowing is visible in the size trend, the predicted risk was not. |
-| **Compile time: previews, cross-compilation, Linux** | Three of `COMPILE-TIME.md` §5's six axes remain open. The other three closed 2026-09-09: **incremental builds** (`incremental.sh` — editing one `@Schema` file costs what editing any file costs, and the gap does not grow with module size, so expansion is not module-wide), **release configuration** (~245 ms/type against debug's ~72, and the ratio against `Codable` reaches 9.51× at 100 types where debug stays near 3.9 — the optimizer is a second pass over the same generated body), and **type-checker pathologies** (zero slow expressions at a 10 ms threshold, which is rules 4 and 6 working: one monomorphic line per field leaves inference nothing to explore). |
-| ~~**Total malloc traffic**~~ | **Closed 2026-09-09, as a bounded Darwin-only addition — and it needed no jemalloc.** `malloc_logger` is the global hook `MallocStackLogging` itself installs; setting it in-process counts every allocate and every deallocate *exactly*, with none of the nano zone's batching that makes the live-block gate undercount 10–15%. Measured: **25 vs 6 allocations for a one-item payload (4.17×), 378 vs 257 at fifty (1.47×)**. Symbol interposition was considered and rejected with a reason rather than untried — defining `malloc` in the executable works on Linux but not on Darwin, where two-level namespace binding means `swift_slowAlloc` never consults it. Reported, **never gated**: total traffic has no a-priori right answer and would fail CI on a change to `String`'s growth policy. Linux still has no exact counter (`mallinfo2` gives bytes, not counts) and the arm prints "unavailable" there rather than guessing. |
-| ~~**Linux allocation counts, instruction counts, ARC traffic**~~ | **Closed 2026-09-19 by Valgrind, which needs no PMU.** `Benchmarks/count.py` runs every profiling-matrix cell under Callgrind and DHAT at K=1 and K=3 calls and subtracts, giving exact per-call instructions, `swift_retain`/`swift_release`/`swift_bridgeObject*` calls, `swift_allocObject`/`malloc`, uniqueness checks and heap blocks/bytes. Runtime call counts were identical across three runs; instructions within 0.001%. Gated on Linux x86-64 and aarch64 by `.github/workflows/efficiency.yml`: calls and blocks RATCHET exactly, Ir +2%. Verified in both directions (an over-declared String capacity failed exactly the two string cells, reverting passed). This is the first retain/release number Assay has ever had, and the first thing it said is in `docs/EFFICIENCY.md`. |
-| ~~**Encoding throughput**~~ | **Closed 2026-09-08; 8.75× / 9.04× since 2026-09-20.** `EncodeBench.swift`: it was **2.85×** over `Encodable` + `JSONEncoder` at 50 and 200 items and 4.54× at one item where Foundation's fixed cost dominates; the efficiency campaign's rows 5, 8 and 22 took it to 8.75× at 50 items, 9.04× at 200 and 11.80× at one. YAML and XML are absolute ns/document — no comparable Foundation encoder exists to divide by, and a ratio against nothing is how a benchmark starts lying. A measurement rather than a thesis: the decode multiple has an argument behind it, this one does not. |
-| ~~**Cold start**~~ | **Closed 2026-09-09, and the "should" held.** `ColdStartBench.swift`, 60 distinct types decoded once each: **first decode 7.7–7.9×, steady state 6.6–6.8×** — the advantage is *wider* at cold start, so the one-time per-type work is where the gap is biggest (~0.8 µs against ~6.3 µs). Method note worth keeping: the headline is the **median** of the per-type samples. The total-based version of the same arm reported 3.3×, 5.8× and 5.2× on three runs of one build, because a few first-of-everything outliers dominate a sum of sixty samples. |
-
-**A note on how two of these closed, because it is the more useful lesson.** The Windows and
-x86-64 rows sat here describing a repository with no remote for some time after the remote
-existed and both legs were green. Nothing detected that; a reader asking "what is unverified?"
-was told something false by the document whose job is to answer exactly that. Rows here are
-now expected to be struck through with a date and a number when they close, and a plan that
-touches verification should re-read this table rather than trusting it.
+- **Elements of a sequence or dictionary value have no span.** `RawValue.Member.span` is per
+  mapping member. A rule on an array element reports with a path and no caret.
+- **A caret lands under the value, never the key.** For an unknown key the JSON path points
+  at the key; the tree path cannot without a second span per member.
+- **XML's `xml_bad_character_reference` and `xml_undeclared_entity` carry no location at
+  all.** The entity resolver works on extracted text with no offsets.
 
 ---
 
-## Phases 4 and 5 of the performance plan
+## Decided against
 
-`CLAUDE.md`'s build order runs to five phases. Phases 1 through 3 are done — the thesis is
-proven, the unclaimed wins that were taken are taken, the codegen discipline holds.
+These are settled. They are recorded so they stay decided.
 
-**Both are RETIRED as of 2026-08-08, unbuilt, on evidence.** Not deferred — cancelled. The
-plan always said "if the numbers say stop, stop and publish it"; the numbers said stop.
+### Incremental parsing of a single document
 
-- UTF-8 validation, which is what a SIMD kernel replaces, is **5.0–5.3% of decode** on the
-  API-shaped payload. A *perfect* validator therefore buys ~5% there, ~13.6% at absolute best on
-  the friendliest shape.
-- The measured gap to hand-tuned C (yyjson) is **~1.5×** on the use-case arm. A 5% slice does not
-  close it.
-- Phase 5 was gated on phase 4's x86-64 numbers. Phase 4 will not produce any.
+Feeding bytes as they arrive and getting a partial value back. It breaks four commitments at
+once: whole-buffer UTF-8 validation up front, zero-copy string slices into the input, byte
+offset source spans (line and column are derived later, from the buffer), and synchronous
+decode. Record streams keep all four by scoping residency to the record; this cannot.
 
-Full reasoning and tables: `docs/PERFORMANCE.md` §14 and `Benchmarks/RESULTS.md`. `Sources/AssaySIMD/`
-stays empty. Experiments #2–#4 remain valid and are worth keeping — they establish that `Builtin`
-intrinsics resolve, emit real NEON, and survive versioned dependency resolution, and that
-`-mattr=+avx2` does nothing. That is a door left open, not a plan.
+### SIMD and C
 
-## Small integer widths — BUILT 2026-08-31
+Retired unbuilt, on a measurement: UTF-8 validation, which is what a SIMD kernel replaces, is
+about 5% of decode on the API-shaped payload, and the gap to hand-tuned C (yyjson) is about
+1.5×. A 5% slice does not close it. `Benchmarks/RESULTS.md` publishes the yyjson losses.
 
-`Int8`, `Int16`, `UInt8`, `UInt16`, `UInt32` and `UInt64` are field types on every path:
-JSON, `RawValue` (YAML/XML), validation rules and all three encoders. `[UInt8]` works with
-them, which is also the answer to `Data` being refused.
+### Decoding from rows and column stores
 
-**`UInt64` cannot reach its own maximum**, and that is inherited rather than introduced:
-`scanInt64` returns `Int64`, so any unsigned value above `Int64.max` fails to scan. `UInt`
-has had exactly this ceiling since it was added. Lifting it needs a `scanUInt64` in the
-number parser — its own change, with its own tests. There is a test pinning the current
-behaviour so whoever writes it finds a green assertion rather than a surprise.
+Built twice, removed twice — do not rebuild either inside Assay. A row protocol lost to the
+path it was meant to beat. A columnar path won every technical argument (11 ns/row) and was
+removed for a product reason: nothing depended on it, the audience is small, and a decoder
+that also owns column stores is two libraries wearing one name. It cost about 1,900 lines and
+doubled expansion for types that used it.
 
-Two pre-existing bugs surfaced while doing this and were fixed with it, both in the
-functions being extended:
+What serves the use case is [`T.validate(_:)`](docs/VALIDATE.md): a specialised reader
+decodes at its own speed in its own module, and Assay runs the rules afterwards. If a
+columnar decoder comes back, it is a separate package that depends on Assay.
 
-- **`decodeInt64` and `decodeInt32` never called `beginValue()`**, so validation carets on
-  those fields pointed at the wrong bytes — for `{"wide": 999, ...}` the span came out as
-  (lo: 0, len: 9), the start of the document. `Int` was correct, which is why it survived
-  the golden caret tests.
-- **`write(_ v: UInt)` reinterpreted the bit pattern** rather than converting, so every
-  unsigned value above `Int64.max` encoded as negative: `UInt.max` came out as `-1`.
-  Well-formed JSON carrying a different number, against a stated round-trip law. Not
-  reachable by decoding, since the scanner caps input at `Int64.max`; reachable by any
-  program that constructs the value and encodes it.
+### `@PickFirst`
 
-## Array element issues — FIXED 2026-09-08, and one worse thing found next to it
+Cut. The macro would need the branches of a type it sees only as a token. The sound spelling
+is an untagged union — `@Schema(discriminator: .untagged)` — which is pick-first by
+definition, and ships.
 
-`[Int32]`, `[UInt8]` or any array with a bad element reported `[.key("xs")]` and named no
-element. It now reports `[.key("xs"), .index(1)]`.
+---
 
-The index is passed to the decode primitive as a **scalar argument** and consumed inside the
-cold `@inline(never)` failure path, so the emitted loop still contains no `path + [...]` and
-allocates nothing per element — that is structural, not a hope that the optimiser sinks
-something, and the emitted source was read to confirm it. Measured anyway: struct decode
-8.94× before, 9.01× after; prefix+skip 6.19× before, 6.18× after.
+## Contracts worth knowing
 
-**Not** the empty-`StaticString` sentinel the rule engine uses for the same purpose. The XML
-projection stores an `@XML(.text)` field under a reserved EMPTY key, so a sentinel spelled
-that way has a real collision in it. An explicit defaulted `Int` has none.
+- **A skipped value's contents are not validated.** `skipValue` checks extent — brackets,
+  string state, depth — not what is inside. `{"known": 1, "unknown": NaN}` decodes through a
+  schema that does not declare `unknown`; `JSON.Value.parse` refuses it. Deliberate: skipping
+  is what makes the prefix path fast. `T.parse(json:)` validates the structure and the fields
+  it declares, not the whole document.
+- **XML internal entity values are not re-expanded.** `<!ENTITY a "&b;">` yields the literal
+  text `&b;` rather than resolving `b`. A deliberate stopping point — it is what makes the
+  expansion budget trivially sufficient — and a difference from a fully conforming parser.
+- **The XML parser is recursive.** At the default `maxDepth` of 64 it has headroom on a
+  512 KB worker-thread stack in a debug build; a raised `maxDepth` needs a larger stack.
 
-**The worse defect, found by a test written for this one.** A collection field whose whole
-value is wrong — `{"xs": 5}` against `var xs: [String]` — reported an issue whose path was
-**empty**. Not a missing index: no field name at all. Both the array and dictionary arms now
-name the field. That is fixed here because it is the same three lines and the same reader,
-and leaving it would have meant shipping a better element diagnostic next to a worse field
-one.
+---
 
-**Still open:** an element inside a *nested* array (`[[Double]]`) gets the outer index only.
-The inner index needs a prebuilt path prefix per outer element rather than a scalar, which is
-a different trade — it is the one place this change would have added an allocation, so it was
-not taken blind.
+## Not yet measured
 
-## The eagerly-built diagnostic path — FIXED 2026-09-10, after being wrongly closed
-
-> **The code this entry is about was removed on 2026-09-11 with the rest of the columnar
-> path.** The entry stays because the lesson is not about columns. The same mistake — a
-> diagnostic path threaded eagerly through a hot loop, invisible to every test because tests
-> assert on diagnostics and never on what producing them cost — was found three times in one
-> week, and the third was in `JSON.Value.parse`, which is still here.
-
-
-A report (haul's, 2026-09-01) measured `path + [.index(__r)]` per row on the columnar path
-and proposed building it inside the failure branches. The change was made on 2026-09-06,
-then **reverted on 2026-09-07** with a record claiming the optimiser sank the allocation on
-its own — "byte-identical machine code" — and that the real body ran at ~14 ns/row. That
-record was wrong. A slow re-read of the columnar path on 2026-09-10 measured the shipped
-`_assayBatch` at **52.6 ns/row against 9.6 for the same semantics hand-written**, with the
-values consumed; the `pathab` arm showed the real body sitting with the *eager* hand-rolled
-arm (54 ns), not the lazy one (15). The `ColumnDecodable` arm, at 42.65 ns/row, was the same
-allocation wearing a different name.
-
-**What was done instead of moving the line.** There is no per-row path at all now. The
-generated loop writes two integers into the sink (`IssueSink._enterRow(row, depth:)`), and
-`sink.add` — cold, never inlined — inserts `.index(row)` into whatever is reported during
-that row: a missing value, a rule failure, a `@Fallback` warning. The rule engine needed no
-change, so a rule-carrying schema gets the same win as a rule-free one, which the reverted
-change never gave it (that version kept the per-row binding whenever rules were present).
-
-| | before | after |
-|---|---|---|
-| `_assayBatch`, 8 columns, 200k rows | 52.6 ns/row | **11.2** (floor with no checks: 9.7) |
-| batch vs row-wise `RawValue` path | 1.27× | **8.4×** |
-| `ColumnDecodable` custom scalar | 42.29 ns/row | **4.06** |
-| cross-module, generic over the schema | 1.03× | 1.13× |
-
-Same diagnostics, pinned by the same tests plus three more (overflow, fallback warning,
-context cleared). A second bug fell out of the read: a narrowing conversion that overflowed
-(`Int32` from an `Int64` column) was reported as `missing`; it is `number_overflow` now.
-
-**The JSON half stands.** Deleting the concat outright from the macro moved a nested array
-element from 61.89 to 60.66 ns; the parent-pointer redesign it was proposed for is still not
-justified by that number.
-
-**The lesson is about the 2026-09-07 record, not the code.** The `colfloor` arm exists so
-the next regression here is caught by a benchmark that consumes its result and compares
-against a hand-written floor; the allocation gate cannot see a per-row block that is freed
-within the row, and a benchmark that reads only `.count` sees nothing at all.
-
+| | |
+|---|---|
+| **Compile time: previews, cross-compilation, Linux** | Three of [`docs/COMPILE-TIME.md`](docs/COMPILE-TIME.md) §5's six axes. Incremental builds, release configuration and type-checker pathologies are measured. |
+| **simdjson, directly** | Needs a C++ interop shim. yyjson (hand-tuned C) and ZippyJSON (simdjson under `Codable`) are both measured. |
+| **Total allocation counts on Linux** | `mallinfo2` gives bytes, not counts; the arm prints "unavailable". Exact counts exist there under Valgrind (`Benchmarks/count.py`). |
+| **Wasm `simd128`** | Not run; needs the SDK, and gates nothing with SIMD retired. |

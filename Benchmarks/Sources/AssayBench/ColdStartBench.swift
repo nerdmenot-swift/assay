@@ -6,9 +6,8 @@
 // Cold start. Measured 2026-09-09, closing the last item in `CLAUDE.md`'s "Start here now".
 //
 // THE CLAIM BEING TESTED, quoted so it cannot drift: *"a macro emitting no `CodingKeys` should
-// win structurally."* `ROADMAP.md`'s verification table already flags it as "exactly the kind
-// of should that this file exists to stop anyone asserting", which is why this arm exists
-// rather than the sentence.
+// win structurally."* That is exactly the kind of "should" a measurement exists to stop
+// anyone asserting, which is why this arm exists rather than the sentence.
 //
 // WHAT COLD START MEANS HERE, precisely, because the phrase is used for three different things
 // and only one of them is measurable in a benchmark harness:

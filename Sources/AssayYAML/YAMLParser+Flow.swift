@@ -151,7 +151,7 @@ extension YAML.Parser {
         //
         // Tags (`[!!str 1]`) are the same shape and are still not handled here. Left
         // deliberately: consuming them changes how documents that currently parse
-        // `!!str x` as a plain scalar behave, which is its own change. ROADMAP carries it.
+        // `!!str x` as a plain scalar behave, which is its own change. ROADMAP.md carries it.
         // `if`, not `while`: YAML permits at most one anchor per node, so a loop here
         // would only ever accept `&a &b x`, which is not a document anyone can write.
         var anchor: String?

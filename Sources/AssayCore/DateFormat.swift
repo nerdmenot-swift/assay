@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// Dates, without Foundation. ROADMAP.md §2, unblocked.
+// Dates, without Foundation. unblocked.
 //
 // The design question that kept this deferred was "where does the epoch conversion live,
 // given the core's no-Foundation rule?" The answer that unblocks it: the conversion is
@@ -17,8 +17,7 @@
 //
 // Foundation's `ISO8601DateFormatter` allocates an NSDateComponents round trip per parse
 // and reaches ICU; the arithmetic actually required is two dozen integer operations.
-// PERFORMANCE.md §13.2 lists this as an unclaimed win — the claim is settled by
-// `Benchmarks`, not asserted here.
+// Whether that is a win is settled by `Benchmarks`, not asserted here.
 //
 // EVERY FAILURE NAMES ITS POSITION AND ITS REASON. "invalid date" is the error message
 // this library exists to not produce. A failed parse says which byte and what was

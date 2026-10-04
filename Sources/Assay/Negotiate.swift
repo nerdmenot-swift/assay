@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `parse(body:contentType:accepting:)`. ROADMAP §9, EXPERIENCE §12.
+// `parse(body:contentType:accepting:)`. EXPERIENCE §12.
 //
 // The design was settled long before the code: `accepting:` is REQUIRED, with no default,
 // because an unbounded format guess on untrusted input is how you get XXE and

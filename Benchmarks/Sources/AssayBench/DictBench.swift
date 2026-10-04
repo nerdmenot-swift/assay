@@ -3,8 +3,8 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// Dictionary fields — PERFORMANCE.md §2.5's stated structural worst case, measured now
-// that it exists instead of assumed while it did not.
+// Dictionary fields — the design's stated structural worst case, measured now that it
+// exists instead of assumed while it did not.
 //
 // Why it is the worst case: Assay must build the user's Dictionary — a hash and a
 // `String` per key, the cost it deletes everywhere else by matching keys against
@@ -40,7 +40,7 @@ struct CodableStringMap: Codable {
 
 func runDictionaryBenchmarks(corpusDir: URL, sizes: [String]) {
     print("")
-    print("Dictionary decode — the stated worst case (PERFORMANCE.md §2.5)")
+    print("Dictionary decode — the design's stated worst case")
     print("[String: T] must build the user's Dictionary: a hash and a String per key,")
     print("the cost the struct path deletes. Corpus objects wrapped as {\"m\": ...}.")
     print(

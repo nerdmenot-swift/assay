@@ -7,7 +7,7 @@ when your type *is* a constrained scalar rather than a thing with fields.
 `Assayer<T>` is the answer to both. Same `Diagnosis`, same issue codes, same rules; the verbs
 just live on a value instead of a type.
 
-*Built 2026-09-08. `ROADMAP.md` §7, `EXPERIENCE.md` §8 and §17.*
+*Built 2026-09-08. `EXPERIENCE.md` §8 and §17.*
 
 ## The question this was held back on
 

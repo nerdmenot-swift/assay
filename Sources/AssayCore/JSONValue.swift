@@ -13,7 +13,7 @@
 //   * **Object members are ORDERED and duplicates are preserved.** RFC 8259 leaves
 //     duplicate keys undefined, and silently dropping one is the worst available answer.
 //     A Dictionary would also cost a SipHash per key on construction — the exact overhead
-//     PERFORMANCE.md §1.2 identifies as Foundation's largest structural cost.
+//     that is Foundation's largest structural cost.
 //
 //   * **No `indirect`.** Recursion runs through `Array`, which already provides the
 //     indirection, so scalars are stored inline in the enum rather than boxed. An

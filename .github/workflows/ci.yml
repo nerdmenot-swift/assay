@@ -16,11 +16,10 @@ name: CI
 # maximum and cancel the run without ever failing. Owning them is both more honest and
 # faster.
 #
-# A platform is only "supported" if CI runs the test suite on it.
-# docs/research/cross-platform-audit.md §9 is blunt about the trap here: the standard
-# swiftlang reusable workflow tests **Linux and Windows only** out of the box, and every
-# other platform is an opt-in flag that defaults to false. That is how libraries end up
-# advertising a platform list nobody ever ran.
+# A platform is only "supported" if CI runs the test suite on it. The trap here: the
+# standard swiftlang reusable workflow tests **Linux and Windows only** out of the box, and
+# every other platform is an opt-in flag that defaults to false. That is how libraries end
+# up advertising a platform list nobody ever ran.
 #
 # So every flag below is set explicitly, including the ones that are already the default,
 # so that the matrix is readable as a claim rather than inferred from an absence.

@@ -6,7 +6,7 @@
 // Building a JSON.Value from bytes, on the existing scanner.
 //
 // This is the *document* path, and it is deliberately not the primary one.
-// PERFORMANCE.md §1.3 measures a map/tree DOM at 2-7x against direct-to-struct, and
+// A map/tree DOM costs 2-7x against direct-to-struct in published measurements, and
 // sonic-rs's own README shows 6.8x on its DOM path against 2.8x on its struct path from
 // the same library. Nothing here is on the `@Schema` hot path — a schema decodes straight
 // into your fields and never builds one of these.

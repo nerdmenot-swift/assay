@@ -5,7 +5,7 @@
 //===----------------------------------------------------------------------===//
 // Rewind — the invariant unions are built on, pinned before they are built.
 //
-// `ROADMAP.md` §5 says unions "force the one thing the decode body was designed never to do:
+// The roadmap said unions "force the one thing the decode body was designed never to do:
 // **rewind**", and that both primitives already exist — `AssayReader.seek(to:)` and
 // `IssueSink.rollback(to:)`. They do. What that sentence does not say is whether a *failed*
 // decode leaves the reader in a state the next attempt can use, and an untagged union is

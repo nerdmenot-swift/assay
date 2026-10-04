@@ -8,7 +8,7 @@
     arcsum.py compare   <golden dir> <current dir> [--strict]
 
 `summarise` reads the optimisation record `-Rpass-missed=sil-assembly-vision-remark-gen`
-writes (docs/research/perf-swift-codegen.md §1.8) and prints one line per
+writes and prints one line per
 (function, kind): how many retain / release / heap box / heap ref / runtime cast SITES the
 optimiser could not remove. Keyed by demangled function name, never by line, so an edit
 elsewhere in a file does not churn the golden. Verified 2026-09-19: two clean builds produce

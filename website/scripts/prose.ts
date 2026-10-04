@@ -205,7 +205,7 @@ function walk(dir: string, out: string[] = []): string[] {
  * a wider tolerance, because "about 6×" is a legitimate rounding of anything from 5.5 to 6.5
  * and the question is only whether SOMETHING live is nearby.
  *
- * And it treated all of RESULTS.md as live. That file is a journal: it carries the original
+ * And it treated all of RESULTS.md as live. That file was then a journal: it carried the original
  * measurement next to the current one, so the stale 6.06× was "in RESULTS.md" and passed. Only
  * the headline table counts now, which is what CLAUDE.md actually says is the source.
  */
@@ -233,8 +233,8 @@ function ratioCheck(pages: readonly { slug: string; file: string }[]): string[] 
   try {
     const all = readFileSync(RESULTS, 'utf8')
     // The headline table ONLY — from its header row to the blank line that ends it. The rest
-    // of the file is a journal and carries superseded figures beside the current ones.
-    const start = all.indexOf('| arm | number | against | journal |')
+    // of the file is other platforms and older runs, which are not the current figures.
+    const start = all.indexOf('| arm | number | against | source |')
     const table = start < 0 ? all : all.slice(start, all.indexOf('\n\n', start))
     live = [...table.matchAll(/(\d+(?:\.\d+)?)(?=×)/g)].map((m) => Number(m[1]))
   } catch {

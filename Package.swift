@@ -25,7 +25,6 @@ let package = Package(
     // requirement on Linux, Windows or WebAssembly — those are governed entirely by what
     // the toolchain supports. This line is not a statement that Assay is
     // Apple-only; it is the Apple deployment floor and nothing else.
-    // (docs/research/cross-platform-audit.md §9.)
     //
     // Two things force the value:
     //   * swift-syntax's SwiftSyntaxMacros/SwiftCompilerPlugin require macOS 10.15, and
@@ -158,7 +157,7 @@ let package = Package(
     ]
 )
 
-// AssaySIMD is deliberately absent until phase 4. Experiments/02-builtin/RESULTS.md
-// confirms the BuiltinModule route works and survives versioned dependency resolution,
-// so adding it later is additive. Experiments also showed `-Xllvm -mattr=+avx2` does
-// nothing, so x86-64 AVX2 will require a C target or nothing at all.
+// AssaySIMD is deliberately absent: the SIMD phase was retired unbuilt (ROADMAP.md). An
+// experiment confirmed the BuiltinModule route works and survives versioned dependency
+// resolution, so adding it later would be additive. Experiments also showed `-Xllvm -mattr=+avx2` does nothing, so
+// x86-64 AVX2 will require a C target or nothing at all.

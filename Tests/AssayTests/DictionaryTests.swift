@@ -5,7 +5,7 @@
 //===----------------------------------------------------------------------===//
 // [String: T] dictionary fields — the gap that read as a bug rather than a roadmap
 // item. A serde without dictionary decode is a wall a user hits in the first ten
-// minutes, and PERFORMANCE.md §2.5 calls it the structural worst case, so it needs to
+// minutes, and it was predicted to be the structural worst case, so it needs to
 // exist before any of that can be measured rather than assumed.
 //===----------------------------------------------------------------------===//
 

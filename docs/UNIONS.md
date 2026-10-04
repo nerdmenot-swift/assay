@@ -8,7 +8,7 @@ is the design. The code is downstream of it, which is why this document exists a
 written first.
 
 Unions arrived by accident, incidentally: they were absent from the roadmap entirely until
-cutting `@PickFirst` turned them up as the real blocker behind it (`ROADMAP.md` §5).
+cutting `@PickFirst` turned them up as the real blocker behind it (`ROADMAP.md`).
 
 ```swift
 @Schema(discriminator: "type")
@@ -27,7 +27,7 @@ enum StringOrNumber { case text(String), number(Double) }
 ## 1. Why this is the one construct the decode body was designed against
 
 Every other feature in this library reads forward. The scanner has a cursor that only
-advances; `PERFORMANCE.md`'s whole argument is a single pass with no lookahead beyond a byte.
+advances; the whole performance argument is a single pass with no lookahead beyond a byte.
 
 A union cannot do that, for two different reasons:
 

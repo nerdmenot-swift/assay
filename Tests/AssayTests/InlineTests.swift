@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `@Inline`, built 2026-09-08. EXPERIENCE §4, ROADMAP §3.
+// `@Inline`, built 2026-09-08. EXPERIENCE §4.
 //
 // ROADMAP recorded this as blocked on "whether cross-module collision detection is
 // achievable at all". That was the wrong diagnosis, and correcting it is what unblocked the

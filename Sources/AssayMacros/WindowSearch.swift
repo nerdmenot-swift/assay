@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// The compile-time key dispatcher. docs/PERFORMANCE.md §4.2.
+// The compile-time key dispatcher.
 //
 // This is simdjson's `key_selector.h` tier 1, run at macro-expansion time instead of at
 // `consteval` time. In simdjson's own words:
@@ -59,7 +59,7 @@ enum WindowSearch {
 
     /// Search `(byteOffset, shift)` for a window whose value is distinct across every
     /// candidate. Returns nil when no such window exists — the caller then falls back to
-    /// length bucketing (§4.3).
+    /// length bucketing.
     static func search(_ candidates: [Candidate], fieldCount: Int) -> WindowPlan? {
         guard !candidates.isEmpty else { return nil }
         let keys = candidates.map { Array($0.wireKey.utf8) }
@@ -108,7 +108,7 @@ enum WindowSearch {
     ///
     /// `search` needs one window distinct across EVERY key, which is a birthday bound:
     /// realistic names lose it at about 13 fields and same-prefix synthetic keys at 11
-    /// (Benchmarks/RESULTS.md, "The field-count sweep"). A length bucket is a much smaller
+    /// (`FieldSweepBench` in the benchmarks). A length bucket is a much smaller
     /// set, and inside one all keys share a length, so every byte up to and including the
     /// closing quote is defined for all of them.
     ///

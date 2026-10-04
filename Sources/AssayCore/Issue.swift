@@ -10,7 +10,7 @@
 // model and it is the difference between a library you can localise and one you
 // cannot.
 //
-// docs/PERFORMANCE.md §7: all of this must cost nothing when the data is valid.
+// All of this must cost nothing when the data is valid.
 // The three rules that keep it free are enforced here and in the generated code:
 //   1. `inout IssueSink` and nothing else — never captured by an escaping closure.
 //   2. Issue construction lives in a separate, cold-marked function.

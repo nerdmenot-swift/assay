@@ -10,13 +10,13 @@
 // Foundation comes from. YAML and XML do not: they parse to their own full-fidelity model,
 // project to `RawValue`, and decode from that.
 //
-// That is a DOM hop, and PERFORMANCE.md §1.3 measures a DOM at 2-7x against
-// direct-to-struct. It is accepted here for three reasons:
+// That is a DOM hop, and a DOM costs 2-7x against direct-to-struct in published
+// measurements. It is accepted here for three reasons:
 //
-//   1. Neither format can use a JSON-style structural index anyway. perf-state-of-the-art
-//      §7.1: YAML's `:` and `-` have no byte-local classification, and "the single most
-//      valuable SIMD primitive in JSON — find the next quote — has no YAML analogue".
-//      YAML tops out around 200 MB/s in the best C implementations.
+//   1. Neither format can use a JSON-style structural index anyway. YAML's `:` and `-`
+//      have no byte-local classification, and the single most valuable SIMD primitive
+//      in JSON — find the next quote — has no YAML analogue. YAML tops out around
+//      200 MB/s in the best C implementations.
 //   2. One extra generated body instead of two keeps the compile-time budget
 //      (docs/COMPILE-TIME.md: ~7.3 ms per field, driven by body size).
 //   3. It reuses the projections that already exist and are already tested.

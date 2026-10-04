@@ -10,7 +10,7 @@
 //
 //   > **Falsification condition, written down on purpose:** if a scalar Swift phase-1
 //   > implementation does not comfortably clear ZippyJSON's 1.38x over Foundation on the
-//   > corpus in `docs/PERFORMANCE.md` §12.2, the thesis is wrong and the SIMD/C work is moot.
+//   > corpus `CorpusGen` generates, the thesis is wrong and the SIMD/C work is moot.
 //
 // and the argument it rests on:
 //

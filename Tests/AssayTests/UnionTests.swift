@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// Discriminated unions, built 2026-09-09. `docs/UNIONS.md`, EXPERIENCE §9, ROADMAP §5.
+// Discriminated unions, built 2026-09-09. `docs/UNIONS.md`, EXPERIENCE §9.
 //
 // The load-bearing suite is `UnionErrors`. `EXPERIENCE.md` §9's entire argument for preferring
 // a discriminator is about failure reporting:

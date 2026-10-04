@@ -10,8 +10,8 @@
 // without making the first one false, which is a distinction worth being explicit about.
 //
 // **THIS IS NOT A TARGET BAND, AND THE NUMBERS ARE NOT AN OPTIMISATION GOAL.**
-// `docs/PERFORMANCE.md` §14 states plainly that Assay does not claim advantage on
-// multi-megabyte documents, and that stands. The corpus is 512 B to 64 kB because that is the
+// Assay does not claim advantage on multi-megabyte documents — that was the design's stated
+// position, and it stands. The corpus is 512 B to 64 kB because that is the
 // API-response shape the whole thesis is about. What was missing was not a claim, it was a
 // *number*: "unmeasured" and "we do not optimise for it" are different sentences, and only one
 // of them was true of both.
@@ -88,7 +88,7 @@ struct CodableBigPayload: Decodable {
 func runLargeDocumentBenchmarks() {
     print("")
     print("Multi-megabyte documents — measured 2026-09-09, previously an unmeasured gap")
-    print("NOT a target band. docs/PERFORMANCE.md §14 says Assay claims no advantage here and")
+    print("NOT a target band. Assay's stated position is that it claims no advantage here and")
     print("that still stands; what was missing was a number, not a claim. The prediction in")
     print("this arm's header — that the ratio would shrink towards 1.0 as allocation came to")
     print("dominate both decoders — was wrong. It is flat. See the header for what that means.")

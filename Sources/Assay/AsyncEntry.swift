@@ -38,7 +38,7 @@ extension JSONAssayable where Self: AsyncCheckAssayable {
         sourceName: String = "<input>"
     ) async -> Diagnosis<Self> {
         // The synchronous pass — the decode itself stays synchronous, in the swifterror
-        // register, exactly as PERFORMANCE.md §3.2 requires. Only the checks await.
+        // register (CLAUDE.md, hard constraint 7). Only the checks await.
         // The non-async function type pins overload resolution to the sync diagnose;
         // without it, an async context prefers this very function and recurses.
         let syncDiagnose: ([UInt8], Limits, String) -> Diagnosis<Self> =

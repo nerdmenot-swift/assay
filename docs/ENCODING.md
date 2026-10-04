@@ -140,7 +140,7 @@ closed set.
 **Recommendation — ACCEPTED AND BUILT: `@Unknown(roundTrips: true)` opts in; the default is
 an encode-time error naming the type and the captured value.**
 
-**The spelling in `ROADMAP.md` §6 did not compile, and that is worth recording rather than
+**The spelling first proposed in the roadmap did not compile, and that is worth recording rather than
 quietly fixing.** It proposed `enum Status: String { case active; @Unknown case other(String) }`
 — but a Swift enum with a raw type cannot have a case with an associated value; the two
 features are mutually exclusive in the language. So the construct changed rather than being
@@ -289,8 +289,8 @@ These six answers shape an encoder; they do not make one fall out of the decoder
 2. ~~**XML encoding.**~~ **Built 2026-08-09.** It was blocked on **two decisions**, both of which need answering before any
    code — the same rule this document was written under.
 
-   **Decision A — what does an unannotated field encode as?** (`ROADMAP.md` §4's stated
-   blocker.) *Recommendation: an element,* with `@XML(.attribute)` and `@XML(.text)` as
+   **Decision A — what does an unannotated field encode as?** (The stated blocker at the
+   time.) *Recommendation: an element,* with `@XML(.attribute)` and `@XML(.text)` as
    opt-ins. An element is the safe superset — attributes cannot nest, cannot repeat, and
    have their whitespace normalised, so anything expressible as an attribute is expressible
    as an element and not the reverse. It also matches what decoding already does: the

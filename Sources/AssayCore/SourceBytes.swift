@@ -14,8 +14,8 @@
 // carets still render, the page faults back in on demand, and resident memory stays
 // bounded by what the kernel chooses to keep.
 //
-// This is the piece that lets docs/STREAMING.md §3.5's mmap finding actually reach the
-// error path rather than stopping at the parser.
+// This is the piece that lets memory-mapped input actually reach the error path rather
+// than stopping at the parser.
 //===----------------------------------------------------------------------===//
 
 /// The bytes a `Diagnosis` was produced from, retained for rendering.

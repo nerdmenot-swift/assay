@@ -5,7 +5,7 @@
 //===----------------------------------------------------------------------===//
 // The binary property list format, `bplist00`, projected onto `RawValue`.
 //
-// `ROADMAP.md` §10 called plists "mechanically the smallest item on this list". That was
+// The roadmap called plists "mechanically the smallest item on this list". That was
 // wrong twice over, and correcting it is what this file is.
 //
 // FIRST: BINARY PLIST IS NOT A PROJECTION, IT IS A PARSER. A YAML or XML document is a tree

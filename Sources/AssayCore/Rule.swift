@@ -44,7 +44,7 @@
 /// WHY A CLASS, AND WHY `@unchecked`. `Regex` carries no `Sendable` conformance — checked
 /// against the shipped `.swiftinterface`, not assumed — and `Rule` must be `Sendable` to be
 /// the element type of a `static let` under Swift 6. That mismatch is the whole of what
-/// `ROADMAP.md` meant by "a cache needs synchronisation the validation path currently has
+/// the roadmap meant by "a cache needs synchronisation the validation path currently has
 /// none of". The `@unchecked` is EARNED rather than asserted, in two steps: the initialiser
 /// warms the matching program with one throwaway match before the value can be shared, so
 /// nothing is lowered lazily on a shared instance afterwards; and
@@ -52,8 +52,8 @@
 /// group, which the suite runs under `--sanitize=thread`.
 ///
 /// A global pattern-to-`Regex` cache was the other option and was rejected: it hashes the
-/// pattern per value — the SipHash-per-value cost `docs/PERFORMANCE.md` §1.2 criticises
-/// Foundation for — needs a lock on a path `docs/VALIDATE.md` §4 documents as
+/// pattern per value — the SipHash-per-value cost Assay faults Foundation for — needs
+/// a lock on a path `docs/VALIDATE.md` §4 documents as
 /// allocation-free and synchronous, and grows without bound.
 @usableFromInline
 final class CompiledPattern: @unchecked Sendable {
@@ -219,9 +219,9 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
     }
 
     /// The pattern is a `String`, never a `Regex` — a `Regex` in a public signature would
-    /// spread `@available(macOS 13, …)` onto every call site that touches a schema
-    /// (cross-platform-audit.md §3). The pattern is validated on first use; an invalid
-    /// pattern reports `invalid_regex_pattern` rather than silently passing.
+    /// spread `@available(macOS 13, …)` onto every call site that touches a schema. The
+    /// pattern is validated on first use; an invalid pattern reports
+    /// `invalid_regex_pattern` rather than silently passing.
     public static func regex(_ pattern: String, or message: String? = nil) -> Rule {
         Rule(.regex(CompiledPattern(pattern)), message: message)
     }

@@ -3,8 +3,8 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// TOTAL malloc traffic. Measured 2026-09-09, closing the last unqualified "unmeasured" in
-// `ROADMAP.md`'s verification table.
+// TOTAL malloc traffic. Measured 2026-09-09, closing the last unqualified "unmeasured" the
+// project had recorded.
 //
 // WHAT WAS MISSING, quoted so the gap is visible next to what closed it: *"The allocation gate
 // counts live blocks, which misses transient allocations freed inside a decode.
@@ -83,7 +83,7 @@ func runTotalAllocationBenchmarks() {
 
     guard assay_total_alloc_supported() != 0 else {
         print("  unavailable on this platform — no exact allocation counter exists here,")
-        print("  and a guessed number is worse than none. ROADMAP records it as open.")
+        print("  and a guessed number is worse than none. ROADMAP.md lists it as not yet measured.")
         return
     }
 

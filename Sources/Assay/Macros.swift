@@ -115,7 +115,7 @@ public macro Unknown(roundTrips: Bool = false) =
 /// declared three lines above: there is no lexical peer access and no compile-time string
 /// evaluation with which to compare two key sets.
 ///
-/// `ROADMAP.md` §3 recorded the blocker as cross-module detection cost. That was the wrong
+/// The roadmap recorded the blocker as cross-module detection cost. That was the wrong
 /// diagnosis — there is no module in which it works — and correcting it is what produced
 /// this spelling. A nested type's members *are* visible, so collision detection here is
 /// total and at expansion, with no asymmetry to be silent about.
@@ -140,7 +140,7 @@ public macro Inline() =
 ///
 /// So `@OneOrMany` is where the tolerance is a genuine choice rather than a consequence, and
 /// `docs/CONFORMANCE.md` states the asymmetry as a contract. Removing it would mean grouping
-/// repeated members into a `.sequence` in the XML projection — see `ROADMAP.md` §5.
+/// repeated members into a `.sequence` in the XML projection.
 ///
 /// Encoding always writes an array. The tolerant shape is input-only, which keeps
 /// `docs/ENCODING.md`'s round-trip law intact: an array is a valid input, so the encoder
@@ -225,7 +225,7 @@ public macro Inverse<Value, Wire>(_ inverse: (Value) -> Wire) =
 public macro Key(_ name: String, or aliases: String...) =
     #externalMacro(module: "AssayMacros", type: "KeyMacro")
 
-/// Reach a field through intermediate objects. `EXPERIENCE.md` §4, `ROADMAP.md` §3.
+/// Reach a field through intermediate objects. `EXPERIENCE.md` §4.
 ///
 ///     @Key(path: "profile.display_name") var displayName: String
 ///

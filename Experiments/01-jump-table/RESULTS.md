@@ -1,6 +1,7 @@
 # Experiment #1 — does field dispatch lower to a jump table?
 
-**Status: ANSWERED — YES. The design assumption in `PERFORMANCE.md` §4 holds.**
+**Status: ANSWERED — YES. The design assumption — that a switch over the candidate index
+is a table, not a scan — holds.**
 
 - Toolchain: Apple Swift 6.3.3 (swift-6.3.3-RELEASE), target `arm64-apple-macosx26.0`
 - Host: macOS 26.5.2, Apple silicon (18 logical cores)
@@ -9,17 +10,17 @@
 
 ## The question
 
-`PERFORMANCE.md` §15.1 called this "the highest-stakes assumption in the document":
-
-> Write a 50-arm switch over a `UInt8` candidate index, dump IR, and look for a genuine
-> `llvm::SwitchInst` rather than a comparison chain. §4 assumes a table; §8's finding that
-> Swift lowers integer-literal patterns to comparison chains says it may not.
+This was the highest-stakes assumption in the performance design. The experiment: write a
+50-arm switch over a `UInt8` candidate index, dump IR, and look for a genuine
+`llvm::SwitchInst` rather than a comparison chain. The dispatch design assumes a table; the
+finding that Swift lowers integer-literal patterns to comparison chains says it may not be
+one.
 
 ## Answer
 
 **LLVM reforms SILGen's output into a jump table (N ≥ 10) or a balanced binary search
-tree (N < 10). It is never a linear scan.** The §8 finding is true *at SILGen* and
-immaterial *after LLVM*.
+tree (N < 10). It is never a linear scan.** The comparison-chain finding is true *at
+SILGen* and immaterial *after LLVM*.
 
 ### N = 50, divergent code per arm — a real arm64 jump table
 
@@ -65,14 +66,15 @@ LLVM's heuristic is making the right call, not failing.
 
 ## Consequences for the macro
 
-1. **The window-dispatch design in §4.2 is sound.** A `UInt8` candidate index from a
+1. **The window-dispatch design is sound.** A `UInt8` candidate index from a
    256-entry window table, switched on, reaches a jump table for types with ≥10 fields.
 2. **Map the candidate index to a dense enum anyway.** It is a real but *small* win, and
-   not the one §6.4 of `perf-swift-codegen.md` predicted. It does not change linear→table;
+   not the one the codegen research predicted. It does not change linear→table;
    it removes the range check (N≥10) or one comparison level (N<10). Free, so take it.
 3. **Do not special-case small structs.** A 4-field struct getting 3 predicted compares is
    fine and probably beats an indirect branch.
-4. **§4.1's warning still stands for `String`.** Nothing here tests string switching;
+4. **The warning against switching over a `String` still stands.** Nothing here tests
+   string switching;
    `_findStringSwitchCase` remains a linear scan and the macro must never emit one.
 
 ## x86-64, measured 2026-08-20 — and the threshold is NOT target-independent

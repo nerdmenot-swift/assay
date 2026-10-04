@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// The machine-readable description of a schema — `EXPERIENCE.md` §14, `ROADMAP.md` §11.
+// The machine-readable description of a schema — `EXPERIENCE.md` §14.
 //
 //     let doc = Article.jsonSchema(for: .input)      // JSON Schema 2020-12
 //

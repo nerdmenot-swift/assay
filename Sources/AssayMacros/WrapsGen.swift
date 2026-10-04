@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// `@Wraps` — sugar for the validated-scalar wrapper. EXPERIENCE §8, ROADMAP §6.
+// `@Wraps` — sugar for the validated-scalar wrapper. EXPERIENCE §8.
 //
 // ```swift
 // @Wraps(String.self, .email)

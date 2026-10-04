@@ -249,3 +249,127 @@ struct PatternTests {
         }
     }
 }
+
+// MARK: - Every failure message, by the input that produces it
+//
+// A date parser's error is a message and a byte offset, and the offset is where the caret
+// goes. The suites above cover the ranges ("month 13", "day 31"); the SHAPE failures — a
+// field that is not digits, a document that stops early, a separator that is not there —
+// had no input at all in three of the four parsers. Each row is the smallest change to a
+// valid date that reaches one arm.
+
+private let patterned = DateFormat.pattern("yyyy-MM-dd HH:mm:ss.SSSZ")
+
+@Suite("Date parser: failure messages and their offsets")
+struct DateFailureTableTests {
+
+    static let iso: [(String, String, Int)] = [
+        ("2024", "ends before the month", 4),
+        ("2024-1x-01T00:00:00Z", "expected a 2-digit month", 5),
+        ("2024-01-0xT00:00:00Z", "expected a 2-digit day", 8),
+        ("2024-01-01Txx:00:00Z", "expected a 2-digit hour", 11),
+        ("2024-01-01T00:xx:00Z", "expected a 2-digit minute", 14),
+        ("2024-01-01T00:00:xxZ", "expected a 2-digit second", 17),
+        ("2024-01-01T00:00:00.Z", "expected digits after the decimal point", 20),
+        ("2024-01-01T00:00:00+xx", "expected a 2-digit offset hour", 20),
+        ("2024-01-01T00:00:00+01:7", "expected a 2-digit offset minute", 23),
+        ("2024-01-01T00:00:00X", "expected 'Z' or a ±hh:mm offset", 19),
+        // Years below 1000 are padded in the message, so it reads as the date was written.
+        ("0099-02-30T00:00:00Z", "day 30 is out of range for 0099-02", 8),
+        ("0009-02-30T00:00:00Z", "day 30 is out of range for 0009-02", 8),
+        ("0000-02-30T00:00:00Z", "day 30 is out of range for 0000-02", 8)
+    ]
+
+    static let http: [(String, String, Int)] = [
+        // IMF-fixdate: `Sun, 06 Nov 1994 08:49:37 GMT`
+        ("Sun, 06 Nov 1994 08:49:37 GM", "IMF-fixdate is exactly 29 characters", 28),
+        ("Sun, xx Nov 1994 08:49:37 GMT", "expected a 2-digit day", 5),
+        ("Sun, 06 Nov 19x4 08:49:37 GMT", "expected a 4-digit year", 12),
+        ("Sun, 06 Nov 1994 08-49-37 GMT", "expected hh:mm:ss", 19),
+        // RFC 850: `Sunday, 06-Nov-94 08:49:37 GMT`
+        ("Sunnday, 06-Nov-94 08:49:37 GMT", "'Sunnday' is not a day name", 0),
+        ("Sunday,06-Nov-94 08:49:37 GMT", "expected ', ' after the day name", 6),
+        ("Sunday, 6-Nov-94 08:49:37 GMT", "expected dd-Mon-yy", 8),
+        ("Sunday, 06-Nvv-94 08:49:37 GMT", "expected a month name (Jan…Dec)", 11),
+        ("Sunday, 06-Nov 94 08:49:37 GMT", "expected '-' after the month", 14),
+        ("Sunday, 06-Nov-9x 08:49:37 GMT", "expected a 2-digit year", 15),
+        ("Sunday, 06-Nov-94T08:49:37 GMT", "expected a space before the time", 17),
+        ("Sunday, 06-Nov-94 08-49-37 GMT", "expected hh:mm:ss", 20),
+        ("Sunday, 06-Nov-94 08:49:37 UTC", "must end with ' GMT'", 26),
+        // asctime: `Sun Nov  6 08:49:37 1994`
+        ("Sun Nov  6 08:49:37 199", "asctime is exactly 24 characters", 23),
+        ("Xxx Nov  6 08:49:37 1994", "'Xxx' is not a day name", 0),
+        ("Sun Nvv  6 08:49:37 1994", "expected a month name (Jan…Dec)", 4),
+        ("Sun Nov  x 08:49:37 1994", "expected a day of month", 9),
+        ("Sun Nov x6 08:49:37 1994", "expected a day of month", 8),
+        ("Sun Nov  6 08-49-37 1994", "expected hh:mm:ss", 13),
+        ("Sun Nov  6 08:49:37 19x4", "expected a 4-digit year", 20)
+    ]
+
+    static let pattern: [(String, String, Int)] = [
+        ("2024-1x-01 00:00:00.000Z", "expected a 2-digit month (01-12)", 5),
+        ("2024-13-01 00:00:00.000Z", "expected a 2-digit month (01-12)", 5),
+        ("2024-01-xx 00:00:00.000Z", "expected a 2-digit day", 8),
+        ("2024-01-00 00:00:00.000Z", "expected a 2-digit day", 8),
+        // A field that IS two digits and is out of range: the caret belongs on the field.
+        // These reported 13, 16 and 19 — the byte after it — until 2026-10-04.
+        ("2024-01-01 24:00:00.000Z", "expected a 2-digit hour (00-23)", 11),
+        ("2024-01-01 00:60:00.000Z", "expected a 2-digit minute (00-59)", 14),
+        ("2024-01-01 00:00:61.000Z", "expected a 2-digit second (00-60)", 17),
+        ("2024-01-01 00:00:00.xxZ", "expected 3-digit milliseconds", 20),
+        ("2024-01-01 00:00:00.000", "ends before the UTC offset ('Z' or ±hh:mm)", 23),
+        ("2024-01-01 00:00:00.000+xx", "expected a 2-digit offset hour", 24),
+        ("2024-01-01 00:00:00.000+01:6x", "expected a 2-digit offset minute", 27),
+        ("2024-01-01 00:00:00.000Q", "expected 'Z' or a ±hh:mm offset", 23),
+        ("2024/01/01 00:00:00.000Z", "expected '-'", 4),
+        ("2024-01-01 00:00:00.000Z!", "unexpected trailing characters", 24),
+        ("2024-02-30 00:00:00.000Z", "day 30 is out of range for 2024-02", 0)
+    ]
+
+    private func check(_ rows: [(String, String, Int)], as format: DateFormat) {
+        for (input, reason, offset) in rows {
+            guard case .failure(let f) = DateParser.parse(input, as: format) else {
+                Issue.record("\(input) parsed; expected: \(reason)")
+                continue
+            }
+            #expect(f.reason == reason, "\(input)")
+            #expect(f.offset == offset, "\(input): \(f.reason)")
+        }
+    }
+
+    @Test("ISO-8601") func isoRows() { check(Self.iso, as: .iso8601) }
+    @Test("RFC 9110, all three spellings") func httpRows() { check(Self.http, as: .rfc9110) }
+    @Test("a pattern") func patternRows() { check(Self.pattern, as: patterned) }
+
+    @Test("a unix timestamp as text needs digits after its point")
+    func unixText() {
+        guard case .failure(let f) = DateParser.parse("1700000000.", as: .unixSeconds) else {
+            Issue.record("expected a failure")
+            return
+        }
+        #expect(f.reason == "expected digits after the decimal point")
+        #expect(f.offset == 11)
+    }
+
+    @Test("the three RFC 9110 spellings name the same instant; a pattern takes both offset forms")
+    func successes() throws {
+        let imf = try DateParser.parse("Sun, 06 Nov 1994 08:49:37 GMT", as: .rfc9110).get()
+        #expect(try DateParser.parse("Sunday, 06-Nov-94 08:49:37 GMT", as: .rfc9110).get() == imf)
+        #expect(try DateParser.parse("Sun Nov  6 08:49:37 1994", as: .rfc9110).get() == imf)
+        // A two-digit asctime day, which takes the other branch of the day read.
+        let later = try DateParser.parse("Wed Nov 16 08:49:37 1994", as: .rfc9110).get()
+        #expect(later == imf + 10 * 86_400)
+
+        let utc = try DateParser.parse("2024-01-01 00:00:00.000Z", as: patterned).get()
+        let east = try DateParser.parse("2024-01-01 00:00:00.000+0130", as: patterned).get()
+        let west = try DateParser.parse("2024-01-01 00:00:00.000-01:30", as: patterned).get()
+        #expect(east == utc - 5_400 && west == utc + 5_400)
+    }
+
+    @Test("an instant with no ISO-8601 spelling formats as the number it is")
+    func nonFinite() {
+        #expect(DateParser.formatISO8601(.infinity) == "inf")
+        #expect(DateParser.formatISO8601(-.infinity) == "-inf")
+        #expect(DateParser.formatISO8601(0) == "1970-01-01T00:00:00Z")
+    }
+}

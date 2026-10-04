@@ -131,6 +131,10 @@ stable for two minor versions with no entry under **Breaking**.
 
 ### Fixed
 
+- **A `.pattern` date with an out-of-range field put its caret two bytes late.** `24` in the
+  hour position of `yyyy-MM-dd HH:mm:ss` reported the offset just past the field, so the
+  caret sat under the `:` that followed. It points at the field now, as the ISO-8601 parser
+  always has.
 - **Rules on a `@Transform` field were type-checked against the wrong type.** Rules run on
   the wire value, before the transform, but the expansion-time check compared them with the
   property's type. So `@Validate(.positive) @Transform({ (s: String) in s.count }) var w: Int`

@@ -633,6 +633,11 @@ public enum DateParser {
         func take(_ n: Int) -> Int? { fixedDigits(b, &i, n) }
 
         for token in tokens {
+            // Where this field BEGINS. `take` advances past digits it accepts, so a field
+            // that parsed and was then out of range — hour 24 — reported `i` two bytes past
+            // itself and put the caret under whatever followed. The ISO parser has always
+            // pointed at the field (`at: i - 2`); this one does now.
+            let start = i
             switch token {
             case .year4:
                 guard let v = take(4) else {
@@ -641,27 +646,27 @@ public enum DateParser {
                 year = v
             case .month2:
                 guard let v = take(2), (1...12).contains(v) else {
-                    return .failure(.init("expected a 2-digit month (01-12)", at: i))
+                    return .failure(.init("expected a 2-digit month (01-12)", at: start))
                 }
                 month = v
             case .day2:
                 guard let v = take(2), v >= 1 else {
-                    return .failure(.init("expected a 2-digit day", at: i))
+                    return .failure(.init("expected a 2-digit day", at: start))
                 }
                 day = v
             case .hour2:
                 guard let v = take(2), v <= 23 else {
-                    return .failure(.init("expected a 2-digit hour (00-23)", at: i))
+                    return .failure(.init("expected a 2-digit hour (00-23)", at: start))
                 }
                 hour = v
             case .minute2:
                 guard let v = take(2), v <= 59 else {
-                    return .failure(.init("expected a 2-digit minute (00-59)", at: i))
+                    return .failure(.init("expected a 2-digit minute (00-59)", at: start))
                 }
                 minute = v
             case .second2:
                 guard let v = take(2), v <= 60 else {
-                    return .failure(.init("expected a 2-digit second (00-60)", at: i))
+                    return .failure(.init("expected a 2-digit second (00-60)", at: start))
                 }
                 second = v
             case .millis3:

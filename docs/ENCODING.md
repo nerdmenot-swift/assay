@@ -15,7 +15,7 @@ test, two do not yet; question 5 says which.
 
 Encoding is opt-in — `@Schema(encodes: true)` — because the writer roughly doubles the
 generated code and most types only ever read. It costs about 5% of the type's compile time
-and measures about 8.75× `JSONEncoder` at fifty items. All four formats:
+and measures about 8.28× `JSONEncoder` at fifty items. All four formats:
 `encodes: true` emits a JSON writer, `.yaml` or `.toml` adds the `RawValue` projection those
 two render from, and `.xml` gets its own body because placement is not expressible in
 `RawValue`.
@@ -241,9 +241,9 @@ The five, and where each is tested:
 |---|---|---|
 | 1 | a `@Fallback` fired | `EncodingTests.swift`, "@Fallback writes its value" |
 | 2 | an `@Unknown` case captured without `roundTrips: true` — the encoder refuses it | `UnknownEnumTests.swift`, "an unrecognised variant is REFUSED by the encoder unless it opted in" |
-| 3 | unknown keys dropped by a policy other than `.collect` | **no named test** |
+| 3 | unknown keys dropped by a policy other than `.collect` | `EncodingTests.swift`, "exception 3: a key dropped by a policy other than .collect is not written back" |
 | 4 | an untagged union with two variants whose types accept the same documents | `UnionErrorTests.swift`, "two distinct types that accept the same documents are NOT refused" (pins that expansion cannot refuse it) |
-| 5 | TOML: a null under a table key is omitted, so the key is absent on the way back | **no named test** — see the TOML section below |
+| 5 | TOML: a null under a table key is omitted, so the key is absent on the way back | `EncodingTests.swift`, "exception 5: TOML omits a null under a table key, so the key does not come back" |
 
 The fourth was added 2026-09-10 with union encoding, and it is the only one the library
 cannot see coming: the macro refuses two cases carrying the same payload *token*, and two
@@ -289,7 +289,7 @@ with its path, never a silent substitution, and a root that is not a table is
 from any other table key, so *every* null under a table key is omitted — including a nil
 dictionary value and an `@Extras` entry holding `.null`. Those decode back with the key
 absent rather than present-and-nil, which is a different value: `["a": nil]` reads back as
-`[:]`. It is reported nowhere, and **no test pins it yet**. Layout, quoting and the toml++
+`[:]`. It is reported nowhere; `RoundTripExceptionTests` pins it. Layout, quoting and the toml++
 read-back oracle are in `docs/TOML.md` §4.
 
 ## What is still not being promised
@@ -309,8 +309,8 @@ it out of the refusals, and it is strictly easier than the encoder itself.
 
 ## Throughput
 
-The arm is `Benchmarks/Sources/AssayBench/EncodeBench.swift`: **8.75× at 50 items and 9.04×
-at 200** over `Encodable` + `JSONEncoder` as of 2026-09-20, and 11.80× on a single-item
+The arm is `Benchmarks/Sources/AssayBench/EncodeBench.swift`: **8.28× at 50 items and 8.02×
+at 200** over `Encodable` + `JSONEncoder` as of 2026-10-04, and 10.63× on a single-item
 document where Foundation's fixed cost dominates. It was 2.85×/2.80× when first measured on
 2026-09-08; the difference is `docs/EFFICIENCY.md` rows 5, 8 and 22 — one diagnostic path
 per array rather than per element, key literals that carry their own comma and opening

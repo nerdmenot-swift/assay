@@ -34,7 +34,7 @@ So: measured, budgeted, and gated in CI, next to the allocation gate.
 Measured, not estimated. Method and raw numbers in
 `Experiments/03-compile-time/RESULTS.md`.
 
-**~81 ms per `@Schema` type at 10 fields, in the default configuration** (80.8 in
+**~84 ms per `@Schema` type at 10 fields, in the default configuration** (84.4 in
 `Benchmarks/RESULTS.md`; consecutive gate runs read 80–85).
 
 > A band rather than a figure, but a much narrower one since 2026-08-30: every timing is now
@@ -57,8 +57,8 @@ JSON body (default)         ≈  9 ms fixed + 7.3 ms × fields   →  ~82 ms
 The second body is emitted **only when the type opts in** with `@Schema(formats:)`. A type
 that only ever parses JSON pays nothing for YAML and XML support. See §4.5.
 
-Against the thing it replaces, on a clean module build: **80.8 ms/type against `Codable`'s
-~19 ms, which is 4.22×.** That is the **default** arm, JSON only — what
+Against the thing it replaces, on a clean module build: **84.4 ms/type against `Codable`'s
+~21 ms, which is 4.03×.** That is the **default** arm, JSON only — what
 `Benchmarks/RESULTS.md`'s headline table carries and what the gate measures. It is the
 number to quote, and §6 quotes it.
 
@@ -179,8 +179,8 @@ The opted-in arm against the alternatives, at 100 types × 10 fields on a clean 
 | `@Schema` (JSON + RawValue bodies) | 11.31 s | **13.6×** |
 
 That is 5.1× `Codable`, and it is the cost of a type that parses YAML or XML as well — not
-the figure to put in a README. The table is also older than §1's 80.8 ms: it puts `Codable`
-at 22.0 ms/type where the harness now reads ~19. Both arms moved; the shape of the finding
+the figure to put in a README. The table is also older than §1's 84.4 ms: it puts `Codable`
+at 22.0 ms/type where the harness now reads ~21. Both arms moved; the shape of the finding
 did not.
 
 Resolved by making formats opt-in on the type, which is also `EXPERIENCE.md` §18's principle
@@ -282,7 +282,7 @@ types as the debug figures in §1.
 | 100 | 0.47 | 2.69 | 25.57 | 21.35 | 60.48 | 33.03 | **9.51×** |
 
 **Release costs about 3× debug per type: ~250 ms (12.38 s at 50 types, 25.57 s at 100)
-against the ~81 ms the gate holds.** The
+against the ~84 ms the gate holds.** The
 `arrays` arm reaches ~600 ms/type. Nothing here was previously known, and the debug budget does
 not describe release builds even approximately — that is the point of writing it down.
 
@@ -416,7 +416,7 @@ be worth saying.
 
 ## 6. The claim Assay can defend
 
-> `@Schema` costs about 81 ms per type at 10 fields, roughly 4.2× what `Codable` costs, on
+> `@Schema` costs about 84 ms per type at 10 fields, roughly 4× what `Codable` costs, on
 > a clean build. For a typical model layer of 40 types that is under 4 seconds. Here is
 > the harness; run it on your own types.
 
@@ -426,8 +426,8 @@ table reports. A type that opts into `@Schema(formats:)` emits a second body and
 
 It read 3.6× until 2026-10-02, derived from the older table now in §4.5 rather than from the
 harness.
-The harness says 4.22×, because `Codable` itself got faster: the numerator barely moved and
-the denominator fell from ~22 ms to ~19.
+The harness read 4.22× that day and 4.03× on 2026-10-04 (80.8 and 84.4 ms/type against a
+`Codable` arm of ~19 and ~21 ms): both arms move a few percent between runs, so quote "about 4×".
 
 Checkable, falsifiable, survives CI, and does not decay. The same standard the runtime
 claims are held to.

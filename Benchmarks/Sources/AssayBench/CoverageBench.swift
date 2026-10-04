@@ -123,8 +123,10 @@ func runCoverageBenchmarks() -> Bool {
         }
         let bytes = [UInt8](data)
         // Correctness before timing: both sides must produce the same 200 rows.
+        // Built once and reused, like every other baseline decoder in this harness.
+        let plistDecoder = PropertyListDecoder()
         guard let mine = try? CovRows.parse(plist: bytes),
-            let theirs = try? PropertyListDecoder().decode(CodableCovRows.self, from: data),
+            let theirs = try? plistDecoder.decode(CodableCovRows.self, from: data),
             mine.rows.count == theirs.rows.count, mine.rows.count == rows.count,
             mine.rows[7].name == theirs.rows[7].name,
             mine.rows[7].score == theirs.rows[7].score
@@ -133,7 +135,7 @@ func runCoverageBenchmarks() -> Bool {
         }
         let iters = max(200, iterationCount(forBytes: bytes.count) / 4)
         let fNs = measure(iterations: iters) {
-            _ = try? PropertyListDecoder().decode(CodableCovRows.self, from: data)
+            _ = try? plistDecoder.decode(CodableCovRows.self, from: data)
         }
         let aNs = measure(iterations: iters) { _ = try? CovRows.parse(plist: bytes) }
         print(

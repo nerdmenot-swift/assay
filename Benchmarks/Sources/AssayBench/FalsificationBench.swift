@@ -176,7 +176,8 @@ func runFalsification() -> FalsificationResult? {
                 let bytes = [UInt8](data)
 
                 // Correctness gate: both sides must produce a value, or the row is a lie.
-                guard shape.foundation(data) else {
+                let decoder = JSONDecoder()
+                guard shape.foundation(decoder, data) else {
                     print(
                         pad(shape.name, 20, right: true) + pad(size, 7)
                             + "   Foundation declined this file");
@@ -190,7 +191,7 @@ func runFalsification() -> FalsificationResult? {
                 }
 
                 let iters = iterationCount(forBytes: bytes.count)
-                let fNs = measure(iterations: iters) { _ = shape.foundation(data) }
+                let fNs = measure(iterations: iters) { _ = shape.foundation(decoder, data) }
                 let aNs = measure(iterations: iters) { _ = shape.assay(bytes) }
                 let ratio = fNs / aNs
                 collected.append(ratio)

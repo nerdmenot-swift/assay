@@ -16,7 +16,7 @@
 
 **~80 ms per `@Schema` type at 10 fields, of which ~7 ms is per *field* and ~9 ms is
 fixed per type.** That is **3.6× the cost of `Codable`** and **9.5× a plain struct** — on
-2026-07-26. The `Codable` multiple is 4.22× today, because `Codable` itself got faster; see
+2026-07-26. The `Codable` multiple is 4.03× today, because `Codable` itself got faster; see
 `docs/COMPILE-TIME.md` §6.
 
 | types (10 fields each) | plain | codable | schema | vs plain | vs codable |
@@ -103,7 +103,7 @@ throughout. Pinned since by `Tests/AssayTests/PublicTypeTests.swift`.
 
 **Gate: 100 ms per type at 10 fields, enforced locally by `gate.sh`.** CI enforces the
 hardware-independent form instead, `schema / codable` ≤ 6.0×, because a hosted runner is
-about half the speed of the machine the milliseconds were calibrated on. Current: ~81 ms.
+about half the speed of the machine the milliseconds were calibrated on. Current: ~84 ms.
 See `docs/COMPILE-TIME.md` §2.
 
 ## Caveats

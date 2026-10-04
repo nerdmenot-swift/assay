@@ -427,7 +427,7 @@ extension AssayReader {
     ) -> Double? {
         beginValue()
         if let d = scanDouble() { return d }
-        if let s = scanString(), let d = Double(s) { return d }
+        if let s = scanString(), let d = _assayCoerceDouble(s) { return d }
         failed(&sink, path, key, "number")
         return nil
     }

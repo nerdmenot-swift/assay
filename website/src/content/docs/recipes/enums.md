@@ -130,7 +130,7 @@ same path, same parameters. That equivalence is the feature: a wrapper is not a 
 validation mechanism wearing the first one's vocabulary.
 
 The wrapped type is `String`, `Int64`, `Double` or `Bool`, because a macro sees a token and
-not a type. It costs you about 1.80× the plain field and rule it is sugar for, which is the
+not a type. It costs you about 1.98× the plain field and rule it is sugar for, which is the
 price of the distinct type.
 
 ## Next

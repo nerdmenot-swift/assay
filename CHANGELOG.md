@@ -137,6 +137,15 @@ stable for two minor versions with no entry under **Breaking**.
 
 ### Fixed
 
+- **Text is checked against a decimal-float grammar before it is converted.** Six places
+  asked `Double(String)` first and looked at the answer after: YAML scalar resolution, a
+  `YAML.Node`'s `resolvedDouble`, the YAML writer's quoting decision, `@Coerce` on both
+  decode paths, and a plist `<real>`. That accepted spellings no document format means, and
+  on the nightly-main toolchain of 2026-10-04 `Double("12e3-4")` traps inside the standard
+  library — so a UUID opening `123e4567-` as a plain YAML scalar crashed the process. Found
+  by CI. **Behaviour that changes:** in YAML, `0x1p3` and similar hex floats are now strings,
+  not floats; a `@Coerce`d or plist number accepts a decimal literal or `nan`/`inf`/`infinity`
+  and nothing else.
 - **A `<string>` written as CDATA in an XML property list decoded as the empty string.** The
   reader concatenated only plain text runs, so `<string><![CDATA[a<b]]></string>` produced
   `""` with no issue. CDATA is read as the character data it is, matching

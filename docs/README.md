@@ -45,7 +45,7 @@ tutorial.
 ## A note on the numbers in here
 
 Every ratio in these documents belongs to one machine, one toolchain, one corpus, and says
-so. Where a number inverts across platforms — XML is 2.47× Foundation on macOS and 0.96× on
+so. Where a number inverts across platforms — XML is 2.53× Foundation on macOS and 0.96× on
 Linux, where `FoundationXML` is libxml2 — both halves are printed. The honesty rules in
 `CLAUDE.md` list the claims this project will not make, and "fastest JSON decoder" is the
 first of them.

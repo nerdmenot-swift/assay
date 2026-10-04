@@ -161,67 +161,71 @@ struct CodableNestedDoc: Codable {
 struct ShapeRunner: Sendable {
     let name: String
     let assay: @Sendable ([UInt8]) -> Bool
-    let foundation: @Sendable (Data) -> Bool
+    /// The decoder is PASSED IN, built once by the sweep and reused for every call. Until
+    /// 2026-10-04 each of these closures constructed its own `JSONDecoder()` inside the
+    /// timed region, which charged the baseline for a setup cost every other arm hoists —
+    /// and `RESULTS.md` said it was hoisted here too.
+    let foundation: @Sendable (JSONDecoder, Data) -> Bool
 }
 
 let structShapes: [ShapeRunner] = [
     ShapeRunner(
         name: "apimodel",
         assay: { Payload.diagnose(json: $0).value != nil },
-        foundation: { (try? JSONDecoder().decode(CodablePayload.self, from: $0)) != nil }),
+        foundation: { (try? $0.decode(CodablePayload.self, from: $1)) != nil }),
     ShapeRunner(
         name: "arrays-of-scalars",
         assay: { ScalarArray.diagnose(json: $0).value != nil },
-        foundation: { (try? JSONDecoder().decode(CodableScalarArray.self, from: $0)) != nil }),
+        foundation: { (try? $0.decode(CodableScalarArray.self, from: $1)) != nil }),
     ShapeRunner(
         name: "arrays-of-structs",
         assay: { StructArray.diagnose(json: $0).value != nil },
-        foundation: { (try? JSONDecoder().decode(CodableStructArray.self, from: $0)) != nil }),
+        foundation: { (try? $0.decode(CodableStructArray.self, from: $1)) != nil }),
     ShapeRunner(
         name: "nested-3-deep",
         assay: { NestedDoc.diagnose(json: $0).value != nil },
-        foundation: { (try? JSONDecoder().decode(CodableNestedDoc.self, from: $0)) != nil }),
+        foundation: { (try? $0.decode(CodableNestedDoc.self, from: $1)) != nil }),
     ShapeRunner(
         name: "floats-dense",
         assay: { Polygon.diagnose(json: $0).value != nil },
-        foundation: { (try? JSONDecoder().decode(CodablePolygon.self, from: $0)) != nil })
+        foundation: { (try? $0.decode(CodablePolygon.self, from: $1)) != nil })
 ]
 
 let prefixShapes: [ShapeRunner] = [
     ShapeRunner(
         name: "bigints",
         assay: { IntPrefix.diagnose(json: $0).value != nil },
-        foundation: { (try? JSONDecoder().decode(CodableIntPrefix.self, from: $0)) != nil }),
+        foundation: { (try? $0.decode(CodableIntPrefix.self, from: $1)) != nil }),
     ShapeRunner(
         name: "escaped",
         assay: { StringPrefix.diagnose(json: $0).value != nil },
-        foundation: { (try? JSONDecoder().decode(CodableStringPrefix.self, from: $0)) != nil }),
+        foundation: { (try? $0.decode(CodableStringPrefix.self, from: $1)) != nil }),
     ShapeRunner(
         name: "long-strings",
         assay: { StringPrefix.diagnose(json: $0).value != nil },
-        foundation: { (try? JSONDecoder().decode(CodableStringPrefix.self, from: $0)) != nil }),
+        foundation: { (try? $0.decode(CodableStringPrefix.self, from: $1)) != nil }),
     ShapeRunner(
         name: "short-strings",
         assay: { StringPrefix.diagnose(json: $0).value != nil },
-        foundation: { (try? JSONDecoder().decode(CodableStringPrefix.self, from: $0)) != nil }),
+        foundation: { (try? $0.decode(CodableStringPrefix.self, from: $1)) != nil }),
     ShapeRunner(
         name: "uuids-and-dates",
         assay: { StringPrefix.diagnose(json: $0).value != nil },
-        foundation: { (try? JSONDecoder().decode(CodableStringPrefix.self, from: $0)) != nil }),
+        foundation: { (try? $0.decode(CodableStringPrefix.self, from: $1)) != nil }),
     ShapeRunner(
         name: "mixed",
         assay: { MixedPrefix.diagnose(json: $0).value != nil },
-        foundation: { (try? JSONDecoder().decode(CodableMixedPrefix.self, from: $0)) != nil }),
+        foundation: { (try? $0.decode(CodableMixedPrefix.self, from: $1)) != nil }),
     ShapeRunner(
         name: "optionals-present",
         assay: { OptionalPrefix.diagnose(json: $0).value != nil },
-        foundation: { (try? JSONDecoder().decode(CodableOptionalPrefix.self, from: $0)) != nil }),
+        foundation: { (try? $0.decode(CodableOptionalPrefix.self, from: $1)) != nil }),
     ShapeRunner(
         name: "scalars",
         assay: { FloatPrefix.diagnose(json: $0).value != nil },
-        foundation: { (try? JSONDecoder().decode(CodableFloatPrefix.self, from: $0)) != nil }),
+        foundation: { (try? $0.decode(CodableFloatPrefix.self, from: $1)) != nil }),
     ShapeRunner(
         name: "unknown-keys",
         assay: { MixedPrefix.diagnose(json: $0).value != nil },
-        foundation: { (try? JSONDecoder().decode(CodableMixedPrefix.self, from: $0)) != nil })
+        foundation: { (try? $0.decode(CodableMixedPrefix.self, from: $1)) != nil })
 ]

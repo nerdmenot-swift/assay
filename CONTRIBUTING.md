@@ -89,7 +89,7 @@ command happened to return.
 It leaves out the two slow gates on purpose. Individually:
 
 ```sh
-swift test                                      # 1,049 tests, macro expansion included
+swift test                                      # 1,058 tests, macro expansion included
 
 cd Benchmarks
 swift run -c release CorpusGen                  # the corpus, deterministic

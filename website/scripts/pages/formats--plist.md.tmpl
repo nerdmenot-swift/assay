@@ -24,8 +24,8 @@ lists one of those three can also parse a plist.** `formats: [.yaml]` is enough;
 just the common spelling.
 
 `PropertyListSerialization` is not linked, not referenced and not needed, so you get the same
-decode on Linux and Windows as you do on a Mac. Binary plists come out at **4.05×**
-Foundation's `PropertyListDecoder` and the XML flavour at 1.28×, on the platform where there
+decode on Linux and Windows as you do on a Mac. Binary plists come out at **4.33×**
+Foundation's `PropertyListDecoder` and the XML flavour at 1.29×, on the platform where there
 is a `PropertyListDecoder` to compare against.
 
 ## Two flavours, one entry point

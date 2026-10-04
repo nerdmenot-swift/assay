@@ -180,10 +180,10 @@ Measured on this machine; `Benchmarks/RESULTS.md` carries the current figure, an
 `CLAUDE.md` the honesty rules that apply to every ratio in this repository.
 
 **Validating costs what the rules cost, and nothing else.** `validate` on a constructed
-value takes **37 ns** and one heap block, about 0.11× decoding the same document. The seam
+value takes **40 ns** and one heap block, about 0.11× decoding the same document. The seam
 adds nothing of its own — it is the rule engine, called from a second place.
 
-Over a batch it is **46 ns/row** — the rules plus the array element copy. Nowhere near
+Over a batch it is **47 ns/row** — the rules plus the array element copy. Nowhere near
 re-decoding the document, which is the alternative this entry point exists to avoid, and
 that is the comparison that matters now: a fast reader produces values its own way, and
 `validate` is what makes them trustworthy afterwards.

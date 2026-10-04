@@ -27,8 +27,8 @@ func loadConfig(_ text: String, named name: String) -> (AppConfig?, String) {
 Three decisions in that declaration, and they are the whole recipe.
 
 It is also quick enough that you can do it on every boot without thinking about it: that
-struct comes out of TOML at **6.55× TOMLKit's `Codable` decoder**, and the tree underneath it
-at 4.06× toml++, which is C.
+struct comes out of TOML at **6.92× TOMLKit's `Codable` decoder**, and the tree underneath it
+at 3.69× toml++, which is C.
 
 **Defaults live on the property.** `port` is `8080` when the file does not mention it. You
 keep no separate defaults table in step, and you unwrap no optional at every use site. See [presence](/guides/presence/) for the five states and when each applies.

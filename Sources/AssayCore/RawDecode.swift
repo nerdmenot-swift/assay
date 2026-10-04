@@ -507,10 +507,13 @@ extension RawValue {
 @inlinable
 public func _assayCoerceInt64(_ s: String) -> Int64? { Int64(s) }
 
-/// `"1.5"`, `"1e3"`, `"inf"`. The stdlib's parser, which is correctly rounded.
+/// `"1.5"`, `"1e3"`, `"inf"`. A decimal literal or a non-finite word, converted by the
+/// stdlib's correctly rounded parser once the grammar has been checked (`DecimalText.swift`).
 @_documentation(visibility: internal)
 @inlinable
-public func _assayCoerceDouble(_ s: String) -> Double? { Double(s) }
+public func _assayCoerceDouble(_ s: String) -> Double? {
+    _assayDecimalDouble(s, allowingNonFinite: true)
+}
 
 /// The spellings a config file or a form uses for a boolean — `true`/`false`, `yes`/`no`,
 /// `on`/`off` in lowercase, Capitalised or UPPERCASE, and `1`/`0` — compared by bytes

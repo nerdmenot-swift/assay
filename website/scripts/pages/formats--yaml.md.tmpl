@@ -19,8 +19,8 @@ let deployment = try Deployment.parse(yaml: text)
 ```
 
 The parser is hand-written Swift. No libyaml, nothing to vendor, and it runs everywhere the
-rest of the package runs. It is also about 8.4× faster than the Swift binding to libyaml at
-building a node tree, and about 18× faster end to end into a struct — the second number
+rest of the package runs. It is also about 8.3× faster than the Swift binding to libyaml at
+building a node tree, and about 17× faster end to end into a struct — the second number
 because decoding into a `@Schema` type does not build the tree at all.
 
 ## The Norway problem, and why you do not have it

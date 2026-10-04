@@ -65,7 +65,7 @@ Because `accepting:` listed it and the schema opted into `.yaml`. One handler, o
 one set of rules. There is no second code path.
 
 And the hot half of this is the cheap half: decoding a body into a declared struct measures
-**9.14× `JSONDecoder`** across the corpus, so the handler above spends most of its time in
+**8.75× `JSONDecoder`** across the corpus, so the handler above spends most of its time in
 your code rather than in the decoder.
 
 ## Wiring it to a framework

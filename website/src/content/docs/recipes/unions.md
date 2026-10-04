@@ -43,7 +43,7 @@ ev.json: error: type must be one of click, page_view, found scroll
 1 error
 ```
 
-The tag costs almost nothing to read: a tagged union measures **1.09× the variant
+The tag costs almost nothing to read: a tagged union measures **1.19× the variant
 decoded directly**, and that 9% *is* the tag scan.
 
 **Put the tag first when you write these documents**, and that number stays true. Assay

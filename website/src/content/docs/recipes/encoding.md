@@ -21,7 +21,7 @@ struct Build: Equatable {
 ```
 
 `encodes: true` gives you a writer for every format in `formats:`, and it is quick: JSON out
-measures **8.75× `JSONEncoder`** at fifty items and 9.04× at two hundred.
+measures **8.28× `JSONEncoder`** at fifty items and 8.02× at two hundred.
 
 JSON:
 

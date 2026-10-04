@@ -75,7 +75,7 @@ struct Record: Equatable {
 {{example:cb.inline:json}}
 
 `created_by` and `revision` sat at the top level and landed in `audit`. Reach for this
-freely: it measures **0.87× the nested `@Schema` it replaces**, which is to say slightly
+freely: it measures **0.85× the nested `@Schema` it replaces**, which is to say slightly
 *faster*, because one key table ends up doing the work of two.
 
 The type has to be **nested inside** the one inlining it. That is what lets the macro see

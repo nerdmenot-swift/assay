@@ -102,7 +102,7 @@ depends on when you run it is a rule you cannot test.
 The parsers are arithmetic and return epoch seconds; the macro emits
 `Date(timeIntervalSince1970:)` into your module. That keeps `AssayCore` free of Foundation,
 which is why this works the same on Linux, Windows and WebAssembly — and why it measures
-about **5.4× `JSONDecoder` with `.iso8601`**.
+about **5.6× `JSONDecoder` with `.iso8601`**.
 
 `.pattern` is the one to watch if you are on a size budget. An arbitrary UTS-35 pattern needs
 a real formatter, and on some platforms that means ICU.

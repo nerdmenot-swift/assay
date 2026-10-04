@@ -184,11 +184,9 @@ extension YAML {
         if Int64(s) != nil { return true }
         if s.hasPrefix("0x"), Int64(s.dropFirst(2), radix: 16) != nil { return true }
         if s.hasPrefix("0o"), Int64(s.dropFirst(2), radix: 8) != nil { return true }
-        // A float only if it also contains a digit — `Double("infinity")` succeeds, and
-        // "infinity" is an ordinary string in the core schema.
-        if Double(s) != nil, s.utf8.contains(where: { $0 >= 0x30 && $0 <= 0x39 }) {
-            return true
-        }
+        // The same grammar the reader resolves by. Never `Double(s)`: this is a string the
+        // caller's data supplied, and a converter is not a validator (`DecimalText.swift`).
+        if _assayIsDecimalFloat(s.utf8) { return true }
         return false
     }
 

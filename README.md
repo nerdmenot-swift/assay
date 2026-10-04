@@ -157,15 +157,15 @@ macro deletes it at compile time.
 
 | Arm | Against | |
 |---|---|---|
-| Struct decode, 25 files | `JSONDecoder` | **9.14×** |
-| YAML struct decode | Yams `YAMLDecoder` | **18.20×** |
-| Encoding, 50 items | `JSONEncoder` | **8.75×** |
-| vs ZippyJSON (simdjson + Codable) | ZippyJSON | **3.61×** |
-| `T.validate(_:)` | — | **37 ns**, one allocation |
-| Compile time, 10 fields | `Codable` | 81 ms/type, ~4× |
+| Struct decode, 25 files | `JSONDecoder` | **8.75×** |
+| YAML struct decode | Yams `YAMLDecoder` | **17.47×** |
+| Encoding, 50 items | `JSONEncoder` | **8.28×** |
+| vs ZippyJSON (simdjson + Codable) | ZippyJSON | **3.2–3.7×** |
+| `T.validate(_:)` | — | **40 ns**, one allocation |
+| Compile time, 10 fields | `Codable` | 84 ms/type, ~4× |
 
 One arm64 Mac, warm, `-O`, minimum of five rounds. **Where it loses is published too**:
-0.69× yyjson on the use-case shape, 0.16× building a tree, and XML is 2.47× Foundation on
+0.71× yyjson on the use-case shape, 0.16× building a tree, and XML is 2.53× Foundation on
 macOS but 0.96× on Linux where `FoundationXML` is libxml2. A benchmark page that lists only
 its wins is an advertisement.
 
@@ -175,7 +175,7 @@ Full table, method and caveats: [`Benchmarks/RESULTS.md`](Benchmarks/RESULTS.md)
 
 This is the part the author enjoys more than is strictly healthy.
 
-- **1,049 tests**, 191 suites, 98.8% line coverage.
+- **1,058 tests**, 194 suites, 98.8% line coverage.
 - **Differential oracles** — every format decoded twice, once by Assay and once by the
   incumbent: `JSONSerialization`, Yams/libyaml, Foundation's `XMLParser`, toml++,
   `PropertyListSerialization`. Disagreement fails the build. Two real parser bugs found on the
@@ -226,7 +226,7 @@ examples. These are the ones worth reading in the repository:
 ## Reproduce anything
 
 ```sh
-swift test                                    # 1,049 tests
+swift test                                    # 1,058 tests
 cd Benchmarks
 swift run -c release CorpusGen                # the corpus, deterministic
 swift run -c release AssayBench --list        # every arm

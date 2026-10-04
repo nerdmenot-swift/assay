@@ -169,9 +169,9 @@ Errors are the reason to do it: all of them at once, each pointing at the byte, 
 formats, with the same rules everywhere.
 
 Speed comes along for the ride. On this corpus the struct path measures about **9× a
-`JSONDecoder`**, encoding about **8.75× a `JSONEncoder`**, and YAML about **18× Yams**
+`JSONDecoder`**, encoding about **8.28× a `JSONEncoder`**, and YAML about **17× Yams**
 through the same declaration — mostly because there is no `Codable` container boundary left
-to pay for. The cost is build time: roughly 81 ms per type at ten fields, which is about 4×
+to pay for. The cost is build time: roughly 84 ms per type at ten fields, which is about 4×
 what `Codable` costs to synthesise, and gated in CI so it stays there.
 
 [Performance](/reference/performance/) has every number, what it was measured against, and

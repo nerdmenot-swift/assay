@@ -18,6 +18,8 @@
 
 import Testing
 import Assay
+import AssayCore
+import AssayTOML
 
 @Schema(keys: .snakeCase, encodes: true)
 struct EncPayload: Equatable {
@@ -386,5 +388,55 @@ struct EncodingMacroTests {
         #expect(!withOut.contains("_assayEncode"))
         #expect(withIn.contains("_assayEncode"))
         #expect(withIn.contains("JSONEncodableSchema"))
+    }
+}
+
+// MARK: - The two round-trip exceptions that had no test
+//
+// `docs/ENCODING.md` §5 states round-trip as a law with a closed list of exceptions. Two of
+// the five were documented and pinned by nothing, which is how an exception quietly becomes
+// a sixth. Each test asserts BOTH halves: what survives, and exactly what is lost.
+
+@Schema(unknownKeys: .warn, encodes: true)
+struct KeepsDeclared: Equatable {
+    var id: String
+    var count: Int
+}
+
+@Suite("Round-trip exceptions, pinned")
+struct RoundTripExceptionTests {
+
+    @Test("exception 3: a key dropped by a policy other than .collect is not written back")
+    func droppedUnknownKeys() throws {
+        let document = #"{"id":"a","count":1,"surplus":{"x":[1,2]}}"#
+        let d = KeepsDeclared.diagnose(json: document)
+        let value = try #require(d.value)
+        #expect(d.warnings.map(\.code) == [.unknownKey])
+
+        // The VALUE round-trips — that is the law, and it holds.
+        let written = try value.jsonText()
+        #expect(try KeepsDeclared.parse(json: written) == value)
+        // The DOCUMENT does not: the key the policy dropped is gone, and nothing reports it
+        // at encode time, because by then there is nothing left to report.
+        #expect(written == #"{"id":"a","count":1}"#)
+        #expect(value.diagnoseEncodeJSON().issues.isEmpty)
+    }
+
+    @Test("exception 5: TOML omits a null under a table key, so the key does not come back")
+    func tomlNullMember() throws {
+        let value = Collides(id: "a", rest: ["gone": .null, "kept": .int(1)])
+
+        // JSON has a null and writes it; the value comes back whole.
+        #expect(try Collides.parse(json: try value.jsonText()) == value)
+
+        // TOML has none. The member is omitted, silently — no `toml_no_null`, which is for
+        // a null inside an ARRAY — and the value that comes back has lost the key.
+        let d = value.diagnoseEncodeTOML()
+        #expect(d.issues.isEmpty)
+        let toml = String(decoding: d.bytes, as: UTF8.self)
+        #expect(!toml.contains("gone"))
+        let back = try Collides.parse(toml: toml)
+        #expect(back != value)
+        #expect(back == Collides(id: "a", rest: ["kept": .int(1)]))
     }
 }

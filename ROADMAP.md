@@ -154,12 +154,11 @@ definition, and ships.
   resolves `b`. A self-referential entity is `xml_recursive_entity`, and the budget (32× the
   input, 64 KB floor) is what stops a billion-laughs document. Parameter entities are skipped;
   external entities and external DTDs are never fetched.
-- **YAML scalar resolution calls `Double(_:)` on untrusted text.** Any plain scalar that could
-  be a number is offered to the standard library's parser. On released toolchains that is
-  safe. On the `nightly-main` toolchain of 2026-10-04 `Double("123e4567-e89b-…")` traps inside
-  `libswiftCore` (`fastParse64`) instead of returning nil — a toolchain bug, found by CI, that
-  would make a UUID-shaped scalar crash a parse. A grammar pre-check before the call would
-  remove the exposure; it is not built.
+- **Text is checked against a decimal-float grammar before `Double(String)` sees it**
+  (`Sources/AssayCore/DecimalText.swift`), on every path that takes a number from text: YAML
+  scalar resolution, `@Coerce`, a plist `<real>`. So `0x1p3` and `infinity` are strings in
+  YAML, and a malformed literal cannot reach the standard library's parser — which, on the
+  nightly-main toolchain of 2026-10-04, traps on `12e3-4` instead of returning nil.
 - **The XML parser is recursive.** At the default `maxDepth` of 64 it has headroom on a
   512 KB worker-thread stack in a debug build; a raised `maxDepth` needs a larger stack.
 

@@ -49,7 +49,7 @@ try config.encodedXML()     // and xmlText()
 try config.encodedTOML()    // and tomlText()
 ```
 
-Against Foundation's `Encodable` + `JSONEncoder`, JSON encoding measures about 8.75× at 50
+Against Foundation's `Encodable` + `JSONEncoder`, JSON encoding measures about 8.28× at 50
 items and 9.04× at 200. That
 is a measurement, not a thesis — the decode multiple has an argument behind it (deleting the
 Codable container boundary) and this one does not. It is there so the cost is known and a

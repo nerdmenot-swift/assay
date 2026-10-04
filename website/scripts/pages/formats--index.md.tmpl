@@ -79,12 +79,12 @@ not purism:
   that could fetch an external entity, so there is no flag to forget.
 - **It is fast.** A survey of the Swift YAML options found one allocating a class per node,
   a `String` per scalar eagerly, and doing O(N·K) mapping lookup with an allocation per
-  probe. Assay's YAML parser measures 8.35× it.
+  probe. Assay's YAML parser measures 8.28× it.
 
 ## Two decode paths
 
 JSON decodes **directly from bytes into your struct**. That is the fast path, and where the
-9.1× mean over Foundation comes from.
+8.75× mean over Foundation comes from.
 
 Every other format goes through `RawValue`, the format-neutral projection:
 

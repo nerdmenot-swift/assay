@@ -1,8 +1,8 @@
 {
   "stats": {
     "version": "0.1.0",
-    "tests": 1049,
-    "suites": 191,
+    "tests": 1058,
+    "suites": 194,
     "codes": 118,
     "formats": [
       "JSON",
@@ -15,37 +15,37 @@
   "numbers": [
     {
       "arm": "struct decode, full corpus",
-      "number": "9.14× mean over 25 files (5.16–18.07)",
+      "number": "8.75× mean over 25 files (4.95–19.83)",
       "against": "JSONDecoder"
     },
     {
       "arm": "prefix decode + unknown-key skip",
-      "number": "5.62× over 45 files (2.74–8.49)",
+      "number": "5.52× over 45 files (2.65–8.22)",
       "against": "JSONDecoder"
     },
     {
       "arm": "generic value model",
-      "number": "3.35× over 75 files",
+      "number": "3.31× over 75 files",
       "against": "JSONSerialization"
     },
     {
       "arm": "falsification arm (apimodel, 5 sizes)",
-      "number": "5.24× mean (8.13× float-dense)",
+      "number": "5.21× mean (7.94× float-dense)",
       "against": "JSONDecoder"
     },
     {
       "arm": "vs ZippyJSON (simdjson + Codable)",
-      "number": "3.61× faster",
-      "against": "ZippyJSON, which is 1.60–1.84× over Foundation here"
+      "number": "3.20–3.66× faster, over four sizes",
+      "against": "ZippyJSON, which is 1.62–1.82× over Foundation here"
     },
     {
       "arm": "vs yyjson, use-case shape",
-      "number": "0.69× (loses)",
+      "number": "0.71× (loses)",
       "against": "yyjson parse + extraction"
     },
     {
       "arm": "vs yyjson, float-dense",
-      "number": "0.69× (loses)",
+      "number": "0.71× (loses)",
       "against": "same"
     },
     {
@@ -55,72 +55,72 @@
     },
     {
       "arm": "YAML node parse",
-      "number": "8.35×",
+      "number": "8.28×",
       "against": "Yams compose"
     },
     {
       "arm": "YAML struct decode",
-      "number": "18.20×",
+      "number": "17.47×",
       "against": "Yams YAMLDecoder"
     },
     {
       "arm": "XML tree parse",
-      "number": "2.47× (macOS; 0.96× on Linux, 2026-08-18)",
+      "number": "2.53× (macOS; 0.96× on Linux, 2026-08-18)",
       "against": "Foundation XMLParser"
     },
     {
       "arm": "TOML node parse",
-      "number": "4.06×",
+      "number": "3.69×",
       "against": "toml++ via TOMLKit"
     },
     {
       "arm": "TOML struct decode",
-      "number": "6.55×",
+      "number": "6.92×",
       "against": "TOMLKit TOMLDecoder"
     },
     {
       "arm": "Date fields",
-      "number": "5.40× mean over 5 sizes",
+      "number": "5.58× mean over 5 sizes",
       "against": "JSONDecoder + .iso8601"
     },
     {
       "arm": "binary plist",
-      "number": "4.05×",
+      "number": "4.33×",
       "against": "Foundation PropertyListDecoder"
     },
     {
       "arm": "XML plist",
-      "number": "1.28×",
+      "number": "1.29×",
       "against": "Foundation PropertyListDecoder"
     },
     {
       "arm": "union vs its variant",
-      "number": "1.09× (the tag scan)",
+      "number": "1.19× (the tag scan)",
       "against": "the variant decoded directly"
     },
     {
       "arm": "@Inline vs nesting",
-      "number": "0.87× (faster)",
+      "number": "0.85× (faster)",
       "against": "the nested @Schema it replaces"
     },
     {
       "arm": "@Wraps vs @Validate",
-      "number": "1.80× (slower)",
+      "number": "1.98× (slower)",
       "against": "the plain field + rule it is sugar for"
     },
     {
       "arm": "encoding, 50 / 200 items",
-      "number": "8.75× / 9.04×",
+      "number": "8.28× / 8.02×",
       "against": "JSONEncoder"
     },
     {
       "arm": "cold start, 60 types",
-      "number": "6.6× first decode (median); 5.4× steady",
+      "number": "6.1× first decode (median); 5.2× steady",
       "against": "JSONDecoder"
     },
     {
       "arm": "multi-megabyte documents",
-      "number": "8.57–8.78×, ~1,040 MB/s, flat",
+      "number": "8.41–9.02×, ~1,020 MB/s, flat",
       "against": "JSONDecoder"
     },
     {
@@ -130,7 +130,7 @@
     },
     {
       "arm": "T.validate(_:)",
-      "number": "37 ns per value, 1 block; 46 ns/row batched, 0.11× a decode",
+      "number": "40 ns per value, 1 block; 47 ns/row batched, 0.11× a decode",
       "against": "—"
     },
     {
@@ -140,8 +140,8 @@
     },
     {
       "arm": "compile time, 10 fields",
-      "number": "80.8 ms/type (gate 100)",
-      "against": "Codable: 4.22×"
+      "number": "84.4 ms/type (budget 100)",
+      "against": "Codable: 4.03×"
     }
   ],
   "renders": {

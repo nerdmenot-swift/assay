@@ -182,8 +182,8 @@ the apimodel ladder rendered with `[[items]]` sections (one arm64 Mac; `AssayBen
 
 | | baseline | mean |
 |---|---|---|
-| node parse | toml++ (`TOMLTable(string:)`) | **4.06×** |
-| struct decode | TOMLKit `TOMLDecoder` (Codable) | **6.55×** |
+| node parse | toml++ (`TOMLTable(string:)`) | **3.69×** |
+| struct decode | TOMLKit `TOMLDecoder` (Codable) | **6.92×** |
 
-About four times a C++ parser on the tree; the second row adds what the `Codable` decoder
+Between three and four times a C++ parser on the tree; the second row adds what the `Codable` decoder
 costs on top. `Benchmarks/RESULTS.md` carries the current figures.

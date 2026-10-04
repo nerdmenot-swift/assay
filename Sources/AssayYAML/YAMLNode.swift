@@ -196,7 +196,7 @@ extension YAML.Node {
         case ".inf", ".Inf", ".INF", "+.inf": return .infinity
         case "-.inf", "-.Inf", "-.INF": return -.infinity
         case ".nan", ".NaN", ".NAN": return .nan
-        default: return Double(s.content)
+        default: return _assayDecimalDouble(s.content)
         }
     }
 
@@ -318,7 +318,7 @@ extension RawValue {
                 // The SIGNIFICAND decides whether a zero result underflowed — scanning the
                 // whole literal makes `0.0e-400` look significant because of the `4`, and
                 // that one is honestly zero.
-                if let d = Double(c), d.isFinite,
+                if let d = _assayDecimalDouble(c), d.isFinite,
                     d != 0
                         || !c.prefix(while: { $0 != "e" && $0 != "E" })
                             .contains(where: { $0 >= "1" && $0 <= "9" })

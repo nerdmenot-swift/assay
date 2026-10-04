@@ -142,7 +142,7 @@ an ordinary integer — the radix was a spelling, not a type.
 
 TOML is a tree decoder like YAML and XML, so the argument that makes Assay's JSON path fast
 does not apply here. The numbers were parity with C when this parser shipped and are better
-now: roughly **4.1× toml++** at building the tree, and **6.6× TOMLKit's `Codable` decoder**
+now: roughly **3.7× toml++** at building the tree, and **6.9× TOMLKit's `Codable` decoder**
 end to end. Both moved when the struct door stopped building a `TOML.Node` table it only
 projected and threw away.
 

@@ -60,7 +60,7 @@ struct Profile { var handle: Handle }
 ```
 
 A `Handle` field and `@Validate(.min(3), .isLowercase) var handle: String` hand you
-**identical issues** — that equivalence is the feature. It costs about 1.80× the plain field
+**identical issues** — that equivalence is the feature. It costs about 1.98× the plain field
 and rule it sugars, which is what you pay for a type the compiler keeps apart. The wrapped
 type must be `String`, `Int64`, `Double` or `Bool`, because a macro sees a token.
 
@@ -156,7 +156,7 @@ User.diagnose(user)              // never throws
 
 The schema's rules against a value something else produced. This is the seam for a fast reader
 of your own: decode at your speed in your module, then let Assay run the rules.
-About 37 ns per value, or 46 ns per row over a batch — a tenth of what a full decode costs.
+About 40 ns per value, or 47 ns per row over a batch — a tenth of what a full decode costs.
 The batch form takes a sequence and puts the element index in the path, so an issue reads
 `[250003].email`.
 

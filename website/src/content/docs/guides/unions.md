@@ -31,7 +31,7 @@ is worth saying plainly:
 - **An unknown tag is one clear error**, not "none of these four matched, here is why for
   each".
 - **It encodes without an exception.** The untagged form has one; see below.
-- **It is faster**, and by a known amount: **1.09× the variant decoded directly**, where the
+- **It is faster**, and by a known amount: **1.19× the variant decoded directly**, where the
   9% is the tag scan itself. Scan the keys for the tag (values skipped structurally), rewind,
   decode the named branch. One pass over your document plus one decode.
 

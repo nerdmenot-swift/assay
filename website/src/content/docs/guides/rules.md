@@ -4,7 +4,7 @@ description: Validating what you decoded, in the same pass, checked against your
 ---
 
 A rule is what turns "this decoded" into "this is usable". You attach them to the property,
-they run in the same pass as the decode, and they cost you about 37 ns for a whole type's
+they run in the same pass as the decode, and they cost you about 40 ns for a whole type's
 worth — roughly a tenth of what decoding the value cost.
 
 ```swift

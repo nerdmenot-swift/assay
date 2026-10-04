@@ -112,7 +112,9 @@ enum XMLPlist {
 
         case "real":
             let t = text(e).trimmedPlistText
-            guard let d = Double(t) else { return bad("'\(t)' is not a real number") }
+            guard let d = _assayDecimalDouble(t, allowingNonFinite: true) else {
+                return bad("'\(t)' is not a real number")
+            }
             return .double(d)
 
         case "data":

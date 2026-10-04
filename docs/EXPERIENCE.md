@@ -865,7 +865,7 @@ speed and the fidelity.
 
 **JSON decodes direct to struct.** The generated body reads bytes straight into your
 fields — no intermediate document, no dictionary per object. That is where the measured
-5.24× over Foundation on the API-shaped arm (9.14× mean over the corpus) comes from —
+5.21× over Foundation on the API-shaped arm (8.75× mean over the corpus) comes from —
 `../Benchmarks/RESULTS.md`.
 
 **YAML, XML, TOML and property lists build a `RawValue`, then project it.** Bytes →
@@ -1073,7 +1073,7 @@ Macros are not free. Every macro expansion is a round trip to a separate compile
 
 Swift 6.2 shipping a prebuilt swift-syntax fixed the fixed cost — the one-off price of building the macro infrastructure — but not the per-expansion cost. Which means the honest advice is: `@Schema` on forty types is fine, `@Schema` on four thousand is something to measure. Concretely, the mitigation that exists is keeping schema types in a module that changes rarely so they cache.
 
-Measured: about 81 ms per `@Schema` type at 10 fields, roughly 4.2× `Codable`, gated in CI at 100 ms — [`COMPILE-TIME.md`](COMPILE-TIME.md). The cost follows generated body size, not the number of expansions.
+Measured: about 84 ms per `@Schema` type at 10 fields, roughly 4× `Codable`, gated in CI at 100 ms — [`COMPILE-TIME.md`](COMPILE-TIME.md). The cost follows generated body size, not the number of expansions.
 
 This is better said here than discovered in month three.
 

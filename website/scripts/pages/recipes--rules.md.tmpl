@@ -7,7 +7,7 @@ Rules are checked against the field's type **at expansion**. Put `.email` on an 
 you get a build error naming the mismatch, rather than a runtime failure on a Tuesday.
 
 They are also cheaper than you are probably budgeting for: running a type's whole rule set
-against a value costs **37 ns and one allocation**, which is about a tenth of what decoding
+against a value costs **40 ns and one allocation**, which is about a tenth of what decoding
 that value cost in the first place. "Validation is slow" is a claim that needs a number
 here, and the number does not support it.
 

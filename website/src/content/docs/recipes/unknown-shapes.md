@@ -39,8 +39,8 @@ YAML scalar's resolution and an XML element's namespace are not the same kind of
 
 One honest note before you reach for it: this is not the fast path. Building a tree has no
 `Codable` boundary to delete, so the argument that makes `@Schema` fast does not apply. Where
-a declared struct comes out of JSON at **9.14× `JSONDecoder`** across the corpus, the value
-model manages 3.35× — worth having, and worth knowing you are leaving something behind.
+a declared struct comes out of JSON at **8.75× `JSONDecoder`** across the corpus, the value
+model manages 3.31× — worth having, and worth knowing you are leaving something behind.
 [Performance](/reference/performance/) has the rest.
 
 ## A schema with no declaration to attach a macro to

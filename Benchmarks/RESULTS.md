@@ -1,61 +1,50 @@
 # Current numbers
 
-**One machine, one run: macOS 26.5.2, Apple silicon (arm64), Apple Swift 6.3.3, `-O`, warm,
-minimum of 5 rounds — 2026-09-20, commit `abf38a8`.** None of these is a claim about
-another platform (`CLAUDE.md`'s honesty rules); Linux and x86-64 have their own table
-below. Each row names the benchmark source that produces it, which is where its method is
-stated. Regenerate with `swift run -c release AssayBench` and replace this table — the numbers
-are machine-specific by design, so this is pasted, not automated. Two cells do not come from
-`AssayBench`: the compile-time row is `Experiments/03-compile-time/gate.sh`, and the Linux
-half of the XML row is `Benchmarks/linux-bench.sh`.
+**One machine, one run: macOS 27.0, Apple silicon (arm64), Apple Swift 6.3.3, `-O`, warm,
+minimum of 5 rounds — 2026-10-04.** None of these is a claim about another platform
+(`CLAUDE.md`'s honesty rules); Linux and x86-64 have their own table below. Each row names
+the benchmark source that produces it, which is where its method is stated. Regenerate with
+`swift run -c release AssayBench` and replace this table — the numbers are machine-specific
+by design, so this is pasted, not automated. Two cells do not come from `AssayBench`: the
+compile-time row is `Experiments/03-compile-time/gate.sh`, and the Linux half of the XML row
+is `Benchmarks/linux-bench.sh`.
 
-**Every row was re-measured on 2026-09-20** at the end of the efficiency campaign
-(`docs/EFFICIENCY.md`), and the campaign is why several of them moved a long way. Each
-"before" figure here is the previously published commit rebuilt and re-run on this OS, not
-the number that was published from it: encoding 2.98× → **8.75×** (the writers own their
-buffers, rows 5/22), YAML struct decode 11.09× → **18.20×** and TOML node parse 1.51× →
-**4.06×** (one parser per format building `RawValue` directly, rows 12/17 and the TOML
-arena).
-
-**Compare a row with a rebuild of the old commit, never with the old table.** A ratio
-against Foundation belongs to the machine and the OS that produced it; "How to read these"
-below has the measurements behind that.
-
-**The wall clock still catches things the counters do not.** Re-measuring for this table is
-what found the one regression this campaign shipped: an exact reservation for arrays of
-scalars, decided on instruction and allocation counts, cost up to **+39.5%** on the corpus's
-long arrays, because the matrix cell that decided it holds ten-element arrays and the corpus
-holds arrays of 9,510. It is reverted, the ledger's row 2 carries the numbers, and
-`array-640` now exists so the counters can see what the clock saw.
+**Two things changed since the table of 2026-09-20, and the differences mix both.** The
+corpus sweep and the plist rows used to construct Foundation's decoder inside the timed
+closure, which charged the baseline for setup every other arm hoists; they hoist it now, and
+the first two rows read 8.75× and 5.52× where they read 9.14× and 5.62×. And the OS moved
+from macOS 26.5.2 to 27.0, which moves every ratio against Foundation a little in one
+direction or the other — see "A ratio against Foundation belongs to the OS" below. Compare
+a row with a rebuild of the old commit on this OS, never with the old table.
 
 | arm | number | against | source |
 |---|---|---|---|
-| struct decode, full corpus | **9.14×** mean over 25 files (5.16–18.07) | `JSONDecoder` | `FalsificationBench.swift` (the sweep), `Corpus.swift` (the shapes) |
-| prefix decode + unknown-key skip | **5.62×** over 45 files (2.74–8.49) | `JSONDecoder` | `FalsificationBench.swift` (the sweep), `Corpus.swift` (the shapes) |
-| generic value model | **3.35×** over 75 files | `JSONSerialization` | `FalsificationBench.swift` |
-| falsification arm (`apimodel`, 5 sizes) | **5.24×** mean (8.13× float-dense) | `JSONDecoder` | `FalsificationBench.swift` |
-| vs ZippyJSON (simdjson + Codable) | **3.61×** faster | ZippyJSON, which is 1.60–1.84× over Foundation here | `ZippyBench.swift` |
-| vs yyjson, use-case shape | **0.69×** (loses) | yyjson parse + extraction | `SIMDBaseline.swift` |
-| vs yyjson, float-dense | **0.69×** (loses) | same | `SIMDBaseline.swift` |
+| struct decode, full corpus | **8.75×** mean over 25 files (4.95–19.83) | `JSONDecoder` | `FalsificationBench.swift` (the sweep), `Corpus.swift` (the shapes) |
+| prefix decode + unknown-key skip | **5.52×** over 45 files (2.65–8.22) | `JSONDecoder` | `FalsificationBench.swift` (the sweep), `Corpus.swift` (the shapes) |
+| generic value model | **3.31×** over 75 files | `JSONSerialization` | `FalsificationBench.swift` |
+| falsification arm (`apimodel`, 5 sizes) | **5.21×** mean (7.94× float-dense) | `JSONDecoder` | `FalsificationBench.swift` |
+| vs ZippyJSON (simdjson + Codable) | **3.20–3.66×** faster, over four sizes | ZippyJSON, which is 1.62–1.82× over Foundation here | `ZippyBench.swift` |
+| vs yyjson, use-case shape | **0.71×** (loses) | yyjson parse + extraction | `SIMDBaseline.swift` |
+| vs yyjson, float-dense | **0.71×** (loses) | same | `SIMDBaseline.swift` |
 | vs yyjson, DOM vs DOM | **0.16×** (loses) | `yyjson_read` | `SIMDBaseline.swift` |
-| YAML node parse | **8.35×** | Yams `compose` | `Formats.swift` |
-| YAML struct decode | **18.20×** | Yams `YAMLDecoder` | `Formats.swift` |
-| XML tree parse | **2.47×** (macOS; **0.96×** on Linux, 2026-08-18) | Foundation `XMLParser` | `Formats.swift` |
-| TOML node parse | **4.06×** | toml++ via TOMLKit | `TOMLBench.swift` |
-| TOML struct decode | **6.55×** | TOMLKit `TOMLDecoder` | `TOMLBench.swift` |
-| `Date` fields | **5.40×** mean over 5 sizes | `JSONDecoder` + `.iso8601` | `DatesBench.swift` |
-| binary plist | **4.05×** | Foundation `PropertyListDecoder` | `CoverageBench.swift` |
-| XML plist | **1.28×** | Foundation `PropertyListDecoder` | `CoverageBench.swift` |
-| union vs its variant | **1.09×** (the tag scan) | the variant decoded directly | `CoverageBench.swift` |
-| `@Inline` vs nesting | **0.87×** (faster) | the nested `@Schema` it replaces | `CoverageBench.swift` |
-| `@Wraps` vs `@Validate` | **1.80×** (slower) | the plain field + rule it is sugar for | `CoverageBench.swift` |
-| encoding, 50 / 200 items | **8.75× / 9.04×** | `JSONEncoder` | `EncodeBench.swift`, `docs/ENCODING.md` |
-| cold start, 60 types | **6.6×** first decode (median); 5.4× steady | `JSONDecoder` | `ColdStartBench.swift` |
-| multi-megabyte documents | **8.57–8.78×**, ~1,040 MB/s, flat | `JSONDecoder` | `LargeDocBench.swift` |
+| YAML node parse | **8.28×** | Yams `compose` | `Formats.swift` |
+| YAML struct decode | **17.47×** | Yams `YAMLDecoder` | `Formats.swift` |
+| XML tree parse | **2.53×** (macOS; **0.96×** on Linux, 2026-08-18) | Foundation `XMLParser` | `Formats.swift` |
+| TOML node parse | **3.69×** | toml++ via TOMLKit | `TOMLBench.swift` |
+| TOML struct decode | **6.92×** | TOMLKit `TOMLDecoder` | `TOMLBench.swift` |
+| `Date` fields | **5.58×** mean over 5 sizes | `JSONDecoder` + `.iso8601` | `DatesBench.swift` |
+| binary plist | **4.33×** | Foundation `PropertyListDecoder` | `CoverageBench.swift` |
+| XML plist | **1.29×** | Foundation `PropertyListDecoder` | `CoverageBench.swift` |
+| union vs its variant | **1.19×** (the tag scan) | the variant decoded directly | `CoverageBench.swift` |
+| `@Inline` vs nesting | **0.85×** (faster) | the nested `@Schema` it replaces | `CoverageBench.swift` |
+| `@Wraps` vs `@Validate` | **1.98×** (slower) | the plain field + rule it is sugar for | `CoverageBench.swift` |
+| encoding, 50 / 200 items | **8.28× / 8.02×** | `JSONEncoder` | `EncodeBench.swift`, `docs/ENCODING.md` |
+| cold start, 60 types | **6.1×** first decode (median); 5.2× steady | `JSONDecoder` | `ColdStartBench.swift` |
+| multi-megabyte documents | **8.41–9.02×**, ~1,020 MB/s, flat | `JSONDecoder` | `LargeDocBench.swift` |
 | total allocations, 50 items | **159** against Foundation's 377 | `JSONDecoder` | `TotalAllocations.swift` |
-| `T.validate(_:)` | **37 ns** per value, 1 block; **46 ns/row** batched, 0.11× a decode | — | `ValidateBench.swift`, `docs/VALIDATE.md` |
+| `T.validate(_:)` | **40 ns** per value, 1 block; **47 ns/row** batched, 0.11× a decode | — | `ValidateBench.swift`, `docs/VALIDATE.md` |
 | live allocations, `apimodel-8k` struct | gated, **PASS** | absolute thresholds | `AllocationGate.swift` |
-| compile time, 10 fields | **80.8 ms/type** (gate 100) | `Codable`: 4.22× | `Experiments/03-compile-time/gate.sh`, `docs/COMPILE-TIME.md` |
+| compile time, 10 fields | **84.4 ms/type** (budget 100) | `Codable`: 4.03× | `Experiments/03-compile-time/gate.sh`, `docs/COMPILE-TIME.md` |
 
 `AssayBench` also has `dict`, `keypath`, `decomposition`, `fieldsweep` and `rules` arms. They
 have no row here; run the arm for its number (`AssayBench --list` names them).
@@ -68,19 +57,15 @@ have no row here; run the arm for its number (`AssayBench --list` names them).
 `JSONDecoder` is fully general and `Codable`-driven; Assay's macro knows the schema at compile
 time. That is the whole thesis, not a footnote to it.
 
-The rest is arranged in the baseline's favour or symmetric, with one exception, stated
-second:
+The rest is arranged in the baseline's favour or symmetric:
 
 - No `Codable` model uses `.convertFromSnakeCase`, which would cost Foundation a `String`
   allocation per key. The corpus and falsification models declare snake_case member names
   directly; the ZippyJSON, large-document, total-allocation and encode models use explicit
   `CodingKeys`.
-- **The exception: the corpus sweep and the plist rows construct the baseline's decoder
-  per call.** `Corpus.swift` creates a `JSONDecoder` and `CoverageBench.swift` a
-  `PropertyListDecoder` inside the timed closure, so that cost sits on the baseline's side
-  of the 9.14× and 5.62× rows and of both plist rows. Every other arm hoists the decoder
-  out of the loop (warm). The cold-start row exists because warm flatters anything that
-  amortises setup.
+- Every baseline decoder is built once and hoisted out of the loop (warm). Until 2026-10-04
+  the corpus sweep and the plist rows built theirs per call, and this document said
+  otherwise; the cold-start row exists because warm flatters anything that amortises setup.
 - Assay receives `[UInt8]`; Foundation receives `Data`, its native input. Neither converts
   inside the timed region.
 - Minimum of 5 rounds, not a mean (the cold-start row is the median of 60 single samples).

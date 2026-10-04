@@ -131,6 +131,12 @@ stable for two minor versions with no entry under **Breaking**.
 
 ### Fixed
 
+- **`@Schema(encodes: true)` with an unannotated `Date` did not compile.** A `var when: Date`
+  with no `@DateFormat`, in a type that encodes, failed with "type has no member
+  '__assayDateFormats_0'" from inside the expansion. The decoder shares one default format
+  list for such a field; the three encoders named a per-field one that was only emitted for
+  annotated dates. Optional, array and dictionary dates were affected the same way. Found
+  2026-10-04 by the first test to put a bare date beside `encodes: true`.
 - **A `@Check`/`@AsyncCheck` on a backticked property** (`` var `default`: Int ``) matched
   nothing, because the lookup compared the unbackticked key-path name against the backticked
   identifier — so the check silently lost its caret.

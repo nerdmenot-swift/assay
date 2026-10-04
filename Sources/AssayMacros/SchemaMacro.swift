@@ -487,6 +487,7 @@ public struct SchemaMacro: ExtensionMacro {
                 return nil
             }
             body += "\n\n" + Self.inverseClosures(activeS)
+            body += Self.defaultDateFormatAliases(activeS)
             body += Self.declaredKeys(activeS, a.extras, groups: a.pathGroups)
             if formats.json {
                 body += Self.encodeBody(

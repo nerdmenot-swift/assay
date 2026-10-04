@@ -233,12 +233,6 @@ extension SchemaMacro {
         let pad = String(repeating: " ", count: indent)
 
         if isDateType(type) {
-            let formats = dateFormatsRef(
-                SchemaField(
-                    identifier: "", typeName: type, wireKey: key, aliases: [], isOptional: false,
-                    defaultExpr: nil, isIgnored: false, isExtras: false, coerce: false,
-                    dateFormats: nil), i)
-            _ = formats
             return
                 "\(pad)w.writeDate(\(expr).timeIntervalSince1970, \(dateFormatsExpr(i)), &sink, path, \"\(key)\")"
         }
@@ -324,6 +318,37 @@ extension SchemaMacro {
 
     static func dateFormatsExpr(_ i: Int) -> String {
         "Self.__assayDateFormats_\(i)"
+    }
+
+    /// `__assayDateFormats_i` for a date field that wrote no `@DateFormat`.
+    ///
+    /// The decode side shares `DateFormat.defaultFormats` for such a field and emits no
+    /// per-field static (`dateFormatsRef`). All three encoders name the per-field static
+    /// unconditionally — they are handed a type token and an index, not the field — so until
+    /// 2026-10-04 an `encodes: true` type with a bare `var when: Date` did not compile:
+    /// "type has no member '__assayDateFormats_0'", pointing into the expansion. No test
+    /// and no golden held an unannotated date beside `encodes: true`.
+    ///
+    /// A computed alias rather than a second array: nothing is allocated, and a type that
+    /// does not encode, or annotates its dates, emits nothing here.
+    static func defaultDateFormatAliases(_ fields: [SchemaField]) -> String {
+        var out = ""
+        for (i, f) in fields.enumerated() where f.dateFormats == nil && holdsDate(f.decodedType) {
+            out += """
+                nonisolated static var __assayDateFormats_\(i): [Assay.DateFormat] { Assay.DateFormat.defaultFormats }
+
+                """
+        }
+        return out
+    }
+
+    /// `Date`, or an array or dictionary that bottoms out in one.
+    static func holdsDate(_ type: String) -> Bool {
+        let t = stripOptional(type)
+        if isDateType(t) { return true }
+        if let element = arrayElement(t) { return holdsDate(element) }
+        if let value = dictionaryValue(t) { return holdsDate(value) }
+        return false
     }
 
     /// The `@Inverse` closures, emitted beside the `@Transform` ones.

@@ -1,0 +1,91 @@
+extension GoldenOpenAll: Assay.JSONAssayable, Assay.RawDecodable, Assay.JSONEncodableSchema, Assay.RawEncodableSchema, Assay.XMLEncodableSchema {/// The wire string to a case, with the catch-all keeping anything unrecognised —
+/// which is the entire point: a v1 client must survive a v2 server.
+nonisolated public static func _assayFromWire(_ __s: String) -> GoldenOpenAll {
+    switch __s.utf8.count {
+        case 6: if __s == "active" { return .active }
+        case 9: if __s == "suspended" { return .suspended }
+    default: break
+    }
+    return .other(__s)
+}
+
+/// The case back to its wire string. `nil` for an unrecognised value that did not
+/// opt into round-tripping — see `_assayEncodeWire`.
+nonisolated public var _assayWire: String {
+    switch self {
+        case .active: return "active"
+        case .suspended: return "suspended"
+    case .other(let __v): return __v
+    }
+}
+
+nonisolated public var _assayIsUnknown: Bool {
+    if case .other = self { return true }
+    return false
+}
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenOpenAll? {
+    reader.beginValue()
+    let __start = reader.byteOffset
+    guard let __s = reader.scanString() else {
+        reader._mismatch(&sink, path, from: __start, expected: "string")
+        return nil
+    }
+    return _assayFromWire(__s)
+}
+
+nonisolated public static func _assay(
+    from raw: Assay.RawValue,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenOpenAll? {
+    guard case .string(let __s) = raw else {
+        Assay.RawValue.mismatchAt(&sink, path, "string", raw)
+        return nil
+    }
+    return _assayFromWire(__s)
+}
+
+nonisolated public func _assayEncode(
+    into w: inout Assay.JSONWriter,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) {
+    if _assayIsUnknown {
+        Assay._assayUnknownNotEncodable("GoldenOpenAll", _assayWire, &sink, path)
+        return
+    }
+    w.write(_assayWire)
+}
+
+nonisolated public func _assayEncodeRaw(
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathStep]
+) -> Assay.RawValue {
+    if _assayIsUnknown {
+        Assay._assayUnknownNotEncodable("GoldenOpenAll", _assayWire, &sink, path)
+        return .null
+    }
+    return .string(_assayWire)
+}
+
+nonisolated public static var _assayXMLRoot: String { "GoldenOpenAll" }
+
+nonisolated public func _assayEncodeXML(
+    into w: inout Assay.XMLWriter,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathStep],
+    element __name: String
+) {
+    if _assayIsUnknown {
+        Assay._assayUnknownNotEncodable("GoldenOpenAll", _assayWire, &sink, path)
+        return
+    }
+    w.element(__name, _assayWire)
+}
+
+}

@@ -1,0 +1,41 @@
+extension GoldenKeyedOpen: Assay.JSONAssayable {/// The wire string to a case, with the catch-all keeping anything unrecognised —
+/// which is the entire point: a v1 client must survive a v2 server.
+nonisolated public static func _assayFromWire(_ __s: String) -> GoldenKeyedOpen {
+    switch __s.utf8.count {
+        case 2: if __s == "on" { return .active }
+        case 3: if __s == "off" { return .off }
+    default: break
+    }
+    return .other(__s)
+}
+
+/// The case back to its wire string. `nil` for an unrecognised value that did not
+/// opt into round-tripping — see `_assayEncodeWire`.
+nonisolated public var _assayWire: String {
+    switch self {
+        case .active: return "on"
+        case .off: return "off"
+    case .other(let __v): return __v
+    }
+}
+
+nonisolated public var _assayIsUnknown: Bool {
+    if case .other = self { return true }
+    return false
+}
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenKeyedOpen? {
+    reader.beginValue()
+    let __start = reader.byteOffset
+    guard let __s = reader.scanString() else {
+        reader._mismatch(&sink, path, from: __start, expected: "string")
+        return nil
+    }
+    return _assayFromWire(__s)
+}
+
+}

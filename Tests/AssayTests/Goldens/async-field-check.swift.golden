@@ -1,0 +1,93 @@
+extension GoldenAsyncField: Assay.JSONAssayable, Assay.AsyncCheckAssayable {nonisolated(unsafe) static let __assayFieldNames: [PartialKeyPath<GoldenAsyncField>: String] = [\.a: "a"]
+nonisolated static let __assayKeyTable: [UInt8] = {
+    var t = [UInt8](repeating: 1, count: 256)
+        t[97] = 0
+    return t
+}()
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenAsyncField? {
+    guard reader.tryConsume(0x7B) else {
+        reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
+        return nil
+    }
+    guard reader.enterContainer(&sink) else { return nil }
+    // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+    // anything ever failed?", which is wrong the moment one sink spans more than
+    // one decode — a driver collecting every issue from a result set would find
+    // one bad row silently discarding every good row after it.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: String? = nil
+    var __presence: UInt64 = 0
+
+    if !reader.tryConsume(0x7D) {
+        while true {
+            guard let __key = reader.scanKey() else {
+                reader.reportMalformed(&sink, path, expected: "a key in double quotes")
+                reader.leaveContainer()
+                return nil
+            }
+            guard reader.expect(0x3A) else {
+                reader.reportMalformed(&sink, path, expected: "':' after the key")
+                reader.leaveContainer()
+                return nil
+            }
+                let __w = reader._keyWindow(
+                    __key,
+                    byteOffset: 0,
+                    shift: 0)
+                switch Self.__assayKeyTable[Int(__w)] {
+                case 0:
+                    if reader.keyMatches(__key, "a") {
+                        __presence |= 1
+                        __f0 = reader._decodeString(&sink, path, "a")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                default:
+                    _ = reader.skipValue(&sink)
+                }
+            if reader.tryConsume(0x2C) { continue }
+            break
+        }
+        guard reader.tryConsume(0x7D) else {
+            reader.reportMalformed(&sink, path, expected: "',' or '}'")
+            reader.leaveContainer()
+            return nil
+        }
+    }
+    reader.leaveContainer()
+
+        if __presence & 1 == 0 {
+            reader._missingRequired(&sink, path, "a")
+        }
+
+
+        guard let __v0 = __f0 else { return nil }
+    let __result = GoldenAsyncField(a: __v0)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}
+
+nonisolated public static func _assayAsyncChecks(
+    _ __value: GoldenAsyncField,
+    at path: [Assay.PathStep]
+) async -> [Assay.Issue] {
+    await withTaskGroup(of: Assay.Issues<GoldenAsyncField>.self) { group in
+        group.addTask {
+            var __i = Assay.Issues<GoldenAsyncField>(names: Self.__assayFieldNames)
+            if let __m = await Self.free(
+                __value.a) { __i.add(__m, at: \.a) }
+            return __i
+        }
+        var __sink = Assay.IssueSink()
+        for await __i in group { __i.merge(into: &__sink, at: path) }
+        return __sink.issues
+    }
+}}

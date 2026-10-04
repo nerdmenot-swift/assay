@@ -594,3 +594,120 @@ extension RefusalTests {
         #expect(d.contains { $0.contains("empty wire key") }, "\(d)")
     }
 }
+
+// MARK: - Refusals nothing had triggered
+//
+// Each diagnostic below existed and had never been produced by a test. A refusal is a
+// feature with a message; an untested one is a message nobody has read. The table form is
+// deliberate: source, and a phrase the message must contain.
+
+@Suite("Refusals: the rest of the table")
+struct RefusalCoverageTests {
+
+    @Test(
+        "a rule on the wrong kind of field names the kind it wanted",
+        arguments: [
+            // String field
+            ("@Validate(.unique) var a: String", "applies to an Array"),
+            ("@Validate(.positive) var a: String", "applies to a number"),
+            // number field
+            ("@Validate(.unique) var a: Int", "applies to an Array"),
+            ("@Validate(.notEmpty) var a: Double", "applies to an Array"),
+            // array field
+            ("@Validate(.email) var a: [String]", "applies to String"),
+            ("@Validate(.positive) var a: [Int]", "applies to a number"),
+            // Date field
+            ("@Validate(.email) var a: Date", "applies to String"),
+            ("@Validate(.positive) var a: Date", "applies to a number"),
+            ("@Validate(.min(1)) var a: Date", "applies to a number"),
+            ("@Validate(.unique) var a: Date", "applies to an Array"),
+            // a date rule anywhere else
+            ("@Validate(.before(\"2030-01-01\")) var a: String", "applies to Date"),
+            // Bool, and a nested type the macro knows nothing about
+            ("@Validate(.email) var a: Bool", "applies to String"),
+            ("@Validate(.positive) var a: Bool", "applies to a number"),
+            ("@Validate(.min(1)) var a: Bool", "applies to String, a number, or an Array"),
+            ("@Validate(.notEmpty) var a: Nested", "applies to String, a number, or an Array"),
+            // element types with no typed overload
+            (
+                "@Validate(.each(.min(1))) var a: [Bool]",
+                "supports elements of String, Int or Double"
+            ),
+            ("@Validate(.unique) var a: [Nested]", "supports elements of String, Int or Double")
+        ])
+    func ruleCategory(field: String, phrase: String) {
+        let d = expandSchemaForTesting("@Schema struct S { \(field) }").diagnostics
+        #expect(d.count == 1, "\(field): \(d)")
+        #expect(d.first?.contains(phrase) == true, "\(field): \(d)")
+        #expect(d.first?.contains("'a' is declared") == true, "\(field): \(d)")
+    }
+
+    @Test(
+        "malformed attributes are refused where they are written",
+        arguments: [
+            (
+                "@Schema struct S { var a: Int; @Check func f(_ v: S, _ i: inout Issues<S>) {} }",
+                "@Check function 'f' must be static"
+            ),
+            (
+                "@Schema struct S { var a: Int; @Check(\\S.a) static func f() -> String? { nil } }",
+                "'f' declares 0 parameters"
+            ),
+            (
+                """
+                @Schema(context: C.self) struct S { var a: Int
+                @Check(\\S.a) static func f(_ v: Int) -> String? { nil } }
+                """,
+                "and the context"
+            ),
+            (
+                "@Schema struct S { @Transform(convert) var a: Int }",
+                "@Transform takes a closure with a typed parameter"
+            ),
+            (
+                "@Schema struct S { @Transform({ a in a }) var a: Int }",
+                "closure parameter needs a type annotation"
+            ),
+            (
+                "@Schema(discriminator: \"type\") enum E {}",
+                "needs at least one case"
+            )
+        ])
+    func malformed(source: String, phrase: String) {
+        let d = expandSchemaForTesting(source).diagnostics
+        #expect(d.contains { $0.contains(phrase) }, "\(source): \(d)")
+    }
+
+    @Test("@Wraps with no arguments says what it needs")
+    func wrapsNeedsAType() {
+        let d = expandWrapsForTesting("@Wraps struct S {}").diagnostics
+        #expect(d == ["@Wraps needs the wrapped type: @Wraps(String.self, .email)"])
+    }
+
+    @Test("computed properties are not fields, however they are spelled")
+    func computedProperties() {
+        let (expansion, d) = expandSchemaForTesting(
+            """
+            @Schema struct S {
+                var a: Int
+                var twice: Int { a * 2 }
+                var thrice: Int { get { a * 3 } }
+                var watched: Int { didSet {} }
+            }
+            """)
+        #expect(d.isEmpty, "\(d)")
+        // Observers keep a property stored; a getter does not.
+        #expect(expansion.contains("\"watched\""))
+        #expect(!expansion.contains("\"twice\"") && !expansion.contains("\"thrice\""))
+    }
+
+    @Test("Optional<T> and a backticked name are read as T? and the bare name")
+    func spellings() {
+        let (expansion, d) = expandSchemaForTesting(
+            "@Schema struct S { var a: Optional<Int>; var `default`: String }")
+        #expect(d.isEmpty, "\(d)")
+        #expect(expansion.contains("_decodeIntOrNull"))
+        #expect(expansion.contains("\"default\""))
+        #expect(!expansion.contains("\"`default`\""))
+    }
+}

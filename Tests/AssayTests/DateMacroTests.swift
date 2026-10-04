@@ -89,6 +89,13 @@ struct DateFormatMacroTests {
         #expect(diags.contains { $0.contains("'epochDays'") && $0.contains(".rfc9110") })
     }
 
+    @Test("a format CALL that is not .pattern is unknown too, not only a bare name")
+    func unknownCall() {
+        let d = expandDateFormat("struct S { @DateFormat(.custom(\"x\")) var a: Date }")
+        #expect(d.count == 1, "\(d)")
+        #expect(d.first?.contains("custom") == true, "\(d)")
+    }
+
     @Test("a bad pattern fails at expansion with the runtime's own words")
     func badPattern() {
         let diags = expandDateFormat(

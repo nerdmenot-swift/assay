@@ -1,0 +1,320 @@
+extension GoldenRuleShapes: Assay.JSONAssayable, Assay.Validatable, Assay.JSONEncodableSchema, Assay.SchemaDescribing {nonisolated static let __assayRules_0_0: [Assay.Rule] = [.min(1)]
+nonisolated static let __assayRules_1_0: [Assay.Rule] = [.min(1)]
+nonisolated static let __assayRules_2_0: [Assay.Rule] = [.notEmpty]
+nonisolated static let __assayRules_3_0: [Assay.Rule] = [.min(1)]
+nonisolated static let __assayRules_4_0: [Assay.Rule] = [.min(1)]
+nonisolated static let __assayRules_4_1: [Assay.Rule] = [.max(9)]
+nonisolated static let __assayRules_5_0: [Assay.Rule] = [.min(1)]
+nonisolated static let __assayTransform_5: @Sendable (String) -> Int = { (s: String) in s.count }
+nonisolated static let __assayKeyTable: [UInt8] = {
+    var t = [UInt8](repeating: 6, count: 256)
+        t[13] = 3
+        t[46] = 5
+        t[78] = 0
+        t[140] = 2
+        t[206] = 1
+        t[238] = 4
+    return t
+}()
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenRuleShapes? {
+    guard reader.tryConsume(0x7B) else {
+        reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
+        return nil
+    }
+    guard reader.enterContainer(&sink) else { return nil }
+    // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+    // anything ever failed?", which is wrong the moment one sink spans more than
+    // one decode — a driver collecting every issue from a result set would find
+    // one bad row silently discarding every good row after it.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: UInt? = nil
+    var __f1: UInt64? = nil
+    var __f2: [Bool]? = nil
+    var __f3: String? = nil
+    var __f4: String? = nil
+    var __f5: String? = nil
+    var __sp0: Assay.SourceSpan? = nil
+    var __sp1: Assay.SourceSpan? = nil
+    var __sp2: Assay.SourceSpan? = nil
+    var __sp3: Assay.SourceSpan? = nil
+    var __sp4: Assay.SourceSpan? = nil
+    var __sp5: Assay.SourceSpan? = nil
+    var __presence: UInt64 = 0
+
+    if !reader.tryConsume(0x7D) {
+        while true {
+            guard let __key = reader.scanKey() else {
+                reader.reportMalformed(&sink, path, expected: "a key in double quotes")
+                reader.leaveContainer()
+                return nil
+            }
+            guard reader.expect(0x3A) else {
+                reader.reportMalformed(&sink, path, expected: "':' after the key")
+                reader.leaveContainer()
+                return nil
+            }
+                let __w = reader._keyWindow(
+                    __key,
+                    byteOffset: 0,
+                    shift: 3)
+                switch Self.__assayKeyTable[Int(__w)] {
+                case 0:
+                    if reader.keyMatches(__key, "u") {
+                        __presence |= 1
+                        __f0 = reader._decodeUInt(&sink, path, "u")
+                        __sp0 = reader.lastValueSpan
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 1:
+                    if reader.keyMatches(__key, "u64") {
+                        __presence |= 2
+                        __f1 = reader._decodeUInt64(&sink, path, "u64")
+                        __sp1 = reader.lastValueSpan
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 2:
+                    if reader.keyMatches(__key, "flags") {
+                        __presence |= 4
+                        reader.skipWhitespace()
+                        let __ss2 = reader.byteOffset
+                        if reader.tryConsume(0x5B) {
+                            var __arr2_0: [Bool] = []
+                            var __ix2_0 = 0
+                            if !reader.tryConsume(0x5D) {
+                                __arr2_0.reserveCapacity(sink._shapeHint(124))
+                                while true {
+                                if let __e2_0 = reader._decodeBool(&sink, path, "flags", __ix2_0) { __arr2_0.append(__e2_0) }
+                                    __ix2_0 &+= 1
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x5D) else {
+                                    reader.reportMalformed(&sink, path, expected: "',' or ']'")
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            sink._noteShape(__arr2_0.count, 124)
+                            __f2 = __arr2_0
+                        } else if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "flags", "array")
+                        } else {
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                        // whole-value mismatch on a collection reported an issue whose path
+                        // was EMPTY at the top level -- worse than the missing element index
+                        // this change set out to fix, and found by a test written for that.
+                        reader.reportTypeMismatch(&sink, path + [.key("flags")], expected: "array")
+                        _ = reader.skipValue(&sink)
+                        }
+
+                        __sp2 = Assay.SourceSpan(lo: __ss2, len: reader.byteOffset &- __ss2)
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 3:
+                    if reader.keyMatches(__key, "opt") {
+                        __presence |= 8
+                        if let __r = reader._decodeStringOrNull(&sink, path, "opt") { __f3 = __r }
+                        __sp3 = reader.lastValueSpan
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 4:
+                    if reader.keyMatches(__key, "two") {
+                        __presence |= 16
+                        __f4 = reader._decodeString(&sink, path, "two")
+                        __sp4 = reader.lastValueSpan
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 5:
+                    if reader.keyMatches(__key, "width") {
+                        __presence |= 32
+                        __f5 = reader._decodeString(&sink, path, "width")
+                        __sp5 = reader.lastValueSpan
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                default:
+                    _ = reader.skipValue(&sink)
+                }
+            if reader.tryConsume(0x2C) { continue }
+            break
+        }
+        guard reader.tryConsume(0x7D) else {
+            reader.reportMalformed(&sink, path, expected: "',' or '}'")
+            reader.leaveContainer()
+            return nil
+        }
+    }
+    reader.leaveContainer()
+
+        if __presence & 1 == 0 {
+            reader._missingRequired(&sink, path, "u")
+        }
+        if __presence & 2 == 0 {
+            reader._missingRequired(&sink, path, "u64")
+        }
+        if __presence & 4 == 0 {
+            reader._missingRequired(&sink, path, "flags")
+        }
+        if __presence & 16 == 0 {
+            reader._missingRequired(&sink, path, "two")
+        }
+        if __presence & 32 == 0 {
+            reader._missingRequired(&sink, path, "width")
+        }
+
+    if let __vv0 = __f0 {
+        Assay._assayValidate(UInt64(__vv0), Self.__assayRules_0_0, override: nil, field: "u", at: __sp0, path: path, &sink)
+    }
+    if let __vv1 = __f1 {
+        Assay._assayValidate(__vv1, Self.__assayRules_1_0, override: nil, field: "u64", at: __sp1, path: path, &sink)
+    }
+    if let __vv2 = __f2 {
+        Assay._assayValidate(countOf: __vv2, Self.__assayRules_2_0, override: nil, field: "flags", at: __sp2, path: path, &sink)
+    }
+    if let __vv3 = __f3 {
+        Assay._assayValidate(__vv3, Self.__assayRules_3_0, override: nil, field: "opt", at: __sp3, path: path, &sink)
+    }
+    if let __vv4 = __f4 {
+        Assay._assayValidate(__vv4, Self.__assayRules_4_0, override: nil, field: "two", at: __sp4, path: path, &sink)
+        Assay._assayValidate(__vv4, Self.__assayRules_4_1, override: nil, field: "two", at: __sp4, path: path, &sink)
+    }
+    if let __vv5 = __f5 {
+        Assay._assayValidate(__vv5, Self.__assayRules_5_0, override: nil, field: "width", at: __sp5, path: path, &sink)
+    }
+
+        guard let __v0 = __f0 else { return nil }
+        guard let __v1 = __f1 else { return nil }
+        guard let __v2 = __f2 else { return nil }
+        guard let __v4 = __f4 else { return nil }
+        guard let __v5 = __f5 else { return nil }
+    let __result = GoldenRuleShapes(u: __v0, u64: __v1, flags: __v2, opt: __f3, two: __v4, width: Self.__assayTransform_5(__v5))
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}
+
+nonisolated static let __assayInverse_5: @Sendable (Int) -> String = { (n: Int) in String(repeating: "x", count: n) }
+nonisolated public func _assayEncodeMembers(
+    into w: inout Assay.JSONWriter,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) {
+        w._key(separated: ",\"u\":")
+        w.write(self.u)
+        w._key(separated: ",\"u64\":")
+        w.write(self.u64)
+        w._key(separated: ",\"flags\":")
+        w.beginArray()
+        for __a2 in self.flags {
+            w.write(__a2)
+        }
+        w.endArray()
+        w._key(separated: ",\"opt\":")
+        if let __e3 = self.opt {
+            w.write(__e3)
+        } else {
+            w.writeNull()
+        }
+        w._key(separatedOpeningString: ",\"two\":\"")
+        w._writeStringOpened(self.two)
+        w._key(separated: ",\"width\":")
+        w.write(Self.__assayInverse_5(self.width))
+}
+
+nonisolated public func _assayEncode(
+    into w: inout Assay.JSONWriter,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) {
+    w.beginObject()
+    self._assayEncodeMembers(into: &w, into: &sink, at: &path)
+    w.endObject()
+}
+
+/// Run this schema's rules against an already-constructed value. docs/VALIDATE.md.
+///
+/// Issues carry a path and no location: there is no source document to point at.
+///
+/// Rules NOT re-checked here, and why — decoding still applies all of them:
+/// `width` (@Transform: its rules are type-checked against the wire type, and the property holds the output)
+nonisolated public static func _assayCheck(
+    _ __result: GoldenRuleShapes,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathStep]
+) {
+        Assay._assayValidate(UInt64(__result.u), Self.__assayRules_0_0, override: nil, field: "u", at: nil, path: path, &sink)
+        Assay._assayValidate(__result.u64, Self.__assayRules_1_0, override: nil, field: "u64", at: nil, path: path, &sink)
+        Assay._assayValidate(countOf: __result.flags, Self.__assayRules_2_0, override: nil, field: "flags", at: nil, path: path, &sink)
+    if let __vv3 = __result.opt {
+        Assay._assayValidate(__vv3, Self.__assayRules_3_0, override: nil, field: "opt", at: nil, path: path, &sink)
+    }
+        Assay._assayValidate(__result.two, Self.__assayRules_4_0, override: nil, field: "two", at: nil, path: path, &sink)
+        Assay._assayValidate(__result.two, Self.__assayRules_4_1, override: nil, field: "two", at: nil, path: path, &sink)
+}
+
+/// This type's shape, for `jsonSchema(for:)`. `docs/EXPERIENCE.md` §14.
+///
+/// A descriptor rather than document text: the rule-to-keyword mapping lives once in
+/// `AssayCore`, not once per type in every user's expansion.
+nonisolated public static var _assaySchemaDescriptor: Assay.SchemaDescriptor {
+    Assay.SchemaDescriptor(
+        typeName: "GoldenRuleShapes",
+        fields: [
+        Assay.FieldDescriptor(
+            wireKey: "u",
+            aliases: [],
+            propertyName: "u",
+            type: .integer,
+            isRequired: true,
+            rules: Self.__assayRules_0_0),
+        Assay.FieldDescriptor(
+            wireKey: "u64",
+            aliases: [],
+            propertyName: "u64",
+            type: .integer,
+            isRequired: true,
+            rules: Self.__assayRules_1_0),
+        Assay.FieldDescriptor(
+            wireKey: "flags",
+            aliases: [],
+            propertyName: "flags",
+            type: .array(.boolean),
+            isRequired: true,
+            rules: Self.__assayRules_2_0),
+        Assay.FieldDescriptor(
+            wireKey: "opt",
+            aliases: [],
+            propertyName: "opt",
+            type: .optional(.string),
+            isRequired: false,
+            rules: Self.__assayRules_3_0),
+        Assay.FieldDescriptor(
+            wireKey: "two",
+            aliases: [],
+            propertyName: "two",
+            type: .string,
+            isRequired: true,
+            rules: (Self.__assayRules_4_0 + Self.__assayRules_4_1)),
+        Assay.FieldDescriptor(
+            wireKey: "width",
+            aliases: [],
+            propertyName: "width",
+            type: .integer,
+            wireType: .string,
+            isRequired: true,
+            rules: Self.__assayRules_5_0)
+        ],
+        rejectsUnknownKeys: false)
+}}

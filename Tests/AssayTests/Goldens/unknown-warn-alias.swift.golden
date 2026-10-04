@@ -1,0 +1,134 @@
+extension GoldenWarns: Assay.JSONAssayable, Assay.RawDecodable {nonisolated static let __assayKnownKeys: [String] = ["a", "b"]
+
+nonisolated static let __assayKeyTable: [UInt8] = {
+    var t = [UInt8](repeating: 1, count: 256)
+        t[97] = 0
+        t[98] = 0
+    return t
+}()
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenWarns? {
+    guard reader.tryConsume(0x7B) else {
+        reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
+        return nil
+    }
+    guard reader.enterContainer(&sink) else { return nil }
+    // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+    // anything ever failed?", which is wrong the moment one sink spans more than
+    // one decode — a driver collecting every issue from a result set would find
+    // one bad row silently discarding every good row after it.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: Int? = nil
+    var __presence: UInt64 = 0
+
+    if !reader.tryConsume(0x7D) {
+        while true {
+            guard let __key = reader.scanKey() else {
+                reader.reportMalformed(&sink, path, expected: "a key in double quotes")
+                reader.leaveContainer()
+                return nil
+            }
+            guard reader.expect(0x3A) else {
+                reader.reportMalformed(&sink, path, expected: "':' after the key")
+                reader.leaveContainer()
+                return nil
+            }
+                let __w = reader._keyWindow(
+                    __key,
+                    byteOffset: 0,
+                    shift: 0)
+                switch Self.__assayKeyTable[Int(__w)] {
+                case 0:
+                    if reader.keyMatches(__key, "a") || reader._aliasMatched(__key, "b", &sink, path, "a") {
+                        __presence |= 1
+                        __f0 = reader._decodeInt(&sink, path, "a")
+                    } else {
+                        reader._reportUnknownKey(&sink, path, __key,
+                                            known: Self.__assayKnownKeys,
+                                            reject: false)
+                    _ = reader.skipValue(&sink)
+                    }
+                default:
+                    reader._reportUnknownKey(&sink, path, __key,
+                                            known: Self.__assayKnownKeys,
+                                            reject: false)
+                    _ = reader.skipValue(&sink)
+                }
+            if reader.tryConsume(0x2C) { continue }
+            break
+        }
+        guard reader.tryConsume(0x7D) else {
+            reader.reportMalformed(&sink, path, expected: "',' or '}'")
+            reader.leaveContainer()
+            return nil
+        }
+    }
+    reader.leaveContainer()
+
+        if __presence & 1 == 0 {
+            reader._missingRequired(&sink, path, "a")
+        }
+
+
+        guard let __v0 = __f0 else { return nil }
+    let __result = GoldenWarns(a: __v0)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}
+
+nonisolated public static func _assay(
+    from raw: Assay.RawValue,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenWarns? {
+    guard case .mapping(let __members) = raw else {
+        Assay.RawValue._notAnObject(&sink, path, raw)
+        return nil
+    }
+    // See the note in the JSON body: local validity, not global.
+    let __ck0 = sink.checkpoint()
+
+    var __sp0: Assay.SourceSpan? = nil
+    var __f0: Int? = nil
+    var __presence: UInt64 = 0
+
+    for __m in __members {
+        let __k = __m.key
+        let __v = __m.value
+        switch __k.utf8.count {
+            case 1:
+                if __k == "a" {
+                    __presence |= 1
+                    __sp0 = __m.span
+                    __f0 = __v._assayInt(&sink, path, "a", at: __sp0)
+                } else if __k == "b" {
+                    __presence |= 1
+                    Assay._assayAliasMatched(&sink, path, "a", "b")
+                    __sp0 = __m.span
+                    __f0 = __v._assayInt(&sink, path, "a", at: __sp0)
+                } else {
+                    Assay.RawValue._unknownKey(&sink, path, __k, known: Self.__assayKnownKeys, reject: false, span: __m.span)
+                }
+            default:
+            Assay.RawValue._unknownKey(&sink, path, __k, known: Self.__assayKnownKeys, reject: false, span: __m.span)
+        }
+    }
+
+        if __presence & 1 == 0 {
+            Assay.RawValue._missing(&sink, path, "a")
+        }
+
+
+        guard let __v0 = __f0 else { return nil }
+    let __result = GoldenWarns(a: __v0)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}}

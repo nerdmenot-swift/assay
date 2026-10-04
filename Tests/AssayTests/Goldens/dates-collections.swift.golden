@@ -1,0 +1,661 @@
+extension GoldenDatesWide: Assay.JSONAssayable, Assay.RawDecodable {nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenDatesWide? {
+    guard reader.tryConsume(0x7B) else {
+        reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
+        return nil
+    }
+    guard reader.enterContainer(&sink) else { return nil }
+    // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+    // anything ever failed?", which is wrong the moment one sink spans more than
+    // one decode — a driver collecting every issue from a result set would find
+    // one bad row silently discarding every good row after it.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: Date? = nil
+    var __f1: [Date]? = nil
+    var __f2: [String: Date]? = nil
+    var __f3: [[Int]]? = nil
+    var __f4: [String: [Int]]? = nil
+    var __f5: [String: [String: Int]]? = nil
+    var __f6: [String: RawValue]? = nil
+    var __f7: RawValue? = nil
+    var __f8: Int? = nil
+    var __f9: Int? = nil
+    var __f10: Date? = nil
+    var __presence: UInt64 = 0
+
+    if !reader.tryConsume(0x7D) {
+        while true {
+            guard let __key = reader.scanKey() else {
+                reader.reportMalformed(&sink, path, expected: "a key in double quotes")
+                reader.leaveContainer()
+                return nil
+            }
+            guard reader.expect(0x3A) else {
+                reader.reportMalformed(&sink, path, expected: "':' after the key")
+                reader.leaveContainer()
+                return nil
+            }
+                switch __key.len {
+                case 1:
+                        if reader.keyMatches(__key, "n") {
+                        __presence |= 256
+                        if reader._consumeNullIfPresent() { __f8 = nil } else {
+                            __f8 = reader._decodeIntCoercing(&sink, path, "n")
+                        }
+                    } else                    if reader.keyMatches(__key, "f") {
+                        __presence |= 512
+                        let __fck9 = sink.checkpoint()
+                        __f9 = reader._decodeInt(&sink, path, "f")
+                        if __f9 == nil { sink.rollback(to: __fck9) }
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 2:
+                        if reader.keyMatches(__key, "fb") {
+                        __presence |= 1024
+                        let __fck10 = sink.checkpoint()
+                        __f10 = reader._decodeDate(&sink, path, "fb", Assay.DateFormat.defaultFormats).map { Date(timeIntervalSince1970: $0) }
+                        if __f10 == nil { sink.rollback(to: __fck10) }
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 3:
+                        if reader.keyMatches(__key, "any") {
+                        __presence |= 128
+                        if reader._consumeNullIfPresent() { __f7 = nil } else {
+                            __f7 = Assay._assayCollect(
+                            RawValue.self, from: &reader, into: &sink,
+                            at: path + [.key("any")])
+                        }
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 4:
+                        if reader.keyMatches(__key, "many") {
+                        __presence |= 2
+                        if reader.tryConsume(0x5B) {
+                            var __arr1_0: [Date] = []
+                            var __ix1_0 = 0
+                            if !reader.tryConsume(0x5D) {
+                                __arr1_0.reserveCapacity(sink._shapeHint(158))
+                                while true {
+                                let __ack1_0 = sink.checkpoint()
+                                if let __e1_0 = reader._decodeDate(&sink, path, "many", Assay.DateFormat.defaultFormats).map({ Date(timeIntervalSince1970: $0) }) { __arr1_0.append(__e1_0) }
+                                if sink.checkpoint() != __ack1_0 { sink._insert(since: __ack1_0, .index(__ix1_0), at: path.count + 1) }
+                                    __ix1_0 &+= 1
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x5D) else {
+                                    reader.reportMalformed(&sink, path, expected: "',' or ']'")
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            sink._noteShape(__arr1_0.count, 158)
+                            __f1 = __arr1_0
+                        } else if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "many", "array")
+                        } else {
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                        // whole-value mismatch on a collection reported an issue whose path
+                        // was EMPTY at the top level -- worse than the missing element index
+                        // this change set out to fix, and found by a test written for that.
+                        reader.reportTypeMismatch(&sink, path + [.key("many")], expected: "array")
+                        _ = reader.skipValue(&sink)
+                        }
+
+                    } else                    if reader.keyMatches(__key, "grid") {
+                        __presence |= 8
+                        if reader.tryConsume(0x5B) {
+                            var __arr3_0: [[Int]] = []
+                            var __ix3_0 = 0
+                            if !reader.tryConsume(0x5D) {
+                                __arr3_0.reserveCapacity(sink._shapeHint(142))
+                                while true {
+                                let __ack3_0 = sink.checkpoint()
+                                var __e3_0: [Int]? = nil
+                                if reader.tryConsume(0x5B) {
+                                    var __arr3_1: [Int] = []
+                                    var __ix3_1 = 0
+                                    if !reader.tryConsume(0x5D) {
+                                        __arr3_1.reserveCapacity(sink._shapeHint(143))
+                                        while true {
+                                        if let __e3_1 = reader._decodeInt(&sink, path, "grid", __ix3_1) { __arr3_1.append(__e3_1) }
+                                            __ix3_1 &+= 1
+                                            if reader.tryConsume(0x2C) { continue }
+                                            break
+                                        }
+                                        guard reader.tryConsume(0x5D) else {
+                                            reader.reportMalformed(&sink, path, expected: "',' or ']'")
+                                            reader.leaveContainer()
+                                            return nil
+                                        }
+                                    }
+                                    sink._noteShape(__arr3_1.count, 143)
+                                    __e3_0 = __arr3_1
+                                } else if reader._consumeNullIfPresent() {
+                                    reader._nullNotAllowed(&sink, path, "grid", "array")
+                                } else {
+                                    // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                                // whole-value mismatch on a collection reported an issue whose path
+                                // was EMPTY at the top level -- worse than the missing element index
+                                // this change set out to fix, and found by a test written for that.
+                                reader.reportTypeMismatch(&sink, path + [.key("grid")], expected: "array")
+                                _ = reader.skipValue(&sink)
+                                }
+
+                                if let __e3_0 = __e3_0 { __arr3_0.append(__e3_0) }
+                                if sink.checkpoint() != __ack3_0 { sink._insert(since: __ack3_0, .index(__ix3_0), at: path.count + 1) }
+                                    __ix3_0 &+= 1
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x5D) else {
+                                    reader.reportMalformed(&sink, path, expected: "',' or ']'")
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            sink._noteShape(__arr3_0.count, 142)
+                            __f3 = __arr3_0
+                        } else if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "grid", "array")
+                        } else {
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                        // whole-value mismatch on a collection reported an issue whose path
+                        // was EMPTY at the top level -- worse than the missing element index
+                        // this change set out to fix, and found by a test written for that.
+                        reader.reportTypeMismatch(&sink, path + [.key("grid")], expected: "array")
+                        _ = reader.skipValue(&sink)
+                        }
+
+                    } else                    if reader.keyMatches(__key, "maps") {
+                        __presence |= 32
+                        if reader.tryConsume(0x7B) {
+                            var __dd5_0: [String: [String: Int]] = [:]
+                            __dd5_0.reserveCapacity(sink._shapeHint(190))
+                            if !reader.tryConsume(0x7D) {
+                                while true {
+                                    guard let __dk5_0 = reader.scanKey(), reader.expect(0x3A) else {
+                                        reader.reportMalformed(&sink, path, expected: "a key and ':'")
+                                        reader.leaveContainer()
+                                        return nil
+                                    }
+                                    let __dks5_0 = reader._keyString(__dk5_0)
+                                    let __dck5_0 = sink.checkpoint()
+                                    var __de5_0: [String: Int]? = nil
+                                    if reader.tryConsume(0x7B) {
+                                        var __dd5_1: [String: Int] = [:]
+                                        __dd5_1.reserveCapacity(sink._shapeHint(191))
+                                        if !reader.tryConsume(0x7D) {
+                                            while true {
+                                                guard let __dk5_1 = reader.scanKey(), reader.expect(0x3A) else {
+                                                    reader.reportMalformed(&sink, path, expected: "a key and ':'")
+                                                    reader.leaveContainer()
+                                                    return nil
+                                                }
+                                                let __dks5_1 = reader._keyString(__dk5_1)
+                                                let __dck5_1 = sink.checkpoint()
+                                                if let __de5_1 = reader._decodeInt(&sink, path, "maps") { __dd5_1[__dks5_1] = __de5_1 }
+                                                if sink.checkpoint() != __dck5_1 { sink._insertKey(since: __dck5_1, __dks5_1, at: path.count + 1) }
+                                                if reader.tryConsume(0x2C) { continue }
+                                                break
+                                            }
+                                            guard reader.tryConsume(0x7D) else {
+                                                reader.reportMalformed(&sink, path, expected: "',' or '}'")
+                                                reader.leaveContainer()
+                                                return nil
+                                            }
+                                        }
+                                        sink._noteShape(__dd5_1.count, 191)
+                                        __de5_0 = __dd5_1
+                                    } else if reader._consumeNullIfPresent() {
+                                        reader._nullNotAllowed(&sink, path, "maps", "dictionary")
+                                    } else {
+                                        // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                                        // whole-value mismatch on a collection reported an issue whose path
+                                        // was EMPTY at the top level -- worse than the missing element index
+                                        // this change set out to fix, and found by a test written for that.
+                                        reader.reportTypeMismatch(&sink, path + [.key("maps")], expected: "object")
+                                        _ = reader.skipValue(&sink)
+                                    }
+
+                                    if let __de5_0 = __de5_0 { __dd5_0[__dks5_0] = __de5_0 }
+                                    if sink.checkpoint() != __dck5_0 { sink._insertKey(since: __dck5_0, __dks5_0, at: path.count + 1) }
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x7D) else {
+                                    reader.reportMalformed(&sink, path, expected: "',' or '}'")
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            sink._noteShape(__dd5_0.count, 190)
+                            __f5 = __dd5_0
+                        } else if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "maps", "dictionary")
+                        } else {
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                            // whole-value mismatch on a collection reported an issue whose path
+                            // was EMPTY at the top level -- worse than the missing element index
+                            // this change set out to fix, and found by a test written for that.
+                            reader.reportTypeMismatch(&sink, path + [.key("maps")], expected: "object")
+                            _ = reader.skipValue(&sink)
+                        }
+
+                    } else                    if reader.keyMatches(__key, "open") {
+                        __presence |= 64
+                        if reader.tryConsume(0x7B) {
+                            var __dd6_0: [String: RawValue] = [:]
+                            __dd6_0.reserveCapacity(sink._shapeHint(166))
+                            if !reader.tryConsume(0x7D) {
+                                while true {
+                                    guard let __dk6_0 = reader.scanKey(), reader.expect(0x3A) else {
+                                        reader.reportMalformed(&sink, path, expected: "a key and ':'")
+                                        reader.leaveContainer()
+                                        return nil
+                                    }
+                                    let __dks6_0 = reader._keyString(__dk6_0)
+                                    if let __de6_0 = Assay._assayCollect(
+                                        RawValue.self, from: &reader, into: &sink,
+                                        at: path + [.key("open"), .key(__dks6_0)]) { __dd6_0[__dks6_0] = __de6_0 }
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x7D) else {
+                                    reader.reportMalformed(&sink, path, expected: "',' or '}'")
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            sink._noteShape(__dd6_0.count, 166)
+                            __f6 = __dd6_0
+                        } else if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "open", "dictionary")
+                        } else {
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                            // whole-value mismatch on a collection reported an issue whose path
+                            // was EMPTY at the top level -- worse than the missing element index
+                            // this change set out to fix, and found by a test written for that.
+                            reader.reportTypeMismatch(&sink, path + [.key("open")], expected: "object")
+                            _ = reader.skipValue(&sink)
+                        }
+
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 5:
+                        if reader.keyMatches(__key, "maybe") {
+                        __presence |= 1
+                        if let __r = reader._decodeDateOrNull(&sink, path, "maybe", Assay.DateFormat.defaultFormats) { __f0 = __r.map { Date(timeIntervalSince1970: $0) } }
+                    } else                    if reader.keyMatches(__key, "lists") {
+                        __presence |= 16
+                        if reader.tryConsume(0x7B) {
+                            var __dd4_0: [String: [Int]] = [:]
+                            __dd4_0.reserveCapacity(sink._shapeHint(182))
+                            if !reader.tryConsume(0x7D) {
+                                while true {
+                                    guard let __dk4_0 = reader.scanKey(), reader.expect(0x3A) else {
+                                        reader.reportMalformed(&sink, path, expected: "a key and ':'")
+                                        reader.leaveContainer()
+                                        return nil
+                                    }
+                                    let __dks4_0 = reader._keyString(__dk4_0)
+                                    let __dck4_0 = sink.checkpoint()
+                                    var __de4_0: [Int]? = nil
+                                    if reader.tryConsume(0x5B) {
+                                        var __arr4_1: [Int] = []
+                                        var __ix4_1 = 0
+                                        if !reader.tryConsume(0x5D) {
+                                            __arr4_1.reserveCapacity(sink._shapeHint(183))
+                                            while true {
+                                            if let __e4_1 = reader._decodeInt(&sink, path, "lists", __ix4_1) { __arr4_1.append(__e4_1) }
+                                                __ix4_1 &+= 1
+                                                if reader.tryConsume(0x2C) { continue }
+                                                break
+                                            }
+                                            guard reader.tryConsume(0x5D) else {
+                                                reader.reportMalformed(&sink, path, expected: "',' or ']'")
+                                                reader.leaveContainer()
+                                                return nil
+                                            }
+                                        }
+                                        sink._noteShape(__arr4_1.count, 183)
+                                        __de4_0 = __arr4_1
+                                    } else if reader._consumeNullIfPresent() {
+                                        reader._nullNotAllowed(&sink, path, "lists", "array")
+                                    } else {
+                                        // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                                    // whole-value mismatch on a collection reported an issue whose path
+                                    // was EMPTY at the top level -- worse than the missing element index
+                                    // this change set out to fix, and found by a test written for that.
+                                    reader.reportTypeMismatch(&sink, path + [.key("lists")], expected: "array")
+                                    _ = reader.skipValue(&sink)
+                                    }
+
+                                    if let __de4_0 = __de4_0 { __dd4_0[__dks4_0] = __de4_0 }
+                                    if sink.checkpoint() != __dck4_0 { sink._insertKey(since: __dck4_0, __dks4_0, at: path.count + 1) }
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x7D) else {
+                                    reader.reportMalformed(&sink, path, expected: "',' or '}'")
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            sink._noteShape(__dd4_0.count, 182)
+                            __f4 = __dd4_0
+                        } else if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "lists", "dictionary")
+                        } else {
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                            // whole-value mismatch on a collection reported an issue whose path
+                            // was EMPTY at the top level -- worse than the missing element index
+                            // this change set out to fix, and found by a test written for that.
+                            reader.reportTypeMismatch(&sink, path + [.key("lists")], expected: "object")
+                            _ = reader.skipValue(&sink)
+                        }
+
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 6:
+                        if reader.keyMatches(__key, "byName") {
+                        __presence |= 4
+                        if reader.tryConsume(0x7B) {
+                            var __dd2_0: [String: Date] = [:]
+                            __dd2_0.reserveCapacity(sink._shapeHint(134))
+                            if !reader.tryConsume(0x7D) {
+                                while true {
+                                    guard let __dk2_0 = reader.scanKey(), reader.expect(0x3A) else {
+                                        reader.reportMalformed(&sink, path, expected: "a key and ':'")
+                                        reader.leaveContainer()
+                                        return nil
+                                    }
+                                    let __dks2_0 = reader._keyString(__dk2_0)
+                                    let __dck2_0 = sink.checkpoint()
+                                    if let __de2_0 = reader._decodeDate(&sink, path, "byName", Assay.DateFormat.defaultFormats).map({ Date(timeIntervalSince1970: $0) }) { __dd2_0[__dks2_0] = __de2_0 }
+                                    if sink.checkpoint() != __dck2_0 { sink._insertKey(since: __dck2_0, __dks2_0, at: path.count + 1) }
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x7D) else {
+                                    reader.reportMalformed(&sink, path, expected: "',' or '}'")
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            sink._noteShape(__dd2_0.count, 134)
+                            __f2 = __dd2_0
+                        } else if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "byName", "dictionary")
+                        } else {
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                            // whole-value mismatch on a collection reported an issue whose path
+                            // was EMPTY at the top level -- worse than the missing element index
+                            // this change set out to fix, and found by a test written for that.
+                            reader.reportTypeMismatch(&sink, path + [.key("byName")], expected: "object")
+                            _ = reader.skipValue(&sink)
+                        }
+
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                default:
+                    _ = reader.skipValue(&sink)
+                }
+            if reader.tryConsume(0x2C) { continue }
+            break
+        }
+        guard reader.tryConsume(0x7D) else {
+            reader.reportMalformed(&sink, path, expected: "',' or '}'")
+            reader.leaveContainer()
+            return nil
+        }
+    }
+    reader.leaveContainer()
+
+        if __presence & 2 == 0 {
+            reader._missingRequired(&sink, path, "many")
+        }
+        if __presence & 4 == 0 {
+            reader._missingRequired(&sink, path, "byName")
+        }
+        if __presence & 8 == 0 {
+            reader._missingRequired(&sink, path, "grid")
+        }
+        if __presence & 16 == 0 {
+            reader._missingRequired(&sink, path, "lists")
+        }
+        if __presence & 32 == 0 {
+            reader._missingRequired(&sink, path, "maps")
+        }
+        if __presence & 64 == 0 {
+            reader._missingRequired(&sink, path, "open")
+        }
+
+    if __f9 == nil {
+        __f9 = 0
+        sink.add(warning: Assay.Warning(
+            code: .fallbackApplied,
+            path: path + [.key("f")]))
+    }
+    if __f10 == nil {
+        __f10 = Date(timeIntervalSince1970: 0)
+        sink.add(warning: Assay.Warning(
+            code: .fallbackApplied,
+            path: path + [.key("fb")]))
+    }
+
+        guard let __v1 = __f1 else { return nil }
+        guard let __v2 = __f2 else { return nil }
+        guard let __v3 = __f3 else { return nil }
+        guard let __v4 = __f4 else { return nil }
+        guard let __v5 = __f5 else { return nil }
+        guard let __v6 = __f6 else { return nil }
+        guard let __v9 = __f9 else { return nil }
+        guard let __v10 = __f10 else { return nil }
+    let __result = GoldenDatesWide(maybe: __f0, many: __v1, byName: __v2, grid: __v3, lists: __v4, maps: __v5, open: __v6, any: __f7, n: __f8, f: __v9, fb: __v10)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}
+
+nonisolated public static func _assay(
+    from raw: Assay.RawValue,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenDatesWide? {
+    guard case .mapping(let __members) = raw else {
+        Assay.RawValue._notAnObject(&sink, path, raw)
+        return nil
+    }
+    // See the note in the JSON body: local validity, not global.
+    let __ck0 = sink.checkpoint()
+
+    var __sp8: Assay.SourceSpan? = nil
+    var __sp9: Assay.SourceSpan? = nil
+    var __f0: Date? = nil
+    var __f1: [Date]? = nil
+    var __n1 = 0
+    var __f2: [String: Date]? = nil
+    var __f3: [[Int]]? = nil
+    var __n3 = 0
+    var __f4: [String: [Int]]? = nil
+    var __f5: [String: [String: Int]]? = nil
+    var __f6: [String: RawValue]? = nil
+    var __f7: RawValue? = nil
+    var __f8: Int? = nil
+    var __f9: Int? = nil
+    var __f10: Date? = nil
+    var __presence: UInt64 = 0
+
+    for __m in __members {
+        let __k = __m.key
+        let __v = __m.value
+        switch __k.utf8.count {
+            case 1:
+                if __k == "n" {
+                    __presence |= 256
+                    __sp8 = __m.span
+                    if !__v.isNull { __f8 = __v._assayInt(&sink, path, "n", coerce: true, at: __sp8) }
+                } else if __k == "f" {
+                    __presence |= 512
+                    __sp9 = __m.span
+                    let __fck9 = sink.checkpoint()
+                if !__v.isNull { __f9 = __v._assayInt(&sink, path, "f", at: __sp9) }
+                if __f9 == nil { sink.rollback(to: __fck9) }
+                } else {
+                    break
+                }
+            case 2:
+                if __k == "fb" {
+                    __presence |= 1024
+                    let __fck10 = sink.checkpoint()
+                if !__v.isNull { __f10 = __v._assayDate(&sink, path, "fb", Assay.DateFormat.defaultFormats).map { Date(timeIntervalSince1970: $0) } }
+                if __f10 == nil { sink.rollback(to: __fck10) }
+                } else {
+                    break
+                }
+            case 3:
+                if __k == "any" {
+                    __presence |= 128
+                    if !__v.isNull { __f7 = __v }
+                } else {
+                    break
+                }
+            case 4:
+                if __k == "many" {
+                    __presence |= 2
+                    if let __r = Assay._assaySequence(&path, "many", __v, { __e0, path in __e0._assayDate(&sink, path, "", Assay.DateFormat.defaultFormats).map { Date(timeIntervalSince1970: $0) } }) {
+                    __f1 = __r
+                } else if __v.isNull {
+                    Assay.RawValue._mismatchPublic(&sink, path, "many", "array", __v)
+                } else {
+                    // One repeated sibling. Append, so `<tag>a</tag><tag>b</tag>`
+                    // accumulates across calls instead of the last one winning;
+                    // its index is how many siblings came before it.
+                    let __ix1 = __n1
+                    __n1 &+= 1
+                    if let __one1 = Assay._assayElement(&path, &sink, "many", __ix1, { path, sink in __v._assayDate(&sink, path, "", Assay.DateFormat.defaultFormats).map { Date(timeIntervalSince1970: $0) } }) {
+                        if __f1 == nil { __f1 = [] }
+                        __f1?.append(__one1)
+                    }
+                }
+                } else if __k == "grid" {
+                    __presence |= 8
+                    if let __r = Assay._assaySequence(&path, "grid", __v, { __e0, path in Assay._assaySequence(&path, __e0, { __e1, path in __e1._assayInt(&sink, path, "") }) }) {
+                    __f3 = __r
+                } else if __v.isNull {
+                    Assay.RawValue._mismatchPublic(&sink, path, "grid", "array", __v)
+                } else {
+                    // One repeated sibling. Append, so `<tag>a</tag><tag>b</tag>`
+                    // accumulates across calls instead of the last one winning;
+                    // its index is how many siblings came before it.
+                    let __ix3 = __n3
+                    __n3 &+= 1
+                    if let __one3 = Assay._assayElement(&path, &sink, "grid", __ix3, { path, sink in Assay._assaySequence(&path, __v, { __e0, path in __e0._assayInt(&sink, path, "") }) }) {
+                        if __f3 == nil { __f3 = [] }
+                        __f3?.append(__one3)
+                    }
+                }
+                } else if __k == "maps" {
+                    __presence |= 32
+                    if let __r = Assay._assayMapping(&path, "maps", __v, { __e0, path in Assay._assayMapping(&path, __e0, { __e1, path in __e1._assayInt(&sink, path, "") }) }) {
+                    __f5 = __r
+                } else if __v.isNull {
+                    Assay.RawValue._mismatchPublic(&sink, path, "maps", "object", __v)
+                }
+                } else if __k == "open" {
+                    __presence |= 64
+                    if let __r = Assay._assayMapping(&path, "open", __v, { __e0, path in Optional(__e0) }) {
+                    __f6 = __r
+                } else if __v.isNull {
+                    Assay.RawValue._mismatchPublic(&sink, path, "open", "object", __v)
+                }
+                } else {
+                    break
+                }
+            case 5:
+                if __k == "maybe" {
+                    __presence |= 1
+                    if !__v.isNull { __f0 = __v._assayDate(&sink, path, "maybe", Assay.DateFormat.defaultFormats).map { Date(timeIntervalSince1970: $0) } }
+                } else if __k == "lists" {
+                    __presence |= 16
+                    if let __r = Assay._assayMapping(&path, "lists", __v, { __e0, path in Assay._assaySequence(&path, __e0, { __e1, path in __e1._assayInt(&sink, path, "") }) }) {
+                    __f4 = __r
+                } else if __v.isNull {
+                    Assay.RawValue._mismatchPublic(&sink, path, "lists", "object", __v)
+                }
+                } else {
+                    break
+                }
+            case 6:
+                if __k == "byName" {
+                    __presence |= 4
+                    if let __r = Assay._assayMapping(&path, "byName", __v, { __e0, path in __e0._assayDate(&sink, path, "", Assay.DateFormat.defaultFormats).map { Date(timeIntervalSince1970: $0) } }) {
+                    __f2 = __r
+                } else if __v.isNull {
+                    Assay.RawValue._mismatchPublic(&sink, path, "byName", "object", __v)
+                }
+                } else {
+                    break
+                }
+            default:
+            break
+        }
+    }
+
+        if __presence & 2 == 0 {
+            Assay.RawValue._missing(&sink, path, "many")
+        }
+        if __presence & 4 == 0 {
+            Assay.RawValue._missing(&sink, path, "byName")
+        }
+        if __presence & 8 == 0 {
+            Assay.RawValue._missing(&sink, path, "grid")
+        }
+        if __presence & 16 == 0 {
+            Assay.RawValue._missing(&sink, path, "lists")
+        }
+        if __presence & 32 == 0 {
+            Assay.RawValue._missing(&sink, path, "maps")
+        }
+        if __presence & 64 == 0 {
+            Assay.RawValue._missing(&sink, path, "open")
+        }
+
+    if __f9 == nil {
+        __f9 = 0
+        sink.add(warning: Assay.Warning(
+            code: .fallbackApplied,
+            path: path + [.key("f")]))
+    }
+    if __f10 == nil {
+        __f10 = Date(timeIntervalSince1970: 0)
+        sink.add(warning: Assay.Warning(
+            code: .fallbackApplied,
+            path: path + [.key("fb")]))
+    }
+
+        guard let __v1 = __f1 else { return nil }
+        guard let __v2 = __f2 else { return nil }
+        guard let __v3 = __f3 else { return nil }
+        guard let __v4 = __f4 else { return nil }
+        guard let __v5 = __f5 else { return nil }
+        guard let __v6 = __f6 else { return nil }
+        guard let __v9 = __f9 else { return nil }
+        guard let __v10 = __f10 else { return nil }
+    let __result = GoldenDatesWide(maybe: __f0, many: __v1, byName: __v2, grid: __v3, lists: __v4, maps: __v5, open: __v6, any: __f7, n: __f8, f: __v9, fb: __v10)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}}

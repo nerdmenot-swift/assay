@@ -1,0 +1,101 @@
+extension GoldenKeyStyle: Assay.JSONAssayable {nonisolated static let __assayKeyTable: [UInt8] = {
+    var t = [UInt8](repeating: 3, count: 256)
+        t[24] = 1
+        t[26] = 0
+        t[152] = 2
+    return t
+}()
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenKeyStyle? {
+    guard reader.tryConsume(0x7B) else {
+        reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
+        return nil
+    }
+    guard reader.enterContainer(&sink) else { return nil }
+    // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+    // anything ever failed?", which is wrong the moment one sink spans more than
+    // one decode — a driver collecting every issue from a result set would find
+    // one bad row silently discarding every good row after it.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: Int? = nil
+    var __f1: Int? = nil
+    var __f2: String? = nil
+    var __presence: UInt64 = 0
+
+    if !reader.tryConsume(0x7D) {
+        while true {
+            guard let __key = reader.scanKey() else {
+                reader.reportMalformed(&sink, path, expected: "a key in double quotes")
+                reader.leaveContainer()
+                return nil
+            }
+            guard reader.expect(0x3A) else {
+                reader.reportMalformed(&sink, path, expected: "':' after the key")
+                reader.leaveContainer()
+                return nil
+            }
+                let __w = reader._keyWindow(
+                    __key,
+                    byteOffset: 0,
+                    shift: 2)
+                switch Self.__assayKeyTable[Int(__w)] {
+                case 0:
+                    if reader.keyMatches(__key, "http_response") {
+                        __presence |= 1
+                        __f0 = reader._decodeInt(&sink, path, "http_response")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 1:
+                    if reader.keyMatches(__key, "already_snake") {
+                        __presence |= 2
+                        __f1 = reader._decodeInt(&sink, path, "already_snake")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 2:
+                    if reader.keyMatches(__key, "avatar_url") {
+                        __presence |= 4
+                        __f2 = reader._decodeString(&sink, path, "avatar_url")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                default:
+                    _ = reader.skipValue(&sink)
+                }
+            if reader.tryConsume(0x2C) { continue }
+            break
+        }
+        guard reader.tryConsume(0x7D) else {
+            reader.reportMalformed(&sink, path, expected: "',' or '}'")
+            reader.leaveContainer()
+            return nil
+        }
+    }
+    reader.leaveContainer()
+
+        if __presence & 1 == 0 {
+            reader._missingRequired(&sink, path, "http_response")
+        }
+        if __presence & 2 == 0 {
+            reader._missingRequired(&sink, path, "already_snake")
+        }
+        if __presence & 4 == 0 {
+            reader._missingRequired(&sink, path, "avatar_url")
+        }
+
+
+        guard let __v0 = __f0 else { return nil }
+        guard let __v1 = __f1 else { return nil }
+        guard let __v2 = __f2 else { return nil }
+    let __result = GoldenKeyStyle(HTTPResponse: __v0, already_snake: __v1, avatarURL: __v2)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}}

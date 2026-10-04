@@ -1,0 +1,444 @@
+extension GoldenXMLWide: Assay.JSONAssayable, Assay.RawDecodable, Assay.JSONEncodableSchema, Assay.RawEncodableSchema, Assay.XMLEncodableSchema {nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenXMLWide? {
+    guard reader.tryConsume(0x7B) else {
+        reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
+        return nil
+    }
+    guard reader.enterContainer(&sink) else { return nil }
+    // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+    // anything ever failed?", which is wrong the moment one sink spans more than
+    // one decode — a driver collecting every issue from a result set would find
+    // one bad row silently discarding every good row after it.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: Int? = nil
+    var __f1: UUID? = nil
+    var __f2: Date? = nil
+    var __f3: Double? = nil
+    var __f4: UUID? = nil
+    var __f5: Date? = nil
+    var __f6: Float? = nil
+    var __f7: RawValue? = nil
+    var __f8: String? = nil
+    var __extras: [String: RawValue] = [:]
+    var __presence: UInt64 = 0
+
+    if !reader.tryConsume(0x7D) {
+        while true {
+            guard let __key = reader.scanKey() else {
+                reader.reportMalformed(&sink, path, expected: "a key in double quotes")
+                reader.leaveContainer()
+                return nil
+            }
+            guard reader.expect(0x3A) else {
+                reader.reportMalformed(&sink, path, expected: "':' after the key")
+                reader.leaveContainer()
+                return nil
+            }
+                switch __key.len {
+                case 1:
+                        if reader.keyMatches(__key, "a") {
+                        __presence |= 1
+                        if reader._consumeNullIfPresent() { __f0 = nil } else {
+                            __f0 = reader._decodeIntCoercing(&sink, path, "a")
+                        }
+                    } else                    if reader.keyMatches(__key, "f") {
+                        __presence |= 64
+                        __f6 = reader._decodeFloatCoercing(&sink, path, "f")
+                    } else {
+                        let __uk = reader._keyString(__key)
+                    if let __uv = Assay._assayCollect(
+                        RawValue.self,
+                        from: &reader, into: &sink, at: path + [.key(__uk)]) {
+                        __extras[__uk] = __uv
+                    }
+                    }
+                case 2:
+                        if reader.keyMatches(__key, "on") {
+                        __presence |= 4
+                        __f2 = reader._decodeDate(&sink, path, "on", Assay.DateFormat.defaultFormats).map { Date(timeIntervalSince1970: $0) }
+                    } else                    if reader.keyMatches(__key, "id") {
+                        __presence |= 16
+                        if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "id", "UUID")
+                        } else {
+                            path.append(.key("id"))
+                            __f4 = UUID._assay(
+                                from: &reader, into: &sink, at: &path)
+                            path.removeLast()
+                        }
+                    } else                    if reader.keyMatches(__key, "at") {
+                        __presence |= 32
+                        __f5 = reader._decodeDate(&sink, path, "at", Assay.DateFormat.defaultFormats).map { Date(timeIntervalSince1970: $0) }
+                    } else {
+                        let __uk = reader._keyString(__key)
+                    if let __uv = Assay._assayCollect(
+                        RawValue.self,
+                        from: &reader, into: &sink, at: path + [.key(__uk)]) {
+                        __extras[__uk] = __uv
+                    }
+                    }
+                case 3:
+                        if reader.keyMatches(__key, "uid") {
+                        __presence |= 2
+                        if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "uid", "UUID")
+                        } else {
+                            path.append(.key("uid"))
+                            __f1 = UUID._assay(
+                                from: &reader, into: &sink, at: &path)
+                            path.removeLast()
+                        }
+                    } else                    if reader.keyMatches(__key, "any") {
+                        __presence |= 128
+                        __f7 = Assay._assayCollect(
+                            RawValue.self, from: &reader, into: &sink,
+                            at: path + [.key("any")])
+                    } else {
+                        let __uk = reader._keyString(__key)
+                    if let __uv = Assay._assayCollect(
+                        RawValue.self,
+                        from: &reader, into: &sink, at: path + [.key(__uk)]) {
+                        __extras[__uk] = __uv
+                    }
+                    }
+                case 4:
+                        if reader.keyMatches(__key, "note") {
+                        __presence |= 256
+                        if reader._consumeNullIfPresent() { __f8 = nil } else {
+                            __f8 = reader._decodeStringCoercing(&sink, path, "note")
+                        }
+                    } else {
+                        let __uk = reader._keyString(__key)
+                    if let __uv = Assay._assayCollect(
+                        RawValue.self,
+                        from: &reader, into: &sink, at: path + [.key(__uk)]) {
+                        __extras[__uk] = __uv
+                    }
+                    }
+                case 5:
+                        if reader.keyMatches(__key, "ratio") {
+                        __presence |= 8
+                        __f3 = reader._decodeDoubleCoercing(&sink, path, "ratio")
+                    } else {
+                        let __uk = reader._keyString(__key)
+                    if let __uv = Assay._assayCollect(
+                        RawValue.self,
+                        from: &reader, into: &sink, at: path + [.key(__uk)]) {
+                        __extras[__uk] = __uv
+                    }
+                    }
+                default:
+                    let __uk = reader._keyString(__key)
+                    if let __uv = Assay._assayCollect(
+                        RawValue.self,
+                        from: &reader, into: &sink, at: path + [.key(__uk)]) {
+                        __extras[__uk] = __uv
+                    }
+                }
+            if reader.tryConsume(0x2C) { continue }
+            break
+        }
+        guard reader.tryConsume(0x7D) else {
+            reader.reportMalformed(&sink, path, expected: "',' or '}'")
+            reader.leaveContainer()
+            return nil
+        }
+    }
+    reader.leaveContainer()
+
+        if __presence & 2 == 0 {
+            reader._missingRequired(&sink, path, "uid")
+        }
+        if __presence & 4 == 0 {
+            reader._missingRequired(&sink, path, "on")
+        }
+        if __presence & 8 == 0 {
+            reader._missingRequired(&sink, path, "ratio")
+        }
+        if __presence & 16 == 0 {
+            reader._missingRequired(&sink, path, "id")
+        }
+        if __presence & 32 == 0 {
+            reader._missingRequired(&sink, path, "at")
+        }
+        if __presence & 64 == 0 {
+            reader._missingRequired(&sink, path, "f")
+        }
+        if __presence & 128 == 0 {
+            reader._missingRequired(&sink, path, "any")
+        }
+
+
+        guard let __v1 = __f1 else { return nil }
+        guard let __v2 = __f2 else { return nil }
+        guard let __v3 = __f3 else { return nil }
+        guard let __v4 = __f4 else { return nil }
+        guard let __v5 = __f5 else { return nil }
+        guard let __v6 = __f6 else { return nil }
+        guard let __v7 = __f7 else { return nil }
+    let __result = GoldenXMLWide(a: __f0, uid: __v1, on: __v2, ratio: __v3, id: __v4, at: __v5, f: __v6, any: __v7, note: __f8, rest: __extras)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}
+
+nonisolated public static func _assay(
+    from raw: Assay.RawValue,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenXMLWide? {
+    guard case .mapping(let __members) = raw else {
+        Assay.RawValue._notAnObject(&sink, path, raw)
+        return nil
+    }
+    // See the note in the JSON body: local validity, not global.
+    let __ck0 = sink.checkpoint()
+
+    var __sp0: Assay.SourceSpan? = nil
+    var __sp3: Assay.SourceSpan? = nil
+    var __sp6: Assay.SourceSpan? = nil
+    var __sp8: Assay.SourceSpan? = nil
+    var __f0: Int? = nil
+    var __f1: UUID? = nil
+    var __f2: Date? = nil
+    var __f3: Double? = nil
+    var __f4: UUID? = nil
+    var __f5: Date? = nil
+    var __f6: Float? = nil
+    var __f7: RawValue? = nil
+    var __f8: String? = nil
+    var __extras: [String: RawValue] = [:]
+    var __presence: UInt64 = 0
+
+    for __m in __members {
+        let __k = __m.key
+        let __v = __m.value
+        switch __k.utf8.count {
+            case 1:
+                if __k == "a" {
+                    __presence |= 1
+                    __sp0 = __m.span
+                    if !__v.isNull { __f0 = __v._assayInt(&sink, path, "a", coerce: true, at: __sp0) }
+                } else if __k == "f" {
+                    __presence |= 64
+                    __sp6 = __m.span
+                    __f6 = __v._assayFloat(&sink, path, "f", coerce: true, at: __sp6)
+                } else {
+                    __extras[__k] = __v
+                }
+            case 2:
+                if __k == "on" {
+                    __presence |= 4
+                    __f2 = __v._assayDate(&sink, path, "on", Assay.DateFormat.defaultFormats).map { Date(timeIntervalSince1970: $0) }
+                } else if __k == "id" {
+                    __presence |= 16
+                    if __v.isNull {
+                    Assay.RawValue._mismatchPublic(&sink, path, "id", "UUID", __v)
+                } else {
+                    path.append(.key("id"))
+                    __f4 = UUID._assay(from: __v, into: &sink, at: &path)
+                    path.removeLast()
+                }
+                } else if __k == "at" {
+                    __presence |= 32
+                    __f5 = __v._assayDate(&sink, path, "at", Assay.DateFormat.defaultFormats).map { Date(timeIntervalSince1970: $0) }
+                } else {
+                    __extras[__k] = __v
+                }
+            case 3:
+                if __k == "uid" {
+                    __presence |= 2
+                    if __v.isNull {
+                    Assay.RawValue._mismatchPublic(&sink, path, "uid", "UUID", __v)
+                } else {
+                    path.append(.key("uid"))
+                    __f1 = UUID._assay(from: __v, into: &sink, at: &path)
+                    path.removeLast()
+                }
+                } else if __k == "any" {
+                    __presence |= 128
+                    __f7 = __v
+                } else {
+                    __extras[__k] = __v
+                }
+            case 4:
+                if __k == "note" {
+                    __presence |= 256
+                    __sp8 = __m.span
+                    if !__v.isNull { __f8 = __v._assayString(&sink, path, "note", coerce: true, at: __sp8) }
+                } else {
+                    __extras[__k] = __v
+                }
+            case 5:
+                if __k == "ratio" {
+                    __presence |= 8
+                    __sp3 = __m.span
+                    __f3 = __v._assayDouble(&sink, path, "ratio", coerce: true, at: __sp3)
+                } else {
+                    __extras[__k] = __v
+                }
+            default:
+            __extras[__k] = __v
+        }
+    }
+
+        if __presence & 2 == 0 {
+            Assay.RawValue._missing(&sink, path, "uid")
+        }
+        if __presence & 4 == 0 {
+            Assay.RawValue._missing(&sink, path, "on")
+        }
+        if __presence & 8 == 0 {
+            Assay.RawValue._missing(&sink, path, "ratio")
+        }
+        if __presence & 16 == 0 {
+            Assay.RawValue._missing(&sink, path, "id")
+        }
+        if __presence & 32 == 0 {
+            Assay.RawValue._missing(&sink, path, "at")
+        }
+        if __presence & 64 == 0 {
+            Assay.RawValue._missing(&sink, path, "f")
+        }
+        if __presence & 128 == 0 {
+            Assay.RawValue._missing(&sink, path, "any")
+        }
+
+
+        guard let __v1 = __f1 else { return nil }
+        guard let __v2 = __f2 else { return nil }
+        guard let __v3 = __f3 else { return nil }
+        guard let __v4 = __f4 else { return nil }
+        guard let __v5 = __f5 else { return nil }
+        guard let __v6 = __f6 else { return nil }
+        guard let __v7 = __f7 else { return nil }
+    let __result = GoldenXMLWide(a: __f0, uid: __v1, on: __v2, ratio: __v3, id: __v4, at: __v5, f: __v6, any: __v7, note: __f8, rest: __extras)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}
+
+nonisolated static var __assayDateFormats_2: [Assay.DateFormat] { Assay.DateFormat.defaultFormats }
+nonisolated static var __assayDateFormats_5: [Assay.DateFormat] { Assay.DateFormat.defaultFormats }
+nonisolated static let __assayDeclaredKeys: Set<String> = ["a", "uid", "on", "ratio", "id", "at", "f", "any", "note"]
+
+nonisolated public func _assayEncodeMembers(
+    into w: inout Assay.JSONWriter,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) {
+        w._key(separated: ",\"a\":")
+        if let __e0 = self.a {
+            w.write(__e0)
+        } else {
+            w.writeNull()
+        }
+        w._key(separated: ",\"uid\":")
+        w.write(self.uid.uuidString)
+        w._key(separated: ",\"on\":")
+        w.writeDate(self.on.timeIntervalSince1970, Self.__assayDateFormats_2, &sink, path, "on")
+        w._key(separated: ",\"ratio\":")
+        w.write(self.ratio, &sink, path, "ratio")
+        w._key(separated: ",\"id\":")
+        w.write(self.id.uuidString)
+        w._key(separated: ",\"at\":")
+        w.writeDate(self.at.timeIntervalSince1970, Self.__assayDateFormats_5, &sink, path, "at")
+        w._key(separated: ",\"f\":")
+        w.write(self.f, &sink, path, "f")
+        w._key(separated: ",\"any\":")
+        w.write(self.any, &sink, path, "any")
+        w._key(separated: ",\"note\":")
+        if let __e8 = self.note {
+            w.write(__e8)
+        } else {
+            w.writeNull()
+        }
+        for __x in self.rest {
+            if Self.__assayDeclaredKeys.contains(__x.key) {
+                sink.add(Assay.Issue(
+                    code: .extrasKeyCollision,
+                    path: path + [.key(__x.key)],
+                    params: ["key": .string(__x.key)]))
+                continue
+            }
+            w.key(__x.key)
+            w.write(__x.value, &sink, path + [.key(__x.key)], "")
+        }
+}
+
+nonisolated public func _assayEncode(
+    into w: inout Assay.JSONWriter,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) {
+    w.beginObject()
+    self._assayEncodeMembers(into: &w, into: &sink, at: &path)
+    w.endObject()
+}
+
+nonisolated public func _assayEncodeRaw(
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathStep]
+) -> Assay.RawValue {
+    var __m: [Assay.RawValue.Member] = []
+    __m.reserveCapacity(9)
+        __m.append(.init(key: "a", value: (self.a.map { __o in .int(Int64(__o)) } ?? .null)))
+        __m.append(.init(key: "uid", value: .string(self.uid.uuidString)))
+        __m.append(.init(key: "on", value: Assay._assayRawDate(self.on.timeIntervalSince1970, Self.__assayDateFormats_2)))
+        __m.append(.init(key: "ratio", value: .double(self.ratio)))
+        __m.append(.init(key: "id", value: .string(self.id.uuidString)))
+        __m.append(.init(key: "at", value: Assay._assayRawDate(self.at.timeIntervalSince1970, Self.__assayDateFormats_5)))
+        __m.append(.init(key: "f", value: .double(Double(self.f))))
+        __m.append(.init(key: "any", value: self.any))
+        __m.append(.init(key: "note", value: (self.note.map { __o in .string(__o) } ?? .null)))
+        for __x in self.rest.sorted(by: { $0.key < $1.key }) {
+            if Self.__assayDeclaredKeys.contains(__x.key) {
+                sink.add(Assay.Issue(
+                    code: .extrasKeyCollision,
+                    path: path + [.key(__x.key)],
+                    params: ["key": .string(__x.key)]))
+                continue
+            }
+            __m.append(.init(key: __x.key, value: __x.value))
+        }
+    return .mapping(__m)
+}
+
+nonisolated public static var _assayXMLRoot: String { "GoldenXMLWide" }
+
+nonisolated public func _assayEncodeXML(
+    into w: inout Assay.XMLWriter,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathStep],
+    element __name: String
+) {
+    w.beginElement(__name)
+        if let __a0 = self.a { w.attribute("a", String(__a0)) }
+        w.attribute("uid", self.uid.uuidString)
+        w.attribute("on", Assay._assayXMLDate(self.on.timeIntervalSince1970, Self.__assayDateFormats_2))
+        w.attribute("ratio", w.doubleText(Double(self.ratio), &sink, path, "ratio"))
+        w.element("id", self.id.uuidString)
+        w.element("at", Assay._assayXMLDate(self.at.timeIntervalSince1970, Self.__assayDateFormats_5))
+        w.element("f", w.doubleText(Double(self.f), &sink, path, "f"))
+        Assay._assayEncodeRawXML(self.any, named: "any", into: &w, into: &sink, at: path)
+        if let __o8 = self.note {
+            w.element("note", __o8)
+        }
+        for __x in self.rest.sorted(by: { $0.key < $1.key }) {
+            if Self.__assayDeclaredKeys.contains(__x.key) {
+                sink.add(Assay.Issue(
+                    code: .extrasKeyCollision,
+                    path: path + [.key(__x.key)],
+                    params: ["key": .string(__x.key)]))
+                continue
+            }
+            Assay._assayEncodeRawXML(__x.value, named: __x.key, into: &w,
+                                     into: &sink, at: path)
+        }
+    w.endElement(__name)
+}}

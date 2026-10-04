@@ -1,0 +1,67 @@
+extension GoldenTreeOnly: Assay.RawDecodable {nonisolated static let __assayKnownKeys: [String] = ["a", "p"]
+
+nonisolated public static func _assay(
+    from raw: Assay.RawValue,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenTreeOnly? {
+    guard case .mapping(let __members) = raw else {
+        Assay.RawValue._notAnObject(&sink, path, raw)
+        return nil
+    }
+    // See the note in the JSON body: local validity, not global.
+    let __ck0 = sink.checkpoint()
+
+    var __sp0: Assay.SourceSpan? = nil
+    var __sp1: Assay.SourceSpan? = nil
+    var __f0: Int? = nil
+    var __f1: Int? = nil
+    var __presence: UInt64 = 0
+    var __gpresence: UInt64 = 0
+
+    if let __pv0 = __members.first(where: { $0.key == "p" })?.value {
+        if case .mapping(let __pm0) = __pv0 {
+            __gpresence |= 1
+            for __m in __pm0 {
+                let __v = __m.value
+                _ = __v
+            if __m.key == "q" {
+                __presence |= 1
+                __sp0 = __m.span
+                if !__v.isNull { __f0 = __v._assayInt(&sink, path, "q", at: __sp0) }
+            }
+            }
+        } else if __pv0.isNull {
+            // An explicit null intermediate is absence, as on the JSON path.
+        } else {
+            Assay.RawValue._mismatchPublic(&sink, path, "p", "object", __pv0)
+        }
+    }
+    for __m in __members {
+        let __k = __m.key
+        let __v = __m.value
+        switch __k.utf8.count {
+            case 1:
+                if __k == "a" {
+                    __presence |= 2
+                    __sp1 = __m.span
+                    __f1 = __v._assayInt(&sink, path, "a", at: __sp1)
+                } else {
+                    Assay.RawValue._unknownKey(&sink, path, __k, known: Self.__assayKnownKeys, reject: false, span: __m.span)
+                }
+            default:
+            Assay.RawValue._unknownKey(&sink, path, __k, known: Self.__assayKnownKeys, reject: false, span: __m.span)
+        }
+    }
+
+        if __presence & 2 == 0 {
+            Assay.RawValue._missing(&sink, path, "a")
+        }
+
+
+        guard let __v1 = __f1 else { return nil }
+    let __result = GoldenTreeOnly(q: __f0, a: __v1)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}}

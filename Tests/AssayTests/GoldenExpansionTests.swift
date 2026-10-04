@@ -64,7 +64,7 @@ struct GoldenExpansionTests {
     @Test("the fixtures file was found and parsed")
     func fixturesRead() {
         #expect(
-            GoldenExpansionTests.shapes.count == 19, "\(GoldenExpansionTests.shapes.map(\.name))")
+            GoldenExpansionTests.shapes.count == 32, "\(GoldenExpansionTests.shapes.map(\.name))")
     }
 
     @Test("each shape expands to its golden", arguments: GoldenExpansionTests.shapes.map(\.name))

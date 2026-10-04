@@ -145,6 +145,94 @@ struct GoldenRawWide: Equatable {
 /// No rules: the arm that emits no `.validate(...)` at all, rather than an empty one.
 @Wraps(Int64.self) struct GoldenCount {}
 
+// GOLDEN: dates-collections
+/// The collection and presence arms no fixture declared. `dates-inline` has a `Date` and
+/// `plain` has `[Int]`; nothing had a `Date?`, a `[Date]`, a `[String: Date]`, an array of
+/// arrays, a dictionary of arrays or of dictionaries, an open `[String: RawValue]` that is
+/// not `@Extras`, an optional `RawValue`, or `@Coerce` on an optional. Each is its own
+/// branch of `decodeStatement`, on both decode paths.
+@Schema(formats: [.json, .yaml]) struct GoldenDatesWide {
+    var maybe: Date?; var many: [Date]; var byName: [String: Date]
+    var grid: [[Int]]; var lists: [String: [Int]]; var maps: [String: [String: Int]]
+    var open: [String: RawValue]; var any: RawValue?; @Coerce var n: Int?
+    @Fallback(0) var f: Int; @Fallback(Date(timeIntervalSince1970: 0)) var fb: Date
+}
+
+// GOLDEN: unknown-warn-alias
+/// `unknownKeys: .warn` on both paths, with an alias — the warn arm of the JSON dispatch
+/// and the `RawValue` loop's alias report.
+@Schema(unknownKeys: .warn, formats: .all) struct GoldenWarns { @Key("a", or: "b") var a: Int }
+
+// GOLDEN: unknown-reject-raw
+@Schema(unknownKeys: .reject, formats: .all) struct GoldenRejects { var a: Int }
+
+// GOLDEN: open-enum-all-formats
+/// An open enum on every path, WITHOUT `roundTrips:` — so each encoder carries the refusal
+/// for an unrecognised variant. `open-enum` is JSON only and round-trips.
+@Schema(formats: .all, encodes: true) enum GoldenOpenAll {
+    case active, suspended; @Unknown case other(String)
+}
+
+// GOLDEN: untagged-union-encodes
+@Schema(encodes: true, discriminator: .untagged) enum GoldenUntaggedEncodes {
+    case text(String); case number(Double); case b(GoldenB)
+}
+
+// GOLDEN: xml-encodes-wide
+/// `XMLEncodeGen` past `xml-encodes-root`'s Int, String and wrapped array: an optional
+/// attribute, a `UUID` and a `Date` in both placements, a `Float`, an open value and the
+/// extras write-back.
+@Schema(coerceScalars: true, formats: .all, encodes: true) struct GoldenXMLWide {
+    @XML(.attribute) var a: Int?; @XML(.attribute) var uid: UUID; @XML(.attribute) var on: Date
+    @XML(.attribute) var ratio: Double; var id: UUID; var at: Date; var f: Float; var any: RawValue
+    var note: String?; @Extras var rest: [String: RawValue]
+}
+
+// GOLDEN: async-field-check
+@Schema struct GoldenAsyncField {
+    var a: String
+    @AsyncCheck(\GoldenAsyncField.a) static func free(_ v: String) async -> String? { nil }
+}
+
+// GOLDEN: rule-shapes
+/// Where a rule's call is chosen by the field's TYPE: an unsigned width, `UInt64` (the one
+/// that needs no conversion), an array with no typed overload (count rules only), an
+/// optional (validated only when present), two `@Validate` attributes on one field (two
+/// rule arrays, joined for the descriptor), and a transformed field with its inverse.
+@Schema(encodes: true, describes: true) struct GoldenRuleShapes {
+    @Validate(.min(1)) var u: UInt; @Validate(.min(1)) var u64: UInt64
+    @Validate(.notEmpty) var flags: [Bool]; @Validate(.min(1)) var opt: String?
+    @Validate(.min(1)) @Validate(.max(9)) var two: String
+    @Validate(.min(1)) @Transform({ (s: String) in s.count })
+    @Inverse({ (n: Int) in String(repeating: "x", count: n) }) var width: Int
+}
+
+// GOLDEN: optional-path-group
+/// A key path whose every leaf is optional: the group is checked only if it was present,
+/// rather than reported missing.
+@Schema struct GoldenOptionalGroup { @Key(path: "p.q") var q: Int?; var a: Int }
+
+// GOLDEN: tree-only-warn-path
+/// No JSON body at all, so the `RawValue` body is the one that declares the known keys.
+@Schema(unknownKeys: .warn, formats: [.yaml]) struct GoldenTreeOnly {
+    @Key(path: "p.q") var q: Int?; var a: Int
+}
+
+// GOLDEN: xml-optional-text
+@Schema(formats: .xml, encodes: true) struct GoldenXMLText {
+    @XML(.attribute) var lang: String; @XML(.text) var body: String?
+}
+
+// GOLDEN: open-enum-keyed
+@Schema enum GoldenKeyedOpen { @Key("on") case active; case off; @Unknown case other(String) }
+
+// GOLDEN: key-style-mixed
+/// Names the snake-case converter has to split three ways: an acronym run, an identifier
+/// that already contains an underscore, and a trailing acronym.
+@Schema(keys: .snakeCase) struct GoldenKeyStyle {
+    var HTTPResponse: Int; var already_snake: Int; var avatarURL: String
+}
+
 // GOLDEN: xml-encodes-root
 @Schema(coerceScalars: true, formats: .all, encodes: true) @XML(root: "r") struct GoldenXML {
     @XML(.attribute) var id: Int; @XML(.text) var body: String; @XML(.wrapped) var tags: [String]

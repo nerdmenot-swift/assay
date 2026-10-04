@@ -126,6 +126,14 @@ stable for two minor versions with no entry under **Breaking**.
 
 ### Fixed
 
+- **Rules on a `@Transform` field were type-checked against the wrong type.** Rules run on
+  the wire value, before the transform, but the expansion-time check compared them with the
+  property's type. So `@Validate(.positive) @Transform({ (s: String) in s.count }) var w: Int`
+  compiled and checked nothing — a number rule handed a string — while `@Validate(.email)` on
+  the same field was refused as "declared Int". The check now uses the wire type, and the
+  refusal says so: "'w' arrives as String — a @Transform field's rules run on the wire
+  value, before the transform". **A type that relied on the first form stops compiling**;
+  the rule it named was never running.
 - **`@Schema(encodes: true)` with an unannotated `Date` did not compile.** A `var when: Date`
   with no `@DateFormat`, in a type that encodes, failed with "type has no member
   '__assayDateFormats_0'" from inside the expansion. The decoder shares one default format

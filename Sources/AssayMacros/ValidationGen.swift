@@ -84,17 +84,6 @@ enum RuleTypeCheck {
                 }
             }
         }
-
-        var displayName: String {
-            switch self {
-            case .string: return "String"
-            case .integer, .floating: return "a number"
-            case .array: return "an Array"
-            case .bool: return "Bool"
-            case .date: return "Date"
-            case .other(let t): return t
-            }
-        }
     }
 
     /// Nil when the rule applies; otherwise the category name it wanted.
@@ -187,7 +176,19 @@ extension SchemaMacro {
     ) -> Bool {
         var ok = true
         for f in fields {
-            let category = RuleTypeCheck.FieldCategory(stripOptional(f.typeName))
+            // The type the rules RUN against, which for a `@Transform` field is the wire
+            // type and not the property's: rules are applied before the transform. This
+            // read `f.typeName` until 2026-10-04, so a transformed field was checked against
+            // the wrong one in both directions — `.positive` on a String-wire field compiled
+            // and checked nothing, and `.email` on the same field was refused as "declared
+            // Int". `decodedType` is what `postDecodeSection` already hands the validator.
+            let checked = stripOptional(f.decodedType)
+            let category = RuleTypeCheck.FieldCategory(checked)
+            let declared =
+                f.transform == nil
+                ? "is declared \(f.typeName)"
+                : "arrives as \(checked) — a @Transform field's rules run on the wire value, "
+                    + "before the transform"
             for attr in f.validations {
                 // The attribute when we have it, the `@Schema` node when we do not.
                 let at = attr.attribute.map(Syntax.init) ?? Syntax(node)
@@ -206,7 +207,7 @@ extension SchemaMacro {
                             Diagnostic(
                                 node: at,
                                 message: SimpleDiagnostic(
-                                    "rule '.\(name)' applies to \(wanted), but '\(f.identifier)' is declared \(f.typeName)"
+                                    "rule '.\(name)' applies to \(wanted), but '\(f.identifier)' \(declared)"
                                 )))
                         ok = false
                     }
@@ -219,7 +220,7 @@ extension SchemaMacro {
                             Diagnostic(
                                 node: at,
                                 message: SimpleDiagnostic(
-                                    "rule '.\(name)' supports elements of String, Int or Double, but '\(f.identifier)' is declared \(f.typeName)"
+                                    "rule '.\(name)' supports elements of String, Int or Double, but '\(f.identifier)' \(declared)"
                                 )))
                         ok = false
                     }

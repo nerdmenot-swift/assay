@@ -49,7 +49,8 @@ struct UnionCase {
     var identifier: String
     /// The wire spelling of the tag, `keys:`-transformed unless `@Key` overrode it.
     var wireName: String
-    /// The associated value's type, or nil for a payload-free case.
+    /// The associated value's type. Never nil once parsing succeeds — a payload-free case
+    /// is refused.
     var payloadType: String?
 }
 

@@ -37,9 +37,10 @@
 //      representation check per byte that `Array` iteration does not, and over 36 bytes that
 //      outweighed the malloc it saved.
 //
-// So the shape here is neither: take the contiguous buffer ONCE with `withUTF8` and walk
-// that. `withUTF8` allocates nothing for a small-form or native string — it makes storage
-// contiguous only when it is not already — and gives the tight loop a plain pointer.
+// So the shape here is neither: take the contiguous buffer ONCE — borrowed via
+// `withContiguousStorageIfAvailable`, `withUTF8` only for a bridged string — and walk that.
+// Neither allocates for a small-form or native string, and the tight loop gets a plain
+// pointer.
 //
 // The rule of this file, therefore: one `withBytes` at the entry point, everything below it
 // over `Span<UInt8>`, and no `Array`, no per-call `Set`, and no sub-array per
@@ -50,9 +51,10 @@ public enum FormatValidators {
 
     /// The contiguous UTF-8 bytes of `s` as a `Span`, without allocating.
     ///
-    /// `withUTF8` is `mutating`, hence the local copy — which is a retain for a native
-    /// string and nothing at all for a small one. It guarantees contiguity for every string
-    /// representation, so nothing below this line has to care which one it got.
+    /// Borrowed through `withContiguousStorageIfAvailable` when the string is native. The
+    /// `withUTF8` fallback is `mutating`, hence its local copy, and runs only for a bridged
+    /// string; it guarantees contiguity for every string representation, so nothing below
+    /// this line has to care which one it got.
     ///
     /// The pointer becomes a `Span` HERE, at the single seam, which is hard constraint 11:
     /// unsafe code only below the seam, and the seam expressible in `Span` and values. Every

@@ -56,3 +56,10 @@ BASELINES so the numbers in Benchmarks/RESULTS.md can be reproduced.
     stated against; see Benchmarks/RESULTS.md. Brings transitive dependencies on
     ZippyJSONCFamily and JJLISO8601DateFormatter, also MIT, likewise
     benchmark-only.
+
+  TOMLKit (https://github.com/LebJe/TOMLKit)
+    Copyright (c) 2024 Jeff Lebrun
+    Licensed under the MIT License
+    Wraps toml++ (https://github.com/marzer/tomlplusplus), which it vendors:
+    Copyright (c) Mark Gillard, MIT License. The differential oracle for Assay's
+    TOML parser, and the baseline for the TOML rows.

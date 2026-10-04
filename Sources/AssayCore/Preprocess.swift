@@ -3,10 +3,10 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// @Preprocess ops. EXPERIENCE.md §11: preprocess runs on the raw value BEFORE rules, and
-// its job is normalising input; @Transform runs AFTER validation and changes the type.
-// The distinction is which side of validation they sit on, and the order is fixed:
-// preprocess → coerce → decode → field rules → cross-field checks → transform.
+// @Preprocess ops. EXPERIENCE.md §11: preprocess runs on the decoded String BEFORE rules,
+// and its job is normalising input; @Transform runs AFTER the field's rules and changes the
+// type. The distinction is which side of validation they sit on, and the order is fixed:
+// decode → preprocess → field rules → transform → @Check → @AsyncCheck.
 //
 // Everything here is locale-free byte manipulation, for the standard reason: a struct
 // must mean the same thing on Linux and on a Mac.

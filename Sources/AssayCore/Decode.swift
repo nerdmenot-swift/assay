@@ -13,7 +13,7 @@
 // diagnostic. A 60-field struct flattened into one enormous decode function may silently
 // lose all ARC optimization.
 //
-// Every one is `@inlinable`, because the runtime lives in the Assay module and the
+// Every one is `@inlinable`, because the runtime lives in `AssayCore` and the
 // generated code lives in the user's. Without the body in the client's SILModule there
 // is no specialization — Foundation gets this free from whole-module optimization and
 // Assay structurally cannot. A forums report measured `@inlinable` taking a workload
@@ -487,15 +487,15 @@ extension AssayReader {
 
 // Int8/Int16/UInt8/UInt16/UInt32/UInt64, added 2026-08-31. Int, Int32, Int64 and UInt were
 // the whole set before that, which meant `var b: UInt8` did not compile in ANY `@Schema`
-// type -- and with it `[UInt8]`, the obvious way to carry a blob. That is what blocked the
-// `[UInt8]` from having a usable field type.
+// type -- and with it `[UInt8]`, the obvious way to carry a blob. That is what kept
+// `[UInt8]` from being a usable field type.
 //
 // Spelled out one width at a time rather than written once over `FixedWidthInteger`. The
-// header of `CodeGen.scalarCall` states the reason as a rule -- "monomorphic per type;
-// there is no generic FixedWidthInteger dispatch anywhere on the decode path, which is the
-// whole reason a macro decoder can be fast here" -- and a generic helper here would put one
-// back at the leaf, where it is hottest and where `@inlinable` has to carry it across the
-// module boundary into the user's code.
+// doc comment on `scalarCall` (`AssayMacros/TypeShapes.swift`) states the reason as a rule
+// -- "monomorphic per type; there is no generic FixedWidthInteger dispatch anywhere on the
+// decode path, which is the whole reason a macro decoder can be fast here" -- and a generic
+// helper here would put one back at the leaf, where it is hottest and where `@inlinable`
+// has to carry it across the module boundary into the user's code.
 //
 // UInt64 CANNOT REPRESENT ITS FULL RANGE, and that is inherited rather than introduced:
 // `scanInt64` returns `Int64`, so any unsigned value above `Int64.max` fails to scan. `UInt`

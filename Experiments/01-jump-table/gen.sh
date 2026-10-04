@@ -59,7 +59,7 @@ EOF
     echo "    }"
     echo "}"
     echo
-    # Sparse integer cases — the length-bucket fallback shape from §4.3.
+    # Sparse integer cases — the length-bucket fallback shape.
     # Stride 5 keeps the largest case (49*5 = 245) inside UInt8.
     echo "@inline(never)"
     echo "public func dispatchSparse(_ i: UInt8, _ acc: inout Int) {"

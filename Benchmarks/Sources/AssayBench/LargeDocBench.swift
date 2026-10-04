@@ -26,8 +26,9 @@
 //     the allocator and the ratio must shrink towards 1.0.
 //
 //     **That prediction was written into this header before the run and it was wrong**, which
-//     is recorded rather than quietly edited out. The ratio goes 6.90x -> 6.63x -> 6.60x from
-//     0.2 MB to 8.3 MB, and throughput is flat at ~700 MB/s across the whole range. Nothing
+//     is recorded rather than quietly edited out. On that first run the ratio went 6.90x ->
+//     6.63x -> 6.60x from 0.2 MB to 8.3 MB, with throughput flat at ~700 MB/s across the whole
+//     range; the current figures are in Benchmarks/RESULTS.md, and they are flat too. Nothing
 //     falls off a cache cliff and the advantage does not wash out.
 //
 //     The reading that survives: **the advantage is per-VALUE, not per-document.** Foundation's

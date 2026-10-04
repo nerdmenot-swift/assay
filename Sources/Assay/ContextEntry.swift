@@ -38,10 +38,11 @@
 //
 // THE ONE ASYMMETRY, stated because it is a real edge the macro cannot detect. A contextual
 // type may CONTAIN a context-free one — the generated call is absorbed by a defaulted
-// generic overload in `Assay.swift`. The converse — a plain `@Schema` type with a contextual
-// field — cannot work, because there is no context to pass. A macro reads a token: it sees
-// `var m: Membership` and cannot know whether `Membership` declared a context, in this module
-// or any other. Same class of limitation as `@Check` in an extension.
+// generic overload in `Protocols.swift`. The converse — a plain `@Schema` type with a
+// contextual field — cannot work, because there is no context to pass. A macro reads a
+// token: it sees `var m: Membership` and cannot know whether `Membership` declared a
+// context, in this module or any other. Same class of limitation as `@Check` in an
+// extension.
 //
 // It is caught, and the message says what to do. See the unavailable overloads below: what
 // the macro cannot detect, overload resolution can, because it happens after type checking
@@ -229,7 +230,7 @@ extension ContextualJSONAssayable where Self: ContextualAsyncCheckAssayable {
     ) async -> Diagnosis<Self> {
         // The non-async function type pins overload resolution to the sync `diagnose`;
         // without it, an async context prefers THIS function and recurses. Exactly the
-        // shape `Assay.swift`'s context-free async pair already uses.
+        // shape `AsyncEntry.swift`'s context-free async pair already uses.
         let syncDiagnose: ([UInt8], AssayContext, Limits, String) -> Diagnosis<Self> =
             Self.diagnose(json:context:limits:sourceName:)
         let d = syncDiagnose(bytes, context, limits, sourceName)

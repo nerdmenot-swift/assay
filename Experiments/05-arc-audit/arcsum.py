@@ -7,8 +7,9 @@
     arcsum.py summarise <Module.opt.yaml>          > Module.tsv
     arcsum.py compare   <golden dir> <current dir> [--strict]
 
-`summarise` reads the optimisation record `-Rpass-missed=sil-assembly-vision-remark-gen`
-writes and prints one line per
+`summarise` reads the YAML optimisation record written by `-save-optimization-record=yaml
+-save-optimization-record-passes sil-assembly-vision-remark-gen` (see audit.sh) and prints
+one line per
 (function, kind): how many retain / release / heap box / heap ref / runtime cast SITES the
 optimiser could not remove. Keyed by demangled function name, never by line, so an edit
 elsewhere in a file does not churn the golden. Verified 2026-09-19: two clean builds produce

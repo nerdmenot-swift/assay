@@ -11,10 +11,11 @@ just live on a value instead of a type.
 
 ## The question this was held back on
 
-§7 did not defer this on difficulty. It deferred it on whether it belongs in a 1.0 at all:
+`EXPERIENCE.md` §20 (question 6) did not hold this back on difficulty. It held it back on
+whether it belongs in a 1.0 at all:
 
-> shipping it means committing to maintaining two front doors forever, and the domain-type
-> use case that motivates half of it might be covered by a narrower protocol.
+> The domain-type use is small enough that a narrower protocol might cover it, and shipping
+> a full value-level combinator API means committing to maintaining two front doors forever.
 
 **It is one front door with two receivers, and it is a conformance-authoring API rather than
 a second parse API.** The static verbs are spelled on a *type* — `User.parse(json:)`. These
@@ -29,7 +30,7 @@ What forks is the receiver, and it forks for two things the static door cannot e
 - **There is no object to decode.** `EmailAddress` is a validated `String`. `@Schema` decodes
   an object with keys and has no spelling for *"this type is a constrained scalar"*.
 
-And the narrower protocol §7 suspected is real — it does not compete, it is the
+And the narrower protocol that question suspected is real — it does not compete, it is the
 **requirement** that `Assayer` fills. Ship both; they are one feature.
 
 ## Two laws
@@ -44,7 +45,7 @@ And the narrower protocol §7 suspected is real — it does not compete, it is t
 `CodeGen.swift` already emits `Base._assay(from:into:at:)` for any type token it does not
 recognise. So an `AssayerBacked` type is **already, syntactically, a nested schema type**.
 Zero new generated code per field, zero added expansion cost, no movement against the 100 ms
-gate — measured at 67.4 ms, unchanged.
+gate.
 
 `Tests/AssayTests/AssayerTests.swift` pins this: `wrapperIsAnOrdinaryField` passes with
 `Sources/AssayMacros/` untouched. **If that test ever needs the macro changed, the design is
@@ -67,9 +68,9 @@ The interpreter is non-generic on purpose — one copy in `Assay`, no specialisa
 no code-size multiplication per `T`. The insight is that the
 generic work happens once, the per-value work is concrete.
 
-Two interpreter arms mirror the split the macro already emits, which is why **YAML and XML
-work with no additional code** — they project to `RawValue`, so a conforming type decodes
-from all three formats the moment it conforms.
+Two interpreter arms mirror the split the macro already emits, which is why **YAML, XML, TOML
+and property lists work with no additional code** — they all produce `RawValue`, so a
+conforming type decodes from every format the moment it conforms.
 
 ## A correction to `EXPERIENCE.md`
 
@@ -94,8 +95,9 @@ running out of stack.
 
 A mapped `Assayer` cannot conform `Validatable`. `T.validate(_ value:)` runs the schema's
 rules against a constructed value, and there is no way back from `EmailAddress` to the
-`String` the rules were type-checked against. Documented rather than discovered; `@Inverse`
-is the spelling that would lift it, and it belongs with `@Wraps`.
+`String` the rules were type-checked against. Documented rather than discovered. An
+`@Inverse` on the wrapper is the spelling that would lift it; that is not built, and
+`@Wraps` types do not conform to `Validatable` either.
 
 ## Not in this increment
 
@@ -110,8 +112,8 @@ interprets. The fast shape reads scalar leaves straight off the reader with no t
 and a wrapper field should then cost what a plain field costs. That is worth building against
 a measurement rather than a prediction, so it is owed rather than done.
 
-**Scratch reuse.** `CLAUDE.md`'s build order attributes "steady-state scratch reuse" to
-`Assayer<T>`. **That premise is stale.** It assumed `Assayer` was the decoder object; it
+**Scratch reuse.** The original build order attributed "steady-state scratch reuse" to
+`Assayer<T>`. **That premise was wrong.** It assumed `Assayer` was the decoder object; it
 shipped as an immutable schema *value* that must be `Sendable` for `static let assaySchema`
 to be legal — and a `Sendable` value cannot own mutable scratch. Scratch belongs in a
 separate `~Copyable`, non-`Sendable`, `inout`-passed type usable by *both* doors, and if it

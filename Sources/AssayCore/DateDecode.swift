@@ -6,7 +6,7 @@
 // Where dates meet the two decode paths: the reader primitive the JSON body calls, and
 // the `RawValue` path YAML and XML come through. Both return EPOCH SECONDS; the macro
 // wraps them in `Date(timeIntervalSince1970:)` in the USER's module, which is the seam
-// that keeps this target Foundation-free. Split out of Dates.swift on 2026-09-10.
+// that keeps this target Foundation-free. The parsers themselves are in `DateParser.swift`.
 //===----------------------------------------------------------------------===//
 
 // MARK: - The JSON reader primitive
@@ -225,8 +225,9 @@ extension RawValue {
         return nil
     }
 
-    /// No `location`: the node trees drop byte offsets when they are built. That is a known
-    /// gap (`ROADMAP.md`, "Carets on the `RawValue` path"), not a decision made here.
+    /// No `location`: `_assayDate` is not handed the member's span, though
+    /// `RawValue.Member.span` has it. A known gap (`ROADMAP.md`, "Carets on the `RawValue`
+    /// path"), not a decision made here.
     @inline(never)
     @usableFromInline
     static func reportInvalidDate(

@@ -12,9 +12,8 @@ is a table, not a scan — holds.**
 
 This was the highest-stakes assumption in the performance design. The experiment: write a
 50-arm switch over a `UInt8` candidate index, dump IR, and look for a genuine
-`llvm::SwitchInst` rather than a comparison chain. The dispatch design assumes a table; the
-finding that Swift lowers integer-literal patterns to comparison chains says it may not be
-one.
+`llvm::SwitchInst` rather than a comparison chain. The dispatch design assumes a table;
+SILGen lowers integer-literal patterns to comparison chains, which says it may not be one.
 
 ## Answer
 
@@ -69,7 +68,7 @@ LLVM's heuristic is making the right call, not failing.
 1. **The window-dispatch design is sound.** A `UInt8` candidate index from a
    256-entry window table, switched on, reaches a jump table for types with ≥10 fields.
 2. **Map the candidate index to a dense enum anyway.** It is a real but *small* win, and
-   not the one the codegen research predicted. It does not change linear→table;
+   not the difference between a table and a scan. It does not change linear→table;
    it removes the range check (N≥10) or one comparison level (N<10). Free, so take it.
 3. **Do not special-case small structs.** A 4-field struct getting 3 predicted compares is
    fine and probably beats an indirect branch.

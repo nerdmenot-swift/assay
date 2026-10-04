@@ -46,7 +46,7 @@ stable for two minor versions with no entry under **Breaking**.
   per `base/encode` call, about a sixth of the call — and `finish()` hands the allocation
   over instead of copying the document into a fresh `Array`. `EncodedBytes` is `~Copyable`
   because it owns a heap allocation and must free it exactly once: use `withUnsafeBytes` to
-  write it somewhere with no copy, `text()` for a `String`, or `toArray()` where a value type
+  write it somewhere with no copy, `text()` for a `String`, or `Array(_:)` where a value type
   is genuinely needed, which copies visibly at the call site. `jsonText()` and friends are
   unchanged, and `EncodeDiagnosis.bytes` stays a plain `[UInt8]` and stays `Sendable` — it is
   the diagnostic path, and one copy there is worth more than the counter. Encoding measures
@@ -73,7 +73,6 @@ stable for two minor versions with no entry under **Breaking**.
   generated code calls it, and the parameter is what lets a syntax error say what it was
   expecting instead of the bare `is not a well-formed document`. A caller with no single
   expected token passes nothing and gets the old sentence.
-
 - **Three public members with no caller are gone.** `AssayReader.find(_:from:)`,
   `AssayReader.byteCount`, and the two `_assayPushed` overloads. Nothing in the library, the
   macro's output or the benchmarks called any of them: generated `RawValue` bodies call
@@ -100,6 +99,10 @@ stable for two minor versions with no entry under **Breaking**.
   now carries a caret (it pointed one byte past the end, which renders as nothing).
 - **One syntax error is one issue.** `trailing_content` no longer fires as a redundant
   second error beside a syntax failure — it is reported only when a complete value parsed.
+- **Four attribute combinations are now refused** instead of being silently ignored:
+  `@Key` on an `@Extras` bag, `@Key(path:)` beside `@Inline`, `@Coerce` on a non-scalar,
+  and `@XML(.attribute)`/`@XML(.text)` on an array or dictionary in a decode-only schema
+  (that last diagnostic existed but ran only under `encodes: true`).
 
 ### Added
 
@@ -110,7 +113,7 @@ stable for two minor versions with no entry under **Breaking**.
   `Array(data)`, which is what a caller wrote before, allocates and copies the whole document
   first, so a second copy of it stayed alive for the length of the parse. Measured: one
   allocation saved per parse whatever the size, and 1.0% / 2.6% / 3.5% of decode time at
-  0.2 / 2.0 / 8.3 MB — the time is the small half. `docs/EXPERIENCE.md` §16 had described these
+  0.2 / 2.0 / 8.3 MB — the time is the small half. `docs/EXPERIENCE.md` §13 had described these
   overloads since before there was an implementation; there was none, and no test would have
   found that, because a document promising an API is not a call site.
 
@@ -134,6 +137,16 @@ stable for two minor versions with no entry under **Breaking**.
 
 ### Fixed
 
+- **A `<string>` written as CDATA in an XML property list decoded as the empty string.** The
+  reader concatenated only plain text runs, so `<string><![CDATA[a<b]]></string>` produced
+  `""` with no issue. CDATA is read as the character data it is, matching
+  `PropertyListSerialization`.
+- **Two declarations the macro accepted and could not honour are refused.**
+  `@Schema(describes: true)` on a type that holds itself (`var children: [Node]`) expanded
+  cleanly, and rendering its schema then recursed without end; and two `@Key(path:)` fields
+  where one path is a prefix of the other (`"a.b"` beside `"a.b.c"`), or the same path
+  twice, built a tree in which one key was both a value and an object. Both are compile
+  errors now. A type that declared either stops compiling.
 - **A `.pattern` date with an out-of-range field put its caret two bytes late.** `24` in the
   hour position of `yyyy-MM-dd HH:mm:ss` reported the offset just past the field, so the
   caret sat under the `:` that followed. It points at the field now, as the ISO-8601 parser
@@ -160,20 +173,15 @@ stable for two minor versions with no entry under **Breaking**.
   and the spans are that body's locals — so the expansion emitted a variable written and
   never read, in the user's build.
 
-- **Four attribute combinations are now refused** instead of being silently ignored:
-  `@Key` on an `@Extras` bag, `@Key(path:)` beside `@Inline`, `@Coerce` on a non-scalar,
-  and `@XML(.attribute)`/`@XML(.text)` on an array or dictionary in a decode-only schema
-  (that last diagnostic existed but ran only under `encodes: true`).
+## 0.1.0 — not yet tagged
 
-## 0.1.0 — 2026-09-10
-
-The first public release. Everything below is "added" by definition; the highlights
+The first public release, once tagged. Everything below is "added" by definition; the highlights
 that distinguish it:
 
-- **`@Schema` macro decoding** for JSON (streaming), YAML, XML and TOML (via a
-  format-neutral `RawValue` projection) — no `Codable`, no `CodingKeys`, measured at
-  5–9× Foundation on the published corpus (`Benchmarks/RESULTS.md`; one arm64 Mac,
-  stated as such).
+- **`@Schema` macro decoding** for JSON (straight from bytes into the struct), YAML,
+  XML and TOML (via a format-neutral `RawValue` projection) — no `Codable`, no
+  `CodingKeys`, measured at 5–9× Foundation on the published corpus
+  (`Benchmarks/RESULTS.md`; one arm64 Mac, stated as such).
 - **Errors that name the byte**: every decode and validation failure carries a code,
   structured params, a path, and a source span; four renderers including terminal
   carets and RFC 9457 problem details. All the errors are collected, not just the
@@ -193,8 +201,7 @@ that distinguish it:
   limits first-class (see `SECURITY.md`).
 - **Verification as a feature**: differential oracles against JSONSerialization,
   Yams/libyaml, and Foundation's XMLParser; deterministic fuzzing; live-allocation
-  gate; compile-time budget gate (~87 ms per type against a 100 ms ceiling).
-
+  gate; compile-time budget gate (~81 ms per type against a 100 ms ceiling).
 - **Rows and column stores are not part of Assay** (2026-09-11). `ColumnarSource`,
   `ColumnDecodable`, `RowBatch`, `RowDecoder<T>`, `RowSink` and `@Schema(sources: true)`
   were built, measured and removed before release. Not for being slow — the columnar path
@@ -212,13 +219,14 @@ that distinguish it:
   field has no rules; previously only JSON did.
 - **`@Key(_:or:)` now actually warns which alias matched** (2026-09-10) — `alias_matched`,
   on the JSON and YAML/XML/TOML paths. Three documents had promised it and no code did.
-- **TOML** (`AssayTOML`, 2026-09-10): a hand-written TOML 1.0.0 parser passing all
-  710 documents of the official toml-test suite in CI, differential against toml++,
+- **TOML** (`AssayTOML`, 2026-09-10): a hand-written TOML 1.0.0 parser passing the
+  official toml-test suite in CI (709 cases at the time of writing), differential against
+  toml++,
   `parse(toml:)`/`diagnose(toml:)`, `SchemaFormats.toml`, `WireFormat.toml`, and
   `encodedTOML()` with nil members omitted and every other null reported
   (`docs/TOML.md`).
 - **Encoding** for JSON, YAML, XML and TOML (`@Schema(encodes: true)`), with round-trip as a
-  stated law and a closed exception list (`docs/ENCODING.md`); 8.75× `JSONEncoder`.
+  stated law and a closed exception list (`docs/ENCODING.md`).
 - **Unions** — `@Schema(discriminator: "type")` and `.untagged` — decode and encode,
   JSON only (`docs/UNIONS.md`).
 - **`Assayer<T>`** runtime schemas, `@Wraps`, `@Inline`, `@Key(path:)`, `@OneOrMany`,
@@ -240,7 +248,7 @@ old spelling warned on every use — it resolved to `Optional.none`), and the as
 rules `.trimmed`/`.lowercased` → `.isTrimmed`/`.isLowercase` (they never normalised;
 `@Preprocess` does). Every message-less rule now has an `(or:)` overload.
 
-Known limitations at this release, deliberately deferred with reasons in
-`ROADMAP.md`: unions have no YAML/XML path, `@Key(path:)` refuses index segments,
-`StandardSchema` waits on a third package, no incremental parsing of a single document (a
-decision, not a gap), `.past`/`.future` date rules pending a clock seam.
+Known limitations at this release: unions have no YAML/XML path (`docs/UNIONS.md`); and,
+deliberately deferred with reasons in `ROADMAP.md`, `@Key(path:)` refuses index segments,
+`StandardSchema` waits on a third package, there is no incremental parsing of a single
+document (a decision, not a gap), and the `.past`/`.future` date rules wait on a clock seam.

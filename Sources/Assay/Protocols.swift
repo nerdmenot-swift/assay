@@ -13,13 +13,6 @@
 
 public import AssayCore
 
-/// The capability. A marker protocol refining `Sendable`, which costs *exactly* zero at
-/// runtime — no witness table, no calling-convention change, no generic requirement
-/// recorded — and buys two things:
-///
-///   * conforming types are excluded from `-default-isolation MainActor` inference, so a
-///     user who turns that on does not find every schema type silently main-actor-bound;
-///   * `Sendable` is checked, so a `Diagnosis` can cross an actor boundary.
 /// A type that can write itself as JSON — emitted by `@Schema(encodes: true)`.
 ///
 /// Opt-in because generated body size is what dominates expansion cost, so a type that
@@ -46,13 +39,6 @@ public protocol RawEncodableSchema: Assayable {
     ) -> RawValue
 }
 
-/// A type that can write itself as XML — emitted by `@Schema(encodes: true)` when
-/// `formats:` includes `.xml`.
-///
-/// XML does not go through the `RawValue` seam that YAML uses, because placement
-/// (`@XML(.attribute)`) is not expressible in `RawValue` and never will be — it is the
-/// narrow intersection of the three formats. Placement is compile-time knowledge, so the
-/// macro bakes it into the emitted calls. See `XMLWriter`.
 /// A type that declared `@XML(root:)` and therefore wants its root element checked.
 ///
 /// Separate from `RawDecodable` deliberately. Widening that protocol would put an
@@ -63,6 +49,13 @@ public protocol XMLRooted {
     nonisolated static var _assayXMLExpectedRoot: String? { get }
 }
 
+/// A type that can write itself as XML — emitted by `@Schema(encodes: true)` when
+/// `formats:` includes `.xml`.
+///
+/// XML does not go through the `RawValue` seam that YAML uses, because placement
+/// (`@XML(.attribute)`) is not expressible in `RawValue` and never will be — it is the
+/// narrow intersection of the three formats. Placement is compile-time knowledge, so the
+/// macro bakes it into the emitted calls. See `XMLWriter`.
 public protocol XMLEncodableSchema: Assayable {
     nonisolated func _assayEncodeXML(
         into w: inout XMLWriter,
@@ -141,10 +134,10 @@ public protocol ContextualRawDecodable: ContextualAssayable {
 // silently failed for `@XML(root:)`: overloads resolve from the STATIC type, and inside a
 // generic context the fallback would win for every type including the ones that opted in.
 //
-// The converse — a *contextual* type nested inside a plain one — is a compile error with a
-// poor message ("does not conform to JSONAssayable"). The macro cannot detect it: it sees a
-// token. Documented in `EXPERIENCE.md` §10 beside the `@Check`-in-an-extension trap, which
-// is the same class of limitation.
+// The converse — a *contextual* type nested inside a plain one — is a compile error, and the
+// `unavailable` overloads in `ContextEntry.swift` are what give it a message naming the fix.
+// The macro cannot detect it: it sees a token. Documented in `EXPERIENCE.md` §10 beside the
+// `@Check`-in-an-extension trap, which is the same class of limitation.
 extension JSONAssayable {
     @inlinable
     public nonisolated static func _assay<C>(

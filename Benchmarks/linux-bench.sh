@@ -8,11 +8,12 @@
 # WHY THIS EXISTS. Every published ratio was one arm64 Mac for the whole life of the project,
 # and the caveat was written on each of them — but a caveat is not a measurement. Running the
 # suite on a second platform is what turned "we do not know" into a result, and one of the
-# ratios INVERTED: XML goes from 1.30x over Foundation on Darwin to 0.54x on Linux, because
-# `FoundationXML` is libxml2 there and the Darwin implementation is not. See RESULTS.md.
+# ratios INVERTED on its first run (2026-08-15): XML went from 1.30x over Foundation on Darwin
+# to 0.54x on Linux, because `FoundationXML` is libxml2 there and the Darwin implementation
+# is not. Both have moved since; RESULTS.md has the current pair.
 #
 # WHAT THIS DOES NOT DO: x86-64. There is no x86-64 hardware here, and emulation would time
-# the emulator. `Experiments/01-jump-table` is still arm64-only and says so.
+# the emulator. The x86-64 numbers come from `.github/workflows/benchmark.yml`.
 #
 # The container is aarch64 under Apple's Virtualization.framework, so ABSOLUTE timings from
 # it are meaningless — 2 vCPU on a virtualised box is not a deployment target. The ratios are

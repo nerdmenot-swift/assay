@@ -20,7 +20,7 @@
 // Encoding COLLECTS rather than throwing on the first problem, because that is the
 // library's whole identity and breaking it on one side would be surprising. The output
 // buffer is still returned on failure, truncated wherever the writer got to, so
-// `diagnoseEncode` can show what it managed.
+// `diagnoseEncodeJSON()` can show what it managed.
 //===----------------------------------------------------------------------===//
 
 /// Accumulates JSON bytes. A struct passed `inout`, like `IssueSink` — static exclusivity,
@@ -186,8 +186,9 @@ public struct JSONWriter: ~Copyable {
 
     /// A key the MACRO has already encoded: the complete JSON text `"name":`, quotes, escapes
     /// and colon included, as one literal. One append instead of `key(_:)`'s one per byte.
-    /// Every `Array.append` re-checks uniqueness, and on `base/encode` keys were most of the
-    /// ~42 such checks left per element after 2026-09-19's string-run fix.
+    /// (When the buffer was an `Array`, every append re-checked uniqueness, and on
+    /// `base/encode` keys were most of the ~42 such checks left per element after
+    /// 2026-09-19's string-run fix.)
     @inlinable
     public mutating func _key(encoded k: StaticString) {
         separate()
@@ -264,8 +265,8 @@ public struct JSONWriter: ~Copyable {
     /// RUNS, not bytes. Until 2026-09-19 this appended one byte at a time, and every
     /// `Array.append` re-checks that the buffer is uniquely referenced: `count.py` measured
     /// 90,008 uniqueness checks per `base/encode` call in this function alone, about 4.5 per
-    /// string written. Now the bytes between two characters that need escaping go in with one
-    /// `append(contentsOf:)`, which for real payload text is the whole string.
+    /// string written. Now the bytes between two characters that need escaping go in as one
+    /// `put`, which for real payload text is the whole string.
     @inlinable
     mutating func writeStringBody(_ v: String) {
         byte(0x22)
@@ -308,8 +309,8 @@ public struct JSONWriter: ~Copyable {
         }
     }
 
-    /// The six escapes JSON names, and `\u00XX` for every other control byte. Cold: real
-    /// payload text takes the straight-line append above.
+    /// The seven short escapes (`\"`, `\\`, `\b`, `\f`, `\n`, `\r`, `\t`), and `\u00XX` for
+    /// every other control byte. Cold: real payload text takes the straight-line append above.
     @inline(never)
     @usableFromInline
     mutating func writeEscaped(_ c: UInt8) {
@@ -380,8 +381,8 @@ public struct JSONWriter: ~Copyable {
     @inlinable
     public mutating func write(_ v: UInt64) { writeUnsignedInteger(v) }
 
-    /// Digits written backwards into a fixed stack buffer, then reversed — no `String`,
-    /// no allocation, and `Int64.min` needs no special case because the accumulation is
+    /// Digits accumulated backwards into a small `[UInt8]` and emitted in reverse — no
+    /// `String`, and `Int64.min` needs no special case because the accumulation is
     /// negative (the same trick `scanInt64` uses on the way in).
     @inlinable
     mutating func writeInteger(_ v: Int64) {
@@ -558,8 +559,6 @@ public struct JSONWriter: ~Copyable {
         }
     }
 }
-
-// MARK: - Encode-side issue codes
 
 // MARK: - The RawValue encode seam
 

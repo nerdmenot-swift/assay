@@ -21,7 +21,8 @@ try Config.parse(toml: text)           // AssayTOML
 
 Calling `parse(yaml:)` on a type that did not opt into `.yaml` is a **compile** error: the
 conformance that entry point requires is simply absent. ``SchemaFormats/all`` is JSON, YAML,
-XML and TOML.
+XML and TOML. Property lists need no flag of their own — `parse(plist:)` is available to any
+type that opted into a non-JSON format.
 
 ## How the non-JSON formats decode
 
@@ -32,8 +33,8 @@ projection, `RawValue`:
 | format | product | value model | notes |
 |---|---|---|---|
 | YAML 1.2 | `AssayYAML` | `YAML.Node` | scalars keep their text; the Norway problem is the schema's decision |
-| XML 1.0 | `AssayXML` | `XML.Node` | every leaf is text — use `coerceScalars: true`; XXE refused by construction |
-| TOML 1.0.0 | `AssayTOML` | `TOML.Node` | typed on the wire; 710/710 on the official toml-test suite |
+| XML 1.0 | `AssayXML` | `XML.Document` | every leaf is text — use `coerceScalars: true`; XXE refused by construction |
+| TOML 1.0.0 | `AssayTOML` | `TOML.Node` | typed on the wire; passes the official toml-test suite (709 cases at the time of writing) |
 | plist | `AssayPlist` | `RawValue` | binary and XML behind one entry point |
 
 Each model is full-fidelity and separately documented; the projection is deliberately
@@ -63,4 +64,6 @@ by an independent parser in CI.
 ## Large files
 
 `AssayFoundation` adds `parse(mmapped:)`, which maps the file and decodes in place — a
-fraction of the memory of reading into `Data` first.
+fraction of the memory of reading into `Data` first. It also adds `Data` overloads of
+`parse(json:)`, `diagnose(json:)` and `parse(body:contentType:accepting:)`; the JSON ones
+decode the borrowed buffer without copying it.

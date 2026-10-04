@@ -11,7 +11,7 @@
 // struct EmailAddress { var raw: String }
 //
 // extension EmailAddress: AssayerBacked {
-//     static let schema = Assayer.string.validate(.email).map(EmailAddress.init(raw:))
+//     static let assaySchema = Assayer.string.validate(.email).map(EmailAddress.init(raw:))
 // }
 //
 // @Schema struct User { var email: EmailAddress }   // just works
@@ -23,9 +23,10 @@
 // protocol that actually requires it.
 //
 // THE CHECKPOINT THIS FILE EXISTS TO PROVE: no macro change. `CodeGen.swift` already emits
-// `Base._assay(from: &reader, into: &sink, at: path + [.key(...)])` for any type token it
-// does not recognise, so a conforming type is ALREADY, syntactically, a nested schema type.
-// The two default implementations below are what that emitted call lands on.
+// `Base._assay(from: &reader, into: &sink, at: &path)`, bracketed by a push and a pop of the
+// field's key, for any type token it does not recognise, so a conforming type is ALREADY,
+// syntactically, a nested schema type. The two default implementations below are what that
+// emitted call lands on.
 //
 // `@inlinable` on them is legal and load-bearing. SE-0193's restriction bites GENERATED
 // bodies referencing a user's internal memberwise init; these are generic over `Self`, live

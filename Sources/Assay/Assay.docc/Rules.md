@@ -35,11 +35,12 @@ A string literal after the rules overrides the message for every rule in that at
 
 ```swift
 @Preprocess(.trim, .lowercase) @Validate(.email) var email: String
-@Transform({ (s: String) in URL(string: s) }) var link: URL?
+@Transform({ (a: [String]) in Set(a) }) var tags: Set<String>
 ```
 
 ``Preprocess(_:)`` runs before decoding and validation on the wire value. ``Transform(_:)``
-converts the decoded wire type into the declared type; a `nil` result is an issue.
+converts the decoded wire type into the declared type. It runs last and cannot fail; rules
+on the field run on the wire value, before it.
 
 ## Checks
 
@@ -72,8 +73,8 @@ The key path in the field form is written `\Signup.workEmail`, not `\.workEmail`
 attached-macro argument has no root type to infer from. A check declared in an extension is
 invisible to the macro and is a compile error rather than a silently skipped rule.
 
-``AsyncCheck()`` is the `async` form — it makes `parse` async, runs only if the sync pass
-was clean, and runs its checks concurrently.
+``AsyncCheck()`` and ``AsyncCheck(_:)`` are the `async` forms — either makes `parse` async,
+runs only if the sync pass was clean, and runs its checks concurrently.
 
 ## Order
 

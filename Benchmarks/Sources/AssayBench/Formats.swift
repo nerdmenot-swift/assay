@@ -9,9 +9,10 @@
 //
 // THE JSON THESIS DOES NOT TRANSFER, and these numbers must not be read through it. The
 // 5-9x JSON ratios come from deleting the Codable container boundary at compile time.
-// The YAML and XML paths build a node tree first and decode structs from `RawValue` — a
-// tree walk, not a fused decode — so there is no boundary being deleted and no
-// architectural reason to expect JSON-sized margins. These rows exist to catch
+// The YAML and XML struct doors build a `RawValue` and decode structs from that (directly
+// since 2026-09-20, with no node tree in between) — a tree walk, not a fused decode — so
+// there is no boundary being deleted and no architectural reason to expect JSON-sized
+// margins from the design; Benchmarks/RESULTS.md has what was measured. These rows exist to catch
 // pathologies and to place Assay against what a Swift project would otherwise use:
 //
 //   YAML baseline: Yams — the ecosystem's YAML library, wrapping libyaml (C). Two rows:

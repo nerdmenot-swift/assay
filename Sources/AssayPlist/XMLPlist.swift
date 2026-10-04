@@ -5,16 +5,17 @@
 //===----------------------------------------------------------------------===//
 // The XML property list flavour, projected onto `RawValue`.
 //
-// This one IS mostly a projection, which is why it is a fifth the size of `BinaryPlist.swift`
-// — and the contrast is the point the roadmap missed when it called plists "mechanically
-// the smallest item on this list". One of the two flavours is; the other is a random-access
-// object graph with two amplification attacks.
+// This one IS mostly a projection, which is why it is well under half the size of
+// `BinaryPlist.swift` — and the contrast is the point the roadmap missed when it called
+// plists "mechanically the smallest item on this list". One of the two flavours is; the
+// other is a random-access object graph with two amplification attacks.
 //
 // IT REUSES `AssayXML`'s PARSER rather than shipping a second one. That parser already
-// refuses XXE by construction — no external entity resolution, no DTD subset processing — and
-// an XML plist carries a `<!DOCTYPE ... SYSTEM "http://www.apple.com/DTDs/PropertyList-1.0.dtd">`
-// on essentially every document ever written. A plist reader that fetched that URL would be
-// the textbook XXE, and the refusal is inherited rather than reimplemented.
+// refuses XXE by construction — no external entity resolution, no external DTD subset, and
+// internal entities expanded only under a budget — and an XML plist carries a
+// `<!DOCTYPE ... SYSTEM "http://www.apple.com/DTDs/PropertyList-1.0.dtd">` on essentially
+// every document ever written. A plist reader that fetched that URL would be the textbook
+// XXE, and the refusal is inherited rather than reimplemented.
 //
 // THE TYPE MAPPING, which differs from the generic XML projection and has to. `AssayXML`'s
 // `RawValue(XML.Document)` maps elements to keys; a plist's elements are TYPE TAGS and its
@@ -174,13 +175,21 @@ enum XMLPlist {
         }
     }
 
-    /// Concatenated character data, ignoring comments and nested elements. A plist leaf holds
-    /// text and nothing else, so anything else in one is already a malformed document — and
-    /// the enclosing switch has better context to say so than this does.
+    /// Concatenated character data — text runs and CDATA sections alike — ignoring comments
+    /// and nested elements. A plist leaf holds character data and nothing else, so anything
+    /// else in one is already a malformed document, and the enclosing switch has better
+    /// context to say so than this does.
+    ///
+    /// CDATA was dropped here until 2026-10-04: `<string><![CDATA[a<b]]></string>` decoded
+    /// as the empty string, with no issue. It is character data like any other, and it is
+    /// the natural way to write a value containing `<` or `&`.
     private static func text(_ e: XML.Element) -> String {
         var out = ""
         for child in e.children {
-            if case .text(let t) = child { out += t }
+            switch child {
+            case .text(let t), .cdata(let t): out += t
+            default: break
+            }
         }
         return out
     }

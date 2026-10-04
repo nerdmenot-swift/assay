@@ -16,15 +16,18 @@
 // a sink. This macro would have had to emit both, which is two decode bodies per wrapper and
 // a real compile-time cost on a type whose whole job is to hold one scalar.
 //
-// It now emits a `static let assaySchema` and nothing else. The bodies come from
-// `AssayerBacked`'s `@inlinable` default implementations, which exist once in `Assay` rather
-// than once per wrapper. That is the layering the rest of the library uses — a closed enum
-// needs no macro, `@Schema enum` exists only for `@Unknown` — and it is why this is sugar
-// over a hand-writable spelling rather than a parallel mechanism.
+// It now emits no decode body: a computed `static var assaySchema`, the stored `raw`, the
+// rule array and the two initialisers. The bodies come from `AssayerBacked`'s `@inlinable`
+// default implementations, which exist once in `Assay` rather than once per wrapper. That
+// is the layering the rest of the library uses — a closed enum needs no macro, `@Schema
+// enum` exists only for `@Unknown` — and it is why this is sugar over a hand-writable
+// spelling rather than a parallel mechanism.
 //
-// ONE RULE ARRAY SERVES BOTH DIRECTIONS. `init?(_:)` and the decode path run the same
-// `__assayWrapRules`, which is what makes "the type cannot hold an invalid value" true
-// rather than approximately true.
+// ONE RULE LIST SERVES BOTH DIRECTIONS, spelled twice from the same attribute arguments:
+// `init?(_:)` runs `__assayWrapRules` and the decode path runs `assaySchema`'s
+// `.validate(…)`. The two cannot differ because the macro writes both from one token list,
+// which is what makes "the type cannot hold an invalid value" true rather than
+// approximately true.
 //
 // THE WRAPPED TYPE IS RESTRICTED to the scalars `Assayer` has leaves for. A macro is
 // syntactic: it sees the token `Foo` and cannot know whether `Foo` is a scalar, a struct or
@@ -159,8 +162,9 @@ extension WrapsMacro: MemberMacro {
             """,
             """
             /// Fails when the value does not satisfy the same rules the decoder applies.
-            /// One rule array, two callers — which is what makes "this type cannot hold an
-            /// invalid value" true rather than nearly true.
+            /// One rule list, written once in the attribute and applied on both routes —
+            /// which is what makes "this type cannot hold an invalid value" true rather
+            /// than nearly true.
             public init?(_ raw: \(raw: p.wrapped)) {
                 var __sink = Assay.IssueSink(limits: .default)
                 Assay._assayValidate(raw, Self.__assayWrapRules, override: nil,

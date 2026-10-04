@@ -25,8 +25,9 @@
 
 /// One wire format a body may be decoded from: how to recognise it, and how to read it.
 ///
-/// `AssayCore` vends `.json`. `AssayYAML` vends `.yaml`, `AssayXML` vends `.xml` — each in
-/// the module that owns the parser, so no module gains a dependency it did not already have.
+/// `Assay` vends `.json`, `AssayYAML` `.yaml`, `AssayXML` `.xml` and `AssayTOML` `.toml` —
+/// each beside its parser's entry points, so no module gains a dependency it did not
+/// already have.
 public struct WireFormat: Sendable {
     /// For diagnostics: `json`, `yaml`, `xml`.
     public let name: String

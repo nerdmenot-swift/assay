@@ -53,18 +53,20 @@
 // else in this library and a path is not the place to make an exception.
 //
 // WHAT IS REFUSED, at expansion, with a diagnostic naming the alternative: an index segment
-// (`meta.tags[0]`, which `EXPERIENCE.md` §4 advertises). Reaching an array element by index
-// is a different operation from walking a key — it needs the element *counted* during the
-// array's own decode loop, and every presence and caret rule above would need a fourth case
-// for "the array was shorter than the index". That is a feature, not a segment type, and it
-// is on the roadmap rather than half-built here.
+// (`meta.tags[0]`, which `EXPERIENCE.md` §4's first edition showed and now records as
+// refused). Reaching an array element by index is a different operation from walking a key —
+// it needs the element *counted* during the array's own decode loop, and every presence and
+// caret rule above would need a fourth case for "the array was shorter than the index". That
+// is a feature, not a segment type, and it is on the roadmap rather than half-built here.
 //===----------------------------------------------------------------------===//
 
 /// A node in the `@Key(path:)` prefix tree: the keys reachable one level below some prefix.
 ///
-/// A child is either a leaf (a field's path ends here, `fieldIndex`) or another node. It can
-/// be both in principle — `@Key(path: "a")` beside `@Key(path: "a.b")` — and that is refused
-/// at expansion, because the same wire key cannot be a scalar and an object.
+/// A child is either a leaf (a field's path ends here, `fieldIndex`) or another node, never
+/// both. At the TOP level a segment that is both a key and a path prefix (`@Key("a")` beside
+/// `@Key(path: "a.b")`) is refused at expansion as a duplicate key; below it, `a.b` beside
+/// `a.b.c` — or `a.b` twice — is refused by `PathTree.collision`. Until 2026-10-04 nothing
+/// checked the nested case, and it built both a leaf and a child for `b`.
 struct PathNode {
     /// Which bit of `__gpresence` records that this object was seen. Every node gets one,
     /// including nested ones, because "which segment failed" is exactly the question the
@@ -86,7 +88,7 @@ struct PathGroup {
 
 enum PathTree {
 
-    /// Build the groups from the fields that declared a path. Returns nil having diagnosed.
+    /// Build the groups from the fields that declared a path. Empty when no field declared one.
     ///
     /// Order is declaration order of the first field that introduced each segment, so the
     /// generated table is stable across builds — a macro that reordered its own output would
@@ -107,6 +109,27 @@ enum PathTree {
                 node: node(from: members, bit: &nextBit),
                 fieldIndices: members.map(\.0))
         }
+    }
+
+    /// Two paths that cannot both be read: one is a prefix of the other (the same key would
+    /// have to be a value and an object), or they are identical (two fields, one value).
+    /// Nil when every path is distinct and none is a prefix of another.
+    static func collision(_ fields: [SchemaField]) -> String? {
+        let paths = fields.compactMap { f in f.pathSegments.map { (f.identifier, $0) } }
+        for (i, a) in paths.enumerated() {
+            for b in paths[(i + 1)...] {
+                let (short, long) = a.1.count <= b.1.count ? (a, b) : (b, a)
+                guard Array(long.1.prefix(short.1.count)) == short.1 else { continue }
+                let s = short.1.joined(separator: "."), l = long.1.joined(separator: ".")
+                if s == l {
+                    return "'\(a.0)' and '\(b.0)' both read the path \"\(s)\"; "
+                        + "one value cannot fill two properties."
+                }
+                return "'\(short.0)' reads \"\(s)\" as a value and '\(long.0)' reads "
+                    + "\"\(l)\" through it as an object; one key cannot be both."
+            }
+        }
+        return nil
     }
 
     private static func node(from members: [(Int, [String])], bit: inout Int) -> PathNode {

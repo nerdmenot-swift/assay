@@ -123,7 +123,7 @@ extension Rule.Storage {
         }
     }
 
-    /// `.regex`, stored as a `String`, compiled on demand.
+    /// `.regex`, compiled once at `Rule` construction (`CompiledPattern`) and matched here.
     ///
     /// The availability cliff is real and handled by failing CLOSED: on an Apple OS older
     /// than the stdlib `Regex` floor the rule reports `regex_unavailable` rather than

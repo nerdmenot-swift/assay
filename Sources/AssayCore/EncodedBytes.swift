@@ -104,7 +104,7 @@ public struct EncodedBytes: ~Copyable {
 
 /// `Array(try value.encodedJSON())` — the copy, spelled the way Swift spells a conversion.
 ///
-/// This was Array(`EncodedBytes)` until 2026-09-23. The API Design Guidelines put a
+/// This was `EncodedBytes.toArray()` until 2026-09-23. The API Design Guidelines put a
 /// non-mutating conversion on the destination type as an initialiser (`Array(someSequence)`,
 /// `String(someCharacters)`), and `toArray()` is the Objective-C spelling of the same idea.
 /// Renamed while the package is pre-1.0 and it costs one line in a CHANGELOG rather than a

@@ -19,6 +19,9 @@
 #   codable  — struct + Codable         (what they are replacing)
 #   schema   — struct + @Schema         (what Assay costs)
 #
+# Five more are reported beside them, each a variant of `schema`: validated, arrays, paths,
+# describes and encodes. gen_types.sh says what each one is and why it exists.
+#
 # METHOD NOTE. The dependency graph (swift-syntax, Assay) is built ONCE up front and
 # reused. An earlier version of this script rm -rf'd the whole work package per data
 # point, which rebuilt swift-syntax fifteen times and measured almost nothing else.

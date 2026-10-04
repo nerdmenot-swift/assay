@@ -22,10 +22,10 @@
 //     reads syntax; this is structurally out of its reach.
 //   * THERE IS NO OBJECT TO DECODE. `EmailAddress` is a validated `String`. `@Schema`
 //     decodes an object with keys and has no spelling for "this type IS a constrained
-//     scalar". Today the only way to make `var email: EmailAddress` legal inside a schema is
-//     to hand-write `_assay(from: inout AssayReader, ...)` — an underscored requirement
-//     taking a `~Copyable` reader and threading a path array. No user should write that, and
-//     every user who wants a domain type needs it.
+//     scalar". Without `AssayerBacked`, the only way to make `var email: EmailAddress` legal
+//     inside a schema is to hand-write `_assay(from: inout AssayReader, ...)` — an
+//     underscored requirement taking a `~Copyable` reader and threading a path array. No
+//     user should write that, and every user who wants a domain type needs it.
 //
 // The narrower protocol the roadmap suspected is real, and it does not compete: it is the
 // REQUIREMENT (`AssayerBacked`), and `Assayer` is the only ergonomic value that can fill it.
@@ -154,7 +154,9 @@ extension Assayer {
         case .int(let r): node = .int(r + rules)
         case .double(let r): node = .double(r + rules)
         case .bool(let r): node = .bool(r + rules)
-        default: node = plan.node  // rules on a container are a no-op, as in @Validate
+        // Rules on anything but a scalar leaf are dropped — unlike @Validate, which applies
+        // count rules, `.unique` and `.each` to an array.
+        default: node = plan.node
         }
         return Assayer(plan: AssayerPlan(node), build: build)
     }
@@ -194,7 +196,7 @@ extension Assayer {
 
     /// Deferred, for a recursive schema. Recomputed rather than memoised: a lock on the
     /// decode path would cost more than rebuilding a node, and a mutable cache would make
-    /// `Assayer` non-`Sendable`, which would in turn make `static let schema` illegal.
+    /// `Assayer` non-`Sendable`, which would in turn make `static let assaySchema` illegal.
     public static func lazy(_ make: @escaping @Sendable () -> Assayer<T>) -> Assayer<T> {
         Assayer(plan: AssayerPlan(.lazy { make().plan })) { raw in make().build(raw) }
     }

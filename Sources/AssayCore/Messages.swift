@@ -48,9 +48,9 @@ extension IssueValue {
 }
 
 /// Messages the library's own internal codes render as. A `.custom` code that is not in
-/// this table is treated as the message itself — that is the `issues.add(.custom("must be
-/// a company address"))` case from EXPERIENCE.md §3, where forcing the author of a one-off
-/// rule to invent a code would be obnoxious.
+/// this table is treated as the message itself — that is the `issues.add("must be a company
+/// address")` case from EXPERIENCE.md §3, where forcing the author of a one-off rule to
+/// invent a code would be obnoxious.
 @usableFromInline
 func internalCustomMessage(_ code: String) -> String? {
     switch code {
@@ -429,8 +429,6 @@ extension Warning {
         ).message
     }
 }
-
-// The @Fallback warning. Kept here with every other rendered sentence.
 
 // MARK: - Printing
 //

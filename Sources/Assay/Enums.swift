@@ -11,10 +11,11 @@
 // Int raw value gets its schema for nothing. Invalid values produce a real suggestion
 // rather than "cannot initialize":
 //
-//     error: priority must be one of "low", "medium", "high", found "urgent"
+//     error: priority "urgent" is not a recognised value; must be one of "low", "medium", "high"
 //
 // The richer message needs the case list, so it lives in the CaseIterable-constrained
-// extensions; at a concrete conformance the more-constrained extension wins. Both decode
+// extensions — which exist for String raw values only; an Int-raw enum reports the bare
+// value. At a concrete conformance the more-constrained extension wins. Both decode
 // paths (bytes and RawValue) are covered, so an enum works from JSON, YAML and XML alike.
 //===----------------------------------------------------------------------===//
 

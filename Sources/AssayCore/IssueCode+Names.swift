@@ -133,8 +133,6 @@ extension IssueCode {
     /// `unsupported_media_type` — "media type … is not in the accepted list".
     public static let unsupportedMediaType = IssueCode.custom("unsupported_media_type")
 
-    // MARK: Column sources
-
     // MARK: Mapped files (AssayFoundation)
 
     /// `cannot_map_file` — "could not open or map the file".

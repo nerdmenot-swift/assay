@@ -3,7 +3,7 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// The second generated body: decoding from RawValue, for YAML and XML.
+// The second generated body: decoding from RawValue, for YAML, XML, TOML and property lists.
 //
 // This is the DOM path. It is deliberately NOT how JSON decodes — see
 // AssayCore/RawDecode.swift for why the hop is accepted for YAML and XML and refused for
@@ -57,7 +57,7 @@ extension SchemaMacro {
         var locals = ""
         var requiredMask: UInt64 = 0
         // A span local per field that can report one, mirroring the JSON body. On this path
-        // the span comes from `RawValue.Member`, which the YAML and XML parsers fill in;
+        // the span comes from `RawValue.Member`, which the YAML, XML and TOML parsers fill in;
         // it is nil for any producer that does not track offsets, and nil is always safe.
         for (i, f) in fields.enumerated() where rawNeedsSpan(f) {
             locals += "    var __sp\(i): Assay.SourceSpan? = nil\n"
@@ -220,7 +220,7 @@ extension SchemaMacro {
 
         // Date — same seam as the JSON body: the runtime returns epoch seconds, the
         // wrap resolves in the user's module. YAML's resolved `.int` scalars and XML's
-        // text both reach the format list through `assayDate`.
+        // text both reach the format list through `_assayDate`.
         if isDateType(base) {
             let formats = dateFormatsRef(f, i)
             let wrap = ".map { \(base)(timeIntervalSince1970: $0) }"
@@ -354,8 +354,9 @@ extension SchemaMacro {
     /// arrays so `[[Double]]` works on this path exactly as it does on the JSON one —
     /// which it did not, until the kitchen-sink test forced the question.
     ///
-    /// compactMap's closure is non-escaping, so using `&sink` inside it is statically
-    /// enforced exclusivity, not a box — CLAUDE.md's hard constraint 3 holds.
+    /// The `_assaySequence`/`_assayMapping` closure parameters are non-escaping, so using
+    /// `&sink` inside them is statically enforced exclusivity, not a box — CLAUDE.md's hard
+    /// constraint 3 holds.
     static func rawElementExpr(
         _ type: String, _ v: String, coerce: Bool, depth: Int = 0,
         dateFormatsRef: String = "Assay.DateFormat.defaultFormats", ctx: String = ""
@@ -414,11 +415,6 @@ extension SchemaMacro {
         "Assay._assayElement(&path, &sink, \"\(key)\", \(index), { path, sink in \(rawElementExpr(type, v, coerce: coerce, dateFormatsRef: dateFormatsRef, ctx: ctx)) })"
     }
 
-    /// `span` is the expression naming this field's captured span, or nil for a position
-    /// that has none. Only a top-level mapping member carries one: `RawValue.Member.span`
-    /// is where the YAML and XML parsers record an offset, and an element nested inside an
-    /// array or dictionary value has no slot of its own. Those decode without a caret, the
-    /// same way they do today.
     /// Whether this field's raw-path decode can carry a span.
     ///
     /// `SchemaField.needsSpan` answers "do this field's RULES need somewhere to point",
@@ -441,6 +437,11 @@ extension SchemaMacro {
         f.needsSpan || rawScalarCall(f.decodedType, key: "", coerce: f.coerce) != nil
     }
 
+    /// `span` is the expression naming this field's captured span, or nil for a position
+    /// that has none. Only a top-level mapping member carries one: `RawValue.Member.span`
+    /// is where the YAML, XML and TOML parsers record an offset, and an element nested inside
+    /// an array or dictionary value has no slot of its own. Those decode without a caret, the
+    /// same way they do today.
     static func rawScalarCall(
         _ type: String, key: String, coerce: Bool, span: String? = nil
     ) -> String? {
@@ -469,7 +470,7 @@ extension SchemaMacro {
 
 extension SchemaMacro {
 
-    /// The path walk for YAML and XML.
+    /// The path walk for the RawValue formats.
     ///
     /// A SECOND PASS over the members, deliberately, and the reason it is not the single-pass
     /// discipline the JSON body holds to is that there is nothing to be single-pass *about*:

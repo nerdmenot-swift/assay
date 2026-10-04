@@ -3,12 +3,12 @@
 # Copyright 2026 Srinivas Iyer. Licensed under the Apache License, Version 2.0.
 # See LICENSE and NOTICE at the repository root for terms.
 
-# Generate N equivalent types in one of four modes, for compile-time comparison.
+# Generate N equivalent types in one of eight modes, for compile-time comparison.
 #
 # The arms must be *semantically equivalent* or the comparison is meaningless: same field
 # names, same field types, same count. Only the conformance mechanism varies.
 #
-#   gen_types.sh <count> <fields> <plain|codable|schema|validated|arrays|paths|describes>
+#   gen_types.sh <count> <fields> <plain|codable|schema|validated|arrays|paths|describes|encodes>
 #
 # `validated` puts a @Validate on EVERY field, which is the worst case for the generated
 # `_assayCheck` body and not a realistic schema. It exists so the cost of validation is

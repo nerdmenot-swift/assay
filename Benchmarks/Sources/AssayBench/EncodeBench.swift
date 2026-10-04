@@ -4,7 +4,7 @@
 
 //===----------------------------------------------------------------------===//
 // Encoding, measured. Added 2026-09-08 to close a stated prohibition rather than to make a
-// claim: `docs/ENCODING.md` §288 says
+// claim: `docs/ENCODING.md` ("What remains", item 5) said
 //
 //     "Encoding is unbenchmarked. No number should be quoted for it until the harness has
 //      an arm, and the honesty rules apply to the encode direction exactly as to the decode

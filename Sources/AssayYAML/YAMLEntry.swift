@@ -8,7 +8,7 @@
 // EXPERIENCE.md §12: "One struct, many formats. Same struct. Same rules. Same errors."
 // That promise is what this file discharges for YAML.
 //
-// Path: bytes -> YAML.Node (full fidelity) -> RawValue (portable projection) -> your
+// Path: bytes -> RawValue (built directly by the parser, `YAML.decodeAllRaw`) -> your
 // struct. The projection is lossy in exactly the ways docs/VALUE-MODELS.md §5 documents —
 // tags, scalar styles and anchors do not survive, and a non-string mapping key is a hard
 // error rather than a coerced one. A caller who needs any of that parses to YAML.Node
@@ -120,8 +120,8 @@ extension RawDecodable {
 // MARK: - Encoding
 //
 // docs/ENCODING.md. Mirrors the JSON verbs and the decode pipeline: the schema projects
-// itself into `RawValue` and `YAML.encode` renders it, exactly as decoding parses to
-// `YAML.Node`, projects to `RawValue` and decodes from that.
+// itself into `RawValue` and `YAML.encode` renders it, as decoding parses to `RawValue`
+// and decodes from that.
 
 extension RawEncodableSchema {
 

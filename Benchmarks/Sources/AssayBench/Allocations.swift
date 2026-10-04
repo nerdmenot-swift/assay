@@ -26,11 +26,13 @@
 //      one stays the GATE: "is the footprint what the design says" has a right answer,
 //      "how much did the allocator do" does not.
 //
-//   2. It undercounts by roughly 10-15% on Darwin. The self-check in main.swift measures
-//      closures whose block count is arithmetic — and reads 1.73 where the answer is 2.
-//      Darwin's nano zone (allocations <= 256 bytes) reports batched statistics rather
-//      than exact live counts. Thresholds carry headroom for this; the self-check runs
-//      before every gated row and disables the gate outright if the error grows.
+//   2. It was measured to undercount by roughly 10-15% on Darwin. The self-check in
+//      AllocationGate.swift measures closures whose block count is arithmetic — and once
+//      read 1.73 where the answer is 2, because Darwin's nano zone (allocations <= 256
+//      bytes) reports batched statistics rather than exact live counts. It has since read
+//      exactly 2.00 and 4.00, and the thresholds were tightened on that basis (2026-09-12).
+//      The self-check still runs before the gated rows and disables the gate outright if
+//      the counter drifts outside its band.
 //
 //   3. It CANNOT compare two decoders that retain the same data. Assay's Payload and
 //      Foundation's CodablePayload hold identical Strings and Arrays, so they hold

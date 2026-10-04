@@ -139,8 +139,8 @@ public macro Inline() =
 /// the tree path strict would break every XML array.
 ///
 /// So `@OneOrMany` is where the tolerance is a genuine choice rather than a consequence, and
-/// `docs/CONFORMANCE.md` states the asymmetry as a contract. Removing it would mean grouping
-/// repeated members into a `.sequence` in the XML projection.
+/// the asymmetry is a stated contract: this doc comment is where it is stated. Removing it
+/// would mean grouping repeated members into a `.sequence` in the XML projection.
 ///
 /// Encoding always writes an array. The tolerant shape is input-only, which keeps
 /// `docs/ENCODING.md`'s round-trip law intact: an array is a valid input, so the encoder
@@ -403,8 +403,10 @@ public macro Preprocess(_ ops: PreprocessStep...) =
 ///     @Transform({ (a: [String]) in Set(a) })
 ///     var tags: Set<String>
 ///
-/// The parameter type is required — it is what the macro decodes by. Runs last, after
-/// every rule and check, per the fixed ordering in EXPERIENCE.md §11.
+/// The parameter type is required — it is what the macro decodes by. Runs after the
+/// field's `@Validate` rules, which see the wire value, and before any `@Check` or
+/// `@AsyncCheck`, which see the transformed value — the fixed ordering in
+/// EXPERIENCE.md §11.
 @attached(peer)
 public macro Transform<In, Out>(_ transform: (In) -> Out) =
     #externalMacro(module: "AssayMacros", type: "TransformMacro")

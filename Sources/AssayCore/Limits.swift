@@ -27,8 +27,8 @@ public struct Limits: Sendable, Equatable {
     /// nesting and the expansion is in the breadth. Structurally the same attack as the
     /// plist's shared-object amplification (`docs/PLIST.md` §2.2), with the same answer.
     ///
-    /// A *discriminated* union charges one attempt regardless of variant count, because it
-    /// makes exactly one. Only the untagged form can multiply.
+    /// A *discriminated* union charges nothing: it reads the tag and decodes exactly one
+    /// branch. Only the untagged form is charged, and only it can multiply.
     ///
     /// The default is far above any real document — a hand-written schema nests unions two or
     /// three deep — so reaching it means an attack or a bug, and it is reported

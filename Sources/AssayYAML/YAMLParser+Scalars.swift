@@ -29,9 +29,10 @@ extension YAML.Parser {
     ///
     /// A continuation stops at anything that opens a new construct. `indent` is the
     /// owning block's column, so a line at or left of it belongs to the parent; and a
-    /// more-indented line that carries `: ` or opens with `- ` is a mapping or sequence
-    /// rather than more text. YAML calls that last case an error outright; stopping
-    /// here hands it to the caller, which reports against the real structure.
+    /// more-indented line that carries `: ` is a mapping entry rather than more text (a
+    /// leading `- ` is NOT a stopper — see `plainContinuation`). YAML calls that case an
+    /// error outright; stopping here hands it to the caller, which reports against the
+    /// real structure.
     mutating func parseFlowScalar(
         _ r: inout AssayReader, _ sink: inout IssueSink, indent: Int = Int.max
     ) -> B.Value? {
@@ -44,7 +45,7 @@ extension YAML.Parser {
         var content = r.string(from: start, to: end)
 
         // `Int.max` is the flow-context caller, where multi-line plain scalars are out
-        // of scope (see this file's header) — no line can be indented past it.
+        // of scope (see `YAMLParser.swift`'s header) — no line can be indented past it.
         var pendingBreaks = 0
         while indent != Int.max,
             let more = plainContinuation(

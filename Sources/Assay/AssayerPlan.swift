@@ -16,13 +16,11 @@
 // `AssayerBacked` thin enough to stay inside the escape-analysis complexity budget that
 // CLAUDE.md's constraint 4 is about.
 //
-// TWO INTERPRETERS, mirroring the split the macro already emits:
-//
-//   * `run(_ reader:)` walks bytes. Scalar leaves come straight off the reader with no tree
-//     built at all, so a wrapper field costs what a plain field costs.
-//   * `run(_ raw:)` walks a `RawValue`. This is what makes YAML and XML work with no
-//     additional code — they already project to `RawValue`, so an `AssayerBacked` type
-//     decodes from all three formats the moment it conforms.
+// ONE INTERPRETER. `run(_ raw:)` walks a `RawValue`, which is what makes YAML and XML work
+// with no additional code — they already project to `RawValue`, so an `AssayerBacked` type
+// decodes from all three formats the moment it conforms. The JSON bytes path collects a
+// `RawValue` first and then runs the same interpreter (`AssayerBacked._assay(from reader:)`);
+// reading scalar leaves straight off the reader is owed, not built — `docs/ASSAYER.md`.
 //===----------------------------------------------------------------------===//
 
 public import AssayCore

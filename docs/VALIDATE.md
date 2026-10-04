@@ -25,7 +25,7 @@ let v = Trip.diagnose(trips)                // or: issues, warnings, isValid, re
 ## 1. The API
 
 Conformance to `Validatable` is generated for any `@Schema` type that declares a
-`@Validate` or a `@Check`. It is not behind a flag like `encodes:` or `sources:`, because a
+`@Validate` or a `@Check`. It is not behind a flag like `encodes:` or `describes:`, because a
 type with no rules gets no body and pays nothing — there is nothing to opt out of.
 
 ```swift
@@ -75,8 +75,9 @@ struct Trip {
 }
 ```
 
-It is worth 55% of the expansion — **118 ms/type with a JSON body it never calls, 52.8 ms
-without** (best of three, 100 types, 10 fields). `formats: []` used to fall back to JSON on
+It is worth 55% of the expansion on the rule-carrying arm — **118 ms/type with a JSON body
+it never calls, 52.8 ms without** (best of three, 100 types, 10 fields, a rule on nearly
+every field). `formats: []` used to fall back to JSON on
 the reasoning that a type nobody can parse is a mistake; for a type decoded by a Parquet or
 CSV reader it is the point. The case where it really would produce nothing — no decoder, no
 `encodes: true`, and no rules — is a compile error that names the fix.
@@ -178,28 +179,22 @@ renderer has always handled that — a missing-field issue has never had a span 
 Measured on this machine; `Benchmarks/RESULTS.md` carries the current figure, and
 `CLAUDE.md` the honesty rules that apply to every ratio in this repository.
 
-**Validating costs what the rules cost, and nothing else.** Decoding a six-field document
-through a schema with rules and through the same schema without them differ by 94 ns;
-`validate` on the constructed value takes 79. The seam adds nothing of its own — it is the
-rule engine, called from a second place.
+**Validating costs what the rules cost, and nothing else.** `validate` on a constructed
+value takes **37 ns** and one heap block, about 0.11× decoding the same document. The seam
+adds nothing of its own — it is the rule engine, called from a second place.
 
-| | ns |
-|---|---|
-| decode, schema with rules | 462 |
-| decode, same schema no rules | 376 |
-| **validate a constructed value** | **76** |
-
-Over a batch it is **84 ns/row**, flat from 64 rows to 100,000 — 76 for the rules plus the
-array element copy. Nowhere near re-decoding the document, which is the alternative this
-entry point exists to avoid, and that is the comparison that matters now: a fast reader
-produces values its own way, and `validate` is what makes them trustworthy afterwards.
+Over a batch it is **46 ns/row** — the rules plus the array element copy. Nowhere near
+re-decoding the document, which is the alternative this entry point exists to avoid, and
+that is the comparison that matters now: a fast reader produces values its own way, and
+`validate` is what makes them trustworthy afterwards.
 
 Two things had to be right for that number, and neither was obvious:
 
-- **`@inlinable` on all four entry points.** They are generic over `Self` and over the
-  sequence, they live in a source package, and the call site is in the user's module —
+- **`@inlinable` on every synchronous entry point.** They are generic over `Self` and over
+  the sequence, they live in a source package, and the call site is in the user's module —
   hard constraint 5's exact case. Without it the per-element loop runs through witness
-  tables: **176 ns/row**, more than double, and the gap was the loop rather than the rules.
+  tables: it measured more than double when this was built, and the gap was the loop rather
+  than the rules.
 - **One `[PathStep]` array for the whole batch**, rewritten in place. The obvious
   `[.index(i)]` inside the loop allocates per row.
 
@@ -207,7 +202,7 @@ Two things had to be right for that number, and neither was obvious:
 the `__assayRules_i_j` arrays the decode bodies already share. It costs nothing for a type
 with no rules, and about 25 ms/type for one carrying a rule on nearly every field — the
 per-field cost paid once more over the same fields, which is what `docs/COMPILE-TIME.md`
-§2's 7.3 ms/field model predicts. `Experiments/03-compile-time/gate.sh` holds both arms:
+§1's 7.3 ms/field model predicts. `Experiments/03-compile-time/gate.sh` holds both arms:
 100 ms for a rule-free type, 145 ms for a rule-carrying one.
 
 ### The rule costs, and what they bought

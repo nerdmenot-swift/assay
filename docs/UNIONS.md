@@ -90,6 +90,17 @@ Four outcomes, four reports:
 
 Nothing is composed and nothing is summarised away.
 
+**One issue means one issue.** When the tag is absent or not a string, the pre-scan has left
+the cursor part-way through the value; returning there would let the top-level entry point
+find bytes remaining and add `trailingContent`, so a missing tag would be reported as *two*
+errors. The failure paths restore the reader and skip the value, as the unknown-variant
+path does. Pinned by a test asserting `issues.count == 1`.
+
+**Two expansion-time refusals** protect the "exactly one branch is possible" property: two
+cases spelling the same tag (the second could never be chosen, silently), and `@Unknown` on
+a union case (an unrecognised tag already has a better answer — `union_unknown_variant` with
+a did-you-mean — and a catch-all would have nothing to hold).
+
 ### 2.2 Untagged — composition is unavoidable, so bound it
 
 Every branch failed, and the reader has *n* sets of issues that are all equally "why". The two
@@ -99,18 +110,33 @@ usual answers are both bad: printing all of them is the wall of noise above, and
 **The rule: one summary issue, plus the detail of exactly one branch, and say which.**
 
 ```
-no variant of StringOrNumber matched; showing `text`, which came closest
-  └─ text: expected string, received number
+did not match any variant of StringOrNumber (text, number); closest was text, whose issues follow
 ```
 
-- The summary is `union_no_variant_matched`, carrying every variant's name in `params`.
+followed by the closest branch's own issues, as ordinary issues.
+
+- The summary is `union_no_variant_matched`, carrying the type, the closest branch and every
+  variant's name in `params`.
 - "Closest" is **fewest issues, ties broken by declaration order**. It is a heuristic and it is
-  named as one in the message, which is the difference between a hint and a claim.
+  named as one in the message ("closest was"), which is the difference between a hint and a
+  claim.
 - The chosen branch's issues are reported at the union's path, unmodified.
+
+Producing that detail means **running the closest branch twice**: the measuring pass rolls
+every branch back, so by the time the closest is known its issues are gone. The alternative —
+snapshotting each branch's issues as it goes — is an allocation per branch on *every* decode,
+including the ones that succeed on branch one. Replaying costs one extra decode of a single
+branch, only when the union has already failed, and it does not charge the budget again: it
+is the same attempt re-run for its diagnostics.
 
 The alternative — reporting every branch — is available deliberately and not by default:
 `Limits.verboseUnions` turns it on for someone debugging a wire format they do not control,
 which is the case untagged unions exist for.
+
+**`verboseUnions` suppresses the sink rollback and NOT the reader restore.** The first version
+suppressed both, so branch two started wherever branch one stopped and reported nonsense about
+a position it was never meant to see. Caught by asserting that verbose mode names a field only
+the non-closest branch has.
 
 ---
 
@@ -125,21 +151,24 @@ This is structurally the same attack as the plist's shared-object amplification
 (`docs/PLIST.md` §2.2), and it gets the same answer for the same reason.
 
 - `Limits.maxUnionAttempts`, defaulting to **10,000**, charged one per branch attempt across
-  the whole decode.
+  the whole decode, and **not refunded by a rewind** — a `Mark` restores where the reader
+  *is*, not work already done.
 - Exhausting it is an issue (`union_budget_exhausted`), not a silent truncation.
-- A *discriminated* union charges **one** attempt regardless of variant count, because it makes
-  exactly one. Only the untagged form can multiply.
+- A *discriminated* union charges **nothing** — it makes exactly one attempt, chosen by the
+  tag, so it cannot multiply. Only the untagged form is charged.
 
 The default is deliberately far above any real document: a hand-written schema nests unions two
 or three deep at most, and 10,000 attempts is unreachable by anything but an attack or a bug.
+
+Worth knowing when testing it: a failing union inside an array does not make very many
+attempts, because `arrayDecode` breaks on the first element that will not decode. A test
+written with a budget of three never reached it.
 
 ---
 
 ## 4. What encoding a union means
 
-**Built 2026-09-10 for both forms.** This section was written as the settled answer for when
-it would be, and it is what was implemented — every paragraph below stands as written. What
-building it cost is at the end of the section.
+**Built 2026-09-10 for both forms.** What building it cost is at the end of the section.
 
 `ENCODING.md`'s round-trip law is that decoding what was encoded returns an equal value, with a
 closed exception list. Unions add one exception and refuse the case that would add a second.
@@ -147,7 +176,8 @@ closed exception list. Unions add one exception and refuse the case that would a
 **Discriminated encodes the payload plus the tag.** `Event.click(e)` writes `e`'s object with
 `"type": "click"` added. The tag name is the *case* name, transformed by the type's `keys:`
 style, so `case pageView` writes `"page_view"` under `.snakeCase` — the same rule field names
-already follow, rather than a second convention to remember.
+already follow, rather than a second convention to remember. `@Key("…")` on a case overrides
+it, in both directions.
 
 **Untagged encodes the payload alone**, and here the law can genuinely break:
 
@@ -159,12 +189,14 @@ enum Ambiguous { case a(Int), b(Int) }      // refused at expansion
 `.b(1)` encodes as `1`, which decodes as `.a(1)`. That is a round-trip violation the library
 cannot repair — so it is **refused at expansion**, where the macro can see that two cases carry
 the same payload token. It is the one union check a macro *can* do: it needs no conformance
-lookup, only the tokens it already has.
+lookup, only the tokens it already has. Decoding needs the refusal as much as encoding does:
+`case a(Int), b(Int)` makes `b` unreachable whether or not anything is ever encoded.
 
 What it cannot see is a subtler collision — two distinct `@Schema` types that accept the same
 document. `case a(Empty), b(Empty)` where both are `@Schema struct Empty {}`. The tokens
 differ, so expansion cannot refuse it; the first branch wins and the second never
-round-trips. **That is the exception on the list**, and it is the untagged form's cost.
+round-trips. **That is the exception on the list**, and it is the untagged form's cost. A
+test asserts that this case is **not** refused, so the limit is recorded rather than assumed.
 
 **A discriminated union has no such exception**, which is the last of several reasons to prefer
 one.
@@ -206,11 +238,11 @@ members, so the function could exist for some untagged unions and not others —
 union nested inside a tagged one would then compile or not depending on a payload type three
 declarations away. Refusing it always is the smaller surprise.
 
-**And three more options that were accepted and ignored.** Wiring `encodes:` through the same
-guard made it obvious that `sources:`, `describes:` and `context:` were all being read past on
-a union and silently doing nothing. All three are refused now. `context:` is the one that
-needed it: the other two promise a member that is never emitted, so the type checker eventually
-says so at the call site, but a contextual union would simply stay non-contextual —
+**And two more options that were accepted and ignored.** Wiring `encodes:` through the same
+guard made it obvious that `describes:` and `context:` were both being read past on a union
+and silently doing nothing. Both are refused now. `context:` is the one that needed it:
+`describes:` promises a member that is never emitted, so the type checker eventually says
+so at the call site, but a contextual union would simply stay non-contextual —
 `parse(json:)` resolves, nothing errors anywhere, and the context never reaches a check. That
 is the `@XML(root:)` trap again: it compiles and checks nothing.
 
@@ -230,66 +262,20 @@ declaring `unknownKeys: .reject` will reject the tag unless it also declares the
 the macro cannot warn, because it sees the token `ClickEvent` and not that type's policy.
 Stated here, and the runtime error names the key.
 
-**A variant must be a `@Schema` type or a scalar.** Enforced the way `@Key(path:)`'s nested
-types are: the emitted call names the type concretely, so the type checker produces the
-diagnostic the macro cannot.
+**A variant must be a `@Schema` type; the untagged form also takes a scalar.** Enforced the
+way `@Key(path:)`'s nested types are: the emitted call names the type concretely, so the type
+checker produces the diagnostic the macro cannot.
 
 ---
 
 ## 6. Status
 
-**Both forms built 2026-09-09**, decode only. **Encoding followed 2026-09-10** for both forms,
-exactly as §4 specified it; what that cost is recorded there. JSON only throughout — a union
-has no `RawValue` path to decode from, so it has none to encode through either.
+**Both forms decode since 2026-09-09 and encode since 2026-09-10.** Tagged was built first,
+because three of the four hard questions do not apply to it; what each form cost is recorded
+in the section that specifies it (§2.1, §2.2, §3, §4).
 
-The build order this document argued for held: tagged first, because three of the four hard
-questions do not apply to it. Untagged then needed all three, and each cost something the
-design did not fully anticipate.
-
-**§2.2's composed report, and what it costs to produce.** One summary
-(`union_no_variant_matched`, naming the type, the guess, and every variant) plus the closest
-branch's detail. Producing that detail means **running the winning branch twice**: the
-measuring pass rolls every branch back, so by the time the closest is known its issues are
-gone. The alternative — snapshotting each branch's issues as it goes — is an allocation per
-branch on *every* decode, including the ones that succeed on branch one. Replaying costs one
-extra decode of a single branch, only when the union has already failed. The replay does not
-charge the budget again: it is the same attempt re-run for its diagnostics.
-
-**§3's budget, and a correction to how it is reached.** `Limits.maxUnionAttempts`, default
-10,000, global, charged per attempt, and **not refunded by a rewind** — a `Mark` restores where
-the reader *is*, not work already done. Worth recording: a failing union inside an array does
-not make very many attempts, because `arrayDecode` breaks on the first element that will not
-decode. A test written with a budget of three never reached it.
-
-**`verboseUnions` suppresses the sink rollback and NOT the reader restore.** The first version
-suppressed both, so branch two started wherever branch one stopped and reported nonsense about
-a position it was never meant to see. Caught by asserting that verbose mode names a field only
-the non-closest branch has.
-
-**§4's duplicate-payload refusal is built**, and it turns out decoding needs it as much as
-encoding does: `case a(Int), b(Int)` makes `b` unreachable whether or not anything is ever
-encoded. What the macro still cannot see — two *distinct* types accepting the same documents —
-is pinned by a test asserting that it is **not** refused, so the limit is recorded rather than
-assumed.
-
-What the tagged form cost, beyond the rewind primitive:
-
-- **A resynchronisation the design did not anticipate.** When the tag is absent or not a
-  string, the union returns nil having reported — and the pre-scan has left the cursor
-  part-way through the value, so the top-level entry point finds bytes remaining and adds
-  `trailingContent`. A missing tag was reported as *two* errors. The failure paths now restore
-  and skip the value, which is what the unknown-variant path already did. Caught by a test
-  asserting `issues.count == 1`, which is the assertion this whole feature is about.
-- **Two expansion-time refusals** that protect the "exactly one branch is possible" property:
-  two cases spelling the same tag (the second could never be chosen, silently), and `@Unknown`
-  on a union case (an unrecognised tag already has a better answer — `union_unknown_variant`
-  with a did-you-mean — and a catch-all would have nothing to hold).
-- **JSON only.** The `RawValue` path — YAML and XML — is refused at expansion rather than
-  silently omitted, because a union that decoded from JSON and not from YAML while declaring
-  `formats: .all` would be a trap.
-- **Encoding was likewise refused** until 2026-09-10, for the same reason: §4 settles what it
-  should mean, and accepting `encodes: true` while emitting no encoder is the worse failure.
-  It is now built, and the refusal is gone. Four options are still refused — `formats:`
-  naming YAML or XML (including `.all`), `sources:`, `describes:` and `context:` — and three
-  of those refusals were added the day encoding was, because until then they were accepted
-  and ignored. §4.
+**JSON only throughout.** A union has no `RawValue` path to decode from, so it has none to
+encode through either. Three options are refused at expansion rather than accepted and
+ignored: `formats:` naming YAML, XML or TOML (including `.all`), `describes:` and
+`context:`. Refusing is the point — a union that decoded from JSON and not from YAML while
+declaring `formats: .all` would be a trap.

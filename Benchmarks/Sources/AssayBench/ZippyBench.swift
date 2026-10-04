@@ -23,8 +23,8 @@
 // swift-foundation rewrite this harness measures against everywhere else. Every honesty rule
 // in this project says a ratio belongs to the harness that produced it. This arm produces it.
 //
-// WHY THIS IS THE STRONGEST FORM OF THE ARGUMENT AVAILABLE. yyjson (already measured: 0.65x
-// on the use-case arm) answers "how fast is a hand-tuned C parser?" — and Assay loses, as
+// WHY THIS IS THE STRONGEST FORM OF THE ARGUMENT AVAILABLE. yyjson (already measured, in
+// SIMDBaseline.swift) answers "how fast is a hand-tuned C parser?" — and Assay loses, as
 // predicted and published. ZippyJSON answers a different and more pointed question: **that
 // same class of parser, wired to `Decodable`.** It is simdjson underneath — genuinely faster
 // at parsing than anything here — with a `KeyedDecodingContainer` on top. If the thesis is

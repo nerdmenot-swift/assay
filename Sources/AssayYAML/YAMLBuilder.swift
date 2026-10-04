@@ -19,16 +19,17 @@
 //
 //   1. A TAG ARRIVES AFTER THE SCALAR. `parseNode` scans `&anchor` and `!!tag` before it
 //      knows what kind of node follows, and `RawValue`'s resolution depends on both the tag
-//      and the style. So the RawValue builder keeps a scalar UNRESOLVED (`.scalar(text,
-//      style, tag)`) and resolves only when it becomes a value — `decorate` rewrites the
-//      tag on the way past, exactly as the node builder mutates `Scalar.tag`.
+//      and the style. So the RawValue builder keeps a scalar UNRESOLVED (`Value.unresolved`,
+//      with its text and style) and resolves only when it becomes a value — `decorate`
+//      resolves it at once, with the tag, when one arrives, where the node builder mutates
+//      `Scalar.tag`.
 //
 //   2. A KEY WANTS RAW TEXT WHILE A VALUE WANTS RESOLUTION. `{1: x}` has the key "1" and
 //      `RawValue.Member.key` is a `String`. The unresolved case answers both questions:
-//      `keyText` for a key, resolution for a value.
+//      `takeText` for a key, resolution for a value.
 //
 //   3. A KEY CAN BE A NON-SCALAR (`? [a, b] : c`). The node model represents that; `RawValue`
-//      cannot. `mapping` therefore returns nil and the parser reports
+//      cannot. `appendPair` therefore returns false and the parser reports
 //      `.yamlUnrepresentableKey` — the same code the entry point used to report after the
 //      projection failed, now raised where the key is read.
 //

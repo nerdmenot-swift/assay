@@ -1,7 +1,9 @@
 # The Assay website
 
-[assay.nerdmenot.in](https://assay.nerdmenot.in) — Astro + Starlight, deployed to
-Cloudflare Pages.
+Astro + Starlight, built for Cloudflare Pages at `assay.nerdmenot.in`. **It is not
+published yet**: the deploy job needs the `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID` repository secrets, which are not set, and the domain does not
+resolve until the first deploy.
 
 ```sh
 bun install
@@ -26,12 +28,14 @@ scripts/recipes.swift.txt    five whole programs, one per "Putting it together" 
 scripts/cookbook.swift.txt   the feature catalogue — one tiny program per Recipes entry
 scripts/pages/*.md.tmpl      docs pages whose examples are real output (see below)
 scripts/performance.md.tmpl  prose for the performance page; {{TABLE}} is substituted
+scripts/prose.ts             readability report for the docs (reported in CI, never gated)
+scripts/og.ts, og.svg        renders public/og.png, the social card
 src/pages/index.astro        the landing page
 src/styles/theme.css         tokens + Starlight overrides (docs and landing page share them)
 src/styles/home.css          the landing page only
 src/components/              Header and PageTitle overrides, theme and ToC toggles,
                              the shared GitHub mark
-src/content/docs/            start/, guides/, formats/, reference/
+src/content/docs/            start/, recipes/, guides/, formats/, reference/
 ```
 
 ## Nothing on this site is typed by hand
@@ -106,20 +110,23 @@ platform-specific, the page says which platform.
    renders it needs to `scripts/samples.swift.txt`.
 2. Add its slug to the `sidebar` in `astro.config.mjs` — order is editorial, not
    alphabetical.
-3. `bun run build` (or `bun run astro build` without Swift) and check the link gate passes.
-   It checks anchors as well as pages: a reworded heading breaks `#fragment` links silently
-   otherwise, and has.
+3. `bun run build` (or `bun run astro build` without Swift). The link gate — pages and
+   `#fragment` anchors — runs in CI (`.github/workflows/docs.yml`), not locally: a reworded
+   heading breaks anchor links silently otherwise, and has.
 
 ## Deploying
 
-CI does it on push to `main`. By hand:
+CI does it on a push to `main` that touches `website/`, once `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID` are set as repository secrets. They are not set today, which is why
+the site is unpublished. By hand:
 
 ```sh
 bun run deploy      # needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
 ```
 
-## The logo is a placeholder
+## The logo
 
-`public/icon.svg` and `src/components/lockup.svg` are a caret drawn in two minutes.
-Replacing them touches nothing else — the header inlines the lockup with `?raw`, and the
-favicon and Starlight logo both point at `icon.svg`.
+The mark exists in several cuts that must change together: `public/icon.svg` (the SVG
+favicon), `src/assets/icon.svg` (Starlight's logo), `public/icon-small.svg` and the PNGs
+made from it (`favicon-16.png`, `favicon-32.png`, `apple-touch-icon.png`, `icon-512.png`),
+and `src/components/lockup.svg`, which both headers inline with `?raw`.

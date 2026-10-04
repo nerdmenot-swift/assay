@@ -1,16 +1,23 @@
-# Experiment #6 — what does `@Schema` cost at compile time?
+# Experiment #3 — what does `@Schema` cost at compile time?
 
 **Status: MEASURED. Budget set. Two optimizations found and landed.**
 
+**A dated snapshot (2026-07-26).** The current numbers, and everything measured since, are in
+`docs/COMPILE-TIME.md`; where this page and that one differ, that one is current.
+
 - Toolchain: Apple Swift 6.3.3, macOS 26.5.2, Apple silicon (18 logical cores)
 - `swift build`, debug config, dependency graph prebuilt so only the module under test is timed
-- Three arms, semantically identical field sets: `plain` (no conformance) / `codable` / `schema`
+- Three arms, semantically identical field sets: `plain` (no conformance) / `codable` /
+  `schema`. `measure.sh` now also reports `validated`, `arrays`, `paths`, `describes` and
+  `encodes`
 - Date: 2026-07-26
 
 ## Headline
 
 **~80 ms per `@Schema` type at 10 fields, of which ~7 ms is per *field* and ~9 ms is
-fixed per type.** That is **3.6× the cost of `Codable`** and **9.5× a plain struct**.
+fixed per type.** That is **3.6× the cost of `Codable`** and **9.5× a plain struct** — on
+2026-07-26. The `Codable` multiple is 4.22× today, because `Codable` itself got faster; see
+`docs/COMPILE-TIME.md` §6.
 
 | types (10 fields each) | plain | codable | schema | vs plain | vs codable |
 |---|---|---|---|---|---|
@@ -83,7 +90,7 @@ module — but the generated body is *already in* the user's module and already 
 inlinability buys nothing there. Removed.
 
 **Only public types hit it**, which is why the test suite (all internal types) passed
-throughout. Worth a regression test.
+throughout. Pinned since by `Tests/AssayTests/PublicTypeTests.swift`.
 
 ## The budget
 
@@ -94,14 +101,18 @@ throughout. Worth a regression test.
 | 200–1000 | 16–80 s | measure before adopting wholesale |
 | > 1000 | > 80 s | do not adopt without a plan |
 
-**Gate: 100 ms per type at 10 fields, measured in CI, failing the build on regression.**
-Current: ~80 ms. See `docs/COMPILE-TIME.md`.
+**Gate: 100 ms per type at 10 fields, enforced locally by `gate.sh`.** CI enforces the
+hardware-independent form instead, `schema / codable` ≤ 6.0×, because a hosted runner is
+about half the speed of the machine the milliseconds were calibrated on. Current: ~81 ms.
+See `docs/COMPILE-TIME.md` §2.
 
 ## Caveats
 
-- Debug config, one machine, cold module build. Release adds optimizer time on top.
-- **Incremental builds are not measured**, and that is what developers feel all day. A
-  single-type edit should only re-expand that type; this has not been verified.
+- Debug config, one machine, cold module build. Release adds optimizer time on top —
+  measured since at about 3× debug per type (`docs/COMPILE-TIME.md` §5.2).
+- **Incremental builds were not measured here**, and that is what developers feel all day.
+  They have been since (`incremental.sh`; `docs/COMPILE-TIME.md` §5.1): one edit re-expands
+  one type, not the module.
 - The prebuilt-swift-syntax path (Swift 6.2+) is active here because `Package.swift` now
   pins the 603 line matching the 6.3.3 toolchain. A stale pin forfeits it and every
   measurement above gets worse.

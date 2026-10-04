@@ -9,8 +9,9 @@ nonisolated public static func _assayFromWire(_ __s: String) -> GoldenOpenAll {
     return .other(__s)
 }
 
-/// The case back to its wire string. `nil` for an unrecognised value that did not
-/// opt into round-tripping — see `_assayEncodeWire`.
+/// The case back to its wire string; the catch-all returns the text it kept.
+/// Whether an unrecognised value may be ENCODED is decided by the encode bodies,
+/// not here.
 nonisolated public var _assayWire: String {
     switch self {
         case .active: return "active"

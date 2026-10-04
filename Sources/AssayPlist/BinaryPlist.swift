@@ -42,9 +42,9 @@
 // two flavours agree. Stated in `docs/PLIST.md` rather than discovered.
 //
 // WHAT A DATE BECOMES: a `.double`, seconds since 2001-01-01 UTC — the value the format
-// stores, unconverted. The core is Foundation-free and stays that way; `@DateFormat(.unix)`
-// is not it either, since the epoch differs by 978307200 seconds. `docs/PLIST.md` names the
-// constant and the reason the conversion is the caller's.
+// stores, unconverted. The core is Foundation-free and stays that way;
+// `@DateFormat(.unixSeconds)` is not it either, since the epoch differs by 978307200
+// seconds. `docs/PLIST.md` names the constant and the reason the conversion is the caller's.
 //
 // WHAT A UID BECOMES: an `.int`. UIDs appear in `NSKeyedArchiver` output, which this does not
 // pretend to decode — a keyed archive is a different format that happens to be written in a
@@ -88,9 +88,10 @@ enum BinaryPlist {
         init(bytes: [UInt8], limits: Limits) {
             self.bytes = bytes
             self.limits = limits
-            // One node per 8 bytes of input, floored generously. A real document cannot
-            // materialise more nodes than it has bytes to describe them with; a bomb can,
-            // which is the whole distinction being drawn.
+            // Four nodes per byte of input, with a floor of 4,096. A real document
+            // materialises at most a few nodes per byte, since each node needs bytes to
+            // describe it; a bomb materialises thousands, which is the whole distinction
+            // being drawn.
             self.budget = max(4_096, min(limits.maxBytes, bytes.count) * 4)
         }
 
@@ -204,8 +205,8 @@ enum BinaryPlist {
         ///
         /// The bound is also simply true: no object can have more elements than the file has
         /// bytes to describe them with, since every element costs at least one byte of
-        /// reference. Checking it here rather than at each of the four call sites means a
-        /// fifth call site added later cannot forget.
+        /// reference. Checking it here rather than at each of the five call sites means a
+        /// sixth call site added later cannot forget.
         ///
         /// Found by reading the code, not by the fuzzer — reaching it needs the 0xF escape
         /// carrying a value near `Int.max`, which random mutation produces essentially never.
@@ -412,8 +413,8 @@ enum BinaryPlist {
                     let vRef = reference(at: start + (n + i) * objectRefSize)
                     guard let k = object(kRef, depth: depth + 1, &sink) else { return nil }
                     // A plist key must be a string. `RawValue.Member.key` is a `String`, so
-                    // a non-string key has nowhere to go — the same refusal the YAML entry
-                    // point already makes, with the same reasoning and its own code.
+                    // a non-string key has nowhere to go — the same refusal the YAML parser
+                    // makes, with the same reasoning and its own code.
                     guard case .string(let key) = k else {
                         return fail(
                             &sink,
@@ -501,8 +502,6 @@ enum Base64 {
         return String(decoding: out, as: UTF8.self)
     }
 
-    /// Decoding, for the XML flavour's `<data>` element, which arrives as text.
-    /// Whitespace is skipped — Apple's writer wraps at 68 columns.
     /// Built once, not per call. It was `var rev = [Int8](repeating: -1, count: 256)`
     /// inside `decode`, so every `<data>` element paid a 256-byte allocation and 64 stores
     /// to decode as few as four characters — measured 2026-09-13 at ~2x the cost of the
@@ -513,6 +512,8 @@ enum Base64 {
         return rev
     }()
 
+    /// Decoding, for the XML flavour's `<data>` element, which arrives as text.
+    /// Whitespace is skipped — Apple's writer wraps at 68 columns.
     static func decode(_ text: String) -> [UInt8]? {
         let rev = Self.reverseTable
         var acc: UInt32 = 0

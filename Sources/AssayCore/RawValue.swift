@@ -38,9 +38,9 @@ public enum RawValue: Sendable, Hashable {
         /// Where this member's VALUE began in the source document, when the parser knew.
         ///
         /// This is what lets a YAML or XML schema issue render a caret. The JSON path
-        /// never needs it — it decodes from bytes with the cursor in hand — but the tree
-        /// formats build a node model first, and without this the offset is gone by the
-        /// time a rule runs. `nil` is always allowed and always safe: the renderer has
+        /// never needs it — it decodes from bytes with the cursor in hand — but the other
+        /// formats are parsed into `RawValue` before any rule runs, and without this the
+        /// offset is gone by then. `nil` is always allowed and always safe: the renderer has
         /// handled span-less issues since the first missing-field error.
         ///
         /// **Excluded from `==` and `hash`, deliberately.** Two documents with the same
@@ -215,7 +215,9 @@ extension RawValue: ExpressibleByNilLiteral {
 }
 
 extension RawValue: ExpressibleByBooleanLiteral {
-    /// Literals build values: `let v: RawValue = ["a": 1, "b": [true, nil]]`.
+    /// `true` / `false` as a literal is `.bool`. Scalars, `nil` and array literals build
+    /// values — `let v: RawValue = [1, "a", [true, nil]]` — and there is no dictionary
+    /// literal.
     public init(booleanLiteral value: Bool) { self = .bool(value) }
 }
 

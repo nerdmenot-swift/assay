@@ -126,7 +126,6 @@ extension SchemaMacro {
         return body
     }
 
-    /// One line per field, mirroring the decode bodies' discipline.
     /// One nested object per path node, recursively.
     static func encodePathNode(
         _ n: PathNode, fields: [SchemaField], segment: String, indent: Int
@@ -165,13 +164,14 @@ extension SchemaMacro {
         return out
     }
 
+    /// One line per field, mirroring the decode bodies' discipline.
     static func encodeStatement(field f: SchemaField, index i: Int) -> String {
         let key = f.wireKey
         let base = f.decodedType
 
         // Q3: a transformed field encodes through its inverse, back to the WIRE type —
         // which is what makes Q5's round-trip law hold. The expansion-time check in
-        // checkEncodable guarantees the inverse exists by the time this runs.
+        // `encodeDiagnostics` guarantees the inverse exists by the time this runs.
         let value =
             f.transform != nil
             ? "Self.__assayInverse_\(i)(self.\(f.identifier))"
@@ -206,15 +206,15 @@ extension SchemaMacro {
             """
     }
 
-    /// The expression that writes one non-optional value of `type`.
     /// The statement that writes a static key. For an ordinary key it is ONE append of the
-    /// key's complete JSON text (`"name":`) through `JSONWriter._key(encoded:)`, instead of one
-    /// append per byte. That applies only when the key's spelling IS its value and needs no
-    /// JSON escaping: no backslash, no quote, no control character. The macro sees a key as
-    /// its Swift SOURCE spelling (`we\"ird`, backslash included), so any key with an escape in
-    /// it keeps `w.key("…")`, which re-embeds the spelling in a literal and escapes the value
-    /// at run time. A first version escaped the spelling itself and double-escaped such keys;
-    /// `EncodingTests.oddKeys` caught it.
+    /// separator and the key's complete JSON text (`,"name":`) through
+    /// `JSONWriter._key(separated:)`, instead of one append per byte. That applies only when
+    /// the key's spelling IS its value and needs no JSON escaping: no backslash, no quote, no
+    /// control character. The macro sees a key as its Swift SOURCE spelling (`we\"ird`,
+    /// backslash included), so any key with an escape in it keeps `w.key("…")`, which
+    /// re-embeds the spelling in a literal and escapes the value at run time. A first version
+    /// escaped the spelling itself and double-escaped such keys; `EncodingTests.oddKeys`
+    /// caught it.
     static func keyStatement(_ key: String) -> String {
         isPlainKey(key) ? "w._key(separated: \",\\\"\(key)\\\":\")" : "w.key(\"\(key)\")"
     }
@@ -224,6 +224,7 @@ extension SchemaMacro {
         key.unicodeScalars.allSatisfy { $0.value >= 0x20 && $0 != "\"" && $0 != "\\" }
     }
 
+    /// The expression that writes one non-optional value of `type`.
     static func writeCall(
         _ type: String, _ expr: String, key: String, index i: Int, indent: Int,
         /// The path a NESTED schema value is encoded at, when the caller has one ready —

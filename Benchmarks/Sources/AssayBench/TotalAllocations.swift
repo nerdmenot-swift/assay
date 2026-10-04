@@ -16,7 +16,7 @@
 // `malloc_logger` is the global hook `MallocStackLogging` itself installs; setting it
 // in-process makes the allocator call us on every allocate and every deallocate, exactly,
 // with no batching. That is a strictly better instrument than the live-block gate beside it,
-// which undercounts 10–15% because Darwin's nano zone reports batched statistics.
+// which was measured to undercount 10–15% because Darwin's nano zone batches statistics.
 //
 // WHY THIS DOES NOT REPLACE THE LIVE-BLOCK GATE. They answer different questions and the
 // existing one is still the one worth gating on:

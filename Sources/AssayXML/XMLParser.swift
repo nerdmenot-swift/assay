@@ -19,7 +19,8 @@
 //   * **refuses external entities outright** (XXE) — no network, no filesystem, ever;
 //   * caps internal entity expansion (billion laughs / quadratic blowup);
 //   * caps nesting depth via `Limits.maxDepth`;
-//   * treats a DOCTYPE's internal subset as declarations to *skip*, not to honour.
+//   * skips a DOCTYPE's internal subset except for internal general entity declarations,
+//     which are harvested and expanded under the cap above.
 //
 // Scope: XML 1.0, UTF-8. Not supported, deliberately and stated rather than discovered:
 // DTD validation, external entities, XML 1.1, non-UTF-8 encodings, XInclude, XSD.
@@ -129,7 +130,7 @@ extension XML {
         static var attributeSetThreshold: Int { 16 }
 
         let limits: Limits
-        /// Element child counts by depth, for `parseElement`'s reservation.
+        /// Element child counts by depth and sibling position (`childReservation`).
         var hints = _ShapeHints()
         /// Internal general entities from the DOCTYPE internal subset.
         var entities: [String: String] = [:]
@@ -155,10 +156,9 @@ extension XML {
             // eight. The amplification is the attack; the absolute figure is beside the
             // point.
             //
-            // 32x matches the node-per-byte bound used for YAML aliases, with a 64 KB floor
-            // so a small document may still use entities freely. Nothing legitimate comes
-            // close: entity text is short and reused, so real expansion is a few times the
-            // input at most.
+            // 32x of the input, with a 64 KB floor so a small document may still use
+            // entities freely. Nothing legitimate comes close: entity text is short and
+            // reused, so real expansion is a few times the input at most.
             self.expansionBudget = min(limits.maxBytes, max(64 << 10, inputBytes &* 32))
         }
 
@@ -600,29 +600,6 @@ extension XML {
         ///
         /// An *unprefixed attribute* is NOT in the default namespace, per the Namespaces
         /// spec. That asymmetry with elements is real and easy to get wrong.
-        /// Split a possibly-prefixed name at its colon.
-        ///
-        /// **Over `raw.utf8`, never over `raw`.** `String.firstIndex(of: ":")` iterates by
-        /// Character, which means grapheme breaking, `validateScalarIndex`, `_allASCII` and
-        /// a full `String ==` per position — and this runs once per element AND once per
-        /// attribute. Profiling put that family of calls at roughly half of all parse time,
-        /// far ahead of anything doing real work.
-        ///
-        /// A byte scan is exact here rather than approximate: `:` is ASCII 0x3A, UTF-8 is
-        /// self-synchronizing, and no continuation byte can be 0x3A, so a colon byte is
-        /// always a colon character. Element names may be non-ASCII and this stays correct
-        /// for them.
-        ///
-        /// This is the one lesson from libxml2 that transfers wholesale — it works on bytes
-        /// because C has no other option, while Swift makes the expensive thing the default
-        /// spelling.
-        ///
-        /// TRIED AND REJECTED: noticing the colon inside `scanName`, which already walks
-        /// these bytes, so that this function needs no search at all. It is the obvious next
-        /// step and it measured **167 MB/s against 195** — one comparison per name byte, on
-        /// every name, costs more than one `firstIndex` over the handful of bytes a name
-        /// has. Do not re-derive it.
-        /// Split a possibly-prefixed name and attach its namespace.
         ///
         /// **The colon is found in the SOURCE BYTES, not in the String.** Both
         /// `String.firstIndex` and `String.utf8.firstIndex` walk a view with a
@@ -634,6 +611,12 @@ extension XML {
         /// case — which is nearly every name.
         ///
         /// Third time on this one function. `String`'s convenient spellings are convenient.
+        ///
+        /// TRIED AND REJECTED: noticing the colon inside `scanName`, which already walks
+        /// these bytes, so that this function needs no search at all. It is the obvious next
+        /// step and it measured **167 MB/s against 195** — one comparison per name byte, on
+        /// every name, costs more than one scan over the handful of bytes a name has. Do
+        /// not re-derive it.
         func resolve(
             _ r: borrowing AssayReader, _ range: Range<Int>, isAttribute: Bool
         ) -> XML.Name {

@@ -25,8 +25,8 @@
 /// A type that can be built from JSON at the reader's current position.
 ///
 /// Conformed to by `RawValue` (portable, lossy) and `JSON.Value` (full fidelity) in this
-/// module. `YAML.Node` and `XML.Node` deliberately do **not** conform — they will conform
-/// to their own format's protocol instead.
+/// module. `YAML.Node` and `XML.Node` deliberately do **not** conform; no per-format
+/// protocol for them exists yet.
 public protocol JSONCollectible {
     /// Consume one JSON value and return it, or nil if it was malformed.
     static func _collectJSON(

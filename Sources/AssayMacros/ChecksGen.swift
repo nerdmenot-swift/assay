@@ -6,7 +6,7 @@
 // @Check, @Preprocess, @Transform, @Fallback — the macro half.
 //
 // Ordering, fixed and total (EXPERIENCE.md §11):
-//   preprocess → coerce → decode → field rules → cross-field checks → transform
+//   decode → preprocess → field rules → transform → @Check → @AsyncCheck
 //
 // @Check has a hard limit worth restating: an attached macro only receives the members
 // declared in the type's own body, so a @Check in an extension is PERMANENTLY invisible
@@ -21,7 +21,7 @@ import SwiftDiagnostics
 /// A `@Check` member found in the type body.
 struct CheckDecl {
     var functionName: String
-    /// For the field form `@Check(\.workEmail)`: the property the issue lands on.
+    /// For the field form `@Check(\Signup.workEmail)`: the property the issue lands on.
     var fieldIdentifier: String?
     var isAsync: Bool
 }
@@ -63,7 +63,7 @@ extension SchemaMacro {
                 continue
             }
 
-            // Field form: @Check(\.workEmail)
+            // Field form: @Check(\Signup.workEmail)
             var field: String?
             if let args = checkAttr.arguments?.as(LabeledExprListSyntax.self),
                 let first = args.first
@@ -272,7 +272,7 @@ extension SchemaMacro {
         return []
     }
 
-    /// `@Transform { (a: [String]) in Set(a) }` — the closure's parameter type IS the
+    /// `@Transform({ (a: [String]) in Set(a) })` — the closure's parameter type IS the
     /// wire type; the declared property type is the output. The macro reads the parameter
     /// annotation syntactically, which is why the typed-closure spelling is required:
     /// a bare `{ Set($0) }` gives the macro nothing to decode by.

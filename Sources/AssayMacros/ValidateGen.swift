@@ -6,9 +6,9 @@
 // Emitting `_assayCheck` — the schema's rules, run against a constructed value.
 // docs/VALIDATE.md, and the header of Sources/Assay/Validate.swift for the semantics.
 //
-// NOT OPT-IN, unlike `encodes:` and `sources:`, and that is a cost argument rather than an
-// exception. Those flags exist because an encoder or a column binder is a whole extra body
-// that a type which never encodes would still pay for at compile time. This body is
+// NOT OPT-IN, unlike `encodes:` and `describes:`, and that is a cost argument rather than an
+// exception. Those flags exist because an encoder or a descriptor is a whole extra body
+// that a type which never uses it would still pay for at compile time. This body is
 // generated only when the type declares a `@Validate` or a `@Check`, and then it is
 // proportional to the rules already declared — one line per rule attribute, reusing the
 // same `__assayRules_i_j` arrays the decode bodies share. A type with no rules gets

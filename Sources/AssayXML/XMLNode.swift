@@ -100,7 +100,7 @@ extension XML {
         /// Ordered, and this ordering *is* significant.
         public var children: [Node]
 
-        /// Where this element's CONTENT sits — between `>` and `</`, or the whole tag for
+        /// Where this element's CONTENT sits — between `>` and `</`, or the tag's name for
         /// an empty element. That is what a caret should underline when a field decoded
         /// from `<port>notanumber</port>` fails: the text, not the markup around it.
         ///
@@ -258,8 +258,9 @@ extension XML.Element {
 //   * comments, processing instructions, namespaces and mixed-content interleaving are
 //     dropped.
 //
-// A caller who needs any of that declares `[String: XML.Node]` instead and keeps fidelity
-// at the cost of format neutrality. That trade is the entire point of having both types.
+// A caller who needs any of that parses with `XML.parse` and works with `XML.Document`
+// directly, keeping fidelity at the cost of format neutrality. That trade is the entire
+// point of having both types.
 
 extension RawValue {
 
@@ -318,10 +319,13 @@ extension RawValue {
     }
 
     /// The same projection, taking the document by value and MOVING its strings into the
-    /// result. The struct-decode doors parse, project and drop; borrowing copied every
-    /// child out of `children` (the copy retains its name, attributes and children), and
-    /// the tree then released all of it. `docs/EFFICIENCY.md` row 14 is the same change
-    /// for YAML and TOML, with the traps it found.
+    /// result. The struct-decode doors USED to parse a tree, project it and drop it (they
+    /// build `RawValue` directly since 2026-09-20); this consuming form remains for a caller
+    /// who holds a tree it no longer needs, and `ConsumingProjectionTests` holds it equal to
+    /// the borrowing form. Borrowing copied every child out of `children` (the copy retains
+    /// its name, attributes and children), and the tree then released all of it.
+    /// `docs/EFFICIENCY.md` row 14 is the same change for YAML and TOML, with the traps it
+    /// found.
     @usableFromInline
     init(consuming document: consuming XML.Document) {
         var root = XML.Element(name: XML.Name(""))

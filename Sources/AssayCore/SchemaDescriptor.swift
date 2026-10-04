@@ -13,7 +13,7 @@
 // one, for a reason `docs/COMPILE-TIME.md` measured rather than guessed: cost tracks generated
 // body size, and emitting text would put the entire rule-to-keyword mapping — every `.email`
 // becomes `"format": "email"`, every `.min` becomes `minLength` or `minimum` depending on the
-// field's type — into *every user's expansion*, once per type. Rule 1 of the hard constraints
+// field's type — into *every user's expansion*, once per type. `docs/COMPILE-TIME.md` §3 rule 1
 // exists because a 256-element array literal cost 16% of expansion time; a schema renderer per
 // type is far larger than that.
 //
@@ -106,7 +106,7 @@ public indirect enum TypeDescriptor: Sendable {
     case number
     case boolean
     /// A `Date`. Rendered as `"type": "string", "format": "date-time"` — which is true of the
-    /// ISO-8601 formats and a lie about `.unixSeconds`, so `dateIsNumeric` says which.
+    /// ISO-8601 formats and a lie about `.unixSeconds`, so `numeric` says which.
     case date(numeric: Bool)
     case array(TypeDescriptor)
     case dictionary(TypeDescriptor)

@@ -8,7 +8,7 @@
 // `scalarCall` is the table every decode emitter consults: which runtime primitive
 // decodes a given scalar token, and therefore which tokens ARE scalars. The shape helpers
 // take a type string apart: `Optional<T>`/`T?`, `[T]`, `[K: V]`. Every emitter — decode,
-// raw, encode, XML, union, source, describe — imports these; they were in CodeGen.swift by
+// raw, encode, XML, union, describe — imports these; they were in CodeGen.swift by
 // accident of history. Split out on 2026-09-10.
 //===----------------------------------------------------------------------===//
 

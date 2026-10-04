@@ -104,21 +104,6 @@ enum WindowSearch {
         var groups: [(value: UInt8, members: [Int])]
     }
 
-    /// The per-bucket search the fallback uses when no global window exists.
-    ///
-    /// `search` needs one window distinct across EVERY key, which is a birthday bound:
-    /// realistic names lose it at about 13 fields and same-prefix synthetic keys at 11
-    /// (`FieldSweepBench` in the benchmarks). A length bucket is a much smaller
-    /// set, and inside one all keys share a length, so every byte up to and including the
-    /// closing quote is defined for all of them.
-    ///
-    /// This does NOT insist on a perfect window. It takes the one whose largest collision
-    /// group is smallest (ties: fewest expected compares), because some key sets have no
-    /// perfect window at all — `k00`…`k63` differ only in two decimal digits whose useful
-    /// bits are not contiguous — and a chain of 7 is still an order of magnitude better
-    /// than a chain of 64. Realistic names split perfectly in every bucket up to 48 fields.
-    ///
-    /// Returns nil when no window separates anything; the caller keeps the linear chain.
     /// What a linear chain over `keys` costs, in bytes compared, averaged over which key is
     /// the one being looked up. A candidate tested before the target costs its common
     /// prefix with the target plus the one byte that differs; the target itself costs its
@@ -142,6 +127,21 @@ enum WindowSearch {
         return Double(total) / Double(bytes.count)
     }
 
+    /// The per-bucket search the fallback uses when no global window exists.
+    ///
+    /// `search` needs one window distinct across EVERY key, which is a birthday bound:
+    /// realistic names lose it at about 13 fields and same-prefix synthetic keys at 11
+    /// (`FieldSweepBench` in the benchmarks). A length bucket is a much smaller
+    /// set, and inside one all keys share a length, so every byte up to and including the
+    /// closing quote is defined for all of them.
+    ///
+    /// This does NOT insist on a perfect window. It takes the one whose largest collision
+    /// group is smallest (ties: fewest expected compares), because some key sets have no
+    /// perfect window at all — `k00`…`k63` differ only in two decimal digits whose useful
+    /// bits are not contiguous — and a chain of 7 is still an order of magnitude better
+    /// than a chain of 64. Realistic names split perfectly in every bucket up to 48 fields.
+    ///
+    /// Returns nil when no window separates anything; the caller keeps the linear chain.
     static func bucketSearch(_ keys: [String]) -> BucketPlan? {
         let bytes = keys.map { Array($0.utf8) }
         guard bytes.count > 1, let len = bytes.first?.count,

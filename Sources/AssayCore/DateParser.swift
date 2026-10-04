@@ -206,7 +206,8 @@ public enum DateParser {
             var scale = 1.0
             var value = 0.0
             while i < b.count, b[i] &- 0x30 <= 9 {
-                // Beyond nanoseconds the digits still consume but cannot move a Double.
+                // Beyond ~12 fractional digits the digits still consume but no longer
+                // contribute.
                 if scale > 1e-12 {
                     scale /= 10
                     value += Double(b[i] &- 0x30) * scale
@@ -554,8 +555,9 @@ public enum DateParser {
     }
 
     /// `yyyy MM dd HH mm ss SSS Z` plus literals. Returns the reason a pattern is
-    /// malformed so both the macro (at expansion, as a diagnostic) and the runtime
-    /// (for a hand-built `Assayer`) reject it with the same words.
+    /// malformed. `DateFormatMacro` mirrors this validation, wording included, so a
+    /// pattern refused at expansion and one built at runtime are rejected with the same
+    /// words.
     @usableFromInline
     static func compilePattern(_ pattern: String) -> PatternCompileResult {
         var tokens: [PatternToken] = []

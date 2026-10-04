@@ -44,13 +44,13 @@
 
 extension SchemaDescriptor {
 
-    /// The JSON Schema 2020-12 document for this type, as a `JSON.Value` — not text, so a
-    /// caller embedding it in an OpenAPI document does not have to re-parse it. `description()`
-    /// renders the text.
+    /// The JSON Schema 2020-12 document for this type, as a `JSONSchemaValue` — not text, so
+    /// a caller embedding it in an OpenAPI document does not have to re-parse it. `text()`
+    /// renders it, and `jsonSchemaText(for:)` does both.
     public func jsonSchema(for face: SchemaFace = .input) -> JSONSchemaValue {
         var root = body(for: face, includeDialect: true)
-        // `title` after `$schema` and `type`, which is the order a reader expects. Inserted
-        // rather than appended for that reason — member order here is the rendered order.
+        // `title` straight after `$schema`, ahead of `type`. Inserted rather than appended —
+        // member order here is the rendered order.
         let at = min(1, root.count)
         root.insert(("title", .string(typeName)), at: at)
         return .object(root)
@@ -139,8 +139,10 @@ enum JSONSchemaRender {
             // Inline rather than `$ref` + `$defs`. A `$ref` needs a document-wide definition
             // table, which needs the whole graph walked and deduplicated, and a cycle in that
             // graph is representable in Swift and not detectable from one descriptor. Inlining
-            // is correct for every acyclic schema and is what a reader wants to see; a
-            // recursive type is refused at expansion rather than rendered wrongly.
+            // is correct for every acyclic schema and is what a reader wants to see. A type
+            // that holds ITSELF is refused at expansion (`describeDiagnostics`); a cycle
+            // through a second type cannot be seen by a macro, is not detected, and would
+            // recurse here without end.
             return .object(meta._assaySchemaDescriptor.body(for: .input, includeDialect: false))
         case .opaque:
             // Any value. Deliberately not narrowed — see the file header.
@@ -269,10 +271,10 @@ enum JSONSchemaRender {
 
 /// A minimal JSON value for rendering schema documents.
 ///
-/// **Deliberately not `JSON.Value`**, which lives in `Assay` rather than `AssayCore` and
-/// whose object case is a `[String: JSON.Value]` dictionary. A JSON Schema's key order is
-/// meaningful to a human reading it — `type` before `properties` before `required` — and a
-/// dictionary would scramble it on every render. Member order here is declaration order.
+/// **Deliberately not `JSON.Value`**: this is a renderer-only type, with one number case
+/// and no `null`, because a schema document needs neither. A JSON Schema's key order is
+/// meaningful to a human reading it — `type` before `properties` before `required` — and
+/// member order here is declaration order.
 public indirect enum JSONSchemaValue: Sendable {
     case string(String)
     case number(Double)

@@ -12,7 +12,7 @@
 //
 // The reason is measured rather than aesthetic. `docs/COMPILE-TIME.md`'s cost model is
 // `9 ms fixed + 7.3 ms per field` and it tracks **generated body size**; rule 1 of
-// `CLAUDE.md`'s hard constraints exists because a 256-element array literal cost 16% of
+// `docs/COMPILE-TIME.md` §3 exists because a 256-element array literal cost 16% of
 // expansion time. The rule-to-keyword mapping is ~120 lines of branching — `.min` becomes
 // `minLength` on a String, `minimum` on a number, `minItems` on an array — and putting it in
 // every user's expansion, once per type, is precisely the thing that budget forbids.
@@ -24,7 +24,8 @@
 // NESTED TYPES: `Author.self` as an `any Assay.SchemaDescribing.Type`. A macro reads the token
 // `Author` and cannot know what it is — so the metatype makes the TYPE CHECKER verify the
 // conformance, and a nested type that forgot `describes: true` is a compile error naming the
-// real problem instead of a schema that silently describes it as `{}`. Same device
+// real problem instead of a schema that silently describes it as `{}`. Same device as
+// `_assayRequireJSON` in the decode body.
 //===----------------------------------------------------------------------===//
 
 import SwiftSyntax
@@ -36,10 +37,9 @@ extension SchemaMacro {
     ) -> String {
         var entries: [String] = []
         for (i, f) in fields.enumerated() {
-            // A path field's wire key is nested, and a flat `properties` map cannot express
-            // that. Described as the FULL dotted path in the key, which is honest about where
-            // the value lives without pretending the shape is flat — see `describeDiagnostics`,
-            // which refuses the combination rather than emitting a wrong document.
+            // A path field never reaches here: `describeDiagnostics` refuses `describes: true`
+            // on a type with a `@Key(path:)` field, because a flat `properties` map cannot
+            // express a nested key.
             let aliases = f.aliases.map { "\"\($0)\"" }.joined(separator: ", ")
             let rulesExpr = ruleArrayReference(f, i)
             let required = !f.isOptional && f.defaultExpr == nil && f.fallback == nil
@@ -151,11 +151,30 @@ extension SchemaMacro {
         return false
     }
 
+    /// The type a field bottoms out in: `[[Node]?]` and `[String: Node]` are both `Node`.
+    static func innermostType(_ type: String) -> String {
+        let t = stripOptional(type)
+        if let element = arrayElement(t) { return innermostType(element) }
+        if let value = dictionaryValue(t) { return innermostType(value) }
+        return t
+    }
+
     /// Combinations the descriptor cannot describe faithfully. Refused at expansion with a
     /// reason, rather than emitting a document that is quietly wrong — a generated schema
     /// nobody can check is worse than no generated schema.
-    static func describeDiagnostics(_ fields: [SchemaField]) -> [String] {
+    static func describeDiagnostics(_ fields: [SchemaField], typeName: String) -> [String] {
         var out: [String] = []
+        // A nested type is INLINED in the rendered document (`JSONSchemaRender`), so a type
+        // that contains itself would be rendered without end. Only the direct case can be
+        // seen from here — the macro reads this declaration's tokens and no other type's —
+        // so a cycle through a second type is not detected.
+        for f in fields where innermostType(f.typeName) == typeName {
+            out.append(
+                "@Schema(describes: true) cannot describe '\(f.identifier)': it holds "
+                    + "'\(typeName)' itself, and a nested type is inlined in the schema document, "
+                    + "so the description would never end. Drop `describes: true`, or describe "
+                    + "the recursive part by hand.")
+        }
         if fields.contains(where: { $0.pathSegments != nil }) {
             out.append(
                 "@Schema(describes: true) cannot describe a @Key(path:) field. JSON "

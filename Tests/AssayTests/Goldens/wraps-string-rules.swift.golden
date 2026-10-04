@@ -7,8 +7,9 @@ nonisolated static let __assayWrapRules: [Assay.Rule] = [.min(3), .max(8)]
 @usableFromInline
 init(__assayUnchecked raw: String) { self.raw = raw }
 /// Fails when the value does not satisfy the same rules the decoder applies.
-/// One rule array, two callers — which is what makes "this type cannot hold an
-/// invalid value" true rather than nearly true.
+/// One rule list, written once in the attribute and applied on both routes —
+/// which is what makes "this type cannot hold an invalid value" true rather
+/// than nearly true.
 public init?(_ raw: String) {
     var __sink = Assay.IssueSink(limits: .default)
     Assay._assayValidate(raw, Self.__assayWrapRules, override: nil,

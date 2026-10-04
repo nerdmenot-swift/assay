@@ -6,11 +6,12 @@ significant whitespace — after YAML it reads like a holiday.
 Then you get to the redefinition rules, which is where all of the difficulty turns out to
 live, and which this document is mostly about.
 
-**Built 2026-09-10**, as a separate `AssayTOML` product on the `RawValue` projection path
-YAML and XML use. TOML 1.0.0, complete: **210/210 valid and
-501/501 invalid documents of the official [toml-test](https://github.com/toml-lang/toml-test)
-suite**, run in CI, and a differential against toml++ (via TOMLKit) on the hand-written
-cases and the whole JSON corpus rendered twice.
+**Built 2026-09-10**, as a separate `AssayTOML` product on the `RawValue` path YAML and XML
+use. TOML 1.0.0, complete: **every case of the official
+[toml-test](https://github.com/toml-lang/toml-test) suite** (709 at the time of writing: 208
+valid, 501 invalid — the suite is checked out at HEAD in CI, so the count moves), and a
+differential against toml++ (via TOMLKit) on the hand-written cases and the whole JSON
+corpus rendered twice.
 
 ```swift
 import AssayTOML
@@ -59,8 +60,13 @@ table" would be a lie about the one thing the reader can see it is.
 ## 2. The projection
 
 ```
-bytes → TOML.Node → RawValue → your struct
+bytes → RawValue → your struct          (parse(toml:))
+bytes → TOML.Node                       (TOML.parse, the full-fidelity tree)
 ```
+
+The struct door drains the parser's builders straight into `RawValue`; only scalars and
+inline values pass through `TOML.Node` on the way. The projection below is the same either
+way — `RawValue(node)` on a parsed tree gives what the struct door builds directly.
 
 `TOML.Node` is the full-fidelity model: `bool`, `int(Int64)`, `double`, `string`,
 `dateTime(DateTime)`, `array`, `table([Member])` — tables ordered, members carrying a
@@ -94,8 +100,8 @@ the meaning of every line after it, so there is no honest way to resume; the par
 issue with a caret and returns nil. Schema issues on a parsed document are still collected in
 full, as on every format.
 
-Sixteen `toml_*` codes, each a sentence, each pinned by a test against the specification's own
-invalid examples. The ones a reader will meet:
+Fifteen `toml_*` parser codes (plus two encode-only ones, §4), each a sentence, each pinned by
+a test against the specification's own invalid examples. The ones a reader will meet:
 
 | code | when |
 |---|---|
@@ -137,10 +143,14 @@ arrays of tables as `[[a.b]]` sections, anything else inline.
 
 * a nil **member of a table is omitted** — the reader sees an absent key, an optional field
   decodes nil from it, the round trip holds;
-* a nil **anywhere else** (an array element, a dictionary value, the root) has no spelling
-  that reads back as nil and is reported as `toml_no_null` with its path rather than
-  silently substituted;
-* a root that is not a table is `toml_root_not_a_table`.
+* a nil **array element** has no spelling that reads back as nil and is reported as
+  `toml_no_null` with its path rather than silently substituted;
+* a root that is not a table — a null root included — is `toml_root_not_a_table`.
+
+The first rule has a cost. The writer cannot tell an optional field from any other table
+key, so a nil dictionary value and an `@Extras` entry holding `.null` are omitted too, and
+those read back with the key absent: `["a": nil]` becomes `[:]`. That is a round-trip
+exception (`docs/ENCODING.md`, exception 5), reported nowhere and not yet pinned by a test.
 
 Strings are always basic single-line strings with escapes. Doubles print through the
 stdlib's shortest round-trip form, which always carries a `.` or an `e`, so `2.0` reads back as
@@ -153,10 +163,10 @@ a float and not an integer. Every document the writer produces is read back by t
 
 | | |
 |---|---|
-| toml-test | **210/210 valid** parse to the expected tagged-JSON value; **501/501 invalid** refused. CI clones the suite; `TOML_TEST_DIR=… swift run -c release DiffFuzz toml-test` locally |
+| toml-test | every valid document parses to the expected tagged-JSON value and every invalid one is refused (208 valid and 501 invalid at the time of writing; the suite is checked out at HEAD, so the count moves). CI clones the suite; `TOML_TEST_DIR=… swift run -c release DiffFuzz toml-test` locally |
 | toml++ differential | 35 hand-written feature cases agree, 33 documents both refuse, 150 generated documents (the JSON corpus, inline and `[[sectioned]]`) agree |
 | encode round trip | 75/75 corpus documents Assay wrote, read back by toml++ to the same value |
-| fuzz | TOML is a fourth parser in the deterministic fuzz arm — 10,680 mutations per run, no crash, no hang |
+| fuzz | TOML is a fourth parser in the deterministic fuzz arm — 12,680 mutated and truncated inputs per run across all four text formats, no crash, no hang |
 | unit tests | the specification's own examples, 76 invalid documents each asserting its code, limits, spans, the schema door against JSON, encoding |
 
 Tables are compared **sorted by key** against toml++ (it stores a `std::map`); document order
@@ -172,8 +182,8 @@ the apimodel ladder rendered with `[[items]]` sections (one arm64 Mac; `AssayBen
 
 | | baseline | mean |
 |---|---|---|
-| node parse | toml++ (`TOMLTable(string:)`) | **1.09×** |
-| struct decode | TOMLKit `TOMLDecoder` (Codable) | **1.81×** |
+| node parse | toml++ (`TOMLTable(string:)`) | **4.06×** |
+| struct decode | TOMLKit `TOMLDecoder` (Codable) | **6.55×** |
 
-Parity with a C++ parser on the tree, and the `Codable` decoder's cost on top of it is what the
-second row measures.
+About four times a C++ parser on the tree; the second row adds what the `Codable` decoder
+costs on top. `Benchmarks/RESULTS.md` carries the current figures.

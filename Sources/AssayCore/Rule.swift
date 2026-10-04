@@ -29,10 +29,6 @@
 // attribute.
 //===----------------------------------------------------------------------===//
 
-/// A validation rule. Polymorphic in the way Zod users expect — `.min(1)` is length on a
-/// `String`, count on an `Array`, magnitude on a number — with the resolution done by the
-/// macro at expansion time, not by the type system.
-
 /// A pattern compiled ONCE, at `Rule` construction, rather than once per validated value.
 ///
 /// `@Validate(.regex(...))` used to call `try? Regex(pattern)` for every value, so a rule
@@ -49,7 +45,8 @@
 /// warms the matching program with one throwaway match before the value can be shared, so
 /// nothing is lowered lazily on a shared instance afterwards; and
 /// `Tests/AssayTests/ConcurrencyTests.swift` hammers a regex-carrying schema from a task
-/// group, which the suite runs under `--sanitize=thread`.
+/// group; it proves something only when run under `swift test --sanitize=thread`, which
+/// CI does not do.
 ///
 /// A global pattern-to-`Regex` cache was the other option and was rejected: it hashes the
 /// pattern per value — the SipHash-per-value cost Assay faults Foundation for — needs
@@ -87,6 +84,9 @@ final class CompiledPattern: @unchecked Sendable {
     }
 }
 
+/// A validation rule. Polymorphic in the way Zod users expect — `.min(1)` is length on a
+/// `String`, count on an `Array`, magnitude on a number — with the resolution done by the
+/// macro at expansion time, not by the type system.
 public struct Rule: Sendable, ExpressibleByStringLiteral {
 
     @usableFromInline
@@ -220,8 +220,8 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
 
     /// The pattern is a `String`, never a `Regex` — a `Regex` in a public signature would
     /// spread `@available(macOS 13, …)` onto every call site that touches a schema. The
-    /// pattern is validated on first use; an invalid pattern reports
-    /// `invalid_regex_pattern` rather than silently passing.
+    /// pattern is compiled once, when the rule is constructed; an invalid pattern reports
+    /// `invalid_regex_pattern` on every value rather than silently passing.
     public static func regex(_ pattern: String, or message: String? = nil) -> Rule {
         Rule(.regex(CompiledPattern(pattern)), message: message)
     }
@@ -231,7 +231,9 @@ public struct Rule: Sendable, ExpressibleByStringLiteral {
     /// Reports `invalid_email`.
     public static let email = Rule(.email)
     public static func email(or message: String? = nil) -> Rule { Rule(.email, message: message) }
-    /// An absolute URL with a scheme and a host. Reports `invalid_url`.
+    /// A plausible absolute URL reference: a scheme, a colon and a non-empty rest, with no
+    /// whitespace or control bytes. Syntactic only — no host is required. Reports
+    /// `invalid_url`.
     public static let url = Rule(.url)
     public static func url(or message: String? = nil) -> Rule { Rule(.url, message: message) }
     /// The canonical 8-4-4-4-12 hex form, either case. Reports `invalid_uuid`.

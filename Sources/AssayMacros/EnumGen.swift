@@ -169,8 +169,9 @@ extension SchemaMacro {
                 return .\(unknown.identifier)(__s)
             }
 
-            /// The case back to its wire string. `nil` for an unrecognised value that did not
-            /// opt into round-tripping — see `_assayEncodeWire`.
+            /// The case back to its wire string; the catch-all returns the text it kept.
+            /// Whether an unrecognised value may be ENCODED is decided by the encode bodies,
+            /// not here.
             nonisolated public var _assayWire: String {
                 switch self {
             \(known.map { "        case .\($0.identifier): return \"\($0.wireName)\"" }.joined(separator: "\n"))

@@ -16,18 +16,20 @@
 //   * **Non-string keys**, so no valid document is unrepresentable.
 //   * **Tags** (`!!int`, `!Foo`). These are data. Dropping them with a warning, as the
 //     unified draft did, loses information the document explicitly carried.
-//   * **Scalar style** (plain / quoted / literal / folded). Presentation, yes — but the
-//     deferred encoder in EXPERIENCE.md §14 needs it, because rewriting a literal block as
-//     a double-quoted scalar is technically equivalent and practically a diff nobody wants.
+//   * **Scalar style** (plain / quoted / literal / folded). Presentation, yes — but a
+//     style-preserving writer would need it (the shipped encoder renders `RawValue` and
+//     does not use it), because rewriting a literal block as a double-quoted scalar is
+//     technically equivalent and practically a diff nobody wants.
 //
 // Scalar content stays **unresolved text** with the tag alongside, so resolution is the
 // consumer's decision. That is also how this sidesteps the Norway problem — `NO` is
 // `.scalar(content: "NO", tag: nil)` here, and whether that means `false` is a question
 // answered by the schema, not silently by the parser.
 //
-// THE MODEL WAS BUILT BEFORE THE PARSER, deliberately — docs/VALUE-MODELS.md §2 makes the
-// point that the model has to be right before a parser is written against it, and the
-// unresolved-scalar decision above is why. `parse(yaml:)` lives in `YAMLParser.swift`.
+// THE MODEL WAS BUILT BEFORE THE PARSER, deliberately: the model has to be right before a
+// parser is written against it, and the unresolved-scalar decision above is why.
+// `YAML.parse` lives in `YAMLParser.swift`; the schema door `parse(yaml:)` in
+// `YAMLEntry.swift`.
 //===----------------------------------------------------------------------===//
 
 public import AssayCore
@@ -80,12 +82,12 @@ extension YAML {
 
         /// Where the VALUE sits in the source document, for carets.
         ///
-        /// YAML parses to a node model before anything schema-shaped runs, so without this
-        /// the byte offset is gone by the time a `@Validate` rule fires — which is why a
-        /// YAML schema issue used to render with no caret while the identical JSON one
-        /// pointed straight at the offending value. It rides on the pair rather than on
-        /// `Node` because that is the granularity a schema field needs: "the value at this
-        /// key", which is what every field-level issue is about.
+        /// A schema rule runs long after the parser has passed the value, so without a
+        /// recorded span the byte offset is gone by the time a `@Validate` rule fires —
+        /// which is why a YAML schema issue used to render with no caret while the
+        /// identical JSON one pointed straight at the offending value. It rides on the
+        /// pair rather than on `Node` because that is the granularity a schema field
+        /// needs: "the value at this key", which is what every field-level issue is about.
         ///
         /// **Excluded from `==` and `hash`.** Two documents that differ only in whitespace
         /// must still compare equal; a span is provenance, not value.
@@ -198,7 +200,7 @@ extension YAML.Node {
         }
     }
 
-    /// A plain, untagged scalar spelled as YAML 1.2 null.
+    /// A plain scalar, untagged or tagged `!!null`, spelled as YAML 1.2 null.
     public var isNull: Bool {
         guard let s = scalar, s.style == .plain, s.tag == nil || s.tag == "!!null" else {
             return false
@@ -332,15 +334,19 @@ extension RawValue {
     /// The same projection, but taking the tree by value and MOVING every scalar's text into
     /// the result rather than retaining it.
     ///
-    /// The struct-decode doors parse a tree, project it, and drop it; the borrowing form
-    /// above retained each `String` into the `RawValue` and released it again when the tree
-    /// died — a retain/release pair per scalar, per key, for nothing. Each child is swapped
-    /// out of its array for an empty placeholder (an empty array is a static singleton, so
-    /// the swap neither retains nor allocates), which leaves the element uniquely held by
-    /// this frame and lets its payload move. The placeholders are not free — destroying one
-    /// is a `swift_release` on the immortal empty-array storage, a call with no atomic in it
-    /// — and that is the trade `docs/EFFICIENCY.md` records: ~30k String retain/release
-    /// pairs per 1,000 documents for ~8k of those calls.
+    /// The struct-decode doors USED to parse a tree, project it and drop it (they build
+    /// `RawValue` directly since 2026-09-20); this consuming form remains for a caller who
+    /// holds a tree it no longer needs, and `ConsumingProjectionTests` holds it equal to the
+    /// borrowing form.
+    ///
+    /// The borrowing form retained each `String` into the `RawValue` and released it again
+    /// when the tree died — a retain/release pair per scalar, per key, for nothing. Each
+    /// child is swapped out of its array for an empty placeholder (an empty array is a
+    /// static singleton, so the swap neither retains nor allocates), which leaves the
+    /// element uniquely held by this frame and lets its payload move. The placeholders are
+    /// not free — destroying one is a `swift_release` on the immortal empty-array storage,
+    /// a call with no atomic in it — and that is the trade `docs/EFFICIENCY.md` records:
+    /// ~30k String retain/release pairs per 1,000 documents for ~8k of those calls.
     @usableFromInline
     init?(consuming node: consuming YAML.Node) {
         // The payload is bound OUTSIDE the switch. A switch subject lives until the end of
@@ -399,7 +405,7 @@ extension RawValue {
         self = .mapping(out)
     }
 
-    /// Returns nil when the node contains a mapping key that is not a plain scalar, since
+    /// Returns nil when the node contains a mapping key that is not a scalar, since
     /// `RawValue.mapping` is `String`-keyed by construction.
     public init?(_ node: YAML.Node) {
         switch node {

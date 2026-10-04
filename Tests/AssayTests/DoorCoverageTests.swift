@@ -355,7 +355,12 @@ struct Composed: Equatable {
 @Suite("Composed rules and nested trees")
 struct ComposedRuleTests {
 
-    static let id = "123e4567-e89b-12d3-a456-426614174000"
+    /// Deliberately NOT a UUID that opens with digits-`e`-digits. `123e4567-…` as a plain
+    /// YAML scalar is offered to `Double(_:)` during core-schema resolution, and on the
+    /// nightly-main toolchain of 2026-10-04 that call traps inside libswiftCore instead of
+    /// returning nil (ROADMAP.md, "Contracts worth knowing"). The trap takes the whole test
+    /// process with it, so it cannot be an expectation here.
+    static let id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 
     @Test(".all applies to a number and to an element count")
     func all() {

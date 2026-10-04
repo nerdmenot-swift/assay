@@ -395,7 +395,8 @@ public enum Renderer {
 // MARK: - LineIndex extensions the renderer needs
 
 extension LineIndex {
-    /// Number of lines in the buffer (a trailing newline does not start a new line).
+    /// Number of lines in the indexed region: one more than the newlines found, so a
+    /// trailing newline counts a final empty line.
     public var lineCount: Int {
         newlines.count + 1
     }
@@ -403,8 +404,8 @@ extension LineIndex {
     @usableFromInline
     var totalBytes: Int { byteCount }
 
-    /// Byte range of a 1-based line, excluding its terminating newline (and a trailing
-    /// carriage return, so CRLF documents do not render a stray ^M). Nil when out of range.
+    /// Byte range of a 1-based line, excluding its terminating newline. A trailing carriage
+    /// return is still in the range; `snippet` strips it. Nil when out of range.
     public func byteRange(ofLine line: Int) -> Range<Int>? {
         guard line >= 1, line <= lineCount else { return nil }
         let start = line == 1 ? 0 : Int(newlines[line - 2]) + 1
@@ -436,7 +437,8 @@ struct LineIndex {
     /// and allocates a gigabyte of `UInt32` — to print one caret, on the error path,
     /// undoing the entire reason `SourceBytes` can borrow a mapping. The renderer knows
     /// every offset it will report before it builds this, so it indexes to the deepest
-    /// one plus the two lines of trailing context a snippet shows, and stops.
+    /// one plus the one line of trailing context a snippet shows (two newlines past the
+    /// horizon), and stops.
     ///
     /// Line numbers stay exact, because every newline *before* the deepest reported
     /// offset is still counted. What is lost is knowledge of the buffer beyond it —

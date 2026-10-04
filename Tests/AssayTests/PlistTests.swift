@@ -220,3 +220,30 @@ struct XMLPlistTests {
         #expect(sink.issues.contains { $0.code == .plistBadMarker })
     }
 }
+
+@Suite("plists — character data")
+struct PlistCharacterDataTests {
+
+    /// CDATA is character data. Until 2026-10-04 the XML plist reader concatenated only the
+    /// plain text runs of a leaf, so a `<string>` written as a CDATA section decoded as the
+    /// empty string with no issue — a silently wrong value, in the spelling a writer reaches
+    /// for precisely when the text holds `<` or `&`.
+    @Test("a <string> written as CDATA decodes to its text, as Foundation reads it")
+    func cdata() throws {
+        let xml = """
+            <plist><dict>
+            <key>name</key><string><![CDATA[a<b & c]]> tail</string>
+            <key>retry_count</key><integer>1</integer>
+            <key>enabled</key><true/>
+            <key>ratio</key><real>0.5</real>
+            </dict></plist>
+            """
+        let ours = try PSettings.parse(plist: Array(xml.utf8))
+        #expect(ours.name == "a<b & c tail")
+
+        let theirs =
+            try PropertyListSerialization.propertyList(from: Data(xml.utf8), format: nil)
+            as? [String: Any]
+        #expect(theirs?["name"] as? String == ours.name)
+    }
+}

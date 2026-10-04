@@ -10,7 +10,7 @@
 //
 // Every agreement is EXACT (Double equality, no tolerance): both sides are integer
 // arithmetic over the same civil fields, and "close" would mean one of them is wrong.
-// Deliberate divergences are named in Sources/AssayCore/Dates.swift's header and are
+// Deliberate divergences are named in Sources/AssayCore/DateFormat.swift's header and are
 // not exercised here: leap seconds (`:60` — Assay accepts, Foundation rejects) and the
 // RFC 850 two-digit-year pivot (Assay uses the fixed POSIX pivot, Foundation asks a
 // clock).

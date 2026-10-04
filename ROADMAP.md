@@ -48,6 +48,13 @@ works this way (`parseAll(yaml:)`). Neither JSON form is built.
 For a single document larger than memory, the answer already exists and is better than
 streaming would be: `parse(mmapped:)`.
 
+### `parse(bytes, as:)` and `parse(contentsOf:)`
+
+`docs/EXPERIENCE.md` §12 names a format-as-a-value door and a file-URL door that sniffs the
+extension. Neither exists. `parse(body:contentType:accepting:)` covers the first where a
+media type is in hand, and `parse(mmapped:)` reads a file; nothing chooses a parser from a
+file name.
+
 ### Smaller things
 
 - **`.past` / `.future` date rules.** They need "now", the core has no clock, and a clock
@@ -69,18 +76,22 @@ streaming would be: `parse(mmapped:)`.
 
 ### Carets on the `RawValue` path
 
-A schema issue always carries a caret on the JSON path. On YAML, XML, TOML and property
-lists a caret appears only where the macro captured a span: a field with rules, checks, or a
-built-in scalar type. These report with a caret from JSON and without one elsewhere:
+A schema issue always carries a caret on the JSON path. On YAML, XML and TOML a caret appears
+only where the macro captured a span: a field with rules, checks, or a built-in scalar type.
+On property lists no schema issue carries a caret at all — neither flavour records a span.
+These report with a caret from JSON and without one elsewhere:
 
 | field | example |
 |---|---|
-| `Date`, no rules | `iso must be an ISO-8601 date` |
+| `Date`, with or without rules | `iso must be an ISO-8601 date` |
+| an array or dictionary, no rules | `tags must be an array` |
 | an enum, no rules | `colour "chartreuse" is not a recognised value` |
 | a `@Wraps` scalar | `contact must be a valid email address` |
 | any nested `@Schema` type | whatever it reports |
 
-`Date` is cheap to fix — contained to `DateDecode.swift`. The other three report from inside
+`Date` is the cheap one: `_assayDate` takes no span, so threading one through touches
+`DateDecode.swift` and the emitted call (and so the goldens). The enum, wrapper and nested
+rows report from inside
 `_assay(from: RawValue, into:, at:)`, a protocol requirement, so giving it a span changes a
 signature every conforming type uses; measure it first.
 
@@ -139,9 +150,16 @@ definition, and ships.
   schema that does not declare `unknown`; `JSON.Value.parse` refuses it. Deliberate: skipping
   is what makes the prefix path fast. `T.parse(json:)` validates the structure and the fields
   it declares, not the whole document.
-- **XML internal entity values are not re-expanded.** `<!ENTITY a "&b;">` yields the literal
-  text `&b;` rather than resolving `b`. A deliberate stopping point — it is what makes the
-  expansion budget trivially sufficient — and a difference from a fully conforming parser.
+- **XML internal entities are expanded recursively, under a budget.** `<!ENTITY a "&b;">`
+  resolves `b`. A self-referential entity is `xml_recursive_entity`, and the budget (32× the
+  input, 64 KB floor) is what stops a billion-laughs document. Parameter entities are skipped;
+  external entities and external DTDs are never fetched.
+- **YAML scalar resolution calls `Double(_:)` on untrusted text.** Any plain scalar that could
+  be a number is offered to the standard library's parser. On released toolchains that is
+  safe. On the `nightly-main` toolchain of 2026-10-04 `Double("123e4567-e89b-…")` traps inside
+  `libswiftCore` (`fastParse64`) instead of returning nil — a toolchain bug, found by CI, that
+  would make a UUID-shaped scalar crash a parse. A grammar pre-check before the call would
+  remove the exposure; it is not built.
 - **The XML parser is recursive.** At the default `maxDepth` of 64 it has headroom on a
   512 KB worker-thread stack in a debug build; a raised `maxDepth` needs a larger stack.
 
@@ -151,7 +169,7 @@ definition, and ships.
 
 | | |
 |---|---|
-| **Compile time: previews, cross-compilation, Linux** | Three of [`docs/COMPILE-TIME.md`](docs/COMPILE-TIME.md) §5's six axes. Incremental builds, release configuration and type-checker pathologies are measured. |
+| **Compile time: previews, cross-compilation, absolute Linux timings** | Three of [`docs/COMPILE-TIME.md`](docs/COMPILE-TIME.md) §5's six axes. Incremental builds, release configuration and type-checker pathologies are measured. |
 | **simdjson, directly** | Needs a C++ interop shim. yyjson (hand-tuned C) and ZippyJSON (simdjson under `Codable`) are both measured. |
 | **Total allocation counts on Linux** | `mallinfo2` gives bytes, not counts; the arm prints "unavailable". Exact counts exist there under Valgrind (`Benchmarks/count.py`). |
 | **Wasm `simd128`** | Not run; needs the SDK, and gates nothing with SIMD retired. |

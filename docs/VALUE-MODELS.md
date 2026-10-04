@@ -2,11 +2,10 @@
 
 Five of them, and the obvious question is why not one.
 
-An earlier draft of this document proposed a single unified tree. That draft was wrong, and
-§1 is the autopsy: a YAML scalar's resolution and an XML element's namespace are not the same
-kind of thing, and a type that pretends otherwise loses information the moment you ask it
-anything specific. So each format keeps its own model, and `RawValue` is the **narrow
-intersection** every `@Schema` type decodes from.
+A YAML scalar's resolution and an XML element's namespace are not the same kind of thing,
+and a type that pretends otherwise loses information the moment you ask it anything
+specific (§1 is the argument). So each format keeps its own model, and `RawValue` is the
+**narrow intersection** every `@Schema` type decodes from.
 
 | | model | parser | projection to `RawValue` |
 |---|---|---|---|
@@ -14,26 +13,12 @@ intersection** every `@Schema` type decodes from.
 | `JSON.Value` | `AssayCore` | the JSON scanner | total — nothing is lost |
 | `YAML.Node` | `AssayYAML` | hand-written | lossy, and fails outright on a non-string key |
 | `XML.Node` | `AssayXML` | hand-written | lossy |
-| `TOML.Node` | `AssayTOML` | hand-written | lossy — four date-time kinds become RFC 3339 text |
+| `TOML.Node` | `AssayTOML` | hand-written | total, but lossy — the four date-time kinds become RFC 3339 text |
 
 All five exist and all four parsers are built. **The tests pin the losses as hard as the
 fidelity**: a projection that quietly stopped being lossy would be as much a regression as
 one that started losing more, because somebody downstream is relying on the shape it
 promised.
-
-`@Extras` and `unknownKeys: .collect` are **wired** (71 tests). Open question 2 below is
-**resolved, and the desirable property holds**: declaring `[String: XML.Node]` and calling
-`parse(json:)` is a *compile* error, not a runtime one —
-
-```
-error: global function '_assayCollect(_:from:into:at:)' requires that 'XML.Node'
-       conform to 'JSONCollectible'
-```
-
-The mechanism is one protocol **per format** in the core (`JSONCollectible`), which the
-core can name without depending on `AssayXML`. Generated code routes through a constrained
-generic rather than calling the protocol requirement directly, purely so the diagnostic
-names the conformance instead of leaking `has no member '_collectJSON'`.
 
 ---
 
@@ -46,9 +31,10 @@ needs to be format-neutral.**
 | module | namespace | purpose |
 |---|---|---|
 | `AssayCore` | `RawValue` | the lossy, format-neutral projection |
-| `Assay` (core + JSON) | `JSON.Value` | full-fidelity JSON |
+| `AssayCore` | `JSON.Value` | full-fidelity JSON |
 | `AssayYAML` | `YAML.Node` | full-fidelity YAML |
 | `AssayXML` | `XML.Node` | full-fidelity XML |
+| `AssayTOML` | `TOML.Node` | full-fidelity TOML |
 
 ---
 
@@ -121,7 +107,7 @@ Same rule, same answer: **namespace them.**
 public enum XML {}      // caseless namespace
 extension XML {
     public struct Document { … }
-    public indirect enum Node { … }
+    public enum Node { … }
     public struct Element { … }
     public struct Attribute { … }
     public struct Name { … }        // local name + namespace URI
@@ -129,14 +115,14 @@ extension XML {
 ```
 
 `XML.Element` and `Foundation.XMLElement` are different identifiers, so the ambiguity
-never arises. Applied consistently across all three for symmetry: `JSON.Value`,
-`YAML.Node`, `XML.Node`. Flat aliases (`typealias JSONValue = JSON.Value`) can be added
-for familiarity if they earn their keep, but the namespaced spelling is canonical because
-it is the one that is collision-free in all three cases.
+never arises. Applied consistently across all four for symmetry: `JSON.Value`,
+`YAML.Node`, `XML.Node`, `TOML.Node`. Flat aliases (`typealias JSONValue = JSON.Value`) can
+be added for familiarity if they earn their keep, but the namespaced spelling is canonical
+because it is the one that is collision-free in every case.
 
 ---
 
-## 4. The three models
+## 4. The four models
 
 ### `JSON.Value`
 
@@ -149,7 +135,7 @@ extension JSON {
         case double(Double)
         case string(String)
         case array([Value])
-        case object(Members)          // ORDERED, duplicates preserved
+        case object([Member])         // ORDERED, duplicates preserved
     }
 }
 ```
@@ -166,14 +152,14 @@ nominal arbitrary precision; see open question 1.
 
 ```swift
 extension YAML {
-    public indirect enum Node: Sendable, Hashable {
+    public enum Node: Sendable, Hashable {
         case scalar(Scalar)
         case sequence([Node])
-        case mapping([(key: Node, value: Node)])    // ANY node as a key
+        case mapping([Pair])                         // a Pair's key is ANY node
     }
     public struct Scalar: Sendable, Hashable {
         public var content: String                   // unresolved text
-        public var style: Style                      // plain, single, double, literal, folded
+        public var style: ScalarStyle                // plain, single, double, literal, folded
         public var tag: String?                      // !!int, !Foo — preserved, not dropped
         public var anchor: String?
     }
@@ -185,9 +171,9 @@ Three things this gets that the unified type could not:
 - **Non-string keys**, so no valid document is rejected.
 - **Tags survive.** `!Foo` on a value is data, and the earlier draft dropped it with a
   warning. Here it round-trips.
-- **Scalar style is retained**, which matters for the deferred encoder: rewriting a
-  literal block as a double-quoted scalar is technically equivalent and practically a
-  diff nobody wants.
+- **Scalar style is retained**, which matters for anything that writes a node back:
+  rewriting a literal block as a double-quoted scalar is technically equivalent and
+  practically a diff nobody wants.
 
 Content stays unresolved text with the tag alongside, so resolution is the *consumer's*
 call — which is also how `.scalar` sidesteps the Norway problem rather than inheriting it.
@@ -211,7 +197,7 @@ extension XML {
         public var attributes: [Attribute]     // ordered
         public var children: [Node]            // ordered; mixed content interleaves naturally
     }
-    public indirect enum Node: Sendable, Hashable {
+    public enum Node: Sendable, Hashable {
         case element(Element)
         case text(String)
         case cdata(String)
@@ -224,8 +210,8 @@ extension XML {
 `children: [Node]` is the whole point: mixed content (`<p>Hello <b>x</b>!</p>`) is
 *ordinary* here rather than a special case, repeated sibling names are natural, and
 attribute-versus-element is a type distinction rather than a tag. Convenience accessors
-(`element["href"]`, `element.elements(named:)`, `element.text`) sit on top; the storage
-stays faithful.
+(`element[attribute: "href"]`, `element["title"]` for the first child element of that name,
+`element.elements(named:)`, `element.text`) sit on top; the storage stays faithful.
 
 Everything in XML is text — there is no number or boolean — so coercion remains the
 schema's visible job via `@Coerce`, never implicit.
@@ -242,7 +228,7 @@ extension TOML {
         public var value: Node
         public var span: SourceSpan?           // excluded from ==/hash
     }
-    public indirect enum Node: Sendable, Hashable {
+    public enum Node: Sendable, Hashable {
         case bool(Bool), int(Int64), double(Double), string(String)
         case dateTime(DateTime)
         case array([Node])
@@ -267,14 +253,14 @@ Every key is a string, so the projection is total. `docs/TOML.md`.
 public enum RawValue: Sendable, Hashable {
     case null, bool(Bool), int(Int64), double(Double), string(String)
     case sequence([RawValue])
-    case mapping([(key: String, value: RawValue)])
+    case mapping([Member])          // ordered; a Member is key, value and an optional span
 }
 ```
 
 Deliberately the *narrow* intersection, with no origin tags and no format-specific fields,
 because its entire job is to be the thing that means the same in all of them. Each format
-package provides `init?(_:)` from its own node type, and each projection documents its
-losses:
+package provides `init(_:)` from its own node type (failable for YAML, where a non-string
+key cannot project), and each projection documents its losses:
 
 - **JSON → RawValue**: total.
 - **YAML → RawValue**: fails on non-string keys; drops tags, styles, anchors.
@@ -293,12 +279,13 @@ compromise the library imposed.
 
 Stated because the unified design's one real advantage was that it was cheaper:
 
-1. **Three models to build, test, document and evolve**, instead of one.
-2. **Three projections**, each with its own loss table.
-3. **The macro must dispatch on the declared `@Extras` type** — see open question 2, which
-   is the main implementation risk in this note.
+1. **Four models to build, test, document and evolve**, instead of one.
+2. **Three projections** (YAML, XML, TOML; JSON's is the identity), each with its own loss
+   table.
+3. **The macro must dispatch on the declared `@Extras` type** — see open question 2
+   (resolved).
 4. **§17's "not a document API" needs re-reading.** These types do not *make* Assay a
-   document API — there is no mutation and no writer — but they are most of what one would
+   document API — there is no mutation API — but they are most of what one would
    need. That refusal was written when the value model was an afterthought; it should
    probably be softened to "not a document *mutation* API" rather than quietly contradicted.
 
@@ -313,12 +300,23 @@ Stated because the unified design's one real advantage was that it was cheaper:
    not have this problem.
 
 2. ~~**How does the macro wire up `@Extras` for a type it has never heard of?**~~
-   **RESOLVED.** One protocol per format (`JSONCollectible`) declared in the core, which
-   `RawValue` and `JSON.Value` conform to and `YAML.Node`/`XML.Node` deliberately do not.
-   The compile-error property was the point of the exercise and it holds — verified, not
-   assumed. Cost: `.ignore` stays allocation-free, while `.collect`/`.warn`/`.reject` each
-   materialise the unknown key as a `String`, which is unavoidable since an unknown key has
-   no compile-time literal it was matched against.
+   **RESOLVED.** `@Extras` and `unknownKeys: .collect` are wired. One protocol per format
+   (`JSONCollectible`) declared in the core, which the core can name without depending on
+   `AssayXML`, and which `RawValue` and `JSON.Value` conform to and `YAML.Node`/`XML.Node`
+   deliberately do not. The compile-error property was the point of the exercise and it
+   holds — verified, not assumed. Declaring `[String: XML.Node]` and calling `parse(json:)`
+   is a *compile* error, not a runtime one:
+
+   ```
+   error: global function '_assayCollect(_:from:into:at:)' requires that 'XML.Node'
+          conform to 'JSONCollectible'
+   ```
+
+   Generated code routes through a constrained generic rather than calling the protocol
+   requirement directly, purely so the diagnostic names the conformance instead of leaking
+   `has no member '_collectJSON'`. Cost: `.ignore` stays allocation-free, while
+   `.collect`/`.warn`/`.reject` each materialise the unknown key as a `String`, which is
+   unavoidable since an unknown key has no compile-time literal it was matched against.
 
 3. ~~**`Hashable` with `.double`.**~~ **RESOLVED 2026-09-08 — the caveat, documented, plus
    a real bug found while documenting it.** `RawValue` and `JSON.Value` compare and hash
@@ -348,7 +346,7 @@ Stated because the unified design's one real advantage was that it was cheaper:
    **RESOLVED — and the question's premise was false.** It said the NaN problem from (3) is
    "load-bearing there rather than cosmetic". `YAML.Node` has no floating-point case at all:
    `Scalar.content` is an unresolved `String`, so `.nan` is `.scalar(".nan")` and resolution
-   happens on demand at the schema's request. That is the Norway-problem decision in §2
+   happens on demand at the schema's request. That is the Norway-problem decision in §4
    paying off in a place it was not designed for. `XML.Node` is all `String` likewise. Both
    conformances were honest the whole time; the question was written against a model the
    library does not have.

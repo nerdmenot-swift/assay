@@ -11,7 +11,7 @@
 // missing digit — after which the general path re-derives the same input. The two must
 // never disagree about what is valid or about what a literal is worth.
 //
-// The official `toml-test` suite has 710 cases across the whole language; this is ~4,000
+// The official `toml-test` suite has about 700 cases across the whole language; this is ~4,000
 // across the number grammar alone, which is the part the fast path touches. The generated
 // set is deliberately heavy on the boundaries a hand-written scanner gets wrong: the
 // separator rules (`1_0` yes, `1__0` no, `_1` no, `1_` no), leading zeros (`0` yes, `01`
@@ -43,7 +43,7 @@ import Foundation
 /// **Neither implementation is violating the specification, and that is the point.** TOML
 /// 1.0.0 says integers must error when they cannot be represented losslessly — in those
 /// words — and says nothing of the sort about floats. The float section is one sentence:
-/// "Floats should be implemented as IEEE 754 binary64 values." The official 710-case suite
+/// "Floats should be implemented as IEEE 754 binary64 values." The official suite
 /// never goes near the boundary either; its largest exponent is `3e2`. So there is no
 /// arbiter, and both readings are available:
 ///

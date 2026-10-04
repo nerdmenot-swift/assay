@@ -6,7 +6,7 @@
 // `Data` input, without the copy it used to cost.
 //
 // WHY HERE AND NOT IN THE CORE. `Data` is Foundation, and `Assay` takes bytes precisely so
-// that no hot path routes through Foundation — `docs/EXPERIENCE.md` §16 makes the argument in
+// that no hot path routes through Foundation — `docs/EXPERIENCE.md` §13 makes the argument in
 // full, and it is not the obvious one: `Data`'s byte access is *faster* off Apple platforms,
 // because Apple retains a legacy ABI the others were free to drop, so a `Data`-typed hot path
 // is the one place where performance would genuinely differ by platform. This file is

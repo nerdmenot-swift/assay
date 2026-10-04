@@ -74,8 +74,8 @@ extension SchemaMacro {
         let ctxParam = ctx.isEmpty ? "" : ",\n            context: \(ctx)"
 
         // The known-key list, for did-you-mean. Emitted ONLY for the policies that need
-        // it — docs/COMPILE-TIME.md §3 rule 1: never emit code a schema will not use, and
-        // N string literals per type is not free.
+        // it — docs/COMPILE-TIME.md §3: generated body size is the cost, so never emit code
+        // a schema will not use, and N string literals per type is not free.
         if policy == "warn" || policy == "reject" {
             let names = fields.flatMap { [$0.wireKey] + $0.aliases }
                 .map { "\"\($0)\"" }.joined(separator: ", ")
@@ -184,6 +184,13 @@ extension SchemaMacro {
             unwraps += "        guard let __v\(i) = __f\(i) else { return nil }\n"
         }
 
+        // One assertion per nested type, so a type that is not a schema fails with a
+        // diagnostic naming `JSONAssayable` rather than `has no member '_assay'`. Skipped
+        // for a contextual parent: its nested types may conform to the contextual
+        // protocol instead and resolve through the defaulted overload.
+        let requires = ctx.isEmpty
+            ? nestedNominalTypes(fields).map { "    Assay._assayRequireJSON(\($0).self)\n" }.joined()
+            : ""
         // NOT @inlinable, and that is deliberate rather than an omission.
         //
         // @inlinable is required on Assay's *runtime primitives* (CLAUDE.md, hard constraint 5),
@@ -197,13 +204,7 @@ extension SchemaMacro {
         // *internal*. Marking this @inlinable makes every public @Schema type fail to
         // compile with "initializer ... is internal and cannot be referenced from an
         // '@inlinable' function". Found by the compile-time harness, not by reasoning.
-        // One assertion per nested type, so a type that is not a schema fails with a
-        // diagnostic naming `JSONAssayable` rather than `has no member '_assay'`. Skipped
-        // for a contextual parent: its nested types may conform to the contextual
-        // protocol instead and resolve through the defaulted overload.
-        let requires = ctx.isEmpty
-            ? nestedNominalTypes(fields).map { "    Assay._assayRequireJSON(\($0).self)\n" }.joined()
-            : ""
+        //
         // Every "wrong type for a container" arm below CONSUMES the value after reporting
         // it, as a scalar mismatch always did: the entry check here, the array arm and the
         // dictionary arm. Until 2026-09-19 none of them did, so the caller read the value
@@ -316,9 +317,10 @@ extension SchemaMacro {
             .trimmingWhitespace()
     }
 
-    /// A per-type offset into the reader's container-size hint table, so two types' field 0
-    /// do not fight over one slot. FNV-1a over the type name, and a collision is harmless
-    /// anyway: a hint only sizes a reservation, and no decoded value depends on it.
+    /// A per-type salt mixed into the site id the sink's shape hints are matched by
+    /// (`IssueSink._shapeHint`/`_noteShape`), so two types' field 0 do not share a site.
+    /// FNV-1a over the type name, and a collision is harmless anyway: a hint only sizes a
+    /// reservation, and no decoded value depends on it.
     static func shapeSalt(_ typeName: String) -> Int {
         var h: UInt32 = 2_166_136_261
         for b in typeName.utf8 { h = (h ^ UInt32(b)) &* 16_777_619 }
@@ -501,8 +503,9 @@ extension SchemaMacro {
     /// costs compile time on every type it is emitted into, and on keys whose first bytes
     /// differ it buys no runtime at all. Until 2026-09 it was the bucket: the global window gives out at
     /// about a dozen fields, and past that every lookup was a chain of `keyMatches` whose
-    /// length grew with the struct. The inner switch is over `UInt8` literals, which rule 2
-    /// (experiment #1) says lowers to a search tree or a jump table, never a scan.
+    /// length grew with the struct. The inner switch is over `UInt8` literals, which
+    /// CLAUDE.md hard constraint 2 (`Experiments/01-jump-table`) says lowers to a search
+    /// tree or a jump table, never a scan.
     static func lengthBucketDispatch(entries: [DispatchEntry],
                                      unknown: String = "_ = reader.skipValue(&sink)") -> String {
         var byLength: [Int: [(DispatchEntry, String)]] = [:]
@@ -566,9 +569,6 @@ extension SchemaMacro {
 
     // MARK: Per-field decode
 
-    /// One line per scalar field. Body size is what dominates @Schema's compile cost
-    /// (~9ms per field measured, against ~9ms fixed per type), so null handling lives in
-    /// the runtime rather than in an `if/else` wrapper emitted per field.
     /// A collection field's span, when a rule needs one: from its first byte to the byte
     /// after its closing bracket, so `.count(1...10)` on an array puts a caret under the
     /// whole array. Scalars take `lastValueSpan` instead; a collection's decode calls
@@ -586,6 +586,9 @@ extension SchemaMacro {
         """
     }
 
+    /// One line per scalar field. Body size is what dominates @Schema's compile cost
+    /// (~7.3 ms per field measured, against ~9 ms fixed per type), so null handling lives in
+    /// the runtime rather than in an `if/else` wrapper emitted per field.
     static func decodeStatement(field f: SchemaField, index i: Int, indent: Int,
                              ctx: String = "", salt: Int = 0) -> String {
         let ctxArg = ctx.isEmpty ? "" : ", context: context"
@@ -765,8 +768,8 @@ extension SchemaMacro {
         if isDateType(element) {
             inner = mark + "\(pad)        if let \(elt) = reader._decodeDate(&sink, path, \"\(key)\", \(dateFormatsRef)).map({ \(element)(timeIntervalSince1970: $0) }) { \(arr).append(\(elt)) }\n" + insertIndex
         } else if let call = scalarCall(element, key: key, elementIndex: ix) {
-            // `arr.count` is the index this element is about to occupy, which is exactly
-            // the position a reader needs to be told about.
+            // `ix` is the element's POSITION, counted whether or not earlier elements
+            // decoded (see above).
             inner = "\(pad)        if let \(elt) = reader.\(call) { \(arr).append(\(elt)) }\n"
         } else if let sub = arrayElement(element) {
             // Nested array. Decode into a local, then append it.
@@ -815,7 +818,7 @@ extension SchemaMacro {
         // a larger one at the same site, by at most that one's size.
         //
         // AN ARRAY OF SCALARS RESERVED EXACTLY INSTEAD, from a structural pre-count
-        // (`AssayReader._countArrayElements`), for one day. **That decision is REVERSED
+        // (`_countArrayElements`, since deleted), for one day. **That decision is REVERSED
         // 2026-09-20 and the reason is worth keeping** (docs/EFFICIENCY.md row 2): the
         // pre-count is a second pass over the array's bytes, and its cost grows with the
         // array while the reallocations it saves do not — a doubling chain is log(n) mallocs

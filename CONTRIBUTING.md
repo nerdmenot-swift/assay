@@ -80,20 +80,21 @@ One command before you push:
 bash Scripts/check.sh
 ```
 
-Build (warning-free, forced recompile — an incremental build reports no warning for a file it
-did not rebuild), tests, documented examples, the benchmark package's build, the
-differentials. It reports every step and exits with the number of failures, so a partial pass
-is visible instead of being whatever the last command happened to return.
+Soundness checks, `swift-format lint --strict`, the build (warning-free, forced recompile —
+an incremental build reports no warning for a file it did not rebuild), tests, documented
+examples, the benchmark package's build, the differentials. It reports every step and exits
+with the number of failures, so a partial pass is visible instead of being whatever the last
+command happened to return.
 
 It leaves out the two slow gates on purpose. Individually:
 
 ```sh
-swift test                                      # 1,046 tests, macro expansion included
+swift test                                      # 1,049 tests, macro expansion included
 
 cd Benchmarks
 swift run -c release CorpusGen                  # the corpus, deterministic
 swift run -c release DiffFuzz                   # differentials + fuzz, CI-gated
-swift run -c release DiffFuzz toml-numbers      # ~4,900 numeric literals against toml++
+swift run -c release DiffFuzz toml-numbers      # ~4,000 numeric literals against toml++
 swift run -c release AssayBench --list          # every arm, with a one-line summary
 swift run -c release AssayBench allocations     # the arm CI gates on
 swift run -c release AssayBench                 # all of them, about eight minutes
@@ -102,7 +103,8 @@ swift run -c release AssayMatrix run            # the profiling matrix, ~3 minut
 bash ../Experiments/03-compile-time/gate.sh     # the compile-time budget
 ```
 
-The official TOML suite is worth having locally — one clone, 710 cases:
+The official TOML suite is worth having locally — one clone, 709 cases at the time of
+writing:
 
 ```sh
 git clone --depth 1 https://github.com/toml-lang/toml-test ~/src/toml-test
@@ -117,9 +119,9 @@ Which instrument for which question:
 
 - **`AssayBench`** — a specific question with a named competitor. "Is encoding still faster
   than `JSONEncoder`?"
-- **`AssayMatrix`** — the wide net. Eighteen fixtures that each move *one* property off a
-  base, crossed with seven verbs, so a number that moves points at the property responsible.
-  Reach for it when you are unsure of a change's blast radius.
+- **`AssayMatrix`** — the wide net. Twenty-three fixtures that each move *one* property off
+  a base, crossed with thirteen verbs, so a number that moves points at the property
+  responsible. Reach for it when you are unsure of a change's blast radius.
 - **`count.sh`** — the exact one. Instructions, retains, releases, allocations and uniqueness
   checks per call, under Callgrind and DHAT. Deterministic run to run, which is why it gates
   and wall clock does not.
@@ -192,8 +194,8 @@ accidental.
 
 ## One trap worth knowing
 
-The library's test target does not import Foundation — swift-testing's overlay would raise
-the deployment floor — which is why Foundation-dependent verification lives in
-`Benchmarks/Sources/DiffFuzz`. If your test needs `Date`, see how `DateSchemaTests` uses a
-local stub. That stub is also what pins the macro's type-name seam, so it is load-bearing in
-two directions at once.
+`DateSchemaTests` deliberately does not import Foundation: it declares a local `Date` stub,
+because the macro keys on the type *name* and emits `Date(timeIntervalSince1970:)`
+unqualified. That stub is what pins the macro's type-name seam, so do not "fix" it by
+importing Foundation. The same generated code against the real `Foundation.Date` is
+exercised in `Benchmarks/Sources/DiffFuzz`.

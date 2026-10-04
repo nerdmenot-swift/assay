@@ -8,7 +8,8 @@
 // EXPERIENCE.md §12: "One struct, many formats. Same struct. Same rules. Same errors."
 // This file discharges that promise for TOML, by the same route as YAML:
 //
-//   bytes -> TOML.Node (full fidelity) -> RawValue (portable projection) -> your struct
+//   bytes -> RawValue (`TOML.decodeRaw`; only scalars and inline values pass through
+//   `TOML.Node`) -> your struct
 //
 // The projection loses exactly one thing — which of the four date-time kinds a value was
 // (they all become RFC 3339 strings, which `Date` fields parse). A caller who needs the

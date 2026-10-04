@@ -5,7 +5,7 @@
 //===----------------------------------------------------------------------===//
 // parse(xml:) — the same struct, a different format.
 //
-// Path: bytes -> XML.Document (full fidelity) -> RawValue -> your struct.
+// Path: bytes -> RawValue (`XML.decodeRaw`, no element tree) -> your struct.
 //
 // The projection is the lossiest of the three (docs/VALUE-MODELS.md §5): attributes and
 // child elements flatten into one keyspace, comments and PIs vanish, namespaces are
@@ -175,8 +175,8 @@ extension XMLEncodableSchema {
 
     /// Write this value as an XML document, or throw with everything that went wrong.
     ///
-    /// `root` defaults to the type's own name, which is the only name available without a
-    /// `@XML(root:)` attribute; that attribute is additive later and nothing depends on it.
+    /// `root` defaults to the name `@XML(root:)` declares, or the type's own name when it
+    /// declares none.
     public func encodedXML(
         root: String? = nil, pretty: Bool = false, declaration: Bool = true
     ) throws -> EncodedBytes {

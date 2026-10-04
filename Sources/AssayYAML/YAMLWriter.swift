@@ -31,7 +31,7 @@ extension YAML {
 
     /// Render a `RawValue` as a YAML document, newline-terminated.
     ///
-    /// Returns `EncodedBytes` like the other two encoders. This writer builds a `String` and
+    /// Returns `EncodedBytes` like the other encoders. This writer builds a `String` and
     /// has always copied once at the end (`Array(out.utf8)`); the copy now lands in an owned
     /// buffer instead of an `Array`, which costs the same and keeps one shape across formats.
     public static func encode(_ value: RawValue) -> EncodedBytes {
@@ -130,8 +130,9 @@ extension YAML {
     static func needsQuoting(_ s: String) -> Bool {
         if s.isEmpty { return true }
 
-        // Anything the core schema would resolve as a non-string. `resolvePlain` is the
-        // decoder's own rule, so this asks the exact question the reader will ask.
+        // Anything the core schema would resolve as a non-string. `resolvesAsNonString`
+        // mirrors the decoder's rule (`RawValue(_resolvingCoreSchema:)`), erring toward
+        // quoting.
         if resolvesAsNonString(s) { return true }
 
         let bytes = Array(s.utf8)

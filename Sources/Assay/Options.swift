@@ -59,11 +59,11 @@ public struct SchemaFormats: OptionSet, Sendable {
 
     /// Direct-to-struct byte decoding. The fast path.
     public static let json = SchemaFormats(rawValue: 1 << 0)
-    /// Via `YAML.Node` and the `RawValue` projection.
+    /// Parsed straight into `RawValue`, and decoded from that.
     public static let yaml = SchemaFormats(rawValue: 1 << 1)
-    /// Via `XML.Document` and the `RawValue` projection.
+    /// Parsed straight into `RawValue`, and decoded from that.
     public static let xml = SchemaFormats(rawValue: 1 << 2)
-    /// Via `TOML.Node` and the `RawValue` projection. Added 2026-09-10.
+    /// Parsed straight into `RawValue`, and decoded from that. Added 2026-09-10.
     public static let toml = SchemaFormats(rawValue: 1 << 3)
 
     public static let all: SchemaFormats = [.json, .yaml, .xml, .toml]

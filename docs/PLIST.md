@@ -2,13 +2,10 @@
 
 Two formats wearing one name, and the second one has a security surface the first does not.
 
-**Built 2026-09-09.** `EXPERIENCE.md` §1 named `parse(plist:)`; the roadmap deferred it
-with one sentence — *"Binary and XML plists, as a separate product on the `RawValue`
-projection path the YAML and XML decoders already use. Mechanically the smallest item on this
-list."*
-
-That sentence was wrong in both halves, and this document is mostly about why, because the
-part it got wrong is the part with a security surface.
+**Built 2026-09-09**, as `parse(plist:)` in a separate `AssayPlist` product. It looks like the
+smallest format to add — a projection onto the `RawValue` path the YAML and XML decoders
+already use. Half of it is; the other half has a security surface, and this document is
+mostly about that half.
 
 ```swift
 import AssayPlist
@@ -34,7 +31,7 @@ let s = try Settings.parse(plist: bytes)     // either flavour
 | a projection of something existing? | yes — `AssayXML`'s parser | no |
 | lines of implementation | ~150 | ~380, most of them bounds checks |
 
-The XML flavour is what the roadmap described. It reuses `AssayXML`'s parser — which matters
+The XML flavour is the projection. It reuses `AssayXML`'s parser — which matters
 for one reason beyond not writing a second one: **every XML plist ever written carries**
 
 ```xml
@@ -80,17 +77,18 @@ Ten arrays, each holding a thousand references to the one below it. Under a kilo
 10³⁰ nodes materialised. **No cycle** — every reference is to a distinct, real, forward
 object — and `maxDepth` does not fire, because the depth is *ten*.
 
-This is the plist spelling of billion-laughs, and it is the one the roadmap's one-sentence
-deferral hid. Depth cannot bound it because the expansion is wide, not deep.
+This is the plist spelling of billion-laughs, and it is the one "a projection onto an
+existing path" hides. Depth cannot bound it because the expansion is wide, not deep.
 
 **Closed by a node budget**, charged per materialised node against a ceiling derived from the
-input size: a real document cannot materialise more nodes than it has bytes to describe them
-with, and a bomb can. The same device the YAML parser already uses for alias bombs, for the
+input size — four nodes per byte of input, with a floor of 4,096. A real document
+materialises at most a few nodes per byte, since each node needs bytes to describe it; a
+bomb materialises thousands. The same device the YAML parser already uses for alias bombs, for the
 same reason.
 
 Issue code: `plist_amplification`.
 
-Both bombs are **constructed byte by byte** in `Tests/AssayTests/PlistTests.swift`, not
+Both bombs are **constructed byte by byte** in `Tests/AssayTests/BinaryPlistTests.swift`, not
 described. A test that asserts a limit exists without building the input it bounds is a test
 that keeps passing when the limit is deleted.
 
@@ -172,8 +170,8 @@ actually stores:
 - XML → `.string`, the ISO-8601 text as written
 
 Converting either one would mean choosing an epoch inside a Foundation-free core, and
-`@DateFormat(.unix)` is not it — the epochs differ by 978,307,200 seconds. The conversion is
-the caller's, and it is stated here rather than left to be discovered.
+`@DateFormat(.unixSeconds)` is not it — the epochs differ by 978,307,200 seconds. The
+conversion is the caller's, and it is stated here rather than left to be discovered.
 
 **A UID is an `.int`.** UIDs appear in `NSKeyedArchiver` output, which this does not pretend to
 decode: a keyed archive is a different format that happens to be *written* in a plist, and
@@ -217,9 +215,10 @@ A caller with a reason to require one encoding has `parse(binaryPlist:)` and
 
 ## 7. What is not built
 
-- **Writing.** `@Schema(encodes: true)` produces JSON, YAML and XML. Plist output is not
-  built, and unlike the deferrals above there is nothing subtle about it — it has simply not
-  been asked for. The `RawValue` seam the YAML writer uses would carry it.
+- **Writing.** `@Schema(encodes: true)` produces JSON, YAML, XML and TOML. Plist output is
+  not built, and there is nothing subtle about it — it has simply not been asked for. The
+  `RawValue` seam the YAML writer uses would carry it.
 - **Keyed archives.** See §4.
 - **`bplist15`/`bplist16`.** Undocumented, unstable, and not what Apple's public tooling
-  writes. Only `bplist00` is recognised; anything else is `plist_bad_magic`.
+  writes. Only `bplist00` is recognised. Through `parse(plist:)` anything else is read as
+  XML and fails there; through `parse(binaryPlist:)` it is `plist_bad_magic`.

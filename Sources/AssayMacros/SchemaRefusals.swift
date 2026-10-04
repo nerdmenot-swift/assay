@@ -3,16 +3,17 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// Every expansion-time refusal, in one place.
+// The attribute-combination refusals, in one place. (Refusals tied to one feature stay
+// with it: `analyse`, `pathSegments`, the `…Diagnostics` lists, `UnionGen`, `EnumGen`.)
 //
 // THE PRINCIPLE: an option or attribute that is accepted and then does nothing is worse
-// than one that is refused. `CLAUDE.md` says it, `docs/UNIONS.md` says it, and on
-// 2026-09-10 an audit found eleven declarations that violated it anyway — `@XML(root:)` on a
-// type with no XML format, `@Extras` on a type that never collects, `@Key("x")` beside
-// `@Key(path:)`, `@Ignore` beside `@Validate`, an empty `@Schema struct {}` — each expanding
-// without a word and then doing less than it said. The checks existed for other cases; they
-// were scattered across `expansion`, `field(from:)` and the union path, so each new option
-// had to remember to add its own and several did not.
+// than one that is refused. `docs/UNIONS.md` says it, and on 2026-09-10 an audit found
+// eleven declarations that violated it anyway — `@XML(root:)` on a type with no XML format,
+// `@Extras` on a type that never collects, `@Key("x")` beside `@Key(path:)`, `@Ignore`
+// beside `@Validate`, an empty `@Schema struct {}` — each expanding without a word and then
+// doing less than it said. The checks existed for other cases; they were scattered across
+// `expansion`, `field(from:)` and the union path, so each new option had to remember to add
+// its own and several did not.
 //
 // Two entry points, because the information arrives at two moments: `property` runs inside
 // `field(from:)` with the raw attribute list in hand, before `@Ignore` discards the rest;
@@ -138,7 +139,7 @@ enum SchemaRefusals {
 
         // `@Coerce` on something that is not a coercible scalar. Coercion is the "\"8080\" is
         // an Int" policy and it is implemented by the `…Coercing` reader primitives, which
-        // exist for exactly the fifteen scalar spellings below. On anything else — a nested
+        // exist for exactly the fourteen scalar spellings below. On anything else — a nested
         // @Schema type, an array, a dictionary, a Date — the attribute parsed, type-checked
         // and did nothing at all.
         let coercible: Set<String> = [
@@ -229,8 +230,9 @@ enum SchemaRefusals {
                 + "quantity should travel as a string. Declare `String` and convert with "
                 + "@Transform, or write an `AssayerBacked` wrapper that parses it exactly."
         case "UUID", "Foundation.UUID":
-            // Legal WITH AssayFoundation, which supplies the conformance; without it the
-            // type is not in scope at all and the compiler says so first. Pass.
+            // Legal WITH AssayFoundation, which supplies the static `_assay` members (no
+            // conformance — `TypeShapes.nestedNominalTypes` says why); without it the type
+            // is not in scope at all and the compiler says so first. Pass.
             return nil
         default:
             return nil

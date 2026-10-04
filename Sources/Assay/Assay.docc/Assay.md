@@ -37,7 +37,8 @@ deploy.json:3:13: error: replicas must be at least 1
 
 The generated decoder is concrete, per-field code emitted into your module. There is no
 `KeyedDecodingContainer` to cross, which is where most of a `Codable` decode's time goes;
-measured, that is roughly 6–10× Foundation on the published corpus (`Benchmarks/RESULTS.md`).
+measured, that is roughly 5–9× Foundation on the published corpus, on one arm64 Mac
+(`Benchmarks/RESULTS.md`).
 
 ## Topics
 
@@ -51,12 +52,14 @@ measured, that is roughly 6–10× Foundation on the published corpus (`Benchmar
 ### The macro and its attributes
 
 - ``Schema(keys:unknownKeys:coerceScalars:formats:encodes:describes:discriminator:)``
+- ``Schema(context:keys:unknownKeys:coerceScalars:formats:encodes:describes:discriminator:)``
 - ``Key(_:or:)``
 - ``Key(path:)``
 - ``Validate(_:)``
 - ``Check()``
 - ``Check(_:)``
 - ``AsyncCheck()``
+- ``AsyncCheck(_:)``
 - ``Preprocess(_:)``
 - ``Transform(_:)``
 - ``Inverse(_:)``

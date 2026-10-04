@@ -14,9 +14,9 @@
 // — which is a considerably kinder message than anything a generic constraint failure
 // would have produced (EXPERIENCE.md §5).
 //
-// Codegen discipline (docs/COMPILE-TIME.md §3): per validated field the macro emits ONE
-// `static let` rule array (built once, zero per-decode cost) and ONE call per attribute
-// into an `@inlinable` runtime overload. Rule logic never appears inline in a body.
+// Codegen discipline (docs/COMPILE-TIME.md §3): per `@Validate` attribute the macro emits
+// ONE `static let` rule array (built once, zero per-decode cost) and ONE call into an
+// `@inlinable` runtime overload. Rule logic never appears inline in a body.
 //===----------------------------------------------------------------------===//
 
 import SwiftSyntax
@@ -39,8 +39,8 @@ struct ValidationAttr {
     /// Every diagnostic in `checkValidations` used to be attached to the `@Schema` node,
     /// which put the caret on the type's first line no matter which property was wrong —
     /// alone among this macro's refusals, all of which name the property. On a type with
-    /// thirty fields that is the difference between a fix and a search. Optional because
-    /// the golden/expansion tests construct fields directly.
+    /// thirty fields that is the difference between a fix and a search. Optional so the
+    /// diagnostic can fall back to the `@Schema` node; `validations(from:)` always sets it.
     var attribute: AttributeSyntax?
 }
 
@@ -261,7 +261,7 @@ extension SchemaMacro {
 
         // Field rules. A @Fallback field's violations roll back and clear the value, so
         // the fallback applies "on absence OR invalid" and the fallback value is never
-        // re-validated — exactly the §6 semantics.
+        // re-validated — exactly docs/EXPERIENCE.md §6's semantics.
         for (i, f) in fields.enumerated() where !f.validations.isEmpty {
             let base = f.decodedType
             var calls = ""
@@ -309,7 +309,7 @@ extension SchemaMacro {
         return out
     }
 
-    /// The static preprocess-op and transform-closure declarations, emitted once.
+    /// The static preprocess-op arrays, emitted once.
     static func preprocessArrays(_ fields: [SchemaField]) -> String {
         var out = ""
         for (i, f) in fields.enumerated() where !f.preprocess.isEmpty {
@@ -321,6 +321,7 @@ extension SchemaMacro {
         return out
     }
 
+    /// The static `@Transform` closures, emitted once.
     static func transformClosures(_ fields: [SchemaField]) -> String {
         var out = ""
         for (i, f) in fields.enumerated() {

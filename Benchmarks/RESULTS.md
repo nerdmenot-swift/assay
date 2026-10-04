@@ -5,24 +5,23 @@ minimum of 5 rounds — 2026-09-20, commit `abf38a8`.** None of these is a claim
 another platform (`CLAUDE.md`'s honesty rules); Linux and x86-64 have their own table
 below. Each row names the benchmark source that produces it, which is where its method is
 stated. Regenerate with `swift run -c release AssayBench` and replace this table — the numbers
-are machine-specific by design, so this is pasted, not automated.
+are machine-specific by design, so this is pasted, not automated. Two cells do not come from
+`AssayBench`: the compile-time row is `Experiments/03-compile-time/gate.sh`, and the Linux
+half of the XML row is `Benchmarks/linux-bench.sh`.
 
 **Every row was re-measured on 2026-09-20** at the end of the efficiency campaign
-(`docs/EFFICIENCY.md`), and the campaign is why several of them moved a long way: encoding
-2.98× → **8.75×** (the writers own their buffers, rows 5/22), YAML struct decode 11.09× →
-**18.20×** and TOML node parse 1.51× → **4.06×** (one parser per format building `RawValue`
-directly, rows 12/17 and the TOML arena).
+(`docs/EFFICIENCY.md`), and the campaign is why several of them moved a long way. Each
+"before" figure here is the previously published commit rebuilt and re-run on this OS, not
+the number that was published from it: encoding 2.98× → **8.75×** (the writers own their
+buffers, rows 5/22), YAML struct decode 11.09× → **18.20×** and TOML node parse 1.51× →
+**4.06×** (one parser per format building `RawValue` directly, rows 12/17 and the TOML
+arena).
 
-**Two things about comparing this table with the one before it, both learned the hard way.**
+**Compare a row with a rebuild of the old commit, never with the old table.** A ratio
+against Foundation belongs to the machine and the OS that produced it; "How to read these"
+below has the measurements behind that.
 
-*A ratio against Foundation belongs to the machine AND the OS that produced it.* The
-previously published commit was rebuilt and re-run here on 2026-09-20 and measures **9.13–9.30×**
-on the struct arm against the 9.79× published from it a week earlier — the same source, the
-same toolchain, ~6% apart. The dates arm is starker: that commit measures **4.25×** today
-against a published 8.04×. Nothing in the repository changed; the comparison did. Rows here
-are therefore compared against a rebuild of the old commit, never against the old table.
-
-*And the wall clock still catches things the counters do not.* Re-measuring for this table is
+**The wall clock still catches things the counters do not.** Re-measuring for this table is
 what found the one regression this campaign shipped: an exact reservation for arrays of
 scalars, decided on instruction and allocation counts, cost up to **+39.5%** on the corpus's
 long arrays, because the matrix cell that decided it holds ten-element arrays and the corpus
@@ -31,9 +30,9 @@ holds arrays of 9,510. It is reverted, the ledger's row 2 carries the numbers, a
 
 | arm | number | against | source |
 |---|---|---|---|
-| struct decode, full corpus | **9.14×** mean over 25 files (5.16–18.07) | `JSONDecoder` | `Corpus.swift` |
-| prefix decode + unknown-key skip | **5.62×** over 45 files (2.74–8.49) | `JSONDecoder` | `Corpus.swift` |
-| generic value model | **3.35×** over 75 files | `JSONSerialization` | `Corpus.swift` |
+| struct decode, full corpus | **9.14×** mean over 25 files (5.16–18.07) | `JSONDecoder` | `FalsificationBench.swift` (the sweep), `Corpus.swift` (the shapes) |
+| prefix decode + unknown-key skip | **5.62×** over 45 files (2.74–8.49) | `JSONDecoder` | `FalsificationBench.swift` (the sweep), `Corpus.swift` (the shapes) |
+| generic value model | **3.35×** over 75 files | `JSONSerialization` | `FalsificationBench.swift` |
 | falsification arm (`apimodel`, 5 sizes) | **5.24×** mean (8.13× float-dense) | `JSONDecoder` | `FalsificationBench.swift` |
 | vs ZippyJSON (simdjson + Codable) | **3.61×** faster | ZippyJSON, which is 1.60–1.84× over Foundation here | `ZippyBench.swift` |
 | vs yyjson, use-case shape | **0.69×** (loses) | yyjson parse + extraction | `SIMDBaseline.swift` |
@@ -56,8 +55,10 @@ holds arrays of 9,510. It is reverted, the ledger's row 2 carries the numbers, a
 | total allocations, 50 items | **159** against Foundation's 377 | `JSONDecoder` | `TotalAllocations.swift` |
 | `T.validate(_:)` | **37 ns** per value, 1 block; **46 ns/row** batched, 0.11× a decode | — | `ValidateBench.swift`, `docs/VALIDATE.md` |
 | live allocations, `apimodel-8k` struct | gated, **PASS** | absolute thresholds | `AllocationGate.swift` |
-| compile time, 10 fields | **80.8 ms/type** (gate 100) | `Codable`: 4.22× | `docs/COMPILE-TIME.md` |
+| compile time, 10 fields | **80.8 ms/type** (gate 100) | `Codable`: 4.22× | `Experiments/03-compile-time/gate.sh`, `docs/COMPILE-TIME.md` |
 
+`AssayBench` also has `dict`, `keypath`, `decomposition`, `fieldsweep` and `rules` arms. They
+have no row here; run the arm for its number (`AssayBench --list` names them).
 
 ---
 
@@ -67,16 +68,26 @@ holds arrays of 9,510. It is reverted, the ledger's row 2 carries the numbers, a
 `JSONDecoder` is fully general and `Codable`-driven; Assay's macro knows the schema at compile
 time. That is the whole thesis, not a footnote to it.
 
-Everything else is arranged in the baseline's favour or symmetric:
+The rest is arranged in the baseline's favour or symmetric, with one exception, stated
+second:
 
-- The `Codable` models declare snake_case names directly rather than using
-  `.convertFromSnakeCase`, which would cost Foundation a `String` allocation per key.
-- Both decoders are hoisted out of the loop (warm). The cold-start row exists because warm
-  flatters anything that amortises setup.
+- No `Codable` model uses `.convertFromSnakeCase`, which would cost Foundation a `String`
+  allocation per key. The corpus and falsification models declare snake_case member names
+  directly; the ZippyJSON, large-document, total-allocation and encode models use explicit
+  `CodingKeys`.
+- **The exception: the corpus sweep and the plist rows construct the baseline's decoder
+  per call.** `Corpus.swift` creates a `JSONDecoder` and `CoverageBench.swift` a
+  `PropertyListDecoder` inside the timed closure, so that cost sits on the baseline's side
+  of the 9.14× and 5.62× rows and of both plist rows. Every other arm hoists the decoder
+  out of the loop (warm). The cold-start row exists because warm flatters anything that
+  amortises setup.
 - Assay receives `[UInt8]`; Foundation receives `Data`, its native input. Neither converts
   inside the timed region.
-- Minimum of 5 rounds, not a mean. Every value is asserted equal to the baseline's before
-  anything is timed — a fast wrong answer is not a result.
+- Minimum of 5 rounds, not a mean (the cold-start row is the median of 60 single samples).
+  Each arm checks agreement with its baseline before timing: bit-for-bit for dates, floats
+  and the yyjson DOM; spot checks (counts and first elements) on the struct arms; and on the
+  corpus sweep and the YAML node-parse row only that both sides produced a value.
+  Value-for-value agreement over the whole corpus is `DiffFuzz`'s job, not the timer's.
 
 **The three corpus rows answer three questions.** *Struct decode* is shapes a fixed struct
 consumes entirely. *Prefix + skip* is a small struct against a wide document, the most common
@@ -129,8 +140,10 @@ Two instruments, because neither can do the other's job.
 
 **Live blocks per decoded value**, via `malloc_zone_statistics` — gated in CI with absolute
 thresholds (`AllocationGate.swift`). It misses transient allocations freed inside a decode,
-undercounts ~10–15% on Darwin's nano zone, and cannot compare two decoders that retain the
-same data. `Allocations.swift` states all three limits; read them before quoting a number.
+was measured to undercount ~10–15% on Darwin's nano zone (the self-check has since read
+exactly 2.00 and 4.00, and disables the gate if it drifts), and cannot compare two decoders
+that retain the same data. `Allocations.swift` states all three limits; read them before
+quoting a number.
 `.mallocCountTotal` was rejected rather than deferred: it needs jemalloc beside the
 toolchain and cannot run on the musl or wasm legs.
 

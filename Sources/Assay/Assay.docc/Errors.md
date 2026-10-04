@@ -15,16 +15,16 @@ for issue in d.issues {
     issue.code          // .tooSmall
     issue.path          // [.key("replicas")]
     issue.params        // ["minimum": .int(1)]
-    issue.location      // SourceSpan(lo: 27, len: 1)
+    issue.location      // SourceSpan(lo: 29, len: 1)
     issue.message       // "must be at least 1"
 }
 ```
 
 ## Codes
 
-The codes a decoder reports are a closed set — `missing`, `typeMismatch`, `numberOverflow`,
-`unknownKey`, `duplicateKey`, `depthExceeded`, `malformedDocument`, and so on — and every
-rule and every format parser has its own, all named as statics on `IssueCode` and each with a
+The structural codes are enum cases — `missing`, `typeMismatch`, `numberOverflow`,
+`unknownKey`, `duplicateKey`, `depthExceeded`, `malformedDocument` and a few more — and every
+rule and every format parser has its own, named as statics on `IssueCode` and each with a
 stable string (`too_small`, `yaml_undefined_alias`, `toml_redefined_table`). Branch on the
 code; the wording is not part of the API contract.
 
@@ -35,7 +35,7 @@ code; the wording is not part of the API contract.
 ```swift
 print(d.render(.terminal))        // carets, colour when attached to a TTY
 print(d.render(.plain))           // the same, no colour
-d.render(.json)                   // [{"code":"too_small","path":"replicas",...}]
+d.render(.json)                   // {"source":…,"valid":false,"issues":[…],"warnings":[…]}
 d.render(.problemDetails)         // RFC 9457, ready for an HTTP 4xx body
 ```
 
@@ -52,8 +52,10 @@ deploy.json:3:13: error: replicas must be at least 1
 1 error
 ```
 
-Carets work on every format. YAML, XML and TOML documents carry a `SourceSpan` on every
-mapping member, so a schema issue found after the parse still points at the bytes.
+Carets work on every format, with gaps outside JSON. YAML, XML and TOML documents carry a
+`SourceSpan` on every mapping member, so a schema issue on a scalar field found after the
+parse still points at the bytes; elements of a sequence, and issues reported from inside a
+nested `@Schema` type, carry a path and no caret.
 
 ## Warnings
 
@@ -63,10 +65,10 @@ knowing. `@Key("email", or: "email_address")` warns which alias matched;
 not declare, with a did-you-mean.
 
 ```swift
-d.warnings.first?.message   // "unknown key \"replcas\" — did you mean \"replicas\"?"
+d.warnings.first?.message   // "unknown key \"replcas\"; did you mean \"replicas\"?"
 ```
 
 ## Limits
 
 `Limits(maxIssues:maxDepth:maxBytes:)` bounds every parse. When issue collection is capped,
-`d.truncatedIssues` says so rather than pretending the list is complete.
+`d.issuesWereTruncated` says so rather than pretending the list is complete.

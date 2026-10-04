@@ -16,8 +16,8 @@ struct Deployment {
 let deployment = try Deployment.parse(toml: text)
 ```
 
-The parser passes **all 710 documents** of the official `toml-test` suite — 210 valid ones
-decoded to the exact expected value, 501 invalid ones refused. That runs in CI on every
+The parser passes **every document** of the official `toml-test` suite — 709 at the time of
+writing: 208 valid ones decoded to the exact expected value, 501 invalid ones refused. That runs in CI on every
 commit, with toml++ as a differential oracle beside it.
 
 ## Typed on the wire

@@ -5,8 +5,8 @@ refuses, and a parser that quietly accepts a document its specification forbids 
 way that is very hard to notice — nothing crashes, nothing is reported, and the bug surfaces
 years later as an interoperability argument.
 
-This document is the accept/reject contract for all three formats, and the harness that
-holds it.
+This document is the accept/reject contract for all four text formats, and the harness that
+holds it. Property lists have their own: `docs/PLIST.md`.
 
 ---
 
@@ -20,7 +20,7 @@ document *both* parsers accept, so the only question it asks is "did Assay refus
 Foundation takes?" — never the reverse. Beside it, the fuzzer asserted that nothing crashed
 or hung, which is a different property again.
 
-Nine conformance bugs lived in that gap:
+A cluster of conformance bugs lived in that gap:
 
 | accepted | required by |
 |---|---|
@@ -32,7 +32,7 @@ Nine conformance bugs lived in that gap:
 None crashed. None produced a wrong value for a valid document. They said yes where RFC 8259
 says no.
 
-**And chasing them turned up a tenth that mattered far more**, which acceptance testing could
+**And chasing them turned up one more that mattered far more**, which acceptance testing could
 not have found either. `scanInt64` returned nil on overflow *without rewinding the cursor*,
 so the caller's fallback to `scanDouble` began in the middle of the digits and parsed
 whatever was left:
@@ -50,7 +50,8 @@ substitutes for the other.**
 
 ## 2. The harness
 
-Five differentials, all in `Benchmarks/Sources/DiffFuzz/`, all run in CI.
+The differentials, all in `Benchmarks/Sources/DiffFuzz/`, all run in CI. `DiffFuzz --list`
+names every oracle.
 
 | file | question |
 |---|---|
@@ -59,6 +60,9 @@ Five differentials, all in `Benchmarks/Sources/DiffFuzz/`, all run in CI.
 | `FormatOracle.swift` | does the fast rule engine agree with the naive one it replaced? |
 | `YAMLOracle` / `XMLOracle` / `DateOracle` | the same two questions per format |
 | `PlistOracle.swift` | do documents **Foundation wrote** decode to the same tree — and does the reader survive a corrupted trailer? |
+| `TOMLOracle` / `TOMLNumberOracle` | TOML against toml++, and the official toml-test suite |
+| `EncodeOracle` / `YAMLEncodeOracle` / `XMLEncodeOracle` | can an independent parser read back what Assay wrote? |
+| `SchemaOracle.swift` | do fuzzed `@Schema` decodes hold three laws, rather than merely not crash? |
 
 ### Choosing an oracle, and not obeying it
 
@@ -113,7 +117,7 @@ failed, so the choice stays visible rather than drifting.
 
 | case | Assay | Foundation |
 |---|---|---|
-| duplicate keys | last wins, silently, on every `unknownKeys` policy — the XML parser reports `.duplicateKey` for the same situation; JSON does not, because a duplicate key in JSON is far more often a producer quirk than an attack, and a policy for it is its own decision (`ROADMAP.md`) | last wins |
+| duplicate keys | last wins, silently, on every `unknownKeys` policy — the XML parser reports `.duplicateKey` for the same situation; JSON does not, because a duplicate key in JSON is far more often a producer quirk than an attack, and a policy for it is its own decision | last wins |
 | a leading byte-order mark | accept (skipped, since 2026-09-10; it was **reject** before, and Notepad disagreed) | accept |
 | nesting past `Limits.maxDepth` (64) | **reject** | accept |
 | `1e400` | accept, as `+∞` | reject |
@@ -131,9 +135,9 @@ failed, so the choice stays visible rather than drifting.
 string state so a `}` inside a string does not close an object, refusing an unterminated
 container, charging nesting against `maxDepth` — and never looks at what it skipped.
 
-This is what makes the prefix path 6.3×, and validating a value in order to discard it spends
-exactly what skipping saves. simdjson's On-Demand API documents the same property for the
-same reason. The consequence is worth stating plainly:
+This is what makes the prefix path 5.6× (`Benchmarks/RESULTS.md`), and validating a value in
+order to discard it spends exactly what skipping saves. simdjson's On-Demand API documents
+the same property for the same reason. The consequence is worth stating plainly:
 
 > **`T.parse(json:)` is not a JSON validator.** It validates the document's structure and
 > every value the schema declares. A caller who needs the whole document checked wants
@@ -164,8 +168,8 @@ a continuation line may begin with `-`, because YAML builds it from `ns-plain-ch
 than `ns-plain-first`, so `a: one\n  - x` is the single scalar `"one - x"` and not a nested
 sequence. libyaml agrees.
 
-**Not supported:** anchors declared in flow style, and multi-line plain scalars *in flow
-context* — see `ROADMAP.md`.
+**Not supported:** tags in flow style (`[!!str 1]`, see `ROADMAP.md`) and multi-line plain
+scalars *in flow context*.
 
 **Security:** alias expansion is charged against a node budget, with an anchor's cost counted
 as its whole expanded subtree. A 331-byte alias bomb that once produced 11.4M nodes is a
@@ -187,7 +191,7 @@ and duplicate attributes; `<` in an attribute value; a raw `&`; undefined entiti
 character references; unclosed comments and CDATA; a digit-leading name; text before or after
 the root.
 
-**Known divergences, all over-permissive** — see `ROADMAP.md`:
+**Known divergences, all over-permissive:**
 
 - `]]>` accepted in character data
 - `--` accepted inside a comment
@@ -211,12 +215,12 @@ the attack; the absolute figure is beside the point.**
 ## 5a. TOML — 1.0.0
 
 The one format with an **official conformance suite**, and the only one where "conformant"
-is a measurement rather than a claim: `DiffFuzz toml-test` runs every document in
-[toml-test](https://github.com/toml-lang/toml-test)'s 1.0.0 list — **210 valid documents
-must parse to exactly the tagged-JSON value beside them, 501 invalid documents must be
-refused** — and CI clones the suite so the number cannot go stale. 710/710 on the day it
-was built. A second oracle, toml++ through TOMLKit, agrees on 35 hand-written cases and 150
-generated documents; `docs/TOML.md` §5.
+is a measurement rather than a claim: `DiffFuzz toml-test` runs every case of the official
+[toml-test](https://github.com/toml-lang/toml-test) suite's 1.0.0 list (709 at the time of
+writing: 208 valid, 501 invalid) — **each valid document must parse to exactly the
+tagged-JSON value beside it, each invalid document must be refused** — and CI checks the
+suite out at its HEAD, so the count moves with the suite. A second oracle, toml++ through
+TOMLKit, agrees on 35 hand-written cases and 150 generated documents; `docs/TOML.md` §5.
 
 **Supported:** all of 1.0.0 — the four string forms with every escape, integers in four
 bases with underscores, floats with `inf`/`nan`, the four date-time kinds (including the
@@ -243,9 +247,8 @@ most the size of the input. `maxDepth` bounds arrays, inline tables and header p
 - `Tests/AssayTests/ConformanceTests.swift` — the JSON grammar and the overflow-rewind
   property, in `swift test`.
 - `Tests/AssayTests/SpanTests.swift` — that carets point at the right bytes.
-- `Benchmarks/Sources/DiffFuzz` — the differentials and the toml-test suite, plus 10,680
+- `Benchmarks/Sources/DiffFuzz` — the differentials and the toml-test suite, plus 12,680
   mutated and truncated JSON/YAML/XML/TOML inputs and 12,234 plist ones per run, in CI.
-- `Experiments/03-compile-time/gate.sh` — two compile-time budgets.
 
-Every ratio quoted anywhere in this repository is one arm64 Mac, warm, minimum of five
-rounds, and says so. See `CLAUDE.md`'s honesty rules.
+Every ratio in the table at the top of `Benchmarks/RESULTS.md` is one arm64 Mac, minimum of
+five rounds; other platforms have their own table there. See `CLAUDE.md`'s honesty rules.

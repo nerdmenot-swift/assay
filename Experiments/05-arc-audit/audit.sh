@@ -14,8 +14,10 @@
 #
 # The golden is per OS and per pinned toolchain, not per architecture: the remark pass is
 # SIL-level and runs before LLVM, so two 64-bit targets built by one compiler should agree.
-# The Linux golden is the gate (CI runs it in the swift:6.3.3 container); on a Mac, run it
-# through Benchmarks/count.sh's container rather than trusting whatever Xcode is installed.
+# The Linux golden is the gate (CI runs it in the swift:6.3.3 container) and the only golden
+# there is. On a Mac, run this inside a Linux container with that image rather than trusting
+# whatever Xcode is installed: there is no golden-darwin to compare against until `--update`
+# writes one, and Benchmarks/count.sh has no audit mode.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"

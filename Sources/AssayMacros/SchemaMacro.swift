@@ -348,6 +348,9 @@ public struct SchemaMacro: ExtensionMacro {
         // `@Key(path:)`. A path field does NOT appear in the top-level dispatch — its key
         // lives one or more levels down — so its group's FIRST segment takes an arm instead,
         // and two fields under the same prefix share that one arm. PathKeys.swift.
+        if let collision = PathTree.collision(active) {
+            return refuse(collision)
+        }
         let pathGroups = PathTree.build(active)
 
         var seenKeys = Set<String>()
@@ -390,7 +393,7 @@ public struct SchemaMacro: ExtensionMacro {
         // decode body has returned, and the `__sp` locals are that body's locals — there is
         // nothing for the async runner to read even in principle. Requesting one anyway
         // emitted `__sp0 = reader.lastValueSpan` with no reader, which is a warning in
-        // GENERATED code and therefore the user's warning (CLAUDE.md rule: fix it in
+        // GENERATED code and therefore the user's warning (the rule here: fix it in
         // AssayMacros, never suppress it at the use site).
         //
         // The comparison is against `name`, not `identifier`: `fieldIdentifier` is
@@ -416,8 +419,9 @@ public struct SchemaMacro: ExtensionMacro {
 
     // MARK: - Emission
 
-    /// Report every message and say whether there were none. The four opt-in bodies each
-    /// have a pre-flight diagnostic list; this is the one place it is walked.
+    /// Report every message and say whether there were none. Three opt-in bodies (encode,
+    /// XML placement, describe) each have a pre-flight diagnostic list; this is the one
+    /// place it is walked.
     static func refuse(
         _ messages: [String], node: AttributeSyntax,
         context: some MacroExpansionContext
@@ -469,7 +473,7 @@ public struct SchemaMacro: ExtensionMacro {
         if formats.raw {
             if !body.isEmpty { body += "\n\n" }
             // `spans: true` here as well as on the JSON path. The span locals are filled
-            // from `RawValue.Member.span`, which the YAML and XML parsers record; a
+            // from `RawValue.Member.span`, which the YAML, XML and TOML parsers record; a
             // producer that tracks no offsets leaves them nil, and a nil span renders the
             // same span-less issue it always did.
             body += Self.rawDecodeBody(
@@ -538,7 +542,10 @@ public struct SchemaMacro: ExtensionMacro {
                 checks: a.checks, ctx: ctxType)
         }
         if config.describes {
-            guard Self.refuse(Self.describeDiagnostics(activeS), node: node, context: context)
+            guard
+                Self.refuse(
+                    Self.describeDiagnostics(activeS, typeName: typeName), node: node,
+                    context: context)
             else {
                 return nil
             }
@@ -627,7 +634,7 @@ public struct SchemaMacro: ExtensionMacro {
 
         // Skip anything that is not a decodable stored property: static, computed,
         // `lazy var`, and accessor-bearing declarations all look wrong to the macro and
-        // are silently excluded (§6). `@Ignore` is the explicit opt-out.
+        // are silently excluded (docs/EXPERIENCE.md §6). `@Ignore` is the explicit opt-out.
         if varDecl.modifiers.contains(where: {
             $0.name.text == "static" || $0.name.text == "class" || $0.name.text == "lazy"
         }) {

@@ -194,7 +194,8 @@ extension AssayReader {
 /// by at most that sibling's size, which was itself in the input, and the hint then updates.
 /// So the extra capacity is bounded by the document.
 ///
-/// Shared by every tree builder: JSON.Value here, and the YAML and TOML parsers.
+/// Shared by the tree builders that grow by depth: JSON.Value here, and the YAML and XML
+/// parsers.
 @_documentation(visibility: internal)
 public struct _ShapeHints {
     /// Item and member counts INTERLEAVED per depth (`2 * level` and `2 * level + 1`), in
@@ -313,5 +314,3 @@ extension JSON.Value {
         try parse(Array(text.utf8), limits: limits)
     }
 }
-
-/// Thrown by `JSON.Value.parse`. Carries every issue, not just the first.

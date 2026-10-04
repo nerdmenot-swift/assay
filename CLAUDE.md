@@ -6,10 +6,9 @@ the thesis, hard constraints and build order recorded below. The pre-implementat
 passes, the long-form strategy document and the benchmark journal were removed on 2026-10-04
 and are in git history.
 
-**Status as of 2026-07-27: phases 1–3 are built, compiled, tested and measured.** A Swift 6.3.3
-toolchain is present. The design-era caveat — "nothing here has ever been compiled" — no longer
-applies to the parts listed below, and still applies to everything else. `ROADMAP.md` is the
-authoritative list of what is not built and what was decided against; `README.md` is the front door.
+**Status: phases 1–3 are built, compiled, tested and measured; phases 4–5 are retired.** Swift
+6.3.3. `ROADMAP.md` is the authoritative list of what is not built and what was decided
+against; `README.md` is the front door.
 
 | | state |
 |---|---|
@@ -17,58 +16,56 @@ authoritative list of what is not built and what was decided against; `README.md
 | Experiments #2–#4 (Builtin, packaging, `-mattr`) | **run**; the directory was removed 2026-10-04 with the SIMD phase long retired. What they said is under "What the experiments actually said" below |
 | Experiment #5 (Wasm simd128) | not run; needs the SDK, and gates nothing with SIMD retired |
 | Corpus generator (the "sixth experiment") | **built** — `Benchmarks/Sources/CorpusGen`, 81 files |
-| Phase-1 decoder + `@Schema` macro | **built** — 196 tests in 25 suites |
+| Decoder + `@Schema` macro | **built** — the suite is 1,049 tests in 191 suites, 98.8% line coverage (`CONTRIBUTING.md`) |
 | Falsification condition | **PASSED** — 5.24× over Foundation on the `apimodel` arm (8.13× float-dense), re-measured 2026-09-20. `Benchmarks/RESULTS.md` is the one place the current numbers live |
 | Full corpus sweep | **built and run** — struct decode / prefix+skip / value model over 25 / 45 / 75 files. **The current numbers live in ONE place: the table at the top of `Benchmarks/RESULTS.md`**, regenerated from `AssayBench`; rows here that quoted a ratio drifted from each other (9.17× and 8.98× for the same arm in two rows), so they now point there |
 | Cross-platform | **three supported platforms, all gating**: macOS, Linux (x86-64 + aarch64) and Windows all run the test suite. **Every Apple platform the manifest declares is BUILT since 2026-09-23** — iOS, tvOS, watchOS and visionOS, one matrix leg each, skipping a platform whose SDK the runner image lacks. Before that only iOS was built while `platforms:` promised four, which is the same class of gap as the iOS leg that had never run: a declared floor nothing compiles against is a guess. Plus static Linux (musl, 2 arches) and wasm32 cross-compiles. Android is not a target |
-| Compile-time budget | **measured and gated** — ~80-85 ms/type at 10 fields rule-free (gate 100 ms), ~120-129 ms for a type with a rule on nearly every field (gate 145 ms). Every timing is the **minimum of 3 builds** since 2026-08-30; it was a single build, and the rule-carrying arm flaked twice in one afternoon (177.8 and 147.0 against 145) on unchanged code. Spread on that arm went ~36% → ~8%; the budgets did not move. An `encodes` arm was added 2026-09-10 (reported, not gated, like `arrays`/`paths`/`describes`): **~5% over decode-only** |
+| Compile-time budget | **measured and gated** — ~80-85 ms/type at 10 fields rule-free (budget 100 ms), ~120-129 ms for a type with a rule on nearly every field (budget 145 ms). **The millisecond budgets bind on a local run only; what CI gates is the ratio against `Codable`, at 6.0×** — a hosted runner is about half the speed of the machine the budgets were calibrated on. Every timing is the **minimum of 3 builds** since 2026-08-30; it was a single build, and the rule-carrying arm flaked twice in one afternoon (177.8 and 147.0 against 145) on unchanged code. Spread on that arm went ~36% → ~8%; the budgets did not move. An `encodes` arm was added 2026-09-10 (reported, not gated, like `arrays`/`paths`/`describes`): **~5% over decode-only** |
 | Value models (`JSON.Value`, `YAML.Node`, `XML.Node`, `TOML.Node`, `RawValue`) | **built** — `docs/VALUE-MODELS.md` |
 | YAML and XML parsers | **built** — hand-written, XXE refused by construction. **Each is ONE parser generic over what it builds since 2026-09-20** (`YAMLBuilder.swift`, `XMLBuilder.swift`): the tree door builds `YAML.Node`/`XML.Element`, the `@Schema` door builds `RawValue` directly, and there is no tree in between (`docs/EFFICIENCY.md` rows 12 and 17 — yaml-struct −17.7% to −29.3% instructions and −49% to −66% heap bytes, xml-struct −17.3%/−21.1%; the XML *tree* door pays +2.2% to +3.4%, a recorded trade). **The accumulator IS the result**: a builder names what children are gathered into, because gathering into a neutral array and converting at the end left the block count exactly where it started |
 | `@Extras` + `unknownKeys: .ignore/.warn/.reject/.collect` | **built**, with Damerau did-you-mean |
 | `parse(mmapped:)` (`AssayFoundation`) | **built** — 216x less memory footprint, 3.6x faster |
-| `Data` input (`AssayFoundation`) | **built 2026-09-22** — `parse(json:)`/`diagnose(json:)`, their async and contextual pairs, `Assayer<T>`, `JSON.Value.parse` and the `parse(body:)` negotiation door all take `Data`, decoding **inside `withUnsafeBytes` with no copy**. `docs/EXPERIENCE.md` §16 had promised these since before there was an implementation and `grep ': Data'` returned nothing — found 2026-09-22 by a question, not by a test. One allocation saved per parse whatever the size (`totalalloc`), 1.0-3.5% of decode time at 0.2-8.3 MB (`largedoc`); the peak memory is the point, since `Array(data)` keeps a second copy of the document alive for the whole parse. **`Diagnosis.source` is empty on a CLEAN decode from `Data`** — a `Data`'s bytes are valid only inside `withUnsafeBytes` and there is no owner object to borrow from, so they are copied only when an issue or warning needs rendering; every render is then byte-identical to the array door's, which `DataInputTests` pins. The `body:` door copies once (negotiation may pick a parser from a module `AssayFoundation` cannot see) and refuses an unacceptable media type before it does |
+| `Data` input (`AssayFoundation`) | **built 2026-09-22** — `parse(json:)`/`diagnose(json:)`, their async and contextual pairs, `Assayer<T>`, `JSON.Value.parse` and the `parse(body:)` negotiation door all take `Data`, decoding **inside `withUnsafeBytes` with no copy**. `docs/EXPERIENCE.md` §13 had promised these since before there was an implementation and `grep ': Data'` returned nothing — found 2026-09-22 by a question, not by a test. One allocation saved per parse whatever the size (`totalalloc`), 1.0-3.5% of decode time at 0.2-8.3 MB (`largedoc`); the peak memory is the point, since `Array(data)` keeps a second copy of the document alive for the whole parse. **`Diagnosis.source` is empty on a CLEAN decode from `Data`** — a `Data`'s bytes are valid only inside `withUnsafeBytes` and there is no owner object to borrow from, so they are copied only when an issue or warning needs rendering; every render is then byte-identical to the array door's, which `DataInputTests` pins. The `body:` door copies once (negotiation may pick a parser from a module `AssayFoundation` cannot see) and refuses an unacceptable media type before it does |
 | Renderers (`.terminal`/`.plain`/`.json`/`.problemDetails`) | **built** — golden caret tests |
 | Source spans for YAML and XML | **built 2026-08-13** — schema issues carry carets on all three formats now. `RawValue.Member.span`, excluded from `==`/`hash`. ~2% on YAML, nothing elsewhere; sequence/dictionary *elements* still have no span |
 | `@Validate` + rule engine | **built** — hand-rolled `.email`/`.url`/`.uuid`/`.hostname`, type-checked at expansion |
 | `@Check` / `@AsyncCheck` / `@Preprocess` / `@Transform` / `@Fallback` | **built** |
 | Enum conformances (`RawRepresentable` String/Int, `CaseIterable`) | **built** |
-| Differential + fuzz | **built and gated in CI** — 75 files agree with `JSONSerialization`; 9,680 mutations/run |
+| Differential + fuzz | **built and gated in CI** — 75 files agree with `JSONSerialization`; 12,680 fuzz inputs/run |
 | YAML/XML differential oracles | **built and green** — vs Yams/libyaml and Foundation `XMLParser`; found and fixed 2 real parser bugs (block-sequence dash, XML line-ending normalisation) on first run. A third, **indentless block sequences** (`items:\n- a`, the Kubernetes/Actions form), was found 2026-09-19 by `ScalingTests` rather than the oracle — its corpus never used the form — and fixed; one variant had been silently mis-parsed as a key named `- name` |
-| YAML/XML benchmarks | **run, and they moved with the builder work** — 2026-09-20: **8.35×** node parse vs Yams (was 6.69×), **18.20×** struct decode vs `YAMLDecoder` (was 11.27×), **2.47×** XML vs Foundation on macOS and 0.96× on Linux, where it is libxml2 (asymmetric in Foundation's favour — read `Benchmarks/RESULTS.md` before quoting). The JSON thesis does not transfer; these are tree decoders, and the struct doors win because they stopped building a tree at all |
+| YAML/XML benchmarks | **run, and they moved with the builder work** — 2026-09-20: **8.35×** node parse vs Yams (was 6.69×), **18.20×** struct decode vs `YAMLDecoder`, **2.47×** XML vs Foundation on macOS and 0.96× on Linux, where it is libxml2 (asymmetric in Foundation's favour — read `Benchmarks/RESULTS.md` before quoting). The JSON thesis does not transfer; these are tree decoders, and the struct doors win because they stopped building a tree at all |
 | XML parser speed | **1.89× faster 2026-08-18/19** (1.75× then 1.08×) — 2.47× over Foundation on macOS as of 2026-09-20 (1.30× before that work), **0.96× against libxml2 on Linux (was 0.54×)**, which is parity while building a tree libxml2's SAX path never builds. The win was `String.firstIndex` iterating by Character in namespace resolution, ~half of all parse time. `Benchmarks/RESULTS.md` |
 | x86-64 benchmarks | **run 2026-08-20** on a GitHub-hosted runner — `.github/workflows/benchmark.yml`. **struct decode 10.89×**, the best of the three platforms; XML **1.39×** over libxml2-backed Foundation. Found an x86-64-only crash (a struct-returning libc call declared with `@_silgen_name`) that macOS and aarch64 Linux both ran green |
-| Linux benchmarks | **run 2026-08-15** — `Benchmarks/linux-bench.sh`. Struct decode 8.64× (macOS 8.98×), so the thesis is not a Darwin artefact. **XML INVERTS: 0.54× on Linux against 1.30× on macOS**, because `FoundationXML` is libxml2 there. x86-64 needs a GitHub Actions runner; emulation was refused |
-| Tests on Linux | **393/393 pass**, identical to macOS. The library has no platform-specific dependency — hand-written parsers are why. Only `DiffFuzz` is Darwin-pinned, on one `CFGetTypeID` call whose portable substitute costs 20× |
+| Linux benchmarks | **run 2026-08-15** — `Benchmarks/linux-bench.sh`. Struct decode 8.64× (macOS 8.98×), so the thesis is not a Darwin artefact. XML measured 0.54× there at the time, because `FoundationXML` is libxml2 on Linux (0.96× since 2026-08-18). x86-64 needs a GitHub Actions runner; emulation was refused |
+| Tests on Linux | **the full suite passes**, identical to macOS. The library has no platform-specific dependency — hand-written parsers are why. Only `DiffFuzz` is Darwin-pinned, on `CFGetTypeID` (bool-versus-number on `NSNumber`), whose portable substitute costs 20× |
 | Streaming | incremental parsing of one document is **decided against**; record streams (NDJSON, top-level arrays) are unbuilt. `ROADMAP.md` |
-| Encoding | **JSON + YAML + XML built** (`@Schema(encodes: true)`). **`encodedJSON()`/`encodedYAML()`/`encodedXML()`/`encodedTOML()` return `EncodedBytes`, not `[UInt8]`, since 2026-09-20**: the writers own their buffers, so a write is a store rather than an `Array` append with its uniqueness check (`base/encode` 36,013 checks → 0, −19% instructions), and `finish()` hands the allocation over instead of copying the document out. `EncodedBytes` is `~Copyable` with `withUnsafeBytes`, `text()` and a copying `toArray()`; `EncodeDiagnosis.bytes` stays `[UInt8]`. YAML renders through the `RawValue` seam; XML cannot (placement is not expressible there) so it has its own generated body. XML defaults settled by surveying Jackson/Go/.NET/serde. The six semantics questions and their answers are in `docs/ENCODING.md`; round-trip is a stated law with a closed exception list |
+| Encoding | **JSON + YAML + XML + TOML built** (`@Schema(encodes: true)`). **`encodedJSON()`/`encodedYAML()`/`encodedXML()`/`encodedTOML()` return `EncodedBytes`, not `[UInt8]`, since 2026-09-20**: the writers own their buffers, so a write is a store rather than an `Array` append with its uniqueness check (`base/encode` 36,013 checks → 0, −19% instructions), and `finish()` hands the allocation over instead of copying the document out. `EncodedBytes` is `~Copyable` with `withUnsafeBytes`, `text()` and a copying, consuming `Array(_:)` initialiser; `EncodeDiagnosis.bytes` stays `[UInt8]`. YAML renders through the `RawValue` seam; XML cannot (placement is not expressible there) so it has its own generated body. XML defaults settled by surveying Jackson/Go/.NET/serde. The six semantics questions and their answers are in `docs/ENCODING.md`; round-trip is a stated law with a closed exception list |
 | Allocation counts | **measured and gated** — live blocks, not total malloc traffic. Read `Benchmarks/Sources/AssayBench/Allocations.swift`'s three stated limitations before quoting a number |
-| `Date` + `@DateFormat` (ISO-8601, unix, RFC 9110, patterns, candidate chains) + `.before/.after/.between` rules | **built and measured** — 5.40× vs Foundation `.iso8601` on 2026-09-20, 2,279-instant exact differential. It was published at 6.06×, and the commit that published it measures 4.25× on the same machine today: a Foundation-relative ratio belongs to the OS that produced it, which `Benchmarks/RESULTS.md`'s header now says in full. Core stays Foundation-free: parsers return epoch seconds, the macro emits `Date(timeIntervalSince1970:)` into the user's module. `.past`/`.future` deferred (no clock seam) |
-| `[String: T]` dictionary fields | **built and measured 2026-08-07** — both decode paths, recursive nesting, non-String keys diagnosed at expansion. The §2.5 "worst case" measured **6.95×** over Foundation; narrowing with size confirmed, loss did not materialise |
-| `@XML` placement (`.attribute`/`.text`/`.wrapped`) | **built** — expansion-checked. `@XML(root:)` followed 2026-09-08, two rows down |
+| `Date` + `@DateFormat` (ISO-8601, unix, RFC 9110, patterns, candidate chains) + `.before/.after/.between` rules | **built and measured** — 5.40× vs Foundation `.iso8601` on 2026-09-20, 2,279-instant exact differential. It was first published at 6.06× and later at 8.04×, and the commit that published the latter measures 4.25× on the same machine today: a Foundation-relative ratio belongs to the OS that produced it, which `Benchmarks/RESULTS.md`'s header now says in full. Core stays Foundation-free: parsers return epoch seconds, the macro emits `Date(timeIntervalSince1970:)` into the user's module. `.past`/`.future` deferred (no clock seam) |
+| `[String: T]` dictionary fields | **built and measured 2026-08-07** — both decode paths, recursive nesting, non-String keys diagnosed at expansion. The predicted worst case did not materialise as a loss: 7.25× on macOS, 6.01× on Linux aarch64, 6.50× on x86-64 (`Benchmarks/RESULTS.md`, other platforms); narrowing with size confirmed |
+| `@XML` placement (`.attribute`/`.text`/`.wrapped`) | **built** — expansion-checked. `@XML(root:)` followed 2026-09-08 (its own row below) |
 | Rows and columns | **built, measured, REMOVED IN FULL 2026-09-11.** Two decode paths for column stores and row sources: `KeyedSource` (withdrawn 2026-08-10 on its numbers) and the columnar half that survived it — `ColumnarSource`, `ColumnDecodable`, `RowBatch`, `RowDecoder<T>`, `RowSink`, `@Schema(sources: true)`. The columnar one won every technical argument: 11 ns/row, 6.6–7.1× the tree path, write side 1.3 ns/row against 60. **It was removed for a product reason, not a technical one** — nothing depended on it (neither haul nor swizzle referenced Assay at all), the audience is small, and a decoder that also owns column stores is two libraries wearing one name. It cost ~1,900 lines, doubled expansion for types that used it (164 ms vs 80), and three of the week's bugs were in it. **`T.validate(_:)` is now the only answer** to "my fast reader wants Assay's rules", which is a better answer for being the only one. `ROADMAP.md` keeps the short record. If it returns it should be a separate package that depends on Assay, and only once something concrete needs it. **Do not rebuild it inside Assay.** |
 | `T.validate(_:)` / `T.diagnose(_ value:)` | **built** — the schema's rules against an already-constructed value, which is the seam a fast external reader wants. 37 ns/value, 46 ns/row batched (2026-09-20; 79 and 87 before the allocation-free rule engine and the rule borrow). `docs/VALIDATE.md` |
 | Rule engine, allocation-free | **built and gated** — `.email` 179 → 25 ns, `.uuid` 50 → 28, `.min`/`.max` on String 22 → 14. Differential against the previous implementation as an oracle, 40,062 strings × 6 checks |
 | `@Unknown` open enums | **built** — `@Schema enum` + `@Unknown case other(String)`; encoding refuses an unrecognised variant unless `roundTrips: true`. Closed enums still need no macro |
-| Narrow integer widths + `[UInt8]` | **built 2026-08-31** — `Int8`/`Int16`/`UInt8`/`UInt16`/`UInt32`/`UInt64` on every path (JSON, RawValue, rules, all three encoders, columnar manifest), so `[UInt8]` is a field type and reaches `bytesColumn`. `UInt64` keeps `UInt`'s inherited ceiling at `Int64.max` — `scanInt64` is the carrier — and a test pins it. Surfaced and fixed two pre-existing bugs: `decodeInt64`/`decodeInt32` skipped `beginValue()` so their validation carets pointed at the wrong bytes, and `write(_ v: UInt)` reinterpreted the bit pattern so `UInt.max` encoded as `-1` |
+| Narrow integer widths + `[UInt8]` | **built 2026-08-31** — `Int8`/`Int16`/`UInt8`/`UInt16`/`UInt32`/`UInt64` on every path (JSON, RawValue, rules, every encoder), so `[UInt8]` is a field type. `UInt64` keeps `UInt`'s inherited ceiling at `Int64.max` — `scanInt64` is the carrier — and a test pins it. Surfaced and fixed two pre-existing bugs: `decodeInt64`/`decodeInt32` skipped `beginValue()` so their validation carets pointed at the wrong bytes, and `write(_ v: UInt)` reinterpreted the bit pattern so `UInt.max` encoded as `-1` |
 | `Assayer<T>` + `AssayerBacked` | **built 2026-09-08** — the runtime value API, for the two things `@Schema` cannot express: a schema with no declaration, and a type that IS a constrained scalar. **The macro needed no change** — `CodeGen` already emits `Base._assay(...)` for any unrecognised token, so a conforming type is already a nested schema type. Non-generic plan, generic only at `build`; the `RawValue` interpreter charges depth ITSELF because a runtime plan can hold a `.lazy` cycle no macro-emitted schema can. `docs/ASSAYER.md` |
 | `@Wraps` | **built 2026-09-08** — sugar over `AssayerBacked`, which is why it waited: before that a wrapper needed two hand-written decode bodies. Wrapped type restricted to `String`/`Int64`/`Double`/`Bool` (a macro sees a token). A `@Wraps` field and `@Validate(.email)` on a `String` produce **identical issues** — that equivalence is the feature |
-| `@OneOrMany` | **built 2026-09-08** — and it exposed that the `RawValue` path was ALREADY tolerant, so `tags: swift` decoded from YAML and was a mismatch as JSON. It cannot be made strict: XML spells a sequence as repeated siblings, indistinguishable from a YAML scalar at that layer. The attribute lands on the JSON path where the choice is genuine; the asymmetry is now a stated contract. `@PickFirst` is CUT — its blocker was misidentified, the real one is unions, which were absent from `ROADMAP` entirely |
+| `@OneOrMany` | **built 2026-09-08** — and it exposed that the `RawValue` path was ALREADY tolerant, so `tags: swift` decoded from YAML and was a mismatch as JSON. It cannot be made strict: XML spells a sequence as repeated siblings, indistinguishable from a YAML scalar at that layer. The attribute lands on the JSON path where the choice is genuine; the asymmetry is now a stated contract. `@PickFirst` is CUT — its blocker was misidentified, the real one is unions |
 | `@XML(root:)` | **built 2026-09-08** — unannotated does not check the root (it is often an unmodelled wrapper); annotated, a mismatch is an issue. Found a trap worth carrying to `@Schema(context:)`: a no-op on a wide protocol shadowed by a constrained overload resolves from the STATIC type, so it compiled and checked nothing. A metatype cast works |
 | `@Schema(context:)` | **built 2026-09-08** — the MACRO half; the type-erased runtime context for `Assayer<T>` is not built and is not planned. A contextual type conforms to `ContextualJSONAssayable` and *not* `JSONAssayable`, so `parse(json:)` does not exist for it — "you cannot forget to pass it" is the type system, not advice. Context-free expansion is byte-identical (verified by dumping one). Cost three overload-resolution bugs, one of which silently ran the SYNC `diagnose` for an `await` call and skipped every async check |
 | `@Key(path:)` | **built 2026-09-08** — a path is a TREE OF THE EXISTING DISPATCH TABLE, not a second pass: two fields under one prefix are one arm. **0.97–1.01× the nested-`@Schema` alternative** against a ship-or-refuse gate of 1.15× written first. Caret rule: the path names the segment that failed, the caret points at the innermost thing that existed; a missing intermediate is absence, a wrong-typed one is an error even when everything under it is optional. Inner dispatch is a linear chain, NOT a second 256-byte window table (rule 1). Index segments (`tags[0]`) refused — `ROADMAP.md` |
-| `parse(toml:)` | **built 2026-09-10** — `AssayTOML`, a hand-written TOML 1.0.0 parser on the `RawValue` path. **710/710 on the official toml-test suite** (210 valid to the exact value, 501 invalid refused) on the first run, in CI; toml++ (TOMLKit) as the differential oracle. The whole difficulty is the redefinition rules, implemented as "every value except an open table is closed when parsed" plus one origin tag per table. Date-times project to RFC 3339 strings so `Date` fields decode unchanged. Encoding omits nil members and reports every other null (TOML has no null). **4.06× toml++ on the tree, 6.55× TOMLKit's Codable decoder** (2026-09-20; 1.09× and 1.81× before the arena and the direct `RawValue` door) — a tree decoder, the JSON thesis does not apply. `docs/TOML.md` |
-| `parse(plist:)` | **built 2026-09-09** — `AssayPlist`, both flavours. ROADMAP called it "mechanically the smallest item"; the XML flavour is (it reuses the XXE-refusing XML parser), the BINARY flavour is a random-access object graph with two amplification attacks no existing limit covered — reference cycles (visiting set on the reference PATH, not a global seen set: sharing is legal) and shared-object amplification (10 arrays x 1000 refs, <1 kB, 10^30 nodes, depth 10 so maxDepth never fires — node budget). A fuzz arm found an `Int(UInt64)` trap on trailer fields on its first run. `docs/PLIST.md` |
-| `jsonSchema(for:)` | **built 2026-09-09** — `@Schema(describes: true)`, opt-in. Emits a DESCRIPTOR, not document text: the rule→keyword mapping lives once in `AssayCore`, so the predicted HIGH compile-time risk did not materialise — **94.6 ms/type against the rule-carrying arm's 90.0, about 5%** — because the descriptor references the existing `__assayRules_i_j` statics. Renderer law: **describe MORE than the type accepts, never less**; a rule with no exact 2020-12 keyword becomes `description` prose, not an approximate `pattern`. Found that `.isTrimmed`/`.isLowercase` are ASSERTIONS, not normalisations — a comment said otherwise and a test caught it. `@Key(path:)` and `@XML` placement are refused at expansion rather than described wrongly |
-| `@Schema(discriminator:)` | **both forms built 2026-09-09**, **encoding 2026-09-10** — JSON only, because a union has no `RawValue` path to decode from or encode through. Encoding cost every `encodes: true` type a brace split: the union cannot write a variant's fields (the payload is a token) and a variant that writes its own braces leaves nowhere for the tag, so `_assayEncodeMembers` carries the key/value pairs and `_assayEncode` is a three-line wrapper — measured at **under half a millisecond per type and not growing with fields**. The same run measured `encodes: true` itself for the first time: **~5%** (82.2 ms/type against the decode-only arm's 78.0 at 10 fields), against a stated justification that said it would roughly double the per-field cost — the code does double, the compile time does not follow it. Tag FIRST, or `_scanDiscriminator` pre-scans every document Assay wrote. The untagged form adds `ENCODING.md`'s **fourth round-trip exception** (two variants whose types accept the same documents; the macro refuses only the same payload *token*). And it found a refusal that was not refusing: `formats: .all` sets the RawValue bit *and* the JSON one, and the guard tested only `formats.json`, so `.all` emitted a JSON-only body — the exact trap the refusal existed to prevent. Scan keys for the tag (values skipped structurally), rewind, decode the branch over the whole object. **ROADMAP's "both primitives already exist" was one short**: `seek(to:)` restores the cursor and `rollback(to:)` the issues, but neither restores container DEPTH — an ordinary failure is balanced, a MALFORMED CONTAINER was not. FIXED AT SOURCE (one `leaveContainer()` per collection error arm; measured cost nil) rather than papered over at the union boundary, because "nothing observes it today" is how several of this week's bugs were made. `AssayReader.Mark`/`restore(_:)` stays as the complete rewind, and the source invariant has its own test asserted with `seek` alone. Tagged first because three of `UNIONS.md`'s four hard questions do not apply to it. The RawValue path stays REFUSED at expansion rather than silently omitted |
+| `parse(toml:)` | **built 2026-09-10** — `AssayTOML`, a hand-written TOML 1.0.0 parser on the `RawValue` path. **every case of the official toml-test suite** (709 at the time of writing: 208 valid to the exact value, 501 invalid refused; CI checks the suite out at HEAD, so the count moves), in CI; toml++ (TOMLKit) as the differential oracle. The whole difficulty is the redefinition rules, implemented as "every value except an open table is closed when parsed" plus one origin tag per table. Date-times project to RFC 3339 strings so `Date` fields decode unchanged. Encoding omits nil members and reports every other null (TOML has no null). **4.06× toml++ on the tree, 6.55× TOMLKit's Codable decoder** (2026-09-20; 1.09× and 1.81× before the arena and the direct `RawValue` door) — a tree decoder, the JSON thesis does not apply. `docs/TOML.md` |
+| `parse(plist:)` | **built 2026-09-09** — `AssayPlist`, both flavours. It was expected to be the smallest item; the XML flavour is (it reuses the XXE-refusing XML parser), the BINARY flavour is a random-access object graph with two amplification attacks no existing limit covered — reference cycles (visiting set on the reference PATH, not a global seen set: sharing is legal) and shared-object amplification (10 arrays x 1000 refs, <1 kB, 10^30 nodes, depth 10 so maxDepth never fires — node budget). A fuzz arm found an `Int(UInt64)` trap on trailer fields on its first run. `docs/PLIST.md` |
+| `jsonSchema(for:)` | **built 2026-09-09** — `@Schema(describes: true)`, opt-in. Emits a DESCRIPTOR, not document text: the rule→keyword mapping lives once in `AssayCore`, so the predicted HIGH compile-time risk did not materialise — **about 5%** (94.6 ms/type against 90.0 for the same rule-carrying types without it, measured before `_assayCheck` joined that arm) — because the descriptor references the existing `__assayRules_i_j` statics. Renderer law: **describe MORE than the type accepts, never less**; a rule with no exact 2020-12 keyword becomes `description` prose, not an approximate `pattern`. Found that `.isTrimmed`/`.isLowercase` are ASSERTIONS, not normalisations — a comment said otherwise and a test caught it. `@Key(path:)` and `@XML` placement are refused at expansion rather than described wrongly |
+| `@Schema(discriminator:)` | **both forms built 2026-09-09**, **encoding 2026-09-10** — JSON only, because a union has no `RawValue` path to decode from or encode through. Encoding cost every `encodes: true` type a brace split: the union cannot write a variant's fields (the payload is a token) and a variant that writes its own braces leaves nowhere for the tag, so `_assayEncodeMembers` carries the key/value pairs and `_assayEncode` is a three-line wrapper — measured at **under half a millisecond per type and not growing with fields**. The same run measured `encodes: true` itself for the first time: **~5%** (82.2 ms/type against the decode-only arm's 78.0 at 10 fields), against a stated justification that said it would roughly double the per-field cost — the code does double, the compile time does not follow it. Tag FIRST, or `_scanDiscriminator` pre-scans every document Assay wrote. The untagged form adds `ENCODING.md`'s **fourth round-trip exception** (two variants whose types accept the same documents; the macro refuses only the same payload *token*). And it found a refusal that was not refusing: `formats: .all` sets the RawValue bit *and* the JSON one, and the guard tested only `formats.json`, so `.all` emitted a JSON-only body — the exact trap the refusal existed to prevent. Scan keys for the tag (values skipped structurally), rewind, decode the branch over the whole object. **The assumption that both rewind primitives already existed was one short**: `seek(to:)` restores the cursor and `rollback(to:)` the issues, but neither restores container DEPTH — an ordinary failure is balanced, a MALFORMED CONTAINER was not. FIXED AT SOURCE (one `leaveContainer()` per collection error arm; measured cost nil) rather than papered over at the union boundary, because "nothing observes it today" is how several of this week's bugs were made. `AssayReader.Mark`/`restore(_:)` stays as the complete rewind, and the source invariant has its own test asserted with `seek` alone. Tagged first because three of `UNIONS.md`'s four hard questions do not apply to it. The RawValue path stays REFUSED at expansion rather than silently omitted |
 | Untagged unions (`discriminator: .untagged`) | **built 2026-09-09** — first match wins. The composed report is one summary plus the CLOSEST branch's detail, and producing that detail means **running the winner twice**: the measuring pass rolls every branch back, so by then its issues are gone; snapshotting instead costs an allocation per branch on every decode. `maxUnionAttempts` is global and **not refunded by a rewind**. `verboseUnions` suppresses the SINK rollback and not the READER restore — getting that wrong made branch two report about a position it never should have seen. `docs/UNIONS.md` |
 | `parse(body:contentType:accepting:)` | **built 2026-09-08** — formats are VALUES (`WireFormat`), because `Assay` cannot depend on `AssayYAML`. RFC 9110 + 6839 suffixes, charset checked never transcoded, no sniffing ever, `unsupported_media_type` its own code so a server maps 415. The load-bearing test: a billion-laughs XML body offered to `accepting: [.json]` produces one negotiation issue and never enters the parser |
-| Encoding throughput | **measured 2026-09-08, re-measured 2026-09-20 at 8.75× (50 items) and 9.04× (200)** after rows 5, 8 and 22 — one path per array, key literals carrying their own punctuation, and a writer that owns its buffer. It was **2.85×** over `Encodable` + `JSONEncoder` at 50 and 200 items on 2026-09-08, against the *swift-foundation rewrite* (verified behaviourally: `Float(0.1)` encodes as `0.1`, not the legacy `NSNumber`-widened `0.10000000149011612`). A measurement, not a thesis — the decode multiple has an argument behind it and this one does not |
+| Encoding throughput | **measured 2026-09-08, re-measured 2026-09-20 at 8.75× (50 items) and 9.04× (200)** after rows 5, 8 and 22 — one path per array, key literals carrying their own punctuation, and a writer that owns its buffer. It was **2.85× / 2.80×** over `Encodable` + `JSONEncoder` at 50 and 200 items on 2026-09-08, against the *swift-foundation rewrite* (verified behaviourally: `Float(0.1)` encodes as `0.1`, not the legacy `NSNumber`-widened `0.10000000149011612`). A measurement, not a thesis — the decode multiple has an argument behind it and this one does not |
 | `@Inline` | **built 2026-09-08** — the recorded blocker (cross-module collision detection) was the wrong blocker: a macro cannot see another type's members in ANY module. Requiring the type to be **nested** makes detection total at expansion, makes unknown-key handling work through the inline (serde's runtime `flatten` cannot), and costs nothing at runtime — one table, one mask, one pass |
 | Key dispatch past the window's ceiling | **built 2026-09-19** — the global 8-bit window needs one window distinct across ALL keys, a birthday bound that gives out at ~11 same-prefix keys and ~13 realistic ones. Past it the fallback buckets by length and a bucket of ≥3 keys whose chain is EXPENSIVE gets its OWN window (`WindowSearch.bucketSearch`, smallest largest-collision-group, never required to be perfect). **−10% to −27.5%** at 16–64 same-prefix keys. Realistic names were never slow — a failed `keyMatches` exits on byte one — and emitting windows for them cost **+12.7% compile time for nothing**, so `WindowSearch.chainCost` (expected bytes compared, threshold 8) keeps their chains: realistic buckets score 1–4, `k00…` 15–67. The 2026-09-13 "60% rise with field count" was a property of `k00…`-style keys, not of wide structs; corrected in `Benchmarks/RESULTS.md` |
 | Exact counts (Valgrind) | **built and gated 2026-09-19** — `Benchmarks/count.py`: every matrix cell under Callgrind + DHAT at K=1 and K=3, subtracted, so one steady-state call. Instructions, retain/release (incl. `bridgeObject`), allocations, uniqueness checks, heap blocks/bytes. **Calls are deterministic run to run; Ir within 0.001%.** Needs no PMU, so it gates on hosted Linux runners (`efficiency.yml`, x86-64 + aarch64) where wall clock may not: calls/blocks ratchet exactly, Ir +2%. Mac: `Benchmarks/count.sh` (container). First retain/release number Assay ever had. **Both baselines committed** (`counts-baseline.aarch64.json`, `counts-baseline.x86_64.json`, the latter from CI), and the whole efficiency workflow is green on both hosted architectures. A change to `AssayMacros` needs `count.sh` to rebuild `AssayMatrix`, which it now always does: SwiftPM's incremental build does not reliably re-expand macros in dependents. **Read `docs/EFFICIENCY.md` before optimising anything** — the ledger there is the work queue |
-| Static ARC audit | **built 2026-09-19** — `Experiments/05-arc-audit`: the optimiser's own `sil-assembly-vision-remark-gen` record, summarised per demangled function (retain/release/box/ref SITES), golden per OS, byte-identical across clean builds. A HOT function (generated `_assay`, reader primitives) gaining a site fails; cold ones are reported. It was phase 3's "SIL dumps to count ARC traffic", recommended by the codegen research and never wired until now |
-
-Everything below that is not marked above is still design, not measurement.
+| Static ARC audit | **built 2026-09-19** — `Experiments/05-arc-audit`: the optimiser's own `sil-assembly-vision-remark-gen` record, summarised per demangled function (retain/release/box/ref SITES), golden for Linux (the gated one; none is committed for Darwin), byte-identical across clean builds. A HOT function (generated `_assay`, reader primitives) gaining a site fails; cold ones are reported. It was phase 3's "SIL dumps to count ARC traffic", recommended by the codegen research and never wired until now |
 
 ### Named in the design documents and NOT built
 
@@ -81,6 +78,10 @@ spelling" and "you can call it" are different claims, and this table is which is
 |---|---|---|
 | `StandardSchema` | EXPERIENCE §15 | not built — `ROADMAP.md`. The blocker is a REPOSITORY, not a design: "Assay conforms to it" and "Assay does not depend on it" cannot both hold in one package, so it needs a third adapter package |
 | `@Key(path: "tags[0]")` — the INDEX form | EXPERIENCE §4 | refused at expansion — `ROADMAP.md`. The dot form ships |
+| `message(locale:)` | EXPERIENCE §3 | not built — `ROADMAP.md` |
+| `.past` / `.future` rules | EXPERIENCE §5 | not built, no clock seam — `ROADMAP.md` |
+| `parse(bytes, as:)` / `parse(contentsOf:)` | EXPERIENCE §12 | not built — `ROADMAP.md` |
+| type-erased runtime context for `Assayer<T>` | EXPERIENCE §10 | not built, not planned — `ROADMAP.md` |
 
 ---
 
@@ -185,12 +186,17 @@ required / `String?` / `= 3` default (absent only, still validated) / `@Fallback
 invalid, not re-validated) / `@Ignore`. `var x = 3` and `let y: Int = 3` are hard errors.
 
 ### Ordering
-preprocess → coerce → decode → field rules → cross-field checks → transform → async checks.
+decode (coercing where asked) → preprocess → field rules → transform → `@Check` (field and
+cross-field) → async checks. `@Preprocess` normalises the decoded String before any rule sees
+it; it cannot influence decoding or coercion. Field rules see the WIRE value; the transform
+is applied as the value is constructed, so every `@Check` sees the transformed property.
+(This read "preprocess → coerce → decode → field rules → cross-field checks → transform"
+until 2026-10-04; the generated code has never run in that order.)
 `@AsyncCheck` makes `parse` async by a compile-time count; the sync pass collects everything
 first, async runs only if sync was clean, then concurrently.
 
 ### Packaging
-Products `Assay` (core + JSON), `AssayFoundation`, `AssayYAML`, `AssayXML`, `AssayTOML`, `AssayPlist`. Core takes bytes, not
+Products `Assay` (core + JSON), `AssayCore` (the Foundation-free core alone; `Assay` re-exports it), `AssayFoundation`, `AssayYAML`, `AssayXML`, `AssayTOML`, `AssayPlist`. Core takes bytes, not
 `Data` — and since 2026-09-22 `AssayFoundation` carries the `Data` overloads, which decode
 the borrowed buffer rather than converting it. The format modules import NO Foundation at
 all, which is why a `Data` door for YAML/XML/TOML/plist does not exist: it would either
@@ -203,10 +209,12 @@ unconstrained, which broke the iOS build until 2026-08-22. `Limits` (maxIssues 1
 no default (XXE / billion-laughs).
 
 ### Encoding
-A **deferral, not a refusal**. Placement data (`@Key`, `@XML`, `@DateFormat`) is preserved so the
-encoder can be added without a redesign. `T.jsonSchema(for: .input)` **shipped 2026-09-09** behind `@Schema(describes: true)`.
-`StandardSchema` needs a third adapter package — "Assay conforms to it" and "Assay does not
-depend on it" cannot both hold in one — and is the last unbuilt item in `EXPERIENCE.md`.
+**Built** behind `@Schema(encodes: true)` for JSON, YAML, XML and TOML — `docs/ENCODING.md`.
+It was a deferral, and placement data (`@Key`, `@XML`, `@DateFormat`) had been preserved so
+that it needed no redesign. `T.jsonSchema(for: .input)` **shipped 2026-09-09** behind
+`@Schema(describes: true)`. `StandardSchema` needs a third adapter package — "Assay conforms
+to it" and "Assay does not depend on it" cannot both hold in one. The table above lists
+everything `EXPERIENCE.md` names that is not built.
 
 ---
 
@@ -219,10 +227,10 @@ container protocol reports ~6×. ~83% of a Swift decode is the Codable boundary.
 it at compile time.
 
 **Measured directly 2026-09-09, and it was a citation until then.** ZippyJSON is now a
-benchmark dependency rather than a number read from someone else's table: **Assay is 3.0×
+benchmark dependency rather than a number read from someone else's table: **Assay is 3.61×
 faster than it** on this machine, against this Foundation, on this corpus — scalar Swift with
 no SIMD anywhere against simdjson underneath, the only structural difference being the
-container. ZippyJSON measures **1.65–1.96× over Foundation here**, *better* than the 1.38× it
+container. ZippyJSON measures **1.60–1.84× over Foundation here**, *better* than the 1.38× it
 was cited at, so the result is not a matter of hobbling it. `Benchmarks/RESULTS.md`.
 
 **Falsification condition, written down on purpose:** if a scalar Swift phase-1 implementation
@@ -234,13 +242,11 @@ phase 1 without that number.
 
 ## Compile time is the second performance axis
 
-`docs/COMPILE-TIME.md` is the third authoritative document. The short version:
+`docs/COMPILE-TIME.md` is the second authoritative document. The short version:
 
 **`@Schema` costs ~81 ms per type at 10 fields — about 4.2× `Codable`**, JSON only; a type
 that opts into `@Schema(formats:)` emits a second body and costs ~5.1× instead. **Quote the
-arm.** This said 3.6× until 2026-10-02, derived from `COMPILE-TIME.md` §1's older table
-rather than from the harness; `Benchmarks/RESULTS.md`'s headline table reads 4.22×, because
-`Codable` itself got faster (~22 ms/type → ~19). The cost model is
+arm.** `Benchmarks/RESULTS.md`'s headline table carries the figure (80.8 ms, 4.22×). The cost model is
 `9 ms fixed per type + 7.3 ms per field`, so it scales with **generated body size, not with the
 number of expansions**. The plugin round trip is the small term.
 
@@ -250,8 +256,9 @@ literal (16%), and one line of generated code per field (a further 4%, 20% on wi
 
 Why it is a gate and not a footnote: a developer replaces `: Codable` with `@Schema` across their
 model layer in one commit and then waits for a build. **The adoption decision is made at compile
-time, before the first runtime benchmark is run.** CI gates at 100 ms/type
-(`Experiments/03-compile-time/gate.sh`); currently ~82 ms, minimum of 3 builds.
+time, before the first runtime benchmark is run.** `Experiments/03-compile-time/gate.sh` holds
+three budgets: 100 ms/type rule-free and 145 ms rule-carrying (local runs only), and a 6.0×
+ratio against `Codable`, which is the one CI gates. Currently ~81 ms, minimum of 3 builds.
 
 ## Hard constraints on generated code
 
@@ -270,56 +277,58 @@ These are not style preferences. Violating any of them silently destroys the per
    table there while arm64 uses a search tree below ten. The constraint holds on both, with
    more margin on x86-64. `TARGET=x86_64-apple-macosx13.0 sweep.sh` cross-emits the assembly,
    so this needs no x86-64 machine — only throughput does.
-3. **Never capture the issue buffer in an escaping closure.** `inout [Issue]` is statically
+3. **Never capture the issue buffer in an escaping closure.** `inout IssueSink` is statically
    enforced and free; boxing it adds a `beginAccess`/`endAccess` pair per field.
 4. **Emit many medium functions, not one giant flat decode body.** (This also serves the
-   compile-time budget: per-field generated code must be one line, calling an `@inlinable`
+   compile-time budget: per-field generated code is one line for a scalar field, calling an `@inlinable`
    runtime primitive. Anything conditional belongs in `AssayCore`, not in the expansion.) Escape analysis has
    `getComplexityBudget = 1_000_000 / estimatedFunctionSize` (÷10 more for ARC), and budget
    exhaustion is *indistinguishable from "it escapes"* — the retains stay, with no diagnostic.
 5. **`@inlinable` on every hot runtime leaf**, or cross-module specialization does not happen for
    a source package. **Never on generated bodies** — they are already in the user's module and
    already concrete, and SE-0193 restricts `@inlinable` to referencing ABI-public declarations,
-   which makes every *public* `@Schema` type fail against its own internal memberwise init. Prefer `@_alwaysEmitIntoClient` / `@export(implementation)` to avoid ABI
-   lock-in. Do **not** use `@_specialize` (opts out of CMO, cannot name user types) or
+   which makes every *public* `@Schema` type fail against its own internal memberwise init. Do **not** use `@_specialize` (opts out of CMO, cannot name user types) or
    `@_semantics` (closed list).
 6. **Generated per-field code is concrete and monomorphic**, emitted into the user's module. No
    generic parameter to specialize is the whole reason a macro decoder can be fast in Swift.
 7. **Decode stays synchronous.** `throws` returns in the callee-saved `swifterror` register
    (`r12`/`x21`); async functions do not get it.
-8. **Index the hot path with `Span.subscript(unchecked:)`.** The checked subscript uses
-   `_precondition`, which survives `-O`, and bounds-check elimination requires a linear induction
-   variable — a data-dependent parser cursor is not one.
+8. **Index the hot path unchecked.** The reader holds an `UnsafePointer<UInt8>` behind a safe
+   façade (`AssayReader.swift`'s header records why it is not `RawSpan`). A checked subscript
+   uses `_precondition`, which survives `-O`, and bounds-check elimination requires a linear
+   induction variable — a data-dependent parser cursor is not one.
 9. **No closures capturing `Span`-typed values in the hot path.** `mark_dependence` blocks closure
    specialization; one reported `MutableSpan` port cost +75%.
-10. **Never `.unsafeFlags`.** Never `-enable-library-evolution`. Never benchmark at `-Ounchecked`.
-11. **Unsafe code only below the dispatch seam**, and the seam's signature must be expressible
-    entirely in `RawSpan`, `Span`, and values. An `UnsafeRawBufferPointer` in a public signature
-    means the design is wrong.
+10. **Never `.unsafeFlags` in the library manifest** (the benchmark package uses it once, for
+    vendored yyjson's `-O3`). Never `-enable-library-evolution`. Never benchmark at `-Ounchecked`.
+11. **Unsafe code only below the dispatch seam.** The user-facing doors take bytes (`[UInt8]`,
+    `String`, `Data`) and never a pointer. The pointer-taking initialisers
+    (`AssayReader.init(base:count:)`, `SourceBytes.init(unsafeBorrowed:…)`) are public only
+    because generated code and the format modules must reach them.
 
 ## Entry point shape
 
 ```swift
-extension User: Assayable {}
-
-extension User {
+extension User: Assay.JSONAssayable {
     nonisolated static func _assay(
-        from reader: inout AssayReader
-    ) throws(AssayError) -> Self { ... }
+        from reader: inout Assay.AssayReader,
+        into sink: inout Assay.IssueSink,
+        at path: inout [Assay.PathStep]
+    ) -> User? { ... }
 }
 ```
 
-**Changed 2026-09-19: the diagnostic path is `inout`.** The real generated requirement is
-`_assay(from reader: inout AssayReader, into sink: inout IssueSink, at path: inout [PathStep]) -> Self?`.
-It was `at path: [PathStep]` by value, and a by-value path forces every nested schema to
+Non-throwing, returning nil having reported to the sink. **The diagnostic path is `inout`
+since 2026-09-19.** It was `at path: [PathStep]` by value, and a by-value path forces every nested schema to
 build `path + [.key(k)]`, which always allocates: one heap block per nesting level per element
 (4,000 of `nested-3`'s 4,014 per call). Now a caller pushes, calls, and pops, and one buffer
 serves the whole decode: nested-3 −33% instructions, 4,014 → 15 blocks, −56% heap. The rule
 for any body: leave `path` as you found it; every push brackets one non-throwing call, and a
 body with `@Key(path:)` groups also restores the depth in a `defer`. Decided on the counts
-(`docs/EFFICIENCY.md` row 7) with the user's go-ahead. JSON encode (`_assayEncode`) followed the
-same day (nested-3/encode −37.7% instructions, 4,012 → 13 blocks); RawValue, XML and validate
-still take the path by value.
+(`docs/EFFICIENCY.md` row 7) with the user's go-ahead. JSON encode (`_assayEncode`) and the
+RawValue decode (`RawDecodable._assay`) followed the same day (nested-3/encode −37.7%
+instructions, 4,012 → 13 blocks); the RawValue encode (`_assayEncodeRaw`), the XML encode
+(`_assayEncodeXML`) and validate (`_assayCheck`) still take the path by value.
 
 `public protocol Assayable: Sendable` — marker protocol, zero runtime cost, and it prevents
 `-default-isolation MainActor` inference. `AssayError` must stay pointer-sized (serde_json:
@@ -331,7 +340,7 @@ still take the path by value.
 
 1. **Prove the thesis.** Scalar Swift scanner, macro emitting simdjson tier-1 window dispatch,
    monomorphic integer parsers, no-escape string fast path, whole-buffer UTF-8 validation up
-   front, lazy source locations, `inout [Issue]`. No SIMD, no C. Benchmark vs Foundation, count
+   front, lazy source locations, `inout IssueSink`. No SIMD, no C. Benchmark vs Foundation, count
    allocations. → the falsification condition above.
 2. **The unclaimed wins.** Hand-written ISO-8601 dates, unknown-key structural skip, exact-sized
    arrays. ~~steady-state scratch reuse in `Assayer<T>`~~ — **that premise is stale and is
@@ -341,7 +350,7 @@ still take the path by value.
 3. **Codegen discipline.** SIL dumps to count ARC traffic, `@inlinable` on hot leaves, split
    generated bodies, verify the dispatch lowering.
 4. ~~**SIMD behind the seam**~~ — **RETIRED 2026-08-08, unbuilt.** Measured: UTF-8 validation is
-   5.0–5.3% of decode on the API shape, so a *perfect* vectoriser buys ~5% there; the measured
+   about 4–5% of decode, so a *perfect* vectoriser buys that much; the measured
    gap to hand-tuned C is ~1.5×. A 5% slice does not close it.
 5. ~~**C**~~ — **RETIRED**, it was gated on phase 4's x86-64 numbers and phase 4 will not
    produce any.
@@ -366,36 +375,23 @@ body referencing `Builtin` inlined into a client that has not enabled the featur
 "separate Swift module per ISA" route the SIMD research listed as its first option. If
 x86-64 AVX2 ever matters, C is the only way there.
 
-## Start here now
+## What is open, and what is worth not redoing
 
-Since resolved from this list: source spans for YAML and XML (2026-08-13,
-carets on all three formats, ~2% on YAML and nothing elsewhere), `Date` and `@DateFormat` (2026-08-06 — built, measured at
-6.06×, differentially verified; `ROADMAP.md` records what remains deferred and why), and
-the loss against yyjson (2026-08-09 — 0.66× on the use-case shape, 0.77× float-dense, and
-DOM-vs-DOM, which was 0.06× until 2026-09-11 and is 0.13× since: profiling it found an
-array allocation PER VALUE for a diagnostic path nothing reads, the third instance of that
-exact mistake in this codebase. All published). What remains, in order:
+What remains open is in `ROADMAP.md`: the "Not built" and "Half built" lists, and a "Not yet
+measured" table — **simdjson directly** (needs a C++ interop shim), **total allocation counts
+on Linux**, and three of `COMPILE-TIME.md` §5's compile-time axes.
 
-Both items that were here are now closed, and what they measured is worth carrying:
+Three method notes that generalise:
 
-1. ~~**x86-64 numbers**~~ — closed 2026-08-20 on a hosted runner. Struct decode **10.89×**,
-   the best of the three platforms.
-2. ~~**Cold start**~~ — closed 2026-09-09. The "should" held, and by more than expected:
-   **first decode 6.6× against 5.4× steady state** (7.7–7.9× against 6.6–6.8× when first measured), so the one-time per-type work is
-   where the gap is *widest*. Method note that generalises: the headline is the **median** of
-   60 one-shot per-type samples. A total-based version of the same arm gave 3.3×, 5.8× and
-   5.2× on three runs of one build, because a few first-of-everything outliers dominate a sum.
-
-What remains open is in `ROADMAP.md`'s "Not yet measured" table: **simdjson directly** (needs
-a C++ interop shim), **total allocation counts on Linux**, and three of `COMPILE-TIME.md` §5's
-compile-time axes — previews, cross-compilation and Linux.
-
-Three things that are done and worth not redoing: the allocation gate exists (live blocks,
-with its limits documented rather than buried — `.mallocCountTotal` was rejected because
-jemalloc cannot run on the musl or wasm legs), and the full corpus is swept in three passes
-because one number could not answer three questions. And the rule engine has been measured
-per rule and made allocation-free — `docs/VALIDATE.md` §4 — so "validation is slow" is a
-claim that now needs a number, not an intuition.
+- **A headline from one-shot samples is a median.** The cold-start arm's total-based version
+  gave 3.3×, 5.8× and 5.2× on three runs of one build, because a few first-of-everything
+  outliers dominate a sum of sixty samples.
+- **The losses stay published.** Against yyjson (hand-tuned C): 0.69× on the use-case shape,
+  0.69× float-dense, 0.16× DOM-vs-DOM (`Benchmarks/RESULTS.md`). Profiling the last one found
+  an array allocation PER VALUE for a diagnostic path nothing reads — the third instance of
+  that exact mistake in this codebase.
+- **"Validation is slow" is a claim that needs a number.** The rule engine has been measured
+  per rule and made allocation-free — `docs/VALIDATE.md` §4.
 
 **A whole area that was built and then removed, on purpose: decoding from rows and column
 stores.** Two paths, both gone. `KeyedSource` lost on its numbers in August; the columnar
@@ -422,7 +418,7 @@ package-benchmark silently reports zero, so the check is decorative.
 The implemented gate measures *live* blocks per decoded value via `malloc_zone_statistics`, not
 `.mallocCountTotal`: that metric needs jemalloc installed beside the toolchain and cannot run on
 the musl or wasm legs at all. The trade is stated where it is made — live counting misses
-transient allocations freed inside a decode, undercounts ~10-15% on Darwin's nano zone, and
+transient allocations freed inside a decode, was measured to undercount ~10-15% on Darwin's nano zone (the self-check has since read exact), and
 cannot compare two decoders that retain the same data. A self-check measures closures whose block
 count is arithmetic and disables the gate rather than reporting a number it cannot stand behind.
 Total malloc traffic **is now measured too**, on Darwin, by a different instrument: `malloc_logger`
@@ -430,11 +426,11 @@ counts every allocate and deallocate exactly, with none of the nano zone's batch
 **reported and never gated** — total traffic has no a-priori right answer and would fail CI on a
 change to `String`'s growth policy — but it is the one measurement that can compare the two
 decoders honestly, because the retained output is identical on both sides and cancels, leaving
-only transient work. 25 vs 6 allocations at one item, 378 vs **159** at fifty — 257 until 2026-09-13, when the generated body stopped building a diagnostic path per array element. The speed came from allocating 38% less, not from spending more. Linux has no exact
+only transient work. 25 vs 6 allocations at one item, 377 vs **159** at fifty — 257 until 2026-09-13, when the generated body stopped building a diagnostic path per array element. Linux has no exact
 counter and the arm says "unavailable" rather than guessing.
 
-Every number in the docs belongs to someone else's C, C++, Rust or Go, cited as evidence about
-*architecture*, not as a prediction about Assay's Swift. No credible published measurement exists
+The numbers in the performance thesis that are not Assay's own (ZippyJSON's 1.38×, Apple's
+~6×, ~83%) are evidence about *architecture*, not predictions about Assay's Swift. No credible published measurement exists
 for bounds-check cost, exclusivity cost, ARC-as-%-of-runtime, or existential dispatch in ns/op in
 Swift — do not put numbers for those anywhere.
 
@@ -461,7 +457,7 @@ Swift — do not put numbers for those anywhere.
   "add a second API" rather than "reverse the decision".
 - Foundation's `XMLParser` on Linux does **not** use Obj-C bridging. Do not assert it. It is
   `swift-corelibs-foundation`'s `FoundationXML` over **libxml2**, and it is fast: Assay's XML
-  parser measures 0.54× against it on Linux while measuring 1.30× on Darwin. "Assay's XML is
+  parser measures 0.96× against it on Linux while measuring 2.47× on Darwin. "Assay's XML is
   faster than Foundation's" is a Darwin-only claim.
 - **`Assayer<T>` does not own reusable scratch**, and phase 2's build order said it would. The
   premise assumed `Assayer` was the *decoder object*; it shipped 2026-09-08 as an immutable

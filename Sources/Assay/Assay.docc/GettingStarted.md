@@ -6,7 +6,7 @@ Add the package, mark a struct, call `parse`.
 
 ```swift
 // Package.swift
-.package(url: "https://github.com/nerdmenot-swift/assay.git", from: "0.1.0")
+.package(url: "https://github.com/nerdmenot-swift/assay.git", branch: "main")
 
 .target(name: "App", dependencies: [
     .product(name: "Assay", package: "assay"),            // core + JSON
@@ -44,7 +44,7 @@ itself:
 | `var name: String` | error | error |
 | `var email: String?` | `nil` | error |
 | `var roles: [String] = []` | the default | error |
-| `@Fallback(0) var retries: Int` | `0` | `0`, with a warning |
+| `@Fallback(0) var retries: Int` | `0`, with a warning | `0`, with a warning |
 | `@Ignore var cache: Cache?` | never read | never read |
 
 ## The two verbs
@@ -54,7 +54,7 @@ let user = try User.parse(json: bytes)        // throws AssayError with every is
 
 let d = User.diagnose(json: bytes)            // never throws
 if d.isValid { use(d.value!) }
-for issue in d.issues { print(issue) }        // "email must be an email address"
+for issue in d.issues { print(issue) }        // e.g. "name is required"
 ```
 
 `parse` is for code that wants a value or an error. `diagnose` is for code that wants to

@@ -4,19 +4,13 @@ This is the API specification, and it was written **before** the implementation 
 it the argument for the API rather than a description of one. Every surface here has a reason
 stated next to it, and the reasons are the point: this document is meant to be argued with.
 
-Two things to know before you trust it:
+One thing to know before you trust it:
 
 **It describes a slightly larger surface than exists.** Almost everything is built. What is
-not is `StandardSchema` (§15), whose blocker is a repository rather than a design, and
-`@PickFirst` (§9), which was **cut** once the real obstacle behind it turned out to be
-unions. `ROADMAP.md` has both stories. **`CLAUDE.md` carries the one-table inventory of what
-exists**, and that table wins any disagreement between this document and the compiler.
-
-**Second edition.** Rewritten after four audits: macro feasibility against swift-syntax
-600.0.1 and the Swift 6.3 compiler sources; cross-platform reality across Apple, Linux,
-Windows, Android and Wasm; a competitive read of serde, Pydantic, Zod v4, Valibot, ArkType,
-Ecto and garde; and a naming review. Everything in the first edition that could not compile
-was removed.
+not: `StandardSchema` (§15), `message(locale:)` (§3), index segments in `@Key(path:)` (§4),
+and `parse(bytes, as:)` / `parse(contentsOf:)` (§12); `@PickFirst` (§9) was **cut**.
+`ROADMAP.md` has each story. Where this document and the code disagree, the code is right;
+`CLAUDE.md` carries the one-table inventory of what exists.
 
 No internals. No parser design, no ARC, no SIL, no benchmark tables — those live in `EFFICIENCY.md` and `../Benchmarks/RESULTS.md`. This is only what a developer sees, types and reads.
 
@@ -26,7 +20,7 @@ No internals. No parser design, no ARC, no SIL, no benchmark tables — those li
 
 **Module: `Assay`. Protocol: `Assayable`. Macro: `@Schema`. Runtime value type: `Assayer<T>`.**
 
-You asked whether the whole thing should be called `Assayable` instead of `Assay`. It shouldn't, and the reason is mechanical rather than aesthetic.
+The whole thing is not called `Assayable`, and the reason is mechanical rather than aesthetic.
 
 A module and a protocol cannot usefully share a name in Swift. If the module were `Assayable`, then `Assayable.Assayer` — the qualified reference every macro expansion has to emit, because macros are not hygienic and must fully qualify everything they generate — parses as a *nested type lookup inside the protocol*, not a module member. It fails. The same collision corrupts the generated `.swiftinterface` under library evolution. Swift's own module-selector proposal names this exact hazard in its motivation: the `Observation` module "might have been called `Observable` if it didn't have a type with that name."
 
@@ -68,15 +62,13 @@ let article = try Article.parse(json: data)
 
 No rules. No validation. No `CodingKeys`. This is a decoder.
 
-That framing is the single biggest change from the first edition, and it came out of the competitive audit. The first edition led with three `@Validate` lines, which advertised Assay as a validation library that also happens to decode. The evidence says that is backwards.
+That framing is deliberate. Leading with three `@Validate` lines would advertise Assay as a validation library that also happens to decode, and the evidence says that is backwards.
 
 In Rust, `serde` is genuinely good, so `garde` exists as a separate validation crate layered on top. In Swift, the layer underneath is the problem. `Codable` throws away all but the first error, cannot tell you where in the file the error was, cannot rename a key without a hand-written enum, and cannot be extended from the top level at all — Vapor's own source carries a comment describing the workaround it was forced into, decoding a throwaway sentinel type through `userInfo` because "top-level decoders like `JSONDecoder` do not actually conform to `Decoder`."
 
 Adoption follows the pain. BetterCodable — pure decoding ergonomics, zero validation — sits at 1,804 stars three years after its last commit. SmartCodable's entire pitch is *never interrupting the parse*. Every Swift library that pitches itself as validation-first caps out around 100 stars.
 
 **So: Assay is not "a validation library that also decodes." It is "the decoder that tells you what went wrong."** Validation is the upsell, not the entry fee.
-
-Which answers your fourth question directly.
 
 ### Yes — it works as a pure serde, with nothing else on
 
@@ -85,9 +77,9 @@ There is one attribute. `@Schema` with no rules is a first-class mode, not a deg
 What you get for the plain struct above, with zero annotations:
 
 - Every decoding failure in one pass, not just the first.
-- Every failure carrying a path, a line, a column, and a byte range.
+- Every failure carrying a path, and on JSON a line, a column and a byte range (on the other formats, wherever a span was captured — `ROADMAP.md`).
 - Key renaming from the declared identifier, at compile time.
-- The same struct decoding from JSON, YAML, XML or plists.
+- The same struct decoding from JSON, YAML, XML, TOML or property lists, once it opts in (§12).
 - No reflection and no dynamic casts on the decode path.
 
 And when a field genuinely has a constraint, you write it in the same place:
@@ -102,7 +94,7 @@ That's the whole progression. The upgrade path is one attribute wide.
 
 ## 2. The core loop
 
-Two verbs. The first edition had three; `validate` has been cut because it collided with `ParsableArguments.validate()` in swift-argument-parser and with Vapor's `Validatable.validate()`, and because two of the three verbs had the same shape.
+Two verbs. A third parse verb, `validate(json:)`, was cut because it collided with `ParsableArguments.validate()` in swift-argument-parser and with Vapor's `Validatable.validate()`, and because two of the three verbs had the same shape. (`try T.validate(_ value:)` is a different function — it runs the schema's rules against an already-built value and decodes nothing. [`VALIDATE.md`](VALIDATE.md).)
 
 **`parse` — you want the value, and a failure is exceptional.**
 
@@ -127,7 +119,7 @@ try d.get()    // User, throwing if !isValid
 
 `Diagnosis<T>` is a plain value. You can hold it, log it, pass it across an actor boundary, or render it.
 
-This pair fixes a hole in the first edition. `try User.parse(json:)` returns `User` and therefore has nowhere to put a warning — so the whole "`@Fallback` records what it did" story silently did not work on the primary entry point. It works now, with one honest cost stated up front: **`parse` discards warnings.** If you use `@Fallback`, `@Key(or:)`, or tolerant unknown-key handling and you want to know they fired, use `diagnose`.
+The pair exists because `try User.parse(json:)` returns `User` and therefore has nowhere to put a warning — with that verb alone, the whole "`@Fallback` records what it did" story would silently not work on the primary entry point. With two it works, at one honest cost stated up front: **`parse` discards warnings.** If you use `@Fallback`, `@Key(or:)`, or tolerant unknown-key handling and you want to know they fired, use `diagnose`.
 
 Every format has both:
 
@@ -135,8 +127,8 @@ Every format has both:
 try User.parse(json: data)          User.diagnose(json: data)
 try User.parse(yaml: text)          User.diagnose(yaml: text)
 try User.parse(xml: data)           User.diagnose(xml: data)
+try User.parse(toml: text)          User.diagnose(toml: text)
 try User.parse(plist: data)         User.diagnose(plist: data)
-try User.parse(bytes, as: .json)    User.diagnose(bytes, as: .json)
 ```
 
 ### Limits are part of the call, not a global
@@ -145,9 +137,9 @@ try User.parse(bytes, as: .json)    User.diagnose(bytes, as: .json)
 let d = User.diagnose(json: data, limits: .default)
 ```
 
-`Limits` carries `maxIssues` (default 100), `maxDepth` (default 64), `maxBytes`, and for the formats that need it, entity expansion caps. When the issue cap is hit, the diagnosis says so explicitly — `d.issuesWereTruncated == true` — rather than quietly returning a hundred of ten thousand.
+`Limits` carries `maxIssues` (default 100), `maxDepth` (default 64), `maxBytes` (default 64 MB), and for untagged unions `maxUnionAttempts` and `verboseUnions`. The XML entity and YAML alias expansion budgets are derived from `maxBytes`; they are not separate knobs. When the issue cap is hit, the diagnosis says so explicitly — `d.issuesWereTruncated == true` — rather than quietly returning a hundred of ten thousand.
 
-This was missing entirely from the first edition and it was a denial-of-service hole: a ten-megabyte array of malformed email addresses would have produced a hundred thousand issues, each retaining a source span.
+Without the cap this is a denial-of-service hole: a ten-megabyte array of malformed email addresses would produce a hundred thousand issues, each retaining a source span.
 
 ---
 
@@ -178,25 +170,24 @@ config.json:118:22: error: services[2].healthCheck.timeoutSeconds must be positi
 
 ```swift
 for issue in d.issues {
-    issue.path       // [PathStep] — .key("services"), .index(2), .key("timeoutSeconds")
+    issue.path       // [PathStep] — .key("services"), .index(2), .key("healthCheck"), …
     issue.code       // IssueCode — .tooSmall, .typeMismatch, .missing, .custom("company_domain")
-    issue.params     // [String: IssueValue] — ["minimum": .int(1), "inclusive": .bool(true)]
+    issue.params     // [String: IssueValue] — ["minimum": .int(1)]
     issue.received   // what was actually there
-    issue.location   // SourceSpan? — line, column, byte range
+    issue.location   // SourceSpan? — a byte range; line and column are derived on render
     issue.message    // rendered on demand, from code + params
 }
 ```
 
-The important part is that **`message` is derived, never stored.** Issues carry a code and a parameter dictionary; the English sentence is produced at render time. This is Ecto's `{template, params}` model, and it is the difference between a library you can localise and one you can't. The first edition stored strings, which meant every consumer downstream of the parse was stuck with English.
+The important part is that **`message` is derived, never stored.** Issues carry a code and a parameter dictionary; the English sentence is produced at render time. This is Ecto's `{template, params}` model, and it is the difference between a library you can localise and one you can't. Stored strings would leave every consumer downstream of the parse stuck with English.
 
 ```swift
 issue.message                                  // "must be at least 1"
 issue.code, issue.params                       // what a translator needs: the code and its parameters
 ```
 
-**`message(locale:)` is not built** (`ROADMAP.md`) — this document promised it for some
-time, and an audit on 2026-09-10 found it had never existed. What exists is the seam it was
-going to sit on: every code is named (`IssueCode+Names.swift`), every code's parameters are
+**`message(locale:)` is not built** (`ROADMAP.md`). What exists is the seam it will sit
+on: every code is named (`IssueCode+Names.swift`), every code's parameters are
 data, and the `.json` renderer emits both, so a consumer localises by branching on `code`
 and formatting `params` — the caller owns the lookup. When it is built it will take a locale
 **identifier string**, not a `Locale`: a `Locale` silently degrades to an unlocalised stub on
@@ -206,7 +197,7 @@ runtime signal (section 13).
 Custom checks you write yourself default to a plain literal message, because forcing you to invent a code for a one-off rule would be obnoxious. If you want yours localisable, give it a code:
 
 ```swift
-issues.add(.custom("must be a company address"))                        // fine, English
+issues.add("must be a company address")                                 // fine, English
 issues.add(code: "company_domain", "must be a company address",
            params: ["domain": .string("acme.com")])                     // localisable
 ```
@@ -227,7 +218,7 @@ d.render(.problemDetails)    // RFC 9457 application/problem+json
 Grouping by field for an API response:
 
 ```swift
-let byField = Dictionary(grouping: d.issues, by: \.path.description)
+let byField = Dictionary(grouping: d.issues, by: \.path.pathDescription)
     .mapValues { $0.map(\.message) }
 ```
 
@@ -235,7 +226,7 @@ let byField = Dictionary(grouping: d.issues, by: \.path.description)
 
 ## 4. Keys
 
-This section did not exist in the first edition, and its absence was the largest single gap the audits found. More Swift developers hit snake_case on day one than will ever touch XML, and the first edition gave XML the largest share of its complexity budget and key renaming zero words.
+More Swift developers hit snake_case on day one than will ever touch XML, so key renaming comes before any format does.
 
 ### The default
 
@@ -244,18 +235,18 @@ This section did not exist in the first edition, and its absence was the largest
 struct UserProfile {
     var userID: String        //  user_id
     var displayName: String   //  display_name
-    var avatarURL: URL        //  avatar_url
+    var avatarURL: String     //  avatar_url
     var createdAt: Date       //  created_at
 }
 ```
 
-Also available: `.camelCase` (the default — identity), `.kebabCase`, `.pascalCase`, `.screamingSnakeCase`, and `.custom` for a function you supply.
+Also available: `.camelCase` (the default — identity), `.kebabCase`, `.pascalCase` and `.screamingSnakeCase`. Anything else is a per-field `@Key`.
 
 ### Why this is meaningfully better than `.convertFromSnakeCase`
 
 Foundation's `JSONDecoder.keyDecodingStrategy = .convertFromSnakeCase` runs at *runtime*, on the wire key, and it is lossy. `avatarURL` is encoded as `avatar_url`, which decodes back as `avatarUrl` — a different property. Round-tripping breaks on any acronym, and it breaks silently.
 
-Assay converts at *compile time*, from the real declared identifier, with the acronym information still intact. `avatarURL → avatar_url → avatarURL` round-trips exactly. And because it happens during expansion, a mistake is a compiler error with a fix-it, not a nil at three in the morning.
+Assay converts at *compile time*, from the real declared identifier, with the acronym information still intact. `avatarURL → avatar_url → avatarURL` round-trips exactly. And because it happens during expansion, a mistake is a compiler error, not a nil at three in the morning.
 
 ### Per-field override
 
@@ -273,7 +264,7 @@ Assay converts at *compile time*, from the real declared identifier, with the ac
 Tries them in order. If a non-primary alias matched, `d.warnings` records it:
 
 ```
-warning: matched deprecated key "email_address"; prefer "email"
+warning: email was read from its alias "email_address"
 ```
 
 This is the piece Pydantic gets right with `AliasChoices` and serde gets right with `#[serde(alias)]`, and neither of them tells you which one fired. Migrating an API is a lot easier when your logs say how many clients are still on the old key.
@@ -291,19 +282,20 @@ Pydantic's `AliasPath`. It saves you from declaring three throwaway structs to r
 
 When a path misses, *the path names the segment that failed and the caret points at the innermost thing that existed*. Three different failures get three different reports: `{"id":"x"}` says `profile` is missing — once, not once per field under it; `{"profile":42}` is a type mismatch at `profile`; `{"profile":{}}` says `profile.display_name` is missing. A missing intermediate is **absence**, so an optional stays nil and a default applies; a wrong-typed one is an **error** even when everything under it is optional.
 
-The first edition also showed `@Key(path: "meta.tags[0]")`. **That is refused**, with a diagnostic saying so: indexing an array is a different operation from walking a key — it needs the element counted during the array's own decode, and it needs a fourth answer for "the array was shorter than that", which is neither absence nor a mismatch. `ROADMAP.md`.
+An index segment — `@Key(path: "meta.tags[0]")` — **is refused**, with a diagnostic saying so: indexing an array is a different operation from walking a key — it needs the element counted during the array's own decode, and it needs a fourth answer for "the array was shorter than that", which is neither absence nor a mismatch. `ROADMAP.md`.
 
 ### Flattening
 
 ```swift
 @Schema
 struct Response {
+    struct Pagination { var page: Int; @Key("per_page") var perPage: Int }
     @Inline var page: Pagination     // page's keys read from this level
     var items: [Item]
 }
 ```
 
-serde's `flatten`. The macro knows `Pagination`'s keys at compile time, so unknown-key handling still works correctly through an `@Inline` — which is precisely the thing serde's runtime `flatten` cannot do.
+serde's `flatten`. The inlined type must be declared inside the `@Schema` type: a macro sees only the declaration it is attached to, and nesting is what lets it see `Pagination`'s keys. So a key collision is a compile error, and unknown-key handling still works correctly through an `@Inline` — which is precisely the thing serde's runtime `flatten` cannot do.
 
 ### Keeping what you didn't declare
 
@@ -325,8 +317,7 @@ Explicit, because the macro cannot guess which dictionary is the sink. `RawValue
 `.warn` and `.reject` both produce a did-you-mean when the key is close to a real one:
 
 ```
-config.json:12:3: error: unknown key "tiemout"
-   │   did you mean "timeout"?
+config.json:12:3: error: unknown key "tiemout"; did you mean "timeout"?
 ```
 
 ---
@@ -381,9 +372,9 @@ Collections — `.count` `.notEmpty` `.unique` `.each(...)`
 Dates — `.before` `.after` `.between` (`.past` and `.future` need a clock the core does not have — `ROADMAP.md`)
 Optionals — rules apply to the wrapped value; `nil` skips them.
 
-### The custom escape hatch moved
+### The custom escape hatch is a function
 
-The first edition had `.custom { $0.hasSuffix("@acme.com") }`. That does not compile — a closure inside an attribute argument has no type context, so `$0` is untyped and inference fails. It is gone.
+There is no `.custom { $0.hasSuffix("@acme.com") }`. It cannot compile — a closure inside an attribute argument has no type context, so `$0` is untyped and inference fails.
 
 Arbitrary logic is a function instead:
 
@@ -399,11 +390,10 @@ struct Signup {
 }
 ```
 
-The key path names its root — `\Signup.workEmail`, not `\.workEmail`. This document wrote
-the short form until 2026-09-10 and it has never compiled: an attached macro's argument
-is type-checked before the macro runs, with no enclosing type to infer `Root` from, so
-`\.workEmail` is "cannot infer key path type from context". The full spelling is what
-gives the check its type-checked link to the field, which is the point of the key path.
+The key path names its root — `\Signup.workEmail`, not `\.workEmail`. The short form cannot
+compile: an attached macro's argument is type-checked before the macro runs, with no
+enclosing type to infer `Root` from. The full spelling is what gives the check its
+type-checked link to the field, which is the point of the key path.
 
 Real parameter, real type, real autocomplete, breakpoints work, and it is testable on its own without constructing a `Signup`. The issue lands on `workEmail` with the right path and the right source span, because the key path told the macro where it belongs.
 
@@ -439,13 +429,13 @@ struct Settings {
 }
 ```
 
-The four errors read differently, on purpose:
+The four reports read differently, on purpose:
 
 ```
 error: name is required
 error: retries must be an integer, found "many"
 error: nickname must be a string, found 42          ← present but wrong is still an error
-warning: count fell back to 0 (was "abc")
+warning: count fell back to the declared value
 ```
 
 Note the third: `nickname` being optional means it may be *absent*. It does not mean anything is acceptable when it *is* there. That is the distinction `Codable` blurs and the one that costs people the most debugging time.
@@ -458,26 +448,25 @@ Which is why fallbacks only report through `diagnose`. If you use `parse`, you h
 
 ```swift
 @Validate(.notEmpty) var bio: String       // "" is an error; absent is a different error
-@Schema(emptyStringIsNil: true)            // opt-in, per type, for form-encoded input
 ```
-
-The second is off by default and exists because HTML forms send `""` for untouched fields and nobody enjoys writing that coalescing by hand fifty times.
 
 ### Two declarations that are hard errors
 
 ```swift
 @Schema
 struct Bad {
-    var x = 3               // error: property 'x' needs an explicit type annotation
-    let y: Int = 3          // error: 'let' with an initializer cannot be decoded
+    var x = 3               // error: property 'x' needs an explicit type annotation;
+                            //        @Schema cannot infer a type from an initializer alone
+    let y: Int = 3          // error: 'let y' with an initializer cannot be decoded;
+                            //        change it to 'var' to make it a default
 }
 ```
 
-The first is a hard error rather than an inference because a macro only sees source text — it cannot ask the type checker what `3` is, and guessing `Int` would be wrong the moment someone writes `var timeout = 1.5` in a codebase where the wire type is a `Duration`. The message says so and offers a fix-it.
+The first is a hard error rather than an inference because a macro only sees source text — it cannot ask the type checker what `3` is, and guessing `Int` would be wrong the moment someone writes `var timeout = 1.5` in a codebase where the wire type is a `Duration`. The message says so.
 
 The second because a `let` with an initializer is already assigned and no generated initializer can write to it. Change it to `var y: Int = 3` and it becomes a default.
 
-One more thing worth knowing: `lazy var cache: [String: Int] = [:]` looks exactly like a defaulted stored property from the macro's point of view. It is skipped, along with `static`, computed properties, and anything with a `willSet`/`didSet`-only accessor block. If you want a stored property excluded for a reason the macro can't see, say so:
+One more thing worth knowing: `lazy var cache: [String: Int] = [:]` looks exactly like a defaulted stored property from the macro's point of view. It is skipped, along with `static` and computed properties. A property with only `willSet`/`didSet` observers is stored, and is decoded. If you want a stored property excluded for a reason the macro can't see, say so:
 
 ```swift-check
 @Ignore var scratch: [String] = []
@@ -489,7 +478,7 @@ One more thing worth knowing: `lazy var cache: [String: Int] = [:]` looks exactl
 let s = Settings(name: "api", nickname: nil, retries: 5, count: 0)
 ```
 
-This is not free — a macro that emits an `init` into the type body silently deletes the memberwise initializer Swift would have synthesised, which is a well-known and very annoying trap. Assay emits its initializer into an extension instead, so both exist.
+This is not free — a macro that emits an `init` into the type body silently deletes the memberwise initializer Swift would have synthesised, which is a well-known and very annoying trap. Assay emits no initializer at all — the generated decode body lives in an extension and calls the memberwise initializer, so it is still there.
 
 ---
 
@@ -502,7 +491,7 @@ Coercion is never implicit and never global.
 ```swift-check
 @Schema
 struct ServerConfig {
-    @Coerce var port: Int          // "8080" → 8080, and the coercion is recorded
+    @Coerce var port: Int          // "8080" → 8080
     var host: String               // "8080" stays a string; 8080 is an error
 }
 ```
@@ -520,7 +509,7 @@ struct EnvConfig {
 
 Coercion rules are written down and boring, which is the property that matters: `"8080" → 8080`, `"8080.5" → Int` is an error rather than a truncation, `"true"`/`"yes"`/`"1"` → `true`, `1.0 → 1` succeeds and `1.5 → Int` does not. Nothing depends on the current locale, because nothing goes through a locale-sensitive formatter — which is also what makes it behave identically on Linux and on a Mac.
 
-The first edition agreed on this, and the reason is worth keeping visible: a global strict/lax switch means the meaning of a struct depends on a setting somewhere else in the program, which is exactly the class of bug that makes a config library infuriating.
+The reason there is no global switch is worth keeping visible: a global strict/lax switch means the meaning of a struct depends on a setting somewhere else in the program, which is exactly the class of bug that makes a config library infuriating.
 
 ---
 
@@ -529,9 +518,9 @@ The first edition agreed on this, and the reason is worth keeping visible: a glo
 The best validation is the kind you only write once, because after that the type system carries it.
 
 ```swift
-struct EmailAddress: Assayable {
+struct EmailAddress: AssayerBacked {
     let raw: String
-    static let schema = Assayer.string.email.map(EmailAddress.init)
+    static let assaySchema = Assayer.string.validate(.email).map(EmailAddress.init(raw:))
 }
 ```
 
@@ -555,28 +544,29 @@ There is sugar for the extremely common wrapper case:
 struct EmailAddress {}
 ```
 
-which generates the storage, the `Assayable` conformance, `Equatable`, `Hashable`, `CustomStringConvertible` and a failable `init?(_:)`. This is an attribute on a **type declaration**. The first edition wrote `@Wraps(String.self, .email) var EmailAddress` — a variable named like a type, with no type annotation and no value — which is illegal three ways over. Corrected.
+which generates the storage, the `AssayerBacked` conformance, `Equatable`, `Hashable`, `CustomStringConvertible` and a failable `init?(_:)`. This is an attribute on a **type declaration**.
 
 ### Enums are free
 
 ```swift-check
-enum Priority: String, Assayable {
+enum Priority: String, JSONAssayable, CaseIterable {
     case low, medium, high
 }
 ```
 
-Conformance is the entire implementation. Any `RawRepresentable` enum with a `String` or integer raw value gets its schema for nothing — you write `: Assayable` and stop.
+Conformance is the entire implementation. Any `RawRepresentable` enum with a `String` or `Int` raw value gets its schema for nothing — you write `: JSONAssayable` (add `RawDecodable` to decode it from YAML, XML, TOML or a property list) and stop. Add `CaseIterable` and a bad value reports the case list.
 
 Invalid values produce a real suggestion rather than "cannot initialize":
 
 ```
-error: priority must be one of "low", "medium", "high", found "urgent"
+error: priority "urgent" is not a recognised value; must be one of "low", "medium", "high"
 ```
 
 And for the case every long-lived API eventually needs — a server that adds a new variant before your client ships:
 
 ```swift
-enum Priority: String, Assayable {
+@Schema
+enum Priority {
     case low, medium, high
     @Unknown case other(String)
 }
@@ -593,7 +583,7 @@ Nesting is nothing. A schema type is a type.
 ```swift
 @Schema struct Address { var street: String; var city: String; @Validate(.length(2)) var country: String }
 @Schema struct Company { var name: String; var address: Address; var employees: [Person] }
-@Schema struct Person  { var name: String; var email: EmailAddress; var manager: Person? }
+@Schema struct Person  { var name: String; var email: EmailAddress; var reports: [Person] }
 ```
 
 Recursion works. Arrays and dictionaries of schema types work. Errors carry the full path through all of it:
@@ -604,15 +594,8 @@ org.json:41:18: error: employees[3].address.country must be exactly 2 characters
 
 ### Discriminated unions
 
-**Built 2026-09-09**, decode only, JSON only. `docs/UNIONS.md` is the design; the untagged form
-below is designed there and not built.
-
-Unions force the one thing the decode body was designed never to do: **rewind**. The tag may
-arrive last, so the branch cannot be chosen by reading forward — the decoder scans keys for the
-tag, skipping values structurally, then rewinds and decodes the chosen branch over the whole
-object. That needed one primitive the roadmap did not list: `seek(to:)` restores the cursor,
-`IssueSink.rollback(to:)` the issues, and neither restores container **depth**, which a
-malformed document can leave unbalanced.
+**Built 2026-09-09**, JSON only; encoding followed 2026-09-10. `docs/UNIONS.md` is the
+design. The tag may arrive anywhere in the object, last included.
 
 ```swift
 @Schema(discriminator: "type")
@@ -663,12 +646,11 @@ tokens, not conformances — and that is the one round-trip exception the untagg
 
 ```swift
 @OneOrMany var tags: [String]        // "swift" and ["swift", "ios"] both work
-@PickFirst var id: StringOrInt       // CUT — use @Schema(discriminator: .untagged)
 ```
 
-Borrowed from `serde_with`, which exists because these two shapes account for a startling proportion of real-world API weirdness.
+Borrowed from `serde_with`, which exists because shapes like this account for a startling proportion of real-world API weirdness.
 
-**`@OneOrMany` shipped 2026-09-08. `@PickFirst` was CUT, and cannot be built as spelled** — the macro would need to know `StringOrInt`'s branches and it sees a token. The sound spelling is an untagged union, `@Schema(discriminator: .untagged)` in §9 below, which *is* pick-first by definition and **shipped 2026-09-09**. `ROADMAP.md`.
+Its sibling there, `@PickFirst var id: StringOrInt`, was **cut**: the macro would need to know `StringOrInt`'s branches and it sees a token. The sound spelling is the untagged union above, `@Schema(discriminator: .untagged)`, which *is* pick-first by definition. `ROADMAP.md`.
 
 ---
 
@@ -691,7 +673,7 @@ struct DateRange {
 }
 ```
 
-`Issues<DateRange>` is generic over the root type, which is what makes `\.end` resolve — the first edition wrote `inout Issues` and the key path had nothing to resolve against. Corrected.
+`Issues<DateRange>` is generic over the root type, which is what makes `\.end` resolve — a bare `inout Issues` would give the key path nothing to resolve against.
 
 The key path is doing real work: it is how the issue acquires a path (`end`), a source span, and therefore a caret pointing at the offending line of the original document. Cross-field errors get the same quality of report as field errors, which is unusual — most libraries degrade cross-field rules to a bare form-level message.
 
@@ -741,11 +723,11 @@ let invite = try Invitation.parse(json: data, context: appContext)
 
 Declaring a context makes `parse(json:context:)` the *only* signature. You cannot forget to pass it. `AppContext` is a real type in the check — no casting, no optionals, no `userInfo` dictionary.
 
-This differs from what the first edition settled on, which was a type-erased context threaded through `ParseState`, and the difference is deliberate rather than an oversight: they operate at different layers. The macro knows the context type at compile time and should use it.
+The context is typed rather than erased, deliberately: the macro knows the context type at compile time and should use it.
 
-**Built 2026-09-08 — the macro half.** The erased form for the runtime `Assayer<T>` value API is *not* built, and "both exist" was a claim this document made before either did. `ROADMAP.md` records the reasoning: an erased context has no users, and building one would be designing for an imagined user twice over, once for the API and once for the erasure.
+**Built 2026-09-08 — the macro half.** The erased form for the runtime `Assayer<T>` value API is *not* built. `ROADMAP.md` records the reasoning: an erased context has no users, and building one would be designing for an imagined user twice over, once for the API and once for the erasure.
 
-Two things the implementation settled that this section did not say. **Every check takes the context**, cross-field and field forms alike (`static func f(_ x: String, _ ctx: AppContext) -> String?`) — a macro reads a token, not a signature, so a per-check opt-in is not something it could see. And **a contextual type may contain a context-free one, but not the reverse**: a plain `@Schema` type with a contextual field is a compile error, because there is no context to pass it. The message names the fix. This is the same class of limitation as `@Check` in an extension — the macro cannot see what another type declared, in this module or any other.
+Two rules follow. **Every check takes the context**, cross-field and field forms alike (`static func f(_ x: String, _ ctx: AppContext) -> String?`) — a macro reads a token, not a signature, so a per-check opt-in is not something it could see. And **a contextual type may contain a context-free one, but not the reverse**: a plain `@Schema` type with a contextual field is a compile error, because there is no context to pass it. The message names the fix. This is the same class of limitation as `@Check` in an extension — the macro cannot see what another type declared, in this module or any other.
 
 ### Async checks
 
@@ -760,13 +742,11 @@ static func emailIsAvailable(_ s: Signup, _ ctx: AppContext, _ issues: inout Iss
 
 A type with any `@AsyncCheck` gets an `async` `parse`. A type without one does not. This is decided by counting the attributes at compile time, so there is no `await` on schemas that don't need it and no overload ambiguity.
 
-Ordering, stated precisely — the first edition contradicted itself here:
+Ordering, stated precisely:
 
 **All synchronous work runs first and collects everything.** Every field rule, every `@Check`, in one pass. Four problems produce four issues.
 
 **Async checks run afterwards, and only if the synchronous pass was clean.** Not because collecting more errors is bad, but because an async check almost always means a network or database round trip, and spending one to ask "is this email registered?" about a value you already know is not an email address is waste you'd be paying on every malformed request. Once the sync pass is clean, all async checks run **concurrently** and all their issues are collected.
-
-**A trap if you parallelise decoding yourself.** Decoding is a static function over `[UInt8]` with no shared state and `Assayable: Sendable`, so a task group over independent documents scales without the library providing anything — measured at 2.24× over 8 documents, 3.58× over 64 and 7.09× over 512. But **the identical task group driven from `@MainActor` measures 0.77× at 8 documents — slower than doing it serially** — because every result hops back to the actor. If you are parallelising decodes from a view model, the work has to leave the actor: mark the function `nonisolated`, or hand the batch to a detached task and await one result. This is a property of actor hop costs, not of Assay, and it is written here because someone will otherwise make their app slower and have no way to know why.
 
 ---
 
@@ -774,49 +754,48 @@ Ordering, stated precisely — the first edition contradicted itself here:
 
 Two attributes, at two different times, and the distinction is which side of validation they sit on.
 
-`@Preprocess` runs on the raw value **before** rules, and its job is normalising input:
+`@Preprocess` runs on the decoded string **before** any rule sees it, and its job is normalising input. It runs after decoding, so it cannot influence coercion or decoding:
 
 ```swift-check
 @Preprocess(.trim, .lowercase) @Validate(.email)
 var email: String
 ```
 
-`@Transform` runs **after** validation and changes the type:
+`@Transform` runs **after** the field's rules and changes the type — and before `@Check`s, which see the transformed value:
 
 ```swift
-@Transform { Set($0) }
+@Transform({ (a: [String]) in Set(a) })
 var tags: Set<String>          // arrives as an array, ends up a set
 
-@Transform(.milliseconds)
-var timeout: Duration          // arrives as 5000, ends up .milliseconds(5000)
+@Transform({ (ms: Int) in Double(ms) / 1000.0 })
+var timeoutSeconds: Double     // arrives as 5000, ends up 5.0
 ```
 
-Here the closure *does* have type context — it is a member-level attribute on a declaration with a known type annotation — so `$0` infers. That is why `@Transform { }` survives and `.custom { }` in section 5 did not.
+The closure's parameter carries a type annotation, and it has to: that annotation is the wire type the macro decodes by. It is also what lets a closure survive here when `.custom { }` in section 5 could not. Rules on a `@Transform` field are checked against that wire type, not the property's.
 
-Order is fixed and total: **preprocess → coerce → decode → field rules → cross-field checks → transform → async checks.** No configuration.
+Order is fixed and total: **decode (coercing where `@Coerce` or `coerceScalars` says so) → `@Preprocess` (on the decoded string) → field rules (`@Validate`, on the wire value) → `@Transform` → `@Check` (field and cross-field, on the constructed value) → `@AsyncCheck`.** No configuration.
 
 ### Dates
 
 ```swift
 var createdAt: Date                          // ISO 8601, the default
 @DateFormat(.unixSeconds)  var ts: Date
-@DateFormat(.unixMillis)   var ts: Date
+@DateFormat(.unixMillis)   var ms: Date
 @DateFormat(.rfc9110)      var expires: Date // HTTP dates
 @DateFormat(.pattern("yyyy-MM-dd")) var day: Date
 ```
 
-`.pattern` is not `DateFormatter`, and section 13 explains why at length. Short version: it supports a small fixed set of fields (`yyyy MM dd HH mm ss SSS Z` plus literals), it is implemented directly, and it produces identical results on every platform. The full Unicode UTS-35 pattern language, with locale-dependent month names and era handling, is available — but only in the Foundation-dependent layer, and it is a deliberate opt-in rather than the default, because it pulls in an internationalisation component that costs roughly forty megabytes per architecture on Android and dominates a WebAssembly bundle.
+Several formats are a candidate chain — `@DateFormat(.iso8601, .unixMillis)` — tried in order. A match on any format after the first adds a warning naming which one matched, the same contract as `@Key(_:or:)`.
+
+`.pattern` is not `DateFormatter`, and section 13 explains why at length. Short version: it supports a small fixed set of fields (`yyyy MM dd HH mm ss SSS Z` plus literals), it is implemented directly, and it produces identical results on every platform. The full Unicode UTS-35 pattern language, with locale-dependent month names and era handling, is excluded from the core for good and is not built in the Foundation layer either (`ROADMAP.md`); if it arrives it will be an opt-in there, because it pulls in an internationalisation component that costs roughly forty megabytes per architecture on Android and dominates a WebAssembly bundle.
 
 ---
 
 ## 12. One struct, many formats — that the struct asks for
 
-*Built: `@Schema(formats:)`, `parse(json:)`, `parse(yaml:)`, `parse(xml:)`,
-`parseAll(yaml:)`, `parse(mmapped:)`, `coerceScalars`, the `@XML` placement attributes,
-`parse(body, contentType:accepting:)`, and — 2026-09-09 — `parse(plist:)`, binary and XML,
-in the `AssayPlist` product, and — 2026-09-10 — `parse(toml:)` in `AssayTOML`, TOML 1.0.0
-complete against the official toml-test suite ([`TOML.md`](TOML.md)). Still specified but
-not built: `parse(bytes, as:)` and `parse(contentsOf:)`.*
+*Everything in this section is built except `parse(bytes, as:)` and `parse(contentsOf:)`,
+which are specified only (`ROADMAP.md`). `parse(plist:)` lives in the `AssayPlist` product
+and `parse(toml:)` in `AssayTOML` ([`TOML.md`](TOML.md)).*
 
 Property lists are worth a note the rest of this section does not need. `parse(plist:)` reads
 **both** flavours behind one entry point, discriminated by the exact `bplist00` magic — which
@@ -842,9 +821,8 @@ it. This is the argument for a schema being a *declaration* rather than a decode
 conformance: a `Codable` type is coupled to whichever decoder happens to be walking it; a
 declared schema is coupled to none of them.
 
-**But the formats are opt-in, and the default is `.json` alone.** The first edition of this
-section implied they were automatic. They are not, and the reason is measured rather than
-aesthetic.
+**But the formats are opt-in, and the default is `.json` alone.** The reason is measured
+rather than aesthetic.
 
 ### Why opt-in
 
@@ -852,10 +830,6 @@ Supporting YAML and XML means the macro emits a *second* decode body — see "Th
 below — and `docs/COMPILE-TIME.md` measures it at **~34 ms per type, about 41% of total
 expansion cost**. Emitting that for a type that will only ever see JSON would make every
 JSON user pay for a capability they do not use.
-
-That is the same sentence as "JSON users never pay for XML", which this document has
-always claimed. It used to be a *linking* claim, true because `AssayYAML` and `AssayXML`
-are separate products. Opt-in formats make it a *compile-time* claim too.
 
 It is also §18's principle applied rather than excepted: everything that affects the
 meaning of a struct is written on the struct, where you can see it.
@@ -872,12 +846,13 @@ meaning of a struct is written on the struct, where you can see it.
 
 `Assayable` is a marker; two protocols refine it and carry the actual work.
 `JSONAssayable` has the byte-decode body, `RawDecodable` has the `RawValue` one, and each
-format's entry points live on the protocol that can serve them. So the mistake is caught
-where it is written:
+format's real entry points live on the protocol that can serve them. An `unavailable` twin
+on `Assayable` carries the message for a type that did not opt in, so the mistake is caught
+where it is written and says what to add:
 
 ```
-error: referencing static method 'parse(yaml:limits:sourceName:)' on 'RawDecodable'
-       requires that 'JSONOnly' conform to 'RawDecodable'
+error: 'parse(yaml:limits:sourceName:)' is unavailable: this schema does not decode YAML.
+       Add `formats: .yaml` (or `.all`) to its @Schema, e.g. @Schema(formats: .yaml).
 ```
 
 The same split catches a subtler case for free: a `.yaml` schema containing a nested
@@ -890,11 +865,14 @@ speed and the fidelity.
 
 **JSON decodes direct to struct.** The generated body reads bytes straight into your
 fields — no intermediate document, no dictionary per object. That is where the measured
-5.5× over Foundation comes from.
+5.24× over Foundation on the API-shaped arm (9.14× mean over the corpus) comes from —
+`../Benchmarks/RESULTS.md`.
 
-**YAML and XML go through their own full-fidelity model, then a projection.** Bytes →
-`YAML.Node` / `XML.Document` → `RawValue` → your struct. That is a DOM hop, and a DOM costs
-2–7× against direct-to-struct in published measurements of other decoders.
+**YAML, XML, TOML and property lists build a `RawValue`, then project it.** Bytes →
+`RawValue` → your struct. The parser builds the `RawValue` directly — there is no
+`YAML.Node` or `XML.Element` tree in between — but it is still one tree more than the JSON
+path builds, and a DOM costs 2–7× against direct-to-struct in published measurements of
+other decoders.
 
 Three reasons that trade is accepted rather than fought:
 
@@ -907,7 +885,8 @@ Three reasons that trade is accepted rather than fought:
 
 The consequence to know: the `RawValue` projection is lossy in the ways
 `docs/VALUE-MODELS.md` §5 documents. YAML tags, scalar styles and anchors do not reach your
-struct, and a non-string YAML mapping key is a hard error rather than a coerced one. If you
+struct; a scalar mapping key is taken as its text (`1:` is the key `"1"`), and a non-scalar
+key is a hard error. If you
 need any of that, parse to `YAML.Node` or `XML.Node` directly and work with the node model.
 
 ### XML has no types, and that is visible
@@ -930,7 +909,7 @@ came from, which is exactly the property this library refuses to have.
 ### Content negotiation is explicit about what it accepts
 
 ```swift
-try Config.parse(body, contentType: header, accepting: [.json, .yaml])
+try Config.parse(body: body, contentType: header, accepting: [.json, .yaml])
 ```
 
 `accepting:` is required, with no default. A single function that sniffs a header and dispatches to any available parser turns an XML external-entity attack, a billion-laughs expansion, or a YAML tag exploit into a one-line vulnerability in an application whose author only ever meant to accept JSON. Making the allowed set explicit costs one array literal and closes the whole category.
@@ -939,9 +918,7 @@ try Config.parse(body, contentType: header, accepting: [.json, .yaml])
 parser at *run time* from the array you pass, so the entry point requires the `RawValue`
 projection whatever that array turns out to hold — the compiler cannot see that a `[WireFormat]`
 contains only `.json`. A schema declared `@Schema` (JSON only) therefore cannot call it; add
-`formats: .all`, or one of `.yaml`/`.xml`/`.toml`. This was undocumented until 2026-09-13, and
-the error said `requires that 'Config' conform to 'RawDecodable'` — a protocol you never wrote.
-It now says what to add.
+`formats: .all`, or one of `.yaml`/`.xml`/`.toml`. The compiler error says what to add.
 
 ### YAML
 
@@ -953,7 +930,8 @@ let manifests = try Manifest.parseAll(yaml: text)   // [Manifest], one per ---
 ```
 
 Errors carry offsets into the original YAML, not into some JSON the YAML was converted to
-first.
+first — wherever a span was captured: a field with rules, checks or a built-in scalar type
+(`ROADMAP.md`, "Carets on the `RawValue` path").
 
 **Nothing is resolved at parse time.** A scalar keeps its raw text, style and tag, and
 `resolvedInt` / `resolvedBool` / `isNull` are consulted on demand. `country: NO` stays the
@@ -971,31 +949,33 @@ scalars or fail with a real diagnostic; none is silently mis-resolved.
 XML is the one format where a struct genuinely cannot describe the wire shape on its own, because an element and an attribute are different things.
 
 ```swift
-@Schema
+@Schema(formats: [.xml])
 struct Book {
-    @XML(.attribute) var isbn: String
-    var title: String
-    @XML(.wrapped("authors", item: "author")) var authors: [String]
-    @XML(.text) var summary: String
-    @XML(.namespace("http://purl.org/dc/elements/1.1/")) var creator: String
+    @XML(.attribute) var isbn: String      // <book isbn="…">
+    var title: String                      // <title>…</title>
+    @XML(.wrapped) var authors: [String]   // an array inside its own wrapper element
 }
 ```
 
+`@XML(.text)` reads the element's own character data, and `@XML(root: "book")` on the type
+names the root element — checked on decode, written on encode.
+
 Everything else follows the general rules. `@XML` annotations describe the wire shape; they are not present on the JSON path and cost nothing there.
 
-### The four parsers are four products
+### Each format is its own product
 
 ```swift
 .product(name: "Assay",           package: "assay")   // core + JSON
 .product(name: "AssayFoundation", package: "assay")   // Data, URL, FileManager conveniences
 .product(name: "AssayYAML",       package: "assay")
 .product(name: "AssayXML",        package: "assay")
+.product(name: "AssayTOML",       package: "assay")
 .product(name: "AssayPlist",      package: "assay")   // binary + XML property lists
 ```
 
-The first edition claimed "JSON users never pay for XML." That sentence is only literally true if XML is a separate product — importing Foundation's XML support pulls in libxml2, which on Android drags in liblzma and libiconv behind it. So it is a separate product. Adding a format is adding a dependency line, and you can see it in your manifest.
+"JSON users never pay for XML" is only literally true if XML is a separate product. So it is a separate product. Adding a format is adding a dependency line, and you can see it in your manifest.
 
-It is now true in the second sense too. A format costs a dependency line in the manifest *and* a `formats:` entry on the struct, and a type that names neither pays for neither — not in binary size, and not in build time.
+It is true in a second sense too. A format costs a dependency line in the manifest *and* a `formats:` entry on the struct, and a type that names neither pays for neither — not in binary size, and not in build time.
 
 ### File I/O is in the Foundation layer
 
@@ -1014,17 +994,12 @@ change to the decoder at all. The decoder requires a single contiguous buffer th
 change underneath the parse, and a memory-mapped file satisfies that literally: the address range is contiguous while physical residency is not, because the
 kernel demand-loads and evicts pages.
 
-Measured on a 387 MB document, extracting one top-level field:
+Measured on a 387 MB document, extracting one top-level field: 0.21 s and 1.88 MB peak
+footprint mapped, against 0.76 s and 407 MB read into `[UInt8]`
+(`Sources/AssayFoundation/MappedFile.swift` has the method).
 
-| | wall | peak footprint |
-|---|---|---|
-| read into `[UInt8]` | 0.76 s | 407 MB |
-| `parse(mmapped:)` | 0.21 s | **1.88 MB** |
-
-The honest boundary, also measured: decoding *all* 8,000,000 records costs 1.067 GB
-footprint read against 661 MB mapped — still exactly the file size apart. **mmap removes
-the input from your accountable memory and does nothing about the output**, which is dirty
-anonymous memory however it arrived. So it bounds the *input*, not the total: it will not
+The honest boundary: **mmap removes the input from your accountable memory and does nothing
+about the output**, which is dirty anonymous memory however it arrived. So it bounds the *input*, not the total: it will not
 decode a 10 GB file into a 10 GB value on a 4 GB machine. `ROADMAP.md` records why
 incremental parsing of a document arriving over a *socket* is refused.
 
@@ -1032,7 +1007,7 @@ incremental parsing of a document arriving over a *socket* is refused.
 
 ## 13. Cross-platform, stated as things you can observe
 
-You said this has to be efficient everywhere. The honest version of that promise is narrower and more useful than "we benchmarked it on Linux."
+The honest version of "efficient everywhere" is narrower and more useful than "we benchmarked it on Linux."
 
 **The claim: identical behaviour and near-identical performance on every platform, by construction rather than by measurement.**
 
@@ -1046,7 +1021,7 @@ That principle produces a list of things you can actually see.
 
 This is not gold-plating. `UUID(uuidString:)` has two different C implementations selected by platform, and the non-Darwin one is `sscanf`-based with libc-dependent edge cases — meaning a UUID string that your Mac accepts can be rejected on Linux. Nothing in Foundation or the standard library validates an email address at all. And a hand-written `.email` needs no regular expression engine, which means it keeps working in environments where `.regex` cannot.
 
-**Dates are the biggest win available.** ISO 8601 in Foundation is genuinely internationalisation-free — it is hand-rolled and imports nothing. So `.iso8601`, `.unixSeconds`, `.unixMillis` and `.rfc9110` cost nothing anywhere. Making those the defaults, and putting the full pattern language behind an explicit opt-in, is the difference between a library that adds forty megabytes to an Android binary and one that adds none.
+**Dates are the biggest win available.** ISO 8601 in Foundation is genuinely internationalisation-free — it is hand-rolled and imports nothing. So `.iso8601`, `.unixSeconds`, `.unixMillis` and `.rfc9110` cost nothing anywhere. Making those the defaults, and keeping the full pattern language out of the core, is the difference between a library that adds forty megabytes to an Android binary and one that adds none.
 
 ### `.regex` is the one rule that isn't universally portable
 
@@ -1054,7 +1029,7 @@ It works, but it is the exception, and pretending otherwise would be dishonest.
 
 No `Regex` value appears in any public signature — not in a rule case, not in a stored property, not as a parameter type. `@Validate(.regex(#"^[a-z0-9_]+$"#))` takes a `String`, always. That is what keeps a platform availability annotation from spreading onto every call site that touches a schema, which is the failure mode that makes availability-gated APIs miserable to adopt.
 
-Your pattern is validated when the rule is constructed, not when a document is parsed, so a typo in a pattern is caught the first time the schema is used rather than on whichever unlucky request first reaches that field.
+Your pattern is compiled once, not once per value. A pattern that is not a valid regular expression is reported as an `invalid_regex_pattern` issue on the field the first time a value reaches it — it never silently passes. Below the OS versions that ship the engine, the rule reports `regex_unavailable` rather than passing.
 
 ### Locales are identifier strings, not `Locale` values
 
@@ -1063,24 +1038,26 @@ Section 3 mentioned this. The reason: on a platform that links only the essentia
 ### The core takes bytes
 
 ```swift
-try User.parse(bytes, as: .json)        // some Collection<UInt8>, or a RawSpan
+try User.parse(json: bytes)        // [UInt8], or a String
 ```
 
-`Data` overloads live in `AssayFoundation` — **built 2026-09-22**, and until then this paragraph was the only place they existed, which is the kind of gap `CLAUDE.md`'s "named and NOT built" table is for. Two reasons for the placement, and one of them is the reverse of what you'd expect: `Data` is Foundation, so a `Data`-typed core API is not portable; and `Data`'s performance story now *favours* the non-Apple platforms, because Apple platforms retain a legacy ABI for compatibility that the others were free to drop. Byte access measured 787% faster on the new ABI against 147% on the existing one. A `Data`-typed hot path is therefore the one place where performance would genuinely differ by platform — which is exactly the thing you asked me to avoid.
+`Data` overloads live in `AssayFoundation`. Two reasons for the placement, and one of them is the reverse of what you'd expect: `Data` is Foundation, so a `Data`-typed core API is not portable; and `Data`'s performance story now *favours* the non-Apple platforms, because Apple platforms retain a legacy ABI for compatibility that the others were free to drop. A `Data`-typed hot path is therefore the one place where performance would genuinely differ by platform.
 
-What the bridge does, now that it exists: `parse(json:)`, `diagnose(json:)`, their async and contextual pairs, `Assayer<T>`'s pair, `JSON.Value.parse` and the `parse(body:contentType:accepting:)` negotiation door all take `Data`, and the JSON ones decode **inside `withUnsafeBytes` with no copy at all**. `Array(data)` — what a caller wrote before — allocates and `memcpy`s the whole document first, so a second copy of it is live for the length of the parse. Measured: exactly **one allocation saved per parse** whatever the size (`AssayBench totalalloc`, the only instrument that can see a block freed inside the decode) and **1.0% / 2.6% / 3.5%** of decode time at 0.2 / 2.0 / 8.3 MB (`AssayBench largedoc`). The time is the small half; the peak memory is the point.
+`parse(json:)`, `diagnose(json:)`, their async and contextual pairs, `Assayer<T>`'s pair, `JSON.Value.parse` and the `parse(body:contentType:accepting:)` negotiation door all take `Data`, and the JSON ones decode **inside `withUnsafeBytes` with no copy at all** — where `Array(data)` allocates and copies the whole document first, so a second copy of it is live for the length of the parse. The time saved is the small half; the peak memory is the point. The `body:` door copies once, after negotiating, because negotiation may land on a parser in a module `AssayFoundation` cannot see; an unacceptable media type is still refused without the copy.
 
-One difference from the `[UInt8]` door, and it is in the type system's blind spot so it is stated instead: `Diagnosis.source` retains the input so `render(.terminal)` can draw a caret later, and a `Data`'s bytes are valid only inside `withUnsafeBytes` — it is a struct with an inline representation, so there is no object whose lifetime `SourceBytes(unsafeBorrowed:count:owner:)` could hold (that initialiser exists for `MappedFile`, which owns real pages). So the bytes are kept **only when there is something to render**: a clean decode keeps none and `source` is empty; any issue or warning copies them once, in the same scope, so every render is byte-identical to the array door's. That is defensible precisely because the caller passed the `Data` in and still holds it. `DataInputTests` pins the equality — codes, params, `.terminal`, `.json` and `.problemDetails` — on every failure shape, and pins the empty `source` as well, so the asymmetry cannot drift into something less deliberate.
+One difference from the `[UInt8]` door: **`Diagnosis.source` is empty after a clean decode from `Data`.** A `Data`'s bytes are valid only inside `withUnsafeBytes`, so they are copied only when an issue or warning needs rendering; every render is then byte-identical to the array door's, which `DataInputTests` pins.
 
-The `body:` door is the exception that proves where the seam is: negotiation may land on YAML, XML, TOML or a plist, whose parsers live in modules `AssayFoundation` cannot see without pulling every format into every `Data` user's binary, so that one copies once — after negotiating, so an unacceptable media type is still refused without the copy. A `.json` body on a type that also decodes JSON directly takes the zero-copy path, exactly as the array door already routes it.
+### Parallel decoding is yours to do — off the main actor
 
-### The package declares no platform floor
+Decoding is a static function over `[UInt8]` with no shared state and `Assayable: Sendable`, so a task group over independent documents scales without the library providing anything. But the identical task group driven from `@MainActor` can be slower than decoding serially, because every result hops back to the actor. If you are parallelising decodes from a view model, the work has to leave the actor: mark the function `nonisolated`, or hand the batch to a detached task and await one result. This is a property of actor hop costs, not of Assay.
 
-No `platforms:` clause in the manifest, following swift-nio, swift-log, swift-collections, swift-crypto, swift-argument-parser and Yams. A `platforms:` clause only constrains Apple platforms anyway, and pinning one is how a library accidentally excludes people. Individual APIs that genuinely need a floor carry their own availability annotation, and the design goes to some length to keep that list to one item.
+### The platform floor is one release generation
+
+`platforms:` names every Apple platform — macOS 11 / iOS 14 / tvOS 14 / watchOS 7 / visionOS 1 — because swift-syntax needs macOS 10.15 and `String(unsafeUninitializedCapacity:)` needs macOS 11. Naming macOS alone would leave the others on SwiftPM's ancient default, not unconstrained. The clause constrains Apple platforms only; Linux, Windows and WebAssembly are governed by the toolchain.
 
 ### What "supported" would have to mean
 
-A platform is only supported if continuous integration runs the test suite on it. The matrix is Linux, macOS, Windows, iOS, WebAssembly and static-Linux/musl. Android is **not** a target. Worth noting, because it is a trap: the standard Swift package testing workflow tests **Linux and Windows only** out of the box. Every other platform is an opt-in flag that defaults to false, which is how libraries end up claiming a platform list nobody ever ran.
+A platform is only supported if continuous integration runs the test suite on it. By that definition three are: macOS, Linux and Windows run the suite and gate. iOS, tvOS, watchOS and visionOS are built, and static-Linux/musl and WebAssembly are cross-compiled, without running tests. Android is **not** a target. Worth noting, because it is a trap: the standard Swift package testing workflow tests **Linux and Windows only** out of the box. Every other platform is an opt-in flag that defaults to false, which is how libraries end up claiming a platform list nobody ever ran.
 
 Two specific things that will bite otherwise: WebAssembly needs an increased stack size, because the default is too small for a recursive-descent parser and the failure looks like a mysterious trap rather than a stack overflow. And the most common Swift setup action for CI does not support Windows at all — it throws an error saying so.
 
@@ -1094,41 +1071,39 @@ Stated plainly because someone will ask. Embedded Swift has no `Codable`, no ref
 
 Macros are not free. Every macro expansion is a round trip to a separate compiler plugin process, and the published field reports are not gentle: a 30-second build going to 5 minutes, a 44-second build going to 338 seconds. One developer reported that a macro which did nothing at all doubled their release build times.
 
-Swift 6.2 shipping a prebuilt swift-syntax fixed the fixed cost — the one-off price of building the macro infrastructure — but not the per-expansion cost. Which means the honest advice is: `@Schema` on forty types is fine, `@Schema` on four thousand is something to measure. Concretely, the mitigations that exist are keeping schema types in a module that changes rarely so they cache, and preferring one `@Schema` type with `@Inline` members over many small ones.
+Swift 6.2 shipping a prebuilt swift-syntax fixed the fixed cost — the one-off price of building the macro infrastructure — but not the per-expansion cost. Which means the honest advice is: `@Schema` on forty types is fine, `@Schema` on four thousand is something to measure. Concretely, the mitigation that exists is keeping schema types in a module that changes rarely so they cache.
 
-I would rather say this here than have you find it out in month three.
+Measured: about 81 ms per `@Schema` type at 10 fields, roughly 4.2× `Codable`, gated in CI at 100 ms — [`COMPILE-TIME.md`](COMPILE-TIME.md). The cost follows generated body size, not the number of expansions.
+
+This is better said here than discovered in month three.
 
 ---
 
 ## 14. Going the other way
 
-The first edition listed "it doesn't encode" among the things Assay refuses to do. That refusal does not survive contact with the evidence, so it is now a **deferral**, which is a different and more honest thing.
+Assay encodes. Refusing to would not survive contact with the evidence.
 
 Zod is the only major library in this space that changed its mind about encoding, and it changed *toward* it — codecs shipped in 4.1 and were called the flagship feature. Effect's schema library went bidirectional from the start and simply never had the argument. Nobody has gone the other way.
 
-So: **v1 decodes. Encoding is reserved, not refused.**
+So it ships: `@Schema(encodes: true)` adds `encodedJSON()` / `jsonText()`, and with the format modules `encodedYAML()`, `encodedXML()`, `encodedTOML()` and their `…Text()` twins. The byte forms return `EncodedBytes`; `diagnoseEncodeJSON()` and its siblings return an `EncodeDiagnosis`. It is opt-in for the same compile-time reason `formats:` is. Round-trip is a stated law with a closed exception list — [`ENCODING.md`](ENCODING.md). Writing property lists is not built.
 
-What that means concretely, and why it isn't just a promise:
+Every piece of placement information — `@Key` renaming, `@XML(.attribute)`, `@DateFormat` — is kept in the generated schema rather than consumed during decoding, which is what the encoder reads.
 
-Every piece of placement information — `@Key` renaming, `@XML(.attribute)`, `@DateFormat` — is preserved in the generated schema rather than consumed during decoding. That is a real design constraint being honoured now, and it is what makes encoding additive later instead of a rewrite.
+It is a second engine, not the first one run backwards. Every library that went bidirectional built two engines, not one — Pydantic's Rust core is roughly twelve thousand lines of validators alongside eleven thousand lines of serializers — plus a separate error channel for encode-side failures, because "this value cannot be represented in this format" is a different kind of problem from "this document is malformed." Anyone who tells you encoding is decoding backwards has not written one.
 
-What is deliberately **not** promised is symmetry. Every library that went bidirectional built two engines, not one — Pydantic's Rust core is roughly twelve thousand lines of validators alongside eleven thousand lines of serializers — plus a separate error channel for encode-side failures, because "this value cannot be represented in this format" is a different kind of problem from "this document is malformed." Anyone who tells you encoding is decoding backwards has not written one.
-
-Related, and moved *into* the feature set from the first edition's refusals:
+Related:
 
 ```swift
 let schema = Article.jsonSchema(for: .input)     // 2020-12
 ```
 
-The macro already has everything needed to emit JSON Schema — the field names, the types, the rules, the optionality. Refusing to expose it was leaving value on the table. `.input` and `.output` differ once transforms are involved, which is the distinction Zod added in v4 after discovering the single-document version was wrong.
+The macro already has everything needed to emit JSON Schema — the field names, the types, the rules, the optionality. `.input` and `.output` differ once transforms are involved, which is the distinction Zod added in v4 after discovering the single-document version was wrong.
 
 **Built 2026-09-09, behind `@Schema(describes: true)`** — opt-in like `encodes:`, for the same compile-time reason. Two things worth knowing before you use it.
 
 It emits a **descriptor**, not text: the rule-to-keyword mapping lives once in `AssayCore` rather than once per type in your build, which is why the measured cost is ~5% on top of a rule-carrying type instead of the large number that design was expected to produce.
 
-And it will sometimes describe **more** than the type accepts, never less. Where a rule has no exact JSON Schema 2020-12 keyword — `.isTrimmed`, `.isLowercase`, the date bounds — it becomes prose in `description` rather than an approximate `pattern`, because a schema that is too strict makes a correct client unusable and its author has no way to tell that the schema is at fault. `ROADMAP.md` lists every such case.
-
-`Encodable` conformance synthesis moves out of the refusals for the same reason: it is a strictly easier problem than a full encoder, it is what people actually ask for, and the key renaming information needed to do it correctly is already there.
+And it will sometimes describe **more** than the type accepts, never less. Where a rule has no exact JSON Schema 2020-12 keyword — `.isTrimmed`, `.isLowercase`, the date bounds — it becomes prose in `description` rather than an approximate `pattern`, because a schema that is too strict makes a correct client unusable and its author has no way to tell that the schema is at fault. `Sources/AssayCore/JSONSchemaRender.swift` is where each rule's keyword, or its prose, is decided.
 
 ---
 
@@ -1145,7 +1120,7 @@ Nothing like it exists in Swift. Every framework that wants validation either in
 
 Publishing that package — separately, with no dependency on Assay, and with Assay merely being one conformer — is high-leverage. If it works, other libraries implement it and Assay benefits.
 
-**It does not cost "almost nothing", and the first edition said it did.** A SwiftPM dependency is resolved by every consumer of the package that declares it, so "Assay conforms to StandardSchema" and "Assay does not depend on StandardSchema" cannot both hold in one package: declaring the dependency makes every Assay user resolve and link it, which is the outcome this idea exists to avoid. The conformance needs a **third** package — `StandardSchema`, `Assay`, and a small adapter depending on both. That is the standard shape and it is not hard, but it is two more repositories rather than a weekend, and it is why this is the one thing in this document still unbuilt. `ROADMAP.md`.
+**It does not cost "almost nothing".** A SwiftPM dependency is resolved by every consumer of the package that declares it, so "Assay conforms to StandardSchema" and "Assay does not depend on StandardSchema" cannot both hold in one package: declaring the dependency makes every Assay user resolve and link it, which is the outcome this idea exists to avoid. The conformance needs a **third** package — `StandardSchema`, `Assay`, and a small adapter depending on both. That is the standard shape and it is not hard, but it is two more repositories rather than a weekend, and it is why this is still unbuilt. `ROADMAP.md`.
 
 ```swift
 extension Article: StandardSchema.Validatable {}   // that's the whole conformance
@@ -1159,26 +1134,41 @@ You have a YAML config file, a service that reads it, and an HTTP endpoint that 
 
 ```swift
 import Assay
+import AssayYAML
+import Foundation
 
-@Schema(keys: .snakeCase, unknownKeys: .warn)
+@Schema(keys: .snakeCase, unknownKeys: .warn, formats: [.json, .yaml])
 struct AppConfig {
     @Validate(.notEmpty)                    var serviceName: String
     @Validate(.range(1...65535))            var port: Int
     @Validate(.min(1))                      var workers: Int = 4
-    @Fallback(.seconds(30))                 var requestTimeout: Duration
+    @Fallback(30)                           var requestTimeoutSeconds: Int
                                             var database: DatabaseConfig
                                             var features: [String: Bool] = [:]
                                             var logLevel: LogLevel = .info
 }
 
-@Schema(keys: .snakeCase)
+@Schema(keys: .snakeCase, formats: [.json, .yaml])
 struct DatabaseConfig {
     @Validate(.prefix("postgres://"))       var url: String
     @Validate(.range(1...100))              var poolSize: Int = 10
     @Coerce                                 var sslRequired: Bool = true
 }
 
-enum LogLevel: String, Assayable { case debug, info, warning, error }
+enum LogLevel: String, JSONAssayable, RawDecodable, CaseIterable { case debug, info, warning, error }
+```
+
+Given this `config.yaml`:
+
+```yaml
+service_name: api
+port: 99999
+workers: 0
+request_timeout_seconds: 30
+database:
+  url: mysql://localhost/app
+  pool_size: 500
+wrokers: 8
 ```
 
 At startup you want everything wrong at once, plus the warnings:
@@ -1194,32 +1184,41 @@ guard let config = d.value, d.isValid else {
 }
 ```
 
+The report has this shape (illustrative — laid out by the renderer's rules, not copied from a run):
+
 ```
-config.yaml:3:9: error: port must be between 1 and 65535
-  2 │ service_name: api
-  3 │   port: 99999
-    │         ^
-  4 │   workers: 0
+config.yaml:2:7: error: port must be between 1 and 65535
+  1 │ service_name: api
+  2 │ port: 99999
+    │       ^^^^^
+  3 │ workers: 0
 
-config.yaml:4:12: error: workers must be at least 1
-  3 │   port: 99999
-  4 │   workers: 0
-    │            ^
+config.yaml:3:10: error: workers must be at least 1
+  1 │ service_name: api
+  2 │ port: 99999
+  3 │ workers: 0
+    │          ^
+  4 │ request_timeout_seconds: 30
+
+config.yaml:6:8: error: database.url must start with "postgres://"
+  4 │ request_timeout_seconds: 30
   5 │ database:
+  6 │   url: mysql://localhost/app
+    │        ^^^^^^^^^^^^^^^^^^^^^
+  7 │   pool_size: 500
 
-config.yaml:7:8: error: database.url must start with "postgres://"
-  6 │ database:
-  7 │   url: "mysql://localhost/app"
-    │        ^
-  8 │   pool_size: 500
+config.yaml:7:14: error: database.pool_size must be between 1 and 100
+  5 │ database:
+  6 │   url: mysql://localhost/app
+  7 │   pool_size: 500
+    │              ^^^
+  8 │ wrokers: 8
 
-config.yaml:8:14: error: database.pool_size must be between 1 and 100
-  7 │   url: "mysql://localhost/app"
-  8 │   pool_size: 500
-    │              ^
-
-config.yaml:9:1: warning: unknown key "reties"
-  │ did you mean "retries"?
+config.yaml:8:10: warning: unknown key "wrokers"; did you mean "workers"?
+  6 │   url: mysql://localhost/app
+  7 │   pool_size: 500
+  8 │ wrokers: 8
+    │          ^
 
 4 errors, 1 warning
 ```
@@ -1230,7 +1229,7 @@ The HTTP endpoint, same library, different verb:
 
 ```swift
 app.post("signup") { req async throws in
-    let signup = try Signup.parse(json: req.body, context: req.appContext)
+    let signup = try await Signup.parse(json: req.body, context: req.appContext)
     return try await users.create(signup)
 }
 ```
@@ -1246,13 +1245,13 @@ app.catch(AssayError.self) { error in
 
 ```json
 {
-  "type": "https://example.com/probs/validation",
+  "type": "about:blank",
   "title": "Validation failed",
   "status": 422,
   "errors": [
     { "path": "email",    "code": "invalid_email", "message": "must be a valid email address" },
     { "path": "password", "code": "too_small",     "message": "must be at least 12 characters",
-      "params": { "minimum": 12 } }
+      "params": { "message": "must be at least 12 characters", "minimum": 12, "unit": "characters" } }
   ]
 }
 ```
@@ -1265,15 +1264,15 @@ Note that the response carries codes and parameters alongside the messages, so a
 
 **It is not schema-first.** There is no `.assay` file and no code generator. Swift types are the source of truth. Generating a *JSON Schema document* from your types is supported — going the other direction is not.
 
-**It is not a document API.** If you want to walk arbitrary JSON, mutate it and write it back, that is a different library. Assay's job is document in, typed value out.
+**It is not a document-editing API.** `JSON.Value`, `YAML.Node`, `XML.Node` and `TOML.Node` let you read an arbitrary document; mutating one and writing it back with its formatting preserved is a different library. Assay's job is document in, typed value out.
 
 **It has no global configuration.** No `Assay.configure { }`, no ambient strict mode, no thread-local anything. Everything that affects the meaning of a struct is written on the struct. This costs a little repetition and buys the property that you can read a declaration and know what it does without grepping the codebase for a setup call.
 
-**It is not a `z` namespace.** There is no `Assayer.object([...])` route for ordinary use. `Assayer` exists as a value type for the genuinely dynamic case — a schema built at runtime from a database row — and for domain types like `EmailAddress` in section 8. For everything else the declaration is the schema.
+**It is not a `z` namespace.** `Assayer.object([...])` exists, and it is not the route for ordinary use. `Assayer` exists as a value type for the genuinely dynamic case — a schema built at runtime from a database row — and for domain types like `EmailAddress` in section 8. For everything else the declaration is the schema.
 
 **It does not do Protocol Buffers, Thrift, Avro or CSV.** Those are schema-first by nature, or record-oriented rather than document-oriented. Different library.
 
-**It does not encode, in v1.** Section 14 — a deferral, with the placement data preserved so it stays additive.
+**It does not encode unless asked.** `@Schema(encodes: true)`, section 14.
 
 **It does not target Embedded Swift.** Section 13.
 
@@ -1340,16 +1339,17 @@ var c: Int = 3                       // default — absent only, still validated
 
 // Transformation
 @Preprocess(.trim, .lowercase)
-@Transform { Set($0) }
+@Transform({ (a: [String]) in Set(a) })
 
 // Dates
 @DateFormat(.iso8601)                // default; also .unixSeconds .unixMillis .rfc9110
 @DateFormat(.pattern("yyyy-MM-dd"))  // fixed subset, portable
 
 // Domain types
-struct Email: Assayable { static let schema = Assayer.string.email.map(Email.init) }
+struct Email: AssayerBacked { let raw: String; static let assaySchema = Assayer.string.validate(.email).map(Email.init(raw:)) }
 @Wraps(String.self, .email) struct Email {}
-enum P: String, Assayable { case low, high; @Unknown case other(String) }
+enum P: String, JSONAssayable { case low, high }
+@Schema enum Q { case low, high; @Unknown case other(String) }
 
 // Cross-field — must be in the type body, never an extension
 @Check static func f(_ v: T, _ issues: inout Issues<T>)
@@ -1357,11 +1357,10 @@ enum P: String, Assayable { case low, high; @Unknown case other(String) }
 @Schema(context: Ctx.self)
 @AsyncCheck static func h(_ v: T, _ ctx: Ctx, _ issues: inout Issues<T>) async
 
-// Unions — built 2026-09-09, encoding 2026-09-10, JSON only. docs/UNIONS.md
+// Unions — JSON only. docs/UNIONS.md
 @Schema(discriminator: "type") enum E { case a(A), b(B) }   // tagged
 @Schema(discriminator: .untagged) enum U { case a(A), b(B) }    // untagged, first match wins
-@OneOrMany var tags: [String]                               // built 2026-09-08
-@PickFirst var id: StringOrInt                              // CUT — use discriminator: .untagged
+@OneOrMany var tags: [String]
 
 // Formats — opt in on the struct; the default is JSON alone
 @Schema                                  // JSON only
@@ -1385,22 +1384,12 @@ T.jsonSchema(for: .input)
 
 ## 20. What is still open
 
-Everything in the first edition's open questions about the macro shape, the `@Wraps` spelling and async parsing has been resolved and is written into the sections above. These are the ones that remain.
+One question remains.
 
-**1. ~~Does `diagnose` need a streaming form?~~ Answered: no.** The issue cap already covers the memory concern that motivates it, and it complicates the primary API for a rare case. What a streaming *decode* would cost is a separate question, and [`ROADMAP.md`](../ROADMAP.md) records why incremental parsing is decided against while record streams are merely unbuilt.
+**Is `@Fallback` too dangerous to be this easy?** It swallows bad data by design, and the warning is only visible through `diagnose`. There's an argument that it should require an explicit acknowledgement. There's a counter-argument that it exists precisely for the cases where you have already decided to keep going.
 
-**2. How much does `@Inline` cost at the diagnostic level?** Flattening means two structs' keys share a namespace, so a collision is possible, and a compile-time error is the right answer. The cost is not "expensive across module boundaries", which is how this was first written — an attached macro never sees another type's members **in any module**, including one declared three lines above, because there is no lexical peer access and no compile-time string evaluation. So the question is not what detection costs but whether a spelling exists in which detection is possible at all. `ROADMAP.md` carries the current answer.
-
-**3. Should `.regex` fail closed on platforms without a regular expression engine?** Right now the plan is that it works everywhere the library is claimed to support. If a stripped-down environment ever lacks one, the choice is between a rule that always passes, a rule that always fails, and a hard build error. Build error, probably.
-
-**4. Is `@Fallback` too dangerous to be this easy?** It swallows bad data by design, and the warning is only visible through `diagnose`. There's an argument that it should require an explicit acknowledgement. There's a counter-argument that it exists precisely for the cases where you have already decided to keep going.
-
-**5. What does an `@Unknown case other(String)` enum do on the encode side, once encoding exists?** Round-tripping an unknown variant is either exactly right or a security hole, depending on who is asking.
-
-**6. Should the runtime `Assayer<T>` API be in the initial release at all?** It exists for dynamic schemas and for domain types. The domain-type use is small enough that a narrower protocol might cover it, and shipping a full value-level combinator API means committing to maintaining two front doors forever.
+Five others that stood here are answered: `diagnose` has no streaming form, because the issue cap already covers the memory concern ([`ROADMAP.md`](../ROADMAP.md) records why incremental parsing is decided against while record streams are merely unbuilt); `@Inline` requires a nested type, which makes collision detection total at expansion (§4); `.regex` without an engine reports `regex_unavailable` rather than passing; an `@Unknown` value is refused on encode unless `@Unknown(roundTrips: true)`; and `Assayer<T>` ships ([`ASSAYER.md`](ASSAYER.md)).
 
 ---
 
-*Second edition, written before anything here had been compiled — there was no Swift toolchain in that environment, so every API was designed against the compiler's source and its test suite rather than against a build. The macro-shaped claims were checked against swift-syntax 600.0.1 and the Swift 6.3 compiler tests; the platform claims against the Foundation and package sources listed in `_crossplatform_audit.md`. The first thing to do on a machine with a toolchain, it said, was to prove the `@Validate` attribute in section 5 actually compiles.*
-
-*It does. As of 2026-07-27 this document is implemented rather than proposed: sections 1–13 and 16–19 describe working, tested code, and the `@Validate` spelling in §5 compiles exactly as written, including the message-as-a-rule trick that motivated the `ExpressibleByStringLiteral` conformance. `Date` and `@DateFormat` (§11) followed on 2026-08-06 — including candidate chains (`@DateFormat(.iso8601, .unixMillis)`, fallback matches warn like `@Key(or:)`), compile-time-checked patterns, and the `.before`/`.after`/`.between` rules; `.past`/`.future` wait on a clock seam. Encoding (§14) followed on 2026-08-09 for JSON, YAML and XML, and `@Unknown` (§8) with it — both were on this list and both now ship. What is **not** built is listed with its reasons in [`ROADMAP.md`](../ROADMAP.md): `StandardSchema` (§15, which needs a third package), index segments in `@Key(path:)` (§4), and `parse(bytes, as:)`/`parse(contentsOf:)` (§12). `jsonSchema(for:)` (§14) and `parse(plist:)` (§1) shipped 2026-09-09. Where this document and the code disagree, that is a bug in one of them; `ROADMAP.md` says which.*
+*This document was written before anything in it had been compiled, against the compiler's source and its test suite rather than against a build. It is now implemented rather than proposed. What is **not** built: `StandardSchema` (§15), index segments in `@Key(path:)` (§4), `message(locale:)` (§3), and `parse(bytes, as:)` / `parse(contentsOf:)` (§12) — each with its reasons in [`ROADMAP.md`](../ROADMAP.md). Where this document and the code disagree, the code is right.*

@@ -25,9 +25,9 @@
 // document are still collected in full, as on every format.
 //
 // THE REDEFINITION RULES are the whole difficulty, and they live in one place —
-// `TableBuilder` and the two walks (`define(header:)` and `assign(path:)`) below. Each
-// table remembers how it came to exist (a header, dotted keys, or implicitly as the
-// parent of a header), because the specification's rules are all in terms of that:
+// `TableBuilder` and the two walks (`define(path:array:…)` and `assign(path:value:…)`)
+// below. Each table remembers how it came to exist (a header, dotted keys, or implicitly
+// as the parent of a header), because the specification's rules are all in terms of that:
 //
 //   `[a]` twice                                   → error
 //   `[a.b]` then `[a]`                            → fine; `a` was implicit, now defined

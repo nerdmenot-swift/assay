@@ -243,9 +243,8 @@ extension YAML.Parser {
     }
 
     /// Record a flow-defined anchor, and attach it to a scalar for round-trip fidelity
-    /// the way `parseNode` does. Split out because `parseFlowNode` has two exits that
-    /// both have to do it, and an anchor recorded on one path but not the other is the
-    /// shape of bug this whole change is fixing.
+    /// the way `parseNode` does. Split out so the anchored exit of `parseFlowNode` stays
+    /// out of the unanchored fast path.
     @inline(never)
     private mutating func recordFlowAnchor(
         _ anchor: String?, _ node: B.Value, _ budgetAtEntry: Int

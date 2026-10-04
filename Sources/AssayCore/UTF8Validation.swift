@@ -18,8 +18,8 @@
 // contiguous buffer that cannot change underneath the parse. That is a second reason the
 // public API takes bytes rather than a stream.
 //
-// Phase 1 is scalar. The ASCII fast lane is 8-byte SWAR, which is the portable answer;
-// a SIMD version goes behind the dispatch seam in phase 4 if the numbers justify it.
+// This is scalar. The ASCII fast lane is 8-byte SWAR, which is the portable answer; a SIMD
+// version was considered and decided against (`ROADMAP.md`, "SIMD and C").
 //===----------------------------------------------------------------------===//
 
 public enum UTF8Validation {

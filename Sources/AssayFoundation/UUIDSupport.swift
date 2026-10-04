@@ -10,8 +10,7 @@
 // it compile and work from JSON, YAML, XML, TOML and property lists.
 //
 // (It was written alongside a columnar conformance, removed 2026-09-11 with the rest of
-// that path. The raw-bytes helper below survives it: a 16-byte form is what a binary wire
-// protocol hands over, not only a column store.)
+// that path.)
 //
 // ACCEPTANCE IS THE `.uuid` RULE'S, EXACTLY. `FormatValidators.isUUID` already settles what
 // Assay considers a UUID: "exactly 8-4-4-4-12 hex with hyphens. No braces, no urn:uuid:, no
@@ -104,10 +103,10 @@ extension UUID {
 
 // MARK: - The tree path
 
-// This is the seam the macro uses for any field type it does not special-case: it emits
-// `UUID._assay(from: &reader, into: &sink, at: path + [.key("id")])` and lets member lookup
-// find this. Nothing has to be added to the macro, which is the point -- a type outside the
-// built-in set is decodable from JSON on exactly these terms.
+// This is the seam the macro uses for any field type it does not special-case: it pushes
+// the key, emits `UUID._assay(from: &reader, into: &sink, at: &path)`, pops, and lets member
+// lookup find this. Nothing has to be added to the macro, which is the point -- a type
+// outside the built-in set is decodable from JSON on exactly these terms.
 extension UUID {
 
     nonisolated public static func _assay(

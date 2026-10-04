@@ -39,15 +39,16 @@ func runAllocationGate() -> Bool {
             format: "self-check: expected 2.0 and 4.0 blocks, measured %@ and %@",
             selfCheck1.blocks.map { String(format: "%.2f", $0) } ?? "n/a",
             selfCheck2.blocks.map { String(format: "%.2f", $0) } ?? "n/a"))
-    // Darwin's nano zone batches its statistics, so a ~15% undercount is the calibrated
-    // normal rather than a fault. Beyond that the counter has stopped describing reality and
-    // the gate turns itself off rather than reporting a number it cannot stand behind.
+    // Darwin's nano zone batches its statistics, and this once read ~15% low (1.70 and 1.73);
+    // it now reads exactly 2.00 and 4.00. The band below still admits the old undercount.
+    // Beyond it the counter has stopped describing reality and the gate turns itself off
+    // rather than reporting a number it cannot stand behind.
     let counterTrusted =
         (selfCheck1.blocks.map { $0 > 1.6 && $0 <= 2.05 } ?? false)
         && (selfCheck2.blocks.map { $0 > 3.3 && $0 <= 4.05 } ?? false)
     print(
         counterTrusted
-            ? "counter validated (undercounts ~10-15%; thresholds carry the headroom)"
+            ? "counter validated (thresholds carry headroom for undercounting)"
             : "COUNTER UNRELIABLE on this platform; rows below are reported but NOT gated")
     print("")
 

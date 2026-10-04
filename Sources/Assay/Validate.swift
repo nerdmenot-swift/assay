@@ -30,8 +30,8 @@
 //     T.validate(try T.parse(json: d))   never reports an issue
 //
 // for any `d` that parses cleanly — a value the decoder accepted must not be rejected by
-// the validator. `Tests/AssayTests/ValidateValueTests.swift` checks it over the corpus. Holding
-// that law is what decides the three exclusions:
+// the validator. `Tests/AssayTests/ValidateValueTests.swift` checks it over 600 generated
+// documents. Holding that law is what decides the three exclusions:
 //
 //   * @Preprocess does not run. It normalises WIRE text before decoding — `.trim` on a
 //     string that arrived with spaces. The value in hand is already decoded, and `validate`
@@ -54,10 +54,10 @@ public import AssayCore
 
 /// A type whose `@Schema` rules can be run against an already-constructed value.
 ///
-/// Conformance is generated whenever a schema declares any `@Validate` or `@Check`. It is
-/// not opt-in like `encodes:` or `sources:`, because a type that declares no rules gets an
-/// empty body and pays nothing — the generated code is proportional to the rules that are
-/// already there.
+/// Conformance is generated whenever a schema declares any `@Validate` or synchronous
+/// `@Check`. It is not opt-in like `encodes:`, because a type that declares no rules gets
+/// no body and no conformance and pays nothing — the generated code is proportional to the
+/// rules that are already there.
 public protocol Validatable: Sendable {
     /// Run every rule and cross-field check against `value`. Generated.
     nonisolated static func _assayCheck(
@@ -110,12 +110,12 @@ public struct Validation: Sendable {
 
 extension Validatable {
 
-    // `@inlinable` on all four, and it is load-bearing rather than decorative. These are
-    // generic over `Self` and over the sequence, they live in a source package, and the call
-    // site is in the user's module — which is hard constraint 5's exact case: without it,
+    // `@inlinable` on every method here, and it is load-bearing rather than decorative. These
+    // are generic over `Self` and over the sequence, they live in a source package, and the
+    // call site is in the user's module — which is hard constraint 5's exact case: without it,
     // cross-module specialization does not happen and the per-element iteration runs through
     // witness tables. The batch measured 176 ns/row against 79 ns for the identical check on
-    // a single value; adding these four attributes took it to 87, which is 79 plus the array
+    // a single value; adding the attributes took it to 87, which is 79 plus the array
     // element copy. The gap was the unspecialized loop, not the rules.
     //
     // SE-0193's restriction does not bite here: these bodies reference only public API. It
@@ -179,8 +179,8 @@ extension Validatable {
     ) -> Validation {
         var sink = IssueSink(limits: limits)
         // ONE path array, rewritten in place per element. `[.index(i)]` inside the loop is
-        // the obvious spelling and allocates per row; this is worth ~16 ns of the ~90 the
-        // loop costs. Nothing retains the buffer — an Issue stores `path + [...]`, a fresh
+        // the obvious spelling and allocates per row; this was worth ~16 ns per row when
+        // measured. Nothing retains the buffer — an Issue stores `path + [...]`, a fresh
         // array — so it stays uniquely referenced and the assignment is in place.
         var path: [PathStep] = [.index(0)]
         for (i, v) in values.enumerated() {

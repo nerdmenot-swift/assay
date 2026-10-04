@@ -5,16 +5,22 @@ configurational, and it is testable:
 
 - **XXE is refused by construction.** The XML parser has no code path that can fetch an
   external entity or DTD — `SYSTEM`/`PUBLIC` identifiers are recognised so they can be
-  refused, and the refusal is a warning you can observe (`xml_external_entity_ignored`).
-  This is also why `parse(_:contentType:accepting:)` makes `accepting:` a required
-  parameter: a server must opt in to parsing XML at all.
+  refused, and the refusal is a warning you can observe (`xml_external_entity_ignored`
+  for an entity, `xml_external_dtd_ignored` for a DTD subset). This is also why
+  `parse(body:contentType:accepting:)` makes `accepting:` a required parameter: a server
+  must opt in to parsing XML at all.
 - **Entity-expansion and alias-expansion bombs are capped by budget**, not by depth alone
   — billion-laughs is flat. YAML alias expansion has a total-node budget, and an alias is
   charged the size of the subtree it expands to rather than one unit: `Node` is a value
   type, so an unbudgeted alias graph is a cheap DAG at parse time that explodes into a
   tree in whatever walks it. (A pre-release audit found exactly that hole — 331 bytes
   reaching 11.4 million nodes with no issue reported — and it is pinned by
-  `Tests/AssayTests/AuditRegressionTests.swift`.)
+  `Tests/AssayTests/AuditRegressionTests.swift`.) XML internal entities are expanded
+  recursively, so `<!ENTITY b "&a;&a;">` resolves `a`, and the total expansion is
+  charged against a budget derived from the input: 32 times its size, with a 64 KB
+  floor, never more than `Limits.maxBytes`. It is charged at every level of nesting, and
+  running out is an issue (`xml_entity_expansion_limit`). An entity that refers to
+  itself, directly or through another, is refused (`xml_recursive_entity`).
 - **Resource limits are first-class**: `Limits(maxIssues:maxDepth:maxBytes:)` bounds
   every parse; depth is checked on entry to every container.
 - **Amplification is gated in CI.** `Tests/AssayTests/AmplificationTests.swift` bounds
@@ -23,10 +29,12 @@ configurational, and it is testable:
   stays small but cost explodes. The bound is on deterministic quantities, so it holds
   identically on every machine. This is the gate that would have caught the alias bomb.
 - **Every parser is differentially tested** against an independent implementation
-  (JSONSerialization, Yams/libyaml, Foundation XMLParser, toml++ — and TOML against the
-  official toml-test suite, 710/710) and **fuzzed deterministically in CI** — mutations and truncations, with any finding reproducible from a fixed seed.
-  The class of bug where a parser silently *mis-reads* valid input is treated as a
-  security bug here, because it is how validation gets bypassed.
+  (JSONSerialization, Yams/libyaml, Foundation XMLParser, toml++,
+  PropertyListSerialization — and TOML against the official toml-test suite, 709 cases
+  at the time of writing) and **fuzzed deterministically in CI** — mutations and
+  truncations, with any finding reproducible from a fixed seed. The class of bug where a
+  parser silently *mis-reads* valid input is treated as a security bug here, because it
+  is how validation gets bypassed.
 
 ## Known limitations, stated rather than discovered
 
@@ -36,11 +44,13 @@ configurational, and it is testable:
   patterns. Prefer the hand-written validators (`.email`, `.url`, `.uuid`, `.hostname`),
   which are linear over bytes by construction, and bound string length with `.max` before
   a regex rule runs.
-- **XML internal entity values are not re-expanded.** `<!ENTITY a "&b;">` yields the
-  literal text `&b;` rather than resolving `b`. That is a deliberate stopping point
-  (it is also what makes the expansion budget trivially sufficient), but it means Assay
-  reads a nested-entity document differently from a fully conforming parser. It is
-  recorded in `ROADMAP.md`.
+- **XML parameter entities and external declarations are not honoured.** Internal
+  general entities are expanded, recursively and under the budget above. A parameter
+  entity declaration (`<!ENTITY % name …>`) is skipped, and an external entity or
+  external DTD subset is never fetched, so a document that depends on either reads
+  differently from a fully conforming, network-enabled parser: a reference to an entity
+  that was only declared externally is an error (`xml_undeclared_entity`), never a
+  silent pass-through.
 - **Decoded values still cost memory proportional to what they retain.** `Limits.maxBytes`
   bounds the input; nothing bounds the output. A schema that declares `[String: RawValue]`
   over a large document keeps the document.

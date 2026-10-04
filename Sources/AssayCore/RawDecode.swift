@@ -6,9 +6,10 @@
 // Decoding a schema from RawValue — the YAML and XML path.
 //
 // ARCHITECTURE, and its cost stated plainly. JSON decodes *direct to struct*: the macro's
-// generated body reads bytes straight into fields, which is where the measured 5.59x over
-// Foundation comes from. YAML and XML do not: they parse to their own full-fidelity model,
-// project to `RawValue`, and decode from that.
+// generated body reads bytes straight into fields, which is where the multiple over
+// Foundation comes from (`Benchmarks/RESULTS.md`). YAML, XML and TOML do not: their parsers
+// build a `RawValue` directly — no per-format tree in between since 2026-09-20 — and the
+// schema decodes from that.
 //
 // That is a DOM hop, and a DOM costs 2-7x against direct-to-struct in published
 // measurements. It is accepted here for three reasons:
@@ -496,10 +497,10 @@ extension RawValue {
 
 // MARK: - Text to scalar, the one definition
 //
-// `coerceScalars` / `@Coerce` accept a string where a number or boolean was declared. The
-// rules live here and nowhere else, so the RawValue path (YAML, XML, TOML, plists) and the
-// tree path cannot drift: "8080.5" is not an
-// integer on either, and "yes" is a boolean on both.
+// `coerceScalars` / `@Coerce` accept a string where a number or boolean was declared. For
+// the RawValue path (YAML, XML, TOML, plists) the rules live here. The JSON byte path spells
+// the same rules separately in `Decode.swift`'s `…Coercing` primitives, and the two must be
+// kept in step: "8080.5" is not an integer on either, and "yes" is a boolean on both.
 
 /// `"8080"` → 8080. Sign allowed; no fraction, no exponent, no whitespace.
 @_documentation(visibility: internal)

@@ -146,8 +146,9 @@ let package = Package(
                 .product(name: "SwiftParser", package: "swift-syntax")
                 // Deliberately NOT SwiftSyntaxMacrosTestSupport: it is XCTest-based and
                 // therefore needs a full Xcode, not just Command Line Tools. The
-                // swift-testing equivalent is SwiftSyntaxMacrosGenericTestSupport; add it
-                // when expansion-assertion tests are written.
+                // swift-testing equivalent is SwiftSyntaxMacrosGenericTestSupport; the
+                // golden expansion tests use `SwiftSyntaxMacroExpansion` directly and do
+                // not need it.
             ],
             // The golden expansions are read by path at test time, not bundled — a resource
             // bundle would need Foundation's `Bundle.module` on every platform the tests

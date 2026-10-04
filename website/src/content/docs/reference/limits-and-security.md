@@ -77,7 +77,7 @@ quantities, so they hold identically on every machine rather than being timing-s
 
 Every parser is also differentially tested against an independent implementation —
 `JSONSerialization`, Yams/libyaml, Foundation's `XMLParser`, toml++, and TOML against the
-official `toml-test` suite (710/710) — and fuzzed deterministically in CI, with any finding
+official `toml-test` suite (every case) — and fuzzed deterministically in CI, with any finding
 reproducible from a fixed seed.
 
 A parser that silently **mis-reads** valid input is treated as a security bug here, not a

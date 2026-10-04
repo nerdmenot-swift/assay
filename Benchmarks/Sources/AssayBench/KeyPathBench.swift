@@ -12,7 +12,7 @@
 // selling convenience with an unmentioned bill.
 //
 // WHAT IS COMPARED, and it is deliberately the *whole* decode rather than a path microbench.
-// `DiagnosticPathBench.swift` records what happens otherwise: an isolated path-concat reads
+// A since-removed microbenchmark recorded what happens otherwise: an isolated path-concat reads
 // ~49 ns and the same code in situ measures ~1 ns, because the optimiser sees through the
 // isolated version. Two complete schemas over byte-identical documents is the only comparison
 // that cannot be gamed that way.

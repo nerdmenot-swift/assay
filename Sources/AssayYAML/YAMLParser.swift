@@ -162,9 +162,9 @@ extension YAML {
         /// EXPANDED size rather than one unit. Without this the budget below does not
         /// bound anything: `Node` is a value type, so an alias shares storage and the
         /// parsed result is a cheap DAG — but every consumer that walks it (the
-        /// `RawValue` projection every schema decode goes through, most of all)
-        /// materialises the DAG into a tree, exponentially. 331 bytes reached 11.4
-        /// million nodes with zero issues reported before this existed.
+        /// `RawValue` projection most of all) materialises the DAG into a tree,
+        /// exponentially. 331 bytes reached 11.4 million nodes with zero issues reported
+        /// before this existed.
         var anchorCost: [String: Int] = [:]
         /// Bounds total alias expansion. Depth alone does not stop billion-laughs.
         var nodeBudget: Int
@@ -392,8 +392,7 @@ extension YAML {
 
             // Attach the properties scanned above. What that means is the builder's
             // business: the node model hangs them on a scalar, and the RawValue builder
-            // rewrites the unresolved scalar's tag so resolution sees it (`YAMLBuilder.swift`,
-            // note 1).
+            // resolves the scalar with the tag (`YAMLBuilder.swift`, note 1).
             if anchor != nil || tag != nil {
                 B.decorate(&result, anchor: anchor, tag: tag)
             }

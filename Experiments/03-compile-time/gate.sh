@@ -51,7 +51,7 @@ FIELDS=${FIELDS:-10}
 # a plain JSON user pays. This one is what a heavily-validated type costs, measured
 # best-of-three at 100 types: 87 ms/type rule-free, 90 ms with rules and no validator body,
 # 114 ms with it. The 24 ms difference is the per-field cost paid once more over the same
-# fields, which is exactly what the 7.3 ms/field model in docs/COMPILE-TIME.md §2 predicts;
+# fields, which is exactly what the 7.3 ms/field model in docs/COMPILE-TIME.md §1 predicts;
 # there is no fat in it to remove, so it is gated rather than optimised away.
 #
 # Held at 145. This is the arm that flaked, and the reason it did was the measurement, not

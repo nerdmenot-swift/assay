@@ -3,8 +3,8 @@
 // See LICENSE and NOTICE at the repository root for terms.
 
 //===----------------------------------------------------------------------===//
-// Lexing helpers: line position, inline space, comments, tokens. Nothing here allocates
-// or builds a node.
+// Lexing helpers: line position, inline space, comments, tokens. Nothing here builds a
+// node; only `scanToken` builds a String.
 //===----------------------------------------------------------------------===//
 
 import AssayCore

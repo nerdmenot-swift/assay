@@ -189,9 +189,10 @@ public struct XMLWriter: ~Copyable {
         endElement(name)
     }
 
-    /// The five predefined entities, plus the whitespace an attribute value must escape
-    /// so it survives XML 1.0 §3.3.3 attribute-value normalisation on the way back in.
-    /// Getting that wrong is how a tab in an attribute silently becomes a space.
+    /// `<`, `>` and `&` everywhere, `"` inside an attribute (`'` is never escaped: attributes
+    /// are always double-quoted), CR everywhere, plus the tab and newline an attribute value
+    /// must escape so it survives XML 1.0 §3.3.3 attribute-value normalisation on the way
+    /// back in. Getting that wrong is how a tab in an attribute silently becomes a space.
     @inlinable
     mutating func writeEscaped(_ s: String, inAttribute: Bool) {
         for b in s.utf8 {

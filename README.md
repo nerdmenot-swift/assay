@@ -7,33 +7,35 @@ Foundation tells you it expected an `Int` and found a `String`. Somewhere. Good 
 Assay tells you this:
 
 ```
-deploy.json:3:15: error: replicas must be at least 1
+deploy.json:3:13: error: replicas must be at least 1
   1 │ {
-  2 │   "name": "api",
-  3 │   "replicas": 0,
-    │               ^
-  4 │   "image": "registry.internal/api"
+  2 │ "name": "api",
+  3 │ "replicas": 0,
+    │             ^
+  4 │ "image": "registry.internal/api"
 
 1 error
 ```
 
-That is real output, not a mock-up — this repository's CI regenerates every render in its
-documentation from the library and fails if one drifts. Decode failures and validation
-failures look identical on purpose: to the person reading them, they are the same problem.
+That is real output, not a mock-up — the same render is a golden test, and CI regenerates
+every render on the documentation site from the library and fails if one drifts. Decode
+failures and validation failures look identical on purpose: to the person reading them, they
+are the same problem.
 
-> **0.1.0 — built, tested, measured, released for early adopters.** A `0.x` minor may change
-> the API and [`CHANGELOG.md`](CHANGELOG.md) says when. [`ROADMAP.md`](ROADMAP.md) lists what
-> is deliberately not here, with reasons.
+> **0.1.0 is not tagged yet — built, tested, measured, and installable from `main`.** A
+> `0.x` minor may change the API and [`CHANGELOG.md`](CHANGELOG.md) says when.
+> [`ROADMAP.md`](ROADMAP.md) lists what is deliberately not here, with reasons.
 
-📖 **[assay.nerdmenot.in](https://assay.nerdmenot.in)** — guides, recipes, and a page per
-format. This file is the version for people who would rather stay in the terminal.
+📖 The documentation site (guides, recipes, a page per format) lives in
+[`website/`](website/) and is not yet published. This file is the version for people who
+would rather stay in the terminal.
 
 ---
 
 ## Install
 
 ```swift
-.package(url: "https://github.com/nerdmenot-swift/assay.git", from: "0.1.0")
+.package(url: "https://github.com/nerdmenot-swift/assay.git", branch: "main")
 ```
 
 ```swift
@@ -140,11 +142,12 @@ struct Config {
 | JSON | `Assay` | straight from bytes into your struct — the fast path |
 | YAML 1.2 | `AssayYAML` | hand-written, anchors and aliases, no libyaml to vendor |
 | XML | `AssayXML` | XXE refused by construction, not by a flag |
-| TOML 1.0.0 | `AssayTOML` | 710/710 on the official test suite |
+| TOML 1.0.0 | `AssayTOML` | passes the official toml-test suite (709 cases at the time of writing) |
 | Property lists | `AssayPlist` | binary and XML |
 | HTTP bodies | — | `parse(body:contentType:accepting:)`, RFC 9110 negotiation |
 
-Carets work on all of them, because the spans come from the parsers.
+Carets work on all of them wherever the parser recorded a span; [`ROADMAP.md`](ROADMAP.md)
+lists the fields that still report without one outside JSON.
 
 ## Speed, with receipts
 
@@ -172,13 +175,13 @@ Full table, method and caveats: [`Benchmarks/RESULTS.md`](Benchmarks/RESULTS.md)
 
 This is the part the author enjoys more than is strictly healthy.
 
-- **1,046 tests**, 190 suites, 98.8% line coverage.
+- **1,049 tests**, 191 suites, 98.8% line coverage.
 - **Differential oracles** — every format decoded twice, once by Assay and once by the
   incumbent: `JSONSerialization`, Yams/libyaml, Foundation's `XMLParser`, toml++,
-  `PropertyListDecoder`. Disagreement fails the build. Two real parser bugs found on the
+  `PropertyListSerialization`. Disagreement fails the build. Two real parser bugs found on the
   first run.
-- **710/710** on the official `toml-test` suite; 2,279 instants bit-exact against Foundation
-  for dates.
+- **Every case** of the official `toml-test` suite (709 at the time of writing); 2,279
+  instants bit-exact against Foundation for dates.
 - **A fuzzer that asserts laws**, not just the absence of crashes: 12,680 mutated and
   truncated documents, 55,905 generated decodes checked against three invariants.
 - **Exact counters.** Every matrix cell runs under Callgrind and DHAT on x86-64 and arm64,
@@ -198,15 +201,15 @@ chose.
 | | |
 |---|---|
 | Test suite runs | macOS, Linux (x86-64 + aarch64), Windows |
-| Builds | iOS, tvOS, watchOS, visionOS, static-musl Linux, wasm32 |
+| Builds | iOS, tvOS, watchOS, visionOS, static-musl Linux; wasm32 for `AssayCore`, `AssayYAML` and `AssayXML` |
 
 Every libc call is behind `canImport`, and the parsers are hand-written Swift with nothing to
 vendor — which is why that list is as long as it is. Android is not a target.
 
 ## Documents
 
-Start at the [website](https://assay.nerdmenot.in) if you want prose and examples. These are
-the ones worth reading in the repository:
+Start in [`website/src/content/docs`](website/src/content/docs) if you want prose and
+examples. These are the ones worth reading in the repository:
 
 | | |
 |---|---|
@@ -223,7 +226,7 @@ the ones worth reading in the repository:
 ## Reproduce anything
 
 ```sh
-swift test                                    # 1,046 tests
+swift test                                    # 1,049 tests
 cd Benchmarks
 swift run -c release CorpusGen                # the corpus, deterministic
 swift run -c release AssayBench --list        # every arm

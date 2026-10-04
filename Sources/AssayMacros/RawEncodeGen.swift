@@ -6,9 +6,9 @@
 // Encoding to `RawValue` — the seam every non-JSON format writes through.
 //
 // This mirrors the DECODE architecture exactly, which is the reason to do it this way
-// rather than emit a YAML writer per type: YAML and XML decode by parsing to their own
-// node model, projecting to `RawValue`, and decoding from that. Encoding runs the same
-// pipeline backwards — the schema builds a `RawValue`, and each format renders it.
+// rather than emit a YAML writer per type: YAML, XML and TOML decode by parsing to
+// `RawValue` and decoding from that. Encoding runs the same pipeline backwards — the schema
+// builds a `RawValue`, and each format renders it.
 //
 // Two things fall out of that symmetry and both are worth having:
 //

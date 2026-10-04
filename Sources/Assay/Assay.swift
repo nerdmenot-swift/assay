@@ -16,7 +16,8 @@
 //   Protocols.swift    — what `@Schema` conforms a type to
 //   Macros.swift       — every attached macro and its documentation
 //   Options.swift      — `SchemaFormats`, `UnknownKeys`, `Discriminator`, `KeyNamingStyle`, `XMLPlacement`
-//   Entry.swift        — `parse` / `diagnose`, `Diagnosis`, `AssayError`, encoding entry points
+//   Entry.swift        — `parse` / `diagnose`, `Diagnosis`, `EncodeDiagnosis`, encoding
+//                        entry points
 //   AsyncEntry.swift   — the async pair for types with `@AsyncCheck`
 //   ContextEntry.swift — the contextual pair
 //   Validate.swift     — `T.validate(_:)` on a value something else produced (the rule

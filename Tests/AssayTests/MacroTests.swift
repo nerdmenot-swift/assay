@@ -762,4 +762,47 @@ struct RefusalCoverageTests {
         let d = expandSchemaForTesting("@Schema enum E { case a, b }").diagnostics
         #expect(d.contains { $0.contains("@Unknown") }, "\(d)")
     }
+
+    @Test("describes: true on a type that holds itself is refused, at any nesting")
+    func recursiveDescribe() {
+        for field in ["var next: Node?", "var children: [Node]", "var byName: [String: [Node]]"] {
+            let d = expandSchemaForTesting(
+                "@Schema(describes: true) struct Node { var name: String; \(field) }"
+            ).diagnostics
+            #expect(d.count == 1, "\(field): \(d)")
+            #expect(d.first?.contains("holds 'Node' itself") == true, "\(field): \(d)")
+        }
+        // Without `describes:` a recursive type is fine, and so is a described type that
+        // merely mentions another.
+        #expect(
+            expandSchemaForTesting("@Schema struct Node { var children: [Node] }")
+                .diagnostics.isEmpty)
+        #expect(
+            expandSchemaForTesting("@Schema(describes: true) struct A { var b: [B] }")
+                .diagnostics.isEmpty)
+    }
+
+    @Test("two key paths that cannot both be read are refused")
+    func pathCollision() {
+        // One key cannot be a value and an object at once — at any depth, in either order.
+        for fields in [
+            #"@Key(path: "a.b") var x: Int; @Key(path: "a.b.c") var y: Int"#,
+            #"@Key(path: "a.b.c") var y: Int; @Key(path: "a.b") var x: Int"#
+        ] {
+            let d = expandSchemaForTesting("@Schema struct S { \(fields) }").diagnostics
+            #expect(d.count == 1, "\(d)")
+            #expect(d.first?.contains("one key cannot be both") == true, "\(d)")
+            #expect(d.first?.contains("'x' reads \"a.b\" as a value") == true, "\(d)")
+        }
+        let same = expandSchemaForTesting(
+            #"@Schema struct S { @Key(path: "a.b") var x: Int; @Key(path: "a.b") var y: Int }"#
+        ).diagnostics
+        #expect(same.first?.contains("both read the path \"a.b\"") == true, "\(same)")
+
+        // Siblings and cousins are not collisions.
+        let fine = expandSchemaForTesting(
+            #"@Schema struct S { @Key(path: "a.b") var x: Int; @Key(path: "a.c.d") var y: Int; @Key(path: "a.c.e") var z: Int }"#
+        ).diagnostics
+        #expect(fine.isEmpty, "\(fine)")
+    }
 }

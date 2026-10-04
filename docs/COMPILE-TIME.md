@@ -2,12 +2,6 @@
 
 A macro-based decoder has two performance axes, and this is the one nobody benchmarks.
 
-Here is the scenario that makes it a gate rather than a footnote. A developer replaces
-`: Codable` with `@Schema` across a model layer, in one commit, and then waits for a build.
-**That is when they decide whether to keep it — before running a single decode.** Which means
-build time is not a tax on the library's author; it is the first thing the library says to
-its user.
-
 ---
 
 ## 0. Why this is a gate and not a footnote
@@ -40,7 +34,8 @@ So: measured, budgeted, and gated in CI, next to the allocation gate.
 Measured, not estimated. Method and raw numbers in
 `Experiments/03-compile-time/RESULTS.md`.
 
-**~84 ms per `@Schema` type at 10 fields, in the default configuration.**
+**~81 ms per `@Schema` type at 10 fields, in the default configuration** (80.8 in
+`Benchmarks/RESULTS.md`; consecutive gate runs read 80–85).
 
 > A band rather than a figure, but a much narrower one since 2026-08-30: every timing is now
 > the **minimum of three builds** rather than a single one, and consecutive runs read
@@ -62,25 +57,14 @@ JSON body (default)         ≈  9 ms fixed + 7.3 ms × fields   →  ~82 ms
 The second body is emitted **only when the type opts in** with `@Schema(formats:)`. A type
 that only ever parses JSON pays nothing for YAML and XML support. See §4.5.
 
-Against the alternatives, at 100 types × 10 fields on a clean module build:
+Against the thing it replaces, on a clean module build: **80.8 ms/type against `Codable`'s
+~19 ms, which is 4.22×.** That is the **default** arm, JSON only — what
+`Benchmarks/RESULTS.md`'s headline table carries and what the gate measures. It is the
+number to quote, and §6 quotes it.
 
-| | time | ratio |
-|---|---|---|
-| plain struct, no conformance | 0.83 s | 1.0× |
-| `: Codable` | 2.20 s | 2.7× |
-| `@Schema` (JSON + RawValue bodies) | 11.31 s | **13.6×** |
-
-**READ THE ARM BEFORE QUOTING THE RATIO.** The `@Schema` row above is the
-**`formats:`-opted-in** arm — both bodies — so the 5.1× it works out to against `Codable` is
-the cost of a type that parses YAML or XML as well. It is not the figure to put in a README,
-which is what this paragraph used to say.
-
-The **default** arm, JSON only, is what `Benchmarks/RESULTS.md`'s headline table carries and
-what the gate measures: **80.8 ms/type against `Codable`'s ~19 ms, which is 4.22×**. That is
-the number to quote, and §6 quotes it.
-
-The table above is also older than that figure: it puts `Codable` at 22.0 ms/type where the
-harness now reads ~19. Both arms moved; the shape of the finding did not.
+**READ THE ARM BEFORE QUOTING THE RATIO.** A type that opts into `@Schema(formats:)` emits
+both bodies and costs about 5.1× `Codable` instead. §4.5 has that arm's table; the two are
+not interchangeable.
 
 ### The finding that matters most
 
@@ -97,18 +81,22 @@ nothing. "Emit less code per field" buys everything.
 
 | schema types | added to a clean build | verdict |
 |---|---|---|
-| ≤ 50 | < 6 s | fine |
-| 50–200 | 6–23 s | noticeable; isolate schemas in a rarely-changing module |
-| 200–1000 | 23–116 s | measure before adopting wholesale |
-| > 1000 | > 116 s | do not adopt without a plan |
+| ≤ 50 | < 4 s | fine |
+| 50–200 | 4–16 s | noticeable; isolate schemas in a rarely-changing module |
+| 200–1000 | 16–81 s | measure before adopting wholesale |
+| > 1000 | > 81 s | do not adopt without a plan |
 
 `EXPERIENCE.md` §13 said "`@Schema` on forty types is fine, `@Schema` on four thousand is
 something to measure." That was the right instinct; this is the number behind it. Four
 thousand types is roughly **five minutes**.
 
-**CI gate: 100 ms per type at 10 fields, measured in the default configuration, as the
-minimum of three builds.** Currently ~80–85 ms; ~120–129 ms for a type carrying a rule on
-nearly every field, against a 145 ms budget.
+**The gate (`Experiments/03-compile-time/gate.sh`) has three budgets.** Locally: 100 ms per
+type at 10 fields in the default configuration, and 145 ms for a type carrying a rule on
+nearly every field, each the minimum of three builds. In CI only the hardware-independent
+one is enforced — `schema / codable` ≤ 6.0×, from the medians — because a hosted runner is
+about half the speed of the machine the millisecond budgets were calibrated on. Currently
+~80–85 ms and ~120–129 ms locally; the ratio reads ~4.1× locally and 3.2× on a hosted
+runner.
 
 Worth recording how this number moved, because it is a case study in the rule above.
 Multi-format support pushed it to 118 ms and the budget was raised to 140 with a
@@ -179,10 +167,24 @@ Worth documenting for adopters rather than leaving them to discover it:
 **linking** claim, and it held because `AssayYAML` and `AssayXML` are separate products.
 
 Briefly it stopped holding for **compile time**: the `RawValue` decode body was emitted for
-every `@Schema` type whether or not it would ever see YAML, costing ~34 ms per type — about
-41% of the total — for a capability most users do not want.
+every `@Schema` type whether or not it would ever see YAML, costing ~34 ms per type — 41%
+on top of the JSON body, 29% of the total — for a capability most users do not want.
 
-Resolved by making formats opt-in on the type, which is also §18's principle applied
+The opted-in arm against the alternatives, at 100 types × 10 fields on a clean module build:
+
+| | time | ratio |
+|---|---|---|
+| plain struct, no conformance | 0.83 s | 1.0× |
+| `: Codable` | 2.20 s | 2.7× |
+| `@Schema` (JSON + RawValue bodies) | 11.31 s | **13.6×** |
+
+That is 5.1× `Codable`, and it is the cost of a type that parses YAML or XML as well — not
+the figure to put in a README. The table is also older than §1's 80.8 ms: it puts `Codable`
+at 22.0 ms/type where the harness now reads ~19. Both arms moved; the shape of the finding
+did not.
+
+Resolved by making formats opt-in on the type, which is also `EXPERIENCE.md` §18's principle
+applied
 ("everything that affects the meaning of a struct is written on the struct"):
 
 ```swift
@@ -207,10 +209,12 @@ The same split makes a nested-type mismatch catchable too: a `.yaml` parent cont
 
 ## 4b. Array fields cost more than rules, and nothing measured that until now
 
-**~102 ms per type at 10 array fields, against ~70 for the same fields as scalars** — so an
-array-heavy type is roughly **1.4×** a scalar one, and *more expensive than a `@Validate` on
-every field* (~97 ms). Measured 2026-09-08; before that every arm of the harness declared
-scalars only, so this shape had never been near the budget.
+**~102 ms per type at 10 array fields, against ~70 for the same fields as scalars in that
+run** — so an array-heavy type is roughly **1.4×** a scalar one, and *more expensive than a
+`@Validate` on every field* (~97 ms in that run). Measured 2026-09-08; read the ratio and
+not the absolutes, since §1 and §2 have today's figures for the scalar and rule-carrying
+arms. Before that every arm of the harness declared scalars only, so this shape had never
+been near the budget.
 
 That gap mattered because `arrayDecode` is the one generator that does not follow the rule
 this document sets out in §3: per-field generated code should be **one line calling an
@@ -267,7 +271,7 @@ not the edit being expensive.
 ### 5.2 Release configuration — MEASURED, and it is the expensive one
 
 `CONFIG=release Experiments/03-compile-time/measure.sh`, medians of 3, same machine and same
-types as the debug table above.
+types as the debug figures in §1.
 
 | types | plain | codable | schema | validated | arrays | paths | vs-codable |
 |---|---|---|---|---|---|---|---|
@@ -277,17 +281,18 @@ types as the debug table above.
 | 50 | 0.43 | 1.57 | 12.38 | 10.91 | 30.01 | 17.49 | 7.89× |
 | 100 | 0.47 | 2.69 | 25.57 | 21.35 | 60.48 | 33.03 | **9.51×** |
 
-**Release costs about 3.4× debug per type: ~245 ms against the ~72 ms the gate holds.** The
+**Release costs about 3× debug per type: ~250 ms (12.38 s at 50 types, 25.57 s at 100)
+against the ~81 ms the gate holds.** The
 `arrays` arm reaches ~600 ms/type. Nothing here was previously known, and the debug budget does
 not describe release builds even approximately — that is the point of writing it down.
 
 Two things about the shape, not just the size.
 
 **The ratio against `Codable` grows with type count in release and stays flat in debug** (1.64×
-at one type, 9.51× at a hundred; debug goes 1.14× to ~3.9×). That is the cost model in §4
-behaving exactly as stated (§2, ~9 ms fixed + 7.3 ms per field): cost tracks **generated body size**, and the optimizer is a second
-pass over that same body. Debug pays for the body once; release pays for it twice, with the
-second pass superlinear in places.
+at one type, 9.51× at a hundred; debug goes 1.14× to ~3.9×). That is the cost model in §1
+(~9 ms fixed + 7.3 ms per field) behaving exactly as stated: cost tracks **generated body
+size**, and the optimizer is a second pass over that same body. Debug pays for the body
+once; release pays for it twice, with the second pass superlinear in places.
 
 **`validated` is CHEAPER than `schema` in release** — 21.35 against 25.57 at a hundred types —
 having been *more* expensive in debug. The rule arrays are `static let` constants the optimizer
@@ -311,7 +316,8 @@ pay roughly twenty seconds of optimizer time for them.
 `-O`, over the rule-heavy arm (a `@Validate` on nearly every field, the worst generated
 `_assayCheck` body): **zero expressions at every threshold.**
 
-That is a consequence of rules 4 and 6 rather than luck. Per-field generated code is one line
+That is a consequence of `CLAUDE.md`'s hard constraints 4 and 6 (and §3 rule 2 here) rather
+than luck. Per-field generated code is one line
 calling a concrete, monomorphic runtime primitive with the field's type already fixed — there
 is no overload set to explore and no generic parameter to solve, so there is nothing for
 inference to go exponential on. The property is worth keeping: an emitter that started
@@ -319,12 +325,15 @@ producing multi-term expressions with inferred literals would be where this chan
 
 ### 5.5 `describes: true` — a predicted HIGH risk that did not arrive
 
-The roadmap flagged `jsonSchema(for:)` as high compile-time risk before it was built, on
+The roadmap at the time flagged `jsonSchema(for:)` as high compile-time risk before it was
+built, on
 the explicit grounds that a per-field descriptor is "an array literal, the exact shape rule 1
 was written about". Measured with a `describes` arm added to `gen_types.sh` for the purpose —
 `describes: true` on top of the rule-carrying arm, which is the shape the feature is for:
 
-**94.6 ms/type against `validated`'s 90.0 — about 5%.**
+**94.6 ms/type against `validated`'s 90.0 — about 5%.** Both absolutes are that run's
+(2026-09-09); the same arm reads ~120–129 ms under the gate today (§2), so the 5% is the
+finding and the 90 is not a figure to quote.
 
 The prediction was reasonable and the design is why it did not come true, so it is worth being
 precise about which choice did the work:
@@ -341,11 +350,11 @@ Rule 1 remains right; the descriptor simply is not the shape it warns about.
 
 ### 5.6 `encodes: true` — measured 2026-09-10, and the opt-in's stated reason is weaker than it sounded
 
-The roadmap and `EncodeGen.swift` both justified making encoding opt-in on compile time:
-"emitting an encoder for every type would roughly double the per-field code every user pays."
-Until now no arm measured it, and the roadmap quoted a number ("the compile-time gate is unmoved at
-~87 ms") that no harness here had produced. `gen_types.sh` has an `encodes` mode now, and
-`measure.sh` reports it beside `describes`.
+The roadmap at the time and `EncodeGen.swift` both justified making encoding opt-in on
+compile time: "emitting an encoder for every type would roughly double the per-field code
+every user pays." Until then no arm measured it, and the roadmap quoted a number ("the
+compile-time gate is unmoved at ~87 ms") that no harness here had produced. `gen_types.sh`
+has an `encodes` mode now, and `measure.sh` reports it beside `describes`.
 
 50 types, min of 3, quiet machine, debug:
 
@@ -361,7 +370,8 @@ does not follow it, and the gap between those two sentences is the finding.
 Why it does not follow: the encode body is the cheapest possible shape for the type checker.
 One `w.write(self.x)` per field, every type concrete, no optional-vs-default inference, no
 dispatch table, no window arithmetic — §5.3 measured zero slow expressions in the decode body
-for exactly the reasons rules 4 and 6 exist, and the encode body is even flatter than that.
+for exactly the reasons `CLAUDE.md`'s hard constraints 4 and 6 exist, and the encode body is
+even flatter than that.
 
 The full gate run the same day agrees, with one caveat worth showing rather than trimming:
 `encodes` read 80.5 ms/type at 100 types against `schema`'s 73.8, and 87 against 87 at 25 —
@@ -397,8 +407,10 @@ be worth saying.
   data, and no way to get any from a command-line harness.
 - **Cross-compilation.** Macro cross-compilation to Android was fixed in SwiftPM #8670, but its
   cost is unmeasured. Android is not a target (`CLAUDE.md`), so this is unlikely to move.
-- **Linux.** The compile-time harness has still only run on one arm64 macOS machine. The
-  *test* suite gates on Linux and Windows; the compile-time budget does not.
+- **Linux, in absolute terms.** `gate.sh` runs on a hosted Linux x86-64 runner in every CI
+  run and gates the `schema / codable` ratio (3.20× there). The millisecond budgets have
+  been calibrated on one arm64 macOS machine only; the runner's 148 ms/type is its
+  hardware, not a second calibration.
 
 ---
 
@@ -410,9 +422,10 @@ be worth saying.
 
 That is the **default, JSON-only** arm, and it is the one `Benchmarks/RESULTS.md`'s headline
 table reports. A type that opts into `@Schema(formats:)` emits a second body and costs about
-5.1× instead — §1 has that arm, and the two are not interchangeable.
+5.1× instead — §4.5 has that arm, and the two are not interchangeable.
 
-It read 3.6× until 2026-10-02, derived from §1's older table rather than from the harness.
+It read 3.6× until 2026-10-02, derived from the older table now in §4.5 rather than from the
+harness.
 The harness says 4.22×, because `Codable` itself got faster: the numerator barely moved and
 the denominator fell from ~22 ms to ~19.
 

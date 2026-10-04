@@ -8,15 +8,17 @@ This document is those six answers, the survey that settled the two XML ones, an
 the whole thing is held to:
 
 > For any `v` that `parse` produced, `parse(encode(v))` produces a value equal to `v` —
-> except in four cases, named below and tested as named cases.
+> except in five cases, named below.
 
-That exception list is closed. Adding to it is an API change.
+That exception list is closed. Adding to it is an API change. Three of the five have a named
+test, two do not yet; question 5 says which.
 
 Encoding is opt-in — `@Schema(encodes: true)` — because the writer roughly doubles the
 generated code and most types only ever read. It costs about 5% of the type's compile time
-and measures about 8.75× `JSONEncoder` at fifty items. All three formats:
-`encodes: true` emits a JSON writer, `.yaml` adds the `RawValue` projection YAML renders
-from, and `.xml` gets its own body because placement is not expressible in `RawValue`.
+and measures about 8.75× `JSONEncoder` at fifty items. All four formats:
+`encodes: true` emits a JSON writer, `.yaml` or `.toml` adds the `RawValue` projection those
+two render from, and `.xml` gets its own body because placement is not expressible in
+`RawValue`.
 
 ## The six questions, and where each one landed
 
@@ -26,7 +28,7 @@ from, and `.xml` gets its own body because placement is not expressible in `RawV
 | Can an `@Unknown` case be written back? | Only if the declaration opts in with `roundTrips: true`. Otherwise refused. |
 | How does a `@Transform` reverse itself? | `@Inverse`, and a `@Transform` without one is a compile error rather than a surprise. |
 | Where do encode errors go? | The same `Issue`/`IssueSink` decoding uses, with `location: nil` — there is no document to point at. |
-| Which face does it write? | `.input`. Round-trip is a law with four named exceptions, each a test case. |
+| Which face does it write? | `.input`. Round-trip is a law with five named exceptions. |
 | Are defaults and `@Extras` written? | Both. A key collision between them is an encode-time error. |
 
 ## XML's two defaults were settled by survey, not by taste
@@ -39,7 +41,7 @@ guesses were replaced by a look at what four established mappers actually do:
 |---|---|---|
 | **A** · unannotated field | **element**, `@XML(.attribute)` / `@XML(.text)` opt in | Jackson (`isAttribute` defaults false), Go (`,attr` opts in), .NET, pydantic-xml. **None** defaults to an attribute. |
 | **B** · unannotated array | **unwrapped repeated siblings**, `@XML(.wrapped)` opts in | Go and serde-xml-rs. Jackson and .NET wrap — and Jackson's wrapping default is one of the most-worked-around things in its XML support. |
-| **C** · root name | the type's name; `@XML(root:)` additive later | — |
+| **C** · root name | the type's name, or `@XML(root:)`; `xmlText(root:)` overrides both | — |
 
 The pattern worth recording: **the libraries whose XML support was designed from scratch
 (Go, serde) chose unwrapped; the ones that retrofitted a JSON object mapper onto XML
@@ -55,10 +57,10 @@ opt-in rather than a caveat.
 **XML does NOT go through the `RawValue` seam that YAML uses, and that is the finding.**
 Placement is not expressible in `RawValue` and never will be — it is deliberately the narrow
 intersection of the three formats. But placement *is* compile-time knowledge, so XML gets a
-generated body like JSON's with the placement baked into the emitted calls. `EXPERIENCE.md`
-§12 already said the value models cannot be unified because "a YAML scalar's resolution and
-an XML element's namespace are not the same kind of thing"; this is that arriving on the
-encode side.
+generated body like JSON's with the placement baked into the emitted calls.
+`docs/VALUE-MODELS.md` §1 already said the value models cannot be unified because "a YAML
+scalar's resolution and an XML element's namespace are not the same kind of thing"; this is
+that arriving on the encode side.
 
 **Found while building it:** `[T]` fields did not decode from XML *at all*, in any shape —
 undocumented, and unrelated to encoding except that question 5 forbids writing what `parse`
@@ -67,8 +69,8 @@ and `@XML(.wrapped)` accepts a wrapper. `@XML(.text)` fields also now read the r
 empty key the projection stores character data under.
 
 **YAML encodes through `RawValue`, and that is the architecture, not a shortcut.** Decoding
-YAML parses to `YAML.Node`, projects to `RawValue`, and decodes from there; encoding runs
-the identical pipeline backwards. Two things fall out: the macro never learns about YAML —
+YAML builds a `RawValue` and decodes from it; encoding projects the value to `RawValue` and
+`YAML.encode` renders that. Two things fall out: the macro never learns about YAML —
 so adding the format required no macro change and a JSON-only type carries no YAML code —
 and the losses are the *same* losses decoding already documents rather than a second set
 nobody wrote down.
@@ -84,21 +86,15 @@ false negative silently changes a value's type. 57 hazard cases pin it.
 YAML also expresses two things JSON cannot: `NaN` and `±Infinity` are `.nan`/`.inf` rather
 than issues. It is the one place the YAML encoder is strictly more capable than the JSON one.
 
-`Tests/AssayTests/EncodingTests.swift` holds the law and every exception.
+`Tests/AssayTests/EncodingTests.swift` holds the law and the `@Fallback` exception; where
+the other exceptions are tested, and which are not, is under question 5.
 
-`EXPERIENCE.md` §14 is the authority on *why* encoding is a deferral rather than a refusal.
-The short version: Zod is the only major library in this space that changed its mind about
-encoding and it changed *toward* it, so refusing outright does not survive contact with the
+`EXPERIENCE.md` §14 records why encoding was first deferred rather than refused. The short
+version: Zod is the only major library in this space that changed its mind about encoding
+and it changed *toward* it, so refusing outright does not survive contact with the
 evidence. What §14 also establishes is that **encoding is not decoding backwards** — every
 library that went bidirectional built two engines, not one (Pydantic's Rust core: ~12k lines
 of validators beside ~11k of serializers).
-
-## What is already paid for
-
-Every piece of placement information is *preserved* rather than consumed during decoding —
-`@Key` renames, `@XML` element-vs-attribute placement, `@DateFormat` patterns. That cost is
-being paid now, in generated code that the decode path never reads back, specifically so that
-encoding is additive later instead of a redesign. Whatever is decided below, that stays.
 
 ---
 
@@ -115,7 +111,7 @@ nothing distinguishes a genuine 0 from a salvaged one.
   the user's struct layout, the memberwise initializer, `Equatable` — invasive for a case
   that is arguably already served.
 
-**Recommendation: write the value, and document `@Fallback` as decode-time-only with no
+**Decision: write the value, and document `@Fallback` as decode-time-only with no
 encode-side meaning.**
 
 The reasoning that decides it: **provenance is a property of a particular decode, not of the
@@ -137,11 +133,11 @@ closed set.
   exists for.
 - **Opt in at the declaration.**
 
-**Recommendation — ACCEPTED AND BUILT: `@Unknown(roundTrips: true)` opts in; the default is
-an encode-time error naming the type and the captured value.**
+**Decision: `@Unknown(roundTrips: true)` opts in; the default is an encode-time error
+(`unknown_not_encodable`) naming the type and the captured value.**
 
-**The spelling first proposed in the roadmap did not compile, and that is worth recording rather than
-quietly fixing.** It proposed `enum Status: String { case active; @Unknown case other(String) }`
+**The spelling first proposed did not compile, and that is worth recording rather than
+quietly fixing.** It was `enum Status: String { case active; @Unknown case other(String) }`
 — but a Swift enum with a raw type cannot have a case with an associated value; the two
 features are mutually exclusive in the language. So the construct changed rather than being
 transliterated, which is `CLAUDE.md`'s governing principle applied to a case it was written
@@ -179,7 +175,7 @@ needs the inverse, and a Swift closure does not have one.
   a transform that looks invertible and is not.
 - **Let the author supply it.**
 
-**Recommendation: a separate `@Inverse({ (s: Set<String>) in Array(s) })` attribute, and a
+**Decision: a separate `@Inverse({ (s: Set<String>) in Array(s) })` attribute, and a
 type that requests encoding while carrying a `@Transform` without an `@Inverse` is a
 COMPILE-TIME error with a purpose-written diagnostic.**
 
@@ -190,8 +186,7 @@ macro can see both attributes and the declared types, so this is exactly the che
 performs for `@Validate` rules against field types and for `@DateFormat` patterns:
 
 ```
-error: 'tags' has a @Transform but no @Inverse, so this type cannot be encoded
-note: add @Inverse({ (s: Set<String>) in Array(s) }), or remove `encodes: true`
+error: 'tags' has a @Transform but no @Inverse, so this type cannot be encoded; add @Inverse({ (v: Set<String>) in /* -> [String] */ }), or remove `encodes: true`
 ```
 
 Failing at expansion rather than at runtime is the house pattern and the reason the
@@ -200,26 +195,28 @@ non-generic `Rule` is type-safe anyway.
 ## 4. What is the encode-side error channel?
 
 `EXPERIENCE.md` §14 states the problem: *"this value cannot be represented in this format" is
-a different kind of problem from "this document is malformed."* A `Double.nan` in JSON, an
-XML element name that is not a valid `Name`, a dictionary key that is not a string. And
-`Issue` carries `location: SourceSpan?` — a byte offset into a source document that, on
-encode, does not exist.
+a different kind of problem from "this document is malformed."* A `Double.nan` in JSON is
+the motivating case. And `Issue` carries `location: SourceSpan?` — a byte offset into a
+source document that, on encode, does not exist.
 
-**Recommendation: reuse `Issue` and `IssueSink` with `location: nil`, keep `path`, add
+**Decision: reuse `Issue` and `IssueSink` with `location: nil`, keep `path`, add
 encode-specific codes, and mirror the two verbs.**
 
 ```swift
-let bytes = try article.encode(json: .default)     // throws AssayError, all issues
-let d = article.diagnoseEncode(json: .default)      // partial output + issues + warnings
+let bytes = try article.encodedJSON()      // EncodedBytes; throws AssayError, all issues
+let d = article.diagnoseEncodeJSON()       // EncodeDiagnosis: partial bytes + issues + warnings
 ```
 
 `SourceSpan` being nil is already a supported state — a missing-required issue has no
 location today and renders fine. `path` is the part that matters and it is fully meaningful:
-`coordinates[3].x cannot be represented in JSON`. New codes: `unrepresentable_value`,
-`invalid_element_name`, `non_string_key`.
+`coordinates[3].x cannot be represented in JSON`. The encode codes: `unrepresentable_value`,
+`unknown_not_encodable`, `extras_key_collision`, and TOML's `toml_no_null` and
+`toml_root_not_a_table`.
 
-The thing to **not** do is invent a parallel `EncodeIssue`/`EncodeError`/`EncodeDiagnosis`
-hierarchy. One error vocabulary, one set of renderers, one mental model — and `.json` and
+The thing to **not** do is invent a parallel `EncodeIssue`/`EncodeError` hierarchy.
+`EncodeDiagnosis` is only the result type — bytes, issues, warnings — and it carries the
+same `Issue` and renders through the same renderers. One error vocabulary, one set of
+renderers, one mental model — and `.json` and
 `.problemDetails` keep working unchanged for encode failures, which is a real win for a
 service that validates and then re-serialises. Collecting rather than throwing on the first
 problem is also the library's whole identity; breaking that on one side would be surprising.
@@ -229,13 +226,24 @@ problem is also the library's whole identity; breaking that on one side would be
 `jsonSchema(for: .input)` and `.output` genuinely differ once transforms exist — Zod shipped
 the single-document version and corrected it in v4.
 
-**Recommendation: the encoder always targets `.input` — it writes the document `parse` would
-accept — and round-trip becomes a stated law with an explicit exception list.**
+**Decision: the encoder always targets `.input` — it writes the document `parse` would
+accept — and round-trip is a stated law with an explicit exception list.**
 
 > For any `v` produced by `parse`, `parse(encode(v))` produces a value equal to `v`, except
 > where a `@Fallback` fired, an `@Unknown` case was captured without `roundTrips: true`,
-> unknown keys were dropped by a policy other than `.collect`, or an **untagged union** has
-> two variants whose types accept the same documents.
+> unknown keys were dropped by a policy other than `.collect`, an **untagged union** has
+> two variants whose types accept the same documents, or — **TOML only** — a table key
+> holds a null.
+
+The five, and where each is tested:
+
+| # | exception | test |
+|---|---|---|
+| 1 | a `@Fallback` fired | `EncodingTests.swift`, "@Fallback writes its value" |
+| 2 | an `@Unknown` case captured without `roundTrips: true` — the encoder refuses it | `UnknownEnumTests.swift`, "an unrecognised variant is REFUSED by the encoder unless it opted in" |
+| 3 | unknown keys dropped by a policy other than `.collect` | **no named test** |
+| 4 | an untagged union with two variants whose types accept the same documents | `UnionErrorTests.swift`, "two distinct types that accept the same documents are NOT refused" (pins that expansion cannot refuse it) |
+| 5 | TOML: a null under a table key is omitted, so the key is absent on the way back | **no named test** — see the TOML section below |
 
 The fourth was added 2026-09-10 with union encoding, and it is the only one the library
 cannot see coming: the macro refuses two cases carrying the same payload *token*, and two
@@ -246,23 +254,23 @@ branch — which is one more reason to prefer one.
 Two things this buys. Targeting `.input` is what makes the law true at all — with `@Inverse`
 supplying the wire type, the encoder emits exactly the shape decode accepts. And stating it
 as a law with a *closed* exception list turns round-trip from an emergent property nobody
-tests into a property with a test suite and three documented holes. `jsonSchema(for: .input)`
+tests into a property with a test suite and five documented holes. `jsonSchema(for: .input)`
 then doubles as the encoder's published contract: one description, two uses.
 
 ## 6. Do defaults and `@Extras` get written back?
 
-Not on the roadmap's list, and it belongs there — it has the same "you cannot tell what
-happened on the way in" shape as `@Fallback`.
+Not one of the original five questions, and it belongs with them — it has the same "you
+cannot tell what happened on the way in" shape as `@Fallback`.
 
-**Defaults — recommendation: always emit.** `var retries: Int = 3` writes `3`. Omitting when
+**Defaults — decision: always emit.** `var retries: Int = 3` writes `3`. Omitting when
 a value equals its default is a footgun the moment a consumer's default differs, and
 round-trip fidelity beats payload minimalism. If anyone genuinely needs the smaller document,
-`@Schema(encodeDefaults: .omit)` is additive later; the reverse is not.
+an `encodeDefaults: .omit` option (not built) would be additive later; the reverse is not.
 
-**`@Extras` — recommendation: write them back, and make a collision with a declared key an
-encode-time error.** Re-emitting is the entire point of having collected them: a proxy that
-decodes, edits known fields and re-encodes must not silently drop everything it did not
-recognise. This looks like question 2 but is not, and the difference is the whole reason to
+**`@Extras` — decision: write them back, and make a collision with a declared key an
+encode-time error (`extras_key_collision`).** Re-emitting is the entire point of having
+collected them: a proxy that decodes, edits known fields and re-encodes must not silently
+drop everything it did not recognise. This looks like question 2 but is not, and the difference is the whole reason to
 answer them differently — `@Extras var rest: [String: RawValue]` is a declaration that the
 author *wants to hold arbitrary data*, whereas `@Unknown` makes a type-system claim about
 being a closed set and then quietly is not.
@@ -273,63 +281,46 @@ being a closed set and then quietly is not.
 
 Through the `RawValue` seam like YAML, with one rule the format forces: **TOML has no
 null.** A nil member of a table is omitted — an absent key is what an optional field
-decodes nil from, so the round-trip law holds — and a nil anywhere else (an array element,
-a dictionary value, the root) is `toml_no_null` with its path, never a silent substitution.
-That is the closed exception list's TOML entry. Layout, quoting and the toml++ read-back
-oracle are in `docs/TOML.md` §4.
+decodes nil from, so the round-trip law holds for it — a nil array element is `toml_no_null`
+with its path, never a silent substitution, and a root that is not a table is
+`toml_root_not_a_table`.
+
+**The omission is also round-trip exception #5.** The writer cannot tell an optional field
+from any other table key, so *every* null under a table key is omitted — including a nil
+dictionary value and an `@Extras` entry holding `.null`. Those decode back with the key
+absent rather than present-and-nil, which is a different value: `["a": nil]` reads back as
+`[:]`. It is reported nowhere, and **no test pins it yet**. Layout, quoting and the toml++
+read-back oracle are in `docs/TOML.md` §4.
 
 ## What is still not being promised
 
-Symmetry. `EXPERIENCE.md` §14's point stands whatever is decided above: two engines, not one.
-These six answers shape an encoder; they do not make one fall out of the decoder.
+Symmetry. `EXPERIENCE.md` §14's point stands: two engines, not one. These six answers shape
+an encoder; they do not make one fall out of the decoder.
+
+Document shape, either. The law is about values: decode `<user id="7"/>` into a type whose
+`id` is unannotated, re-encode, and you get `<user><id>7</id></user>` — the same *value* in
+a different *document*. That is not an exception to the law, and it is why `@XML(.attribute)`
+exists.
 
 ## What remains
 
-1. ~~**`@Unknown(roundTrips:)`**~~ — **built.** See question 2.
-2. ~~**XML encoding.**~~ **Built 2026-08-09.** It was blocked on **two decisions**, both of which need answering before any
-   code — the same rule this document was written under.
+**`Encodable` conformance synthesis** is the one item not built. `EXPERIENCE.md` §14 moved
+it out of the refusals, and it is strictly easier than the encoder itself.
 
-   **Decision A — what does an unannotated field encode as?** (The stated blocker at the
-   time.) *Recommendation: an element,* with `@XML(.attribute)` and `@XML(.text)` as
-   opt-ins. An element is the safe superset — attributes cannot nest, cannot repeat, and
-   have their whitespace normalised, so anything expressible as an attribute is expressible
-   as an element and not the reverse. It also matches what decoding already does: the
-   projection flattens attributes and elements into one keyspace and matches by name, so a
-   document written all-elements re-decodes to the same value as the attribute-shaped
-   original. What it does **not** give is document-shape round-trip — decode
-   `<user id="7"/>` and re-encode and you get `<user><id>7</id></user>`, the same *value*
-   in a different *document*. That belongs in the law's exception list, stated rather than
-   discovered.
+## Throughput
 
-   **Decision B — how does a `[T]` field appear in XML?** Found by probing, previously
-   undocumented: **arrays do not decode from XML today at all**, in any shape. So this is a
-   decode decision that encoding merely forces, and it must be answered first because
-   question 5 commits the encoder to writing only what `parse` accepts.
-   *Recommendation: repeated sibling elements* — `<tags>a</tags><tags>b</tags>` — because it
-   is the idiomatic XML, because the node model already exposes it (`elements(named:)`), and
-   because the `RawValue` projection already **preserves** repeated members rather than
-   dropping them the way a `Dictionary` would. The information is present and merely
-   ungrouped; the change is to group repeated keys into a `.sequence` when the target field
-   is an array. A wrapper element (`<tags><item>…</item></tags>`) is the alternative and is
-   worse: it invents a name (`item`) that appears nowhere in the schema.
+The arm is `Benchmarks/Sources/AssayBench/EncodeBench.swift`: **8.75× at 50 items and 9.04×
+at 200** over `Encodable` + `JSONEncoder` as of 2026-09-20, and 11.80× on a single-item
+document where Foundation's fixed cost dominates. It was 2.85×/2.80× when first measured on
+2026-09-08; the difference is `docs/EFFICIENCY.md` rows 5, 8 and 22 — one diagnostic path
+per array rather than per element, key literals that carry their own comma and opening
+quote, and a writer that owns its buffer instead of appending to an `Array` (36,004
+uniqueness checks per call, gone). YAML and XML are reported as absolute ns/document rather
+than ratios — there is no comparable Foundation encoder to divide by, and a ratio against
+nothing is how a benchmark starts lying.
 
-   An optional **Decision C** — the root element's name — can be deferred safely by
-   defaulting to the type name and adding `@XML(root:)` later; nothing else depends on it.
-4. **`Encodable` conformance synthesis**, which `EXPERIENCE.md` §14 already moved out of the
-   refusals and which is strictly easier than any of the above.
-5. ~~**Encoding is unbenchmarked.**~~ **Measured 2026-09-08**, so the prohibition this item
-   states is lifted. The arm is `Benchmarks/Sources/AssayBench/EncodeBench.swift`:
-   **8.75× at 50 items and 9.04× at 200** over `Encodable` + `JSONEncoder` as of 2026-09-20,
-   and 11.80× on a single-item document where Foundation's fixed cost dominates. It was
-   2.85×/2.80× when first measured on 2026-09-08; the difference is `docs/EFFICIENCY.md`
-   rows 5, 8 and 22 — one diagnostic path per array rather than per element, key literals
-   that carry their own comma and opening quote, and a writer that owns its buffer instead of
-   appending to an `Array` (36,004 uniqueness checks per call, gone). YAML and XML are reported as absolute
-   ns/document rather than ratios — there is no comparable Foundation encoder to divide by,
-   and a ratio against nothing is how a benchmark starts lying.
-
-   **A measurement, not a thesis.** The decode direction's 9× has an argument behind it:
-   deleting the `KeyedDecodingContainer` boundary. Encoding makes no equivalent claim —
-   `JSONEncoder` is one amount of machinery and Assay's writer is another, and whichever
-   wins, the number is a number. It exists so the cost is known and so a regression is
-   visible.
+**A measurement, not a thesis.** The decode direction's 9× has an argument behind it:
+deleting the `KeyedDecodingContainer` boundary. Encoding makes no equivalent claim —
+`JSONEncoder` is one amount of machinery and Assay's writer is another, and whichever
+wins, the number is a number. It exists so the cost is known and so a regression is
+visible.

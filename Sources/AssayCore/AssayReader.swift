@@ -6,7 +6,7 @@
 // The reader: a cursor over a contiguous UTF-8 buffer.
 //
 // Design constraints this file exists to satisfy:
-//   * Holds only transitively trivial things — a pointer, two Ints. A struct containing
+//   * Holds only transitively trivial things — pointers, Ints and a `Limits`. A struct with
 //     a String/Array/closure/class is NOT ARC-free, and "structs are ARC-free" is
 //     folklore.
 //   * Passed `inout`, never stored, never captured escapingly.
@@ -39,8 +39,8 @@
 // `scanString`/`scanInt64`/`scanDouble`/`scanBool`/`scanNull`, `tryConsume`/`expect`,
 // `enterContainer`/`leaveContainer`, `scanKey`/`keyMatches`, `skipValue`, `skipWhitespace`,
 // `reportTypeMismatch`/`reportMalformed`/`report`, `lastValueSpan`, `byteOffset`,
-// `currentByte`/`byte(at:)`, `mark`/`restore`, `matches`/`consume`, `string(from:to:)`,
-// `find`. That is the vocabulary a JSON decoder needs, and it is documented.
+// `currentByte`/`byte(at:)`, `mark`/`restore`, `matches`/`consume`, `string(from:to:)`.
+// That is the vocabulary a JSON decoder needs, and it is documented.
 //
 // The `_`-PREFIXED members exist so that GENERATED code can be one line per field —
 // `_decodeIntOrNull` is `beginValue` + `scanInt64` + the null case + the failure report,
@@ -214,7 +214,7 @@ public struct AssayReader: ~Copyable {
         public var isSimple: Bool
         /// The bytes to match: the source (`base + lo`) for a simple key, the reader's
         /// scratch for an escaped one. Chosen once, in `scanKey`, so the readers of a key's
-        /// bytes do not branch on `simple`; a version that did cost 1.5–4.8% instructions
+        /// bytes do not branch on `isSimple`; a version that did cost 1.5–4.8% instructions
         /// across the decode cells (count.py, 2026-09-19).
         @usableFromInline var bytes: UnsafePointer<UInt8>
 
@@ -258,8 +258,8 @@ public struct AssayReader: ~Copyable {
     /// and read by nothing, so `{"a\/b": 1}` did not match `@Key("a/b")`. RFC 8259 says those
     /// are one key, and Python's `json.dumps` escapes every non-ASCII character by default,
     /// so a field named `café` arrived as `"caf\u00e9"` and was reported MISSING. Cold: a
-    /// document without escaped keys never reaches this, and the only cost on the hot path is
-    /// the byte-source branch in `_keyBytes`, which such a document always predicts.
+    /// document without escaped keys never reaches this, and the hot path pays no branch for
+    /// it: `scanKey` stores the byte source in the `KeyRange` once (`KeyRange.bytes`).
     @inline(never)
     @usableFromInline
     mutating func scanEscapedKey(from start: Int) -> KeyRange? {
@@ -331,7 +331,6 @@ public struct AssayReader: ~Copyable {
     /// Unknown keys are extremely common in real API payloads and are completely
     /// unmeasured in every published JSON benchmark, which is why the corpus has an
     /// `unknown-keys` shape.
-    /// Skip one value without decoding it.
     ///
     /// **WHAT THIS VALIDATES, PRECISELY: the value's EXTENT, never its contents.** The
     /// skip finds where the value ends — matching brackets, honouring string state so a
@@ -341,8 +340,9 @@ public struct AssayReader: ~Copyable {
     ///
     /// So `{"known": 1, "unknown": NaN}` decodes, and so does `'x'` or `01` in that
     /// position, while `JSON.Value.parse` refuses all three. That is a real difference in
-    /// meaning and it is deliberate: skipping is what makes the prefix path 6.3x, and
-    /// validating a value in order to throw it away spends exactly what skipping saves.
+    /// meaning and it is deliberate: skipping is what makes the prefix path fast
+    /// (`Benchmarks/RESULTS.md`), and validating a value in order to throw it away spends
+    /// exactly what skipping saves.
     /// simdjson's On-Demand API documents the same property for the same reason.
     ///
     /// The consequence, stated plainly because it is easy to assume otherwise:

@@ -9,9 +9,11 @@
 //              which carries *all* the issues, not the first one. Discards warnings.
 //   diagnose — you want everything that happened, including the value.
 //
-// `validate` was cut: it collided with ParsableArguments.validate() in
-// swift-argument-parser and with Vapor's Validatable.validate(), and two of the three
-// verbs had the same shape anyway.
+// `validate` was cut AS A THIRD PARSE VERB (`T.validate(json:)`): it collided with
+// ParsableArguments.validate() in swift-argument-parser and with Vapor's
+// Validatable.validate(), and two of the three verbs had the same shape anyway.
+// (`T.validate(_ value:)` in Validate.swift is a different function: static, takes a
+// value, decodes nothing.)
 //
 // The core takes bytes, not Data. Data is Foundation, so a Data-typed core API is not
 // portable — and Data's performance story now *favours* the non-Apple platforms, because
@@ -216,8 +218,9 @@ extension Diagnosis: CustomStringConvertible {
 // MARK: - Encoding
 //
 // docs/ENCODING.md. The two verbs mirror the decode side exactly, and deliberately: one
-// error vocabulary, one set of renderers, one mental model. `encode` throws when anything
-// could not be represented; `diagnoseEncode` hands back what it managed plus every issue.
+// error vocabulary, one set of renderers, one mental model. `encodedJSON()` throws when
+// anything could not be represented; `diagnoseEncodeJSON()` hands back what it managed
+// plus every issue.
 //
 // Q4: issues carry a `path` and no `location`, because there is no source document to
 // point at — a state the renderer has always handled, since a missing-field issue has
@@ -269,7 +272,7 @@ extension JSONEncodableSchema {
     }
 }
 
-/// What `diagnoseEncode` reports.
+/// What `diagnoseEncodeJSON()` and its per-format siblings report.
 ///
 /// Deliberately NOT a second `Diagnosis` generic: the decode version's `value` is the
 /// thing you were trying to produce, and here the thing you were trying to produce is the

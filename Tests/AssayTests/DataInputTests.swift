@@ -7,6 +7,8 @@ import Foundation
 import Assay
 import AssayCore
 import AssayFoundation
+import AssayXML
+import AssayYAML
 
 //===----------------------------------------------------------------------===//
 // `Data` input (`AssayFoundation/DataParsing.swift`). The overloads decode inside
@@ -216,5 +218,81 @@ struct DataInputTests {
             contentType: "application/json", accepting: [.json])
         #expect(d.issues.map(\.code) == a.issues.map(\.code))
         #expect(d.render(.terminal) == a.render(.terminal))
+    }
+}
+
+// MARK: - The Data doors nothing had opened
+//
+// `DataParsing.swift` is eleven entry points; the suite above walks the plain JSON pair and
+// the JSON body pair. The rest are copies with one thing changed — a context, an `await`,
+// a type with no JSON byte path — and a copy is where a door drifts, so each is an equality
+// against the array door it mirrors.
+
+@Suite("Data input: the remaining doors")
+struct DataDoorCoverageTests {
+
+    static func data(_ s: String) -> Data { Data(s.utf8) }
+
+    @Test("empty Data reports exactly what an empty array does")
+    func empty() {
+        // An empty `Data` has no base address; the door routes it through a zero-byte
+        // buffer so the two reports match rather than inventing a Data-only issue.
+        let d = DataDoor.diagnose(json: Data())
+        let a = DataDoor.diagnose(json: [UInt8]())
+        #expect(d.value == nil)
+        #expect(d.issues.map(\.code) == a.issues.map(\.code))
+        #expect(d.render(.plain) == a.render(.plain))
+    }
+
+    @Test("the async pair runs the async check, from Data")
+    func asyncPair() async throws {
+        let free = try await AsyncSignup.parse(json: Self.data(#"{"email":"free@example.com"}"#))
+        #expect(free.email == "free@example.com")
+        let taken = await AsyncSignup.diagnose(json: Self.data(#"{"email":"taken@example.com"}"#))
+        #expect(taken.issues.map(\.code) == [.custom("already_registered")])
+        await #expect(throws: AssayError.self) {
+            try await AsyncSignup.parse(json: Self.data(#"{"email":"taken@example.com"}"#))
+        }
+    }
+
+    @Test("Assayer and JSON.Value from Data: a value, and a refusal with its caret")
+    func valueDoors() throws {
+        #expect(try Assayer.int.parse(json: Self.data("42")) == 42)
+        let bad = Assayer.int.diagnose(json: Self.data("[1,"))
+        #expect(!bad.isValid)
+        #expect(bad.render(.plain) == Assayer.int.diagnose(json: Array("[1,".utf8)).render(.plain))
+
+        let ok = try JSON.Value.parse(Self.data(#"{"a":[1,2]}"#))
+        let viaArray = try JSON.Value.parse(#"{"a":[1,2]}"#)
+        #expect(ok == viaArray)
+        #expect(throws: AssayError.self) { try JSON.Value.parse(Self.data(#"{"a":"#)) }
+    }
+
+    @Test("a body door on a type with no JSON byte path")
+    func treeOnlyBody() throws {
+        let yaml = Self.data("name: api\ncount: 1\n")
+        let v = try TreeOnlyBody.parse(
+            body: yaml, contentType: "application/yaml", accepting: [.yaml])
+        #expect(v == TreeOnlyBody(name: "api", count: 1))
+
+        // Refused before the copy and before any parser: a bomb as XML to a YAML-only door.
+        let bomb = Self.data(#"<!DOCTYPE a [<!ENTITY x "xxxxxxxx">]><a>&x;&x;&x;</a>"#)
+        let refused = TreeOnlyBody.diagnose(
+            body: bomb, contentType: "application/xml", accepting: [.yaml])
+        #expect(refused.issues.map(\.code) == [.unsupportedMediaType])
+        #expect(throws: AssayError.self) {
+            try TreeOnlyBody.parse(body: bomb, contentType: "application/xml", accepting: [.yaml])
+        }
+    }
+
+    @Test("a JSON-capable type offered YAML takes the tree route, from Data as from bytes")
+    func nonJSONBody() throws {
+        let yaml = "title: x\ncount: 7\n"
+        let fromData = try DataBody.parse(
+            body: Self.data(yaml), contentType: "application/yaml", accepting: [.json, .yaml])
+        let fromBytes = try DataBody.parse(
+            body: Array(yaml.utf8), contentType: "application/yaml", accepting: [.json, .yaml])
+        #expect(fromData == fromBytes)
+        #expect(fromData == DataBody(title: "x", count: 7))
     }
 }

@@ -66,18 +66,6 @@ func _assayUUIDFromCanonical(_ b: ArraySlice<UInt8>) -> UUID? {
     return UUID(uuid: _assayUUIDBytes(hi, lo))
 }
 
-/// Sixteen raw bytes, as a binary wire format holds them.
-@usableFromInline
-func _assayUUIDFromRaw(_ b: ArraySlice<UInt8>) -> UUID? {
-    guard b.count == 16 else { return nil }
-    let i = b.startIndex
-    return UUID(
-        uuid: (
-            b[i], b[i + 1], b[i + 2], b[i + 3], b[i + 4], b[i + 5], b[i + 6], b[i + 7],
-            b[i + 8], b[i + 9], b[i + 10], b[i + 11], b[i + 12], b[i + 13], b[i + 14], b[i + 15]
-        ))
-}
-
 @usableFromInline
 func _assayUUIDBytes(_ hi: UInt64, _ lo: UInt64) -> uuid_t {
     (

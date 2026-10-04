@@ -39,6 +39,37 @@ struct Signup {
     var newsletter: Bool = false
 }
 
+/// The homepage's version of `Signup`: the same four problems in a document large enough to
+/// look like a real request body, with the typo one level down so its path shows.
+@Schema(keys: .snakeCase, unknownKeys: .warn)
+struct HomeSignup {
+    @Validate(.min(3), .max(24)) var username: String
+    @Validate(.email) var email: String
+    @Validate(.min(13)) var age: Int
+    var displayName: String
+    var country: String
+    var plan: String
+    var referralCode: String?
+    var interests: [String] = []
+    var address: Address
+    var preferences: Preferences
+    var acceptedTerms: Bool
+
+    @Schema(keys: .snakeCase, unknownKeys: .warn)
+    struct Address {
+        var line1: String
+        var city: String
+        var postalCode: String
+    }
+
+    @Schema(keys: .snakeCase, unknownKeys: .warn)
+    struct Preferences {
+        var theme: String
+        var language: String
+        var newsletter: Bool = false
+    }
+}
+
 @Schema(keys: .snakeCase)
 struct Article {
     var title: String
@@ -189,6 +220,35 @@ let signupD = Signup.diagnose(json: signupJSON, sourceName: "signup.json")
 emit("collect", signupJSON, signupD.render(.plain))
 parts.append("\"collectJSON\":\"" + esc(signupD.render(.json)) + "\"")
 parts.append("\"collectProblem\":\"" + esc(signupD.render(.problemDetails)) + "\"")
+
+let homeSignupJSON = """
+{
+  "username": "jo",
+  "email": "jo@localhost",
+  "age": "fourteen",
+  "display_name": "Jo March",
+  "country": "US",
+  "plan": "free",
+  "referral_code": "ORCHARD-2026",
+  "interests": [
+    "writing",
+    "theatre"
+  ],
+  "address": {
+    "line1": "12 Orchard House",
+    "city": "Concord",
+    "postal_code": "01742"
+  },
+  "preferences": {
+    "theme": "dark",
+    "language": "en",
+    "newsleter": true
+  },
+  "accepted_terms": true
+}
+"""
+emit("home.collect", homeSignupJSON,
+     HomeSignup.diagnose(json: homeSignupJSON, sourceName: "signup.json").render(.plain))
 
 // start/first-schema: the type mismatch, against the plain camelCase declaration.
 let plainArticleJSON = """

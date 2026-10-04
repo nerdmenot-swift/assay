@@ -280,11 +280,11 @@ function caret(text: string): string {
         <div class="pairing">
           <figure class="render">
             <figcaption class="code-head">signup.json</figcaption>
-            <pre class="src"><code>{renders.collect.source}</code></pre>
+            <pre class="src"><code>{renders['home.collect'].source}</code></pre>
           </figure>
           <figure class="render">
             <figcaption class="code-head">Signup.diagnose(json:)</figcaption>
-            <pre class="out"><code set:html={caret(renders.collect.render)} /></pre>
+            <pre class="out"><code set:html={caret(renders['home.collect'].render)} /></pre>
           </figure>
         </div>
 

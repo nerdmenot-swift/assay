@@ -283,8 +283,12 @@ func expandWrapsForTesting(
         return ("", ["no @Wraps attribute found"])
     }
     let members =
+        // The FOUR-argument requirement, which is the one `WrapsMacro` implements. This
+        // called the three-argument form until 2026-10-04 and got `[]` back from it, behind
+        // a `try?` — so the helper returned the extension and silently none of the members.
+        // Observed in the first `wraps-*` goldens, which were eight lines long.
         (try? WrapsMacro.expansion(
-            of: attribute, providingMembersOf: decl, in: context)) ?? []
+            of: attribute, providingMembersOf: decl, conformingTo: [], in: context)) ?? []
     let exts =
         (try? WrapsMacro.expansion(
             of: attribute, attachedTo: decl,

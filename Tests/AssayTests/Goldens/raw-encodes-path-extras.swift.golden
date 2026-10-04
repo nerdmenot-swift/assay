@@ -1,0 +1,355 @@
+extension GoldenRawPaths: Assay.JSONAssayable, Assay.RawDecodable, Assay.JSONEncodableSchema, Assay.RawEncodableSchema {nonisolated static let __assayKeyTable: [UInt8] = {
+    var t = [UInt8](repeating: 2, count: 256)
+        t[105] = 0
+        t[112] = 1
+    return t
+}()
+
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenRawPaths? {
+    let __pathDepth = path.count
+    defer { if path.count > __pathDepth { path.removeSubrange(__pathDepth...) } }
+    guard reader.tryConsume(0x7B) else {
+        reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
+        return nil
+    }
+    guard reader.enterContainer(&sink) else { return nil }
+    // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+    // anything ever failed?", which is wrong the moment one sink spans more than
+    // one decode — a driver collecting every issue from a result set would find
+    // one bad row silently discarding every good row after it.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: UUID? = nil
+    var __f1: Int? = nil
+    var __f2: String? = nil
+    var __extras: [String: RawValue] = [:]
+    var __presence: UInt64 = 0
+    var __gpresence: UInt64 = 0
+
+    if !reader.tryConsume(0x7D) {
+        while true {
+            guard let __key = reader.scanKey() else {
+                reader.reportMalformed(&sink, path, expected: "a key in double quotes")
+                reader.leaveContainer()
+                return nil
+            }
+            guard reader.expect(0x3A) else {
+                reader.reportMalformed(&sink, path, expected: "':' after the key")
+                reader.leaveContainer()
+                return nil
+            }
+                let __w = reader._keyWindow(
+                    __key,
+                    byteOffset: 0,
+                    shift: 0)
+                switch Self.__assayKeyTable[Int(__w)] {
+                case 0:
+                    if reader.keyMatches(__key, "id") {
+                        __presence |= 1
+                        if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "id", "UUID")
+                        } else {
+                            path.append(.key("id"))
+                            __f0 = UUID._assay(
+                                from: &reader, into: &sink, at: &path)
+                            path.removeLast()
+                        }
+                    } else {
+                        let __uk = reader._keyString(__key)
+                    if let __uv = Assay._assayCollect(
+                        RawValue.self,
+                        from: &reader, into: &sink, at: path + [.key(__uk)]) {
+                        __extras[__uk] = __uv
+                    }
+                    }
+                case 1:
+                    if reader.keyMatches(__key, "p") {
+                        __gpresence |= 1
+                        if reader.tryConsume(0x7B) {
+                            path.append(.key("p"))
+                            if !reader.tryConsume(0x7D) {
+                                while true {
+                                    guard let __pk0 = reader.scanKey(), reader.expect(0x3A) else {
+                                        reader.reportMalformed(&sink, path, expected: "a key and ':'")
+                                        reader.leaveContainer()
+                                        return nil
+                                    }
+                                        if reader.keyMatches(__pk0, "q") {
+                                            __presence |= 2
+                                            __f1 = reader._decodeInt(&sink, path, "q")
+                                        } else
+                                        if reader.keyMatches(__pk0, "r") {
+                                            __gpresence |= 2
+                                            if reader.tryConsume(0x7B) {
+                                                path.append(.key("r"))
+                                                if !reader.tryConsume(0x7D) {
+                                                    while true {
+                                                        guard let __pk1 = reader.scanKey(), reader.expect(0x3A) else {
+                                                            reader.reportMalformed(&sink, path, expected: "a key and ':'")
+                                                            reader.leaveContainer()
+                                                            return nil
+                                                        }
+                                                            if reader.keyMatches(__pk1, "s") {
+                                                                __presence |= 4
+                                                                if let __r = reader._decodeStringOrNull(&sink, path, "s") { __f2 = __r }
+                                                            } else
+                                                            {
+                                                                _ = reader.skipValue(&sink)
+                                                            }
+                                                        if reader.tryConsume(0x2C) { continue }
+                                                        break
+                                                    }
+                                                    guard reader.tryConsume(0x7D) else {
+                                                        reader.reportMalformed(&sink, path, expected: "',' or '}'")
+                                                        reader.leaveContainer()
+                                                        return nil
+                                                    }
+                                                }
+                                                path.removeLast()
+                                            } else if reader._consumeNullIfPresent() {
+                                                // An explicit null intermediate is absence, same as a missing one: the
+                                                // slots below stay unset and the presence rules decide what that means.
+                                            } else {
+                                                reader.reportTypeMismatch(&sink, path + [.key("r")], expected: "object")
+                                                _ = reader.skipValue(&sink)
+                                            }
+                                        } else
+                                        {
+                                            _ = reader.skipValue(&sink)
+                                        }
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x7D) else {
+                                    reader.reportMalformed(&sink, path, expected: "',' or '}'")
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            path.removeLast()
+                        } else if reader._consumeNullIfPresent() {
+                            // An explicit null intermediate is absence, same as a missing one: the
+                            // slots below stay unset and the presence rules decide what that means.
+                        } else {
+                            reader.reportTypeMismatch(&sink, path + [.key("p")], expected: "object")
+                            _ = reader.skipValue(&sink)
+                        }
+                    } else {
+                        let __uk = reader._keyString(__key)
+                    if let __uv = Assay._assayCollect(
+                        RawValue.self,
+                        from: &reader, into: &sink, at: path + [.key(__uk)]) {
+                        __extras[__uk] = __uv
+                    }
+                    }
+                default:
+                    let __uk = reader._keyString(__key)
+                    if let __uv = Assay._assayCollect(
+                        RawValue.self,
+                        from: &reader, into: &sink, at: path + [.key(__uk)]) {
+                        __extras[__uk] = __uv
+                    }
+                }
+            if reader.tryConsume(0x2C) { continue }
+            break
+        }
+        guard reader.tryConsume(0x7D) else {
+            reader.reportMalformed(&sink, path, expected: "',' or '}'")
+            reader.leaveContainer()
+            return nil
+        }
+    }
+    reader.leaveContainer()
+
+        if __gpresence & 1 == 0 {
+            reader._missingRequired(&sink, path, "p")
+        } else {
+            if __presence & 2 == 0 {
+                reader._missingRequired(&sink, path + [.key("p")], "q")
+            }
+        }
+        if __presence & 1 == 0 {
+            reader._missingRequired(&sink, path, "id")
+        }
+
+
+        guard let __v0 = __f0 else { return nil }
+        guard let __v1 = __f1 else { return nil }
+    let __result = GoldenRawPaths(id: __v0, q: __v1, s: __f2, rest: __extras)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}
+
+nonisolated public static func _assay(
+    from raw: Assay.RawValue,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenRawPaths? {
+    guard case .mapping(let __members) = raw else {
+        Assay.RawValue._notAnObject(&sink, path, raw)
+        return nil
+    }
+    // See the note in the JSON body: local validity, not global.
+    let __ck0 = sink.checkpoint()
+
+    var __sp1: Assay.SourceSpan? = nil
+    var __sp2: Assay.SourceSpan? = nil
+    var __f0: UUID? = nil
+    var __f1: Int? = nil
+    var __f2: String? = nil
+    var __extras: [String: RawValue] = [:]
+    var __presence: UInt64 = 0
+    var __gpresence: UInt64 = 0
+
+    if let __pv0 = __members.first(where: { $0.key == "p" })?.value {
+        if case .mapping(let __pm0) = __pv0 {
+            __gpresence |= 1
+            for __m in __pm0 {
+                let __v = __m.value
+                _ = __v
+            if __m.key == "q" {
+                __presence |= 2
+                __sp1 = __m.span
+                __f1 = __v._assayInt(&sink, path, "q", at: __sp1)
+            }
+            }
+        if let __pv1 = __pm0.first(where: { $0.key == "r" })?.value {
+            if case .mapping(let __pm1) = __pv1 {
+                __gpresence |= 2
+                for __m in __pm1 {
+                    let __v = __m.value
+                    _ = __v
+                if __m.key == "s" {
+                    __presence |= 4
+                    __sp2 = __m.span
+                    if !__v.isNull { __f2 = __v._assayString(&sink, path, "s", at: __sp2) }
+                }
+                }
+            } else if __pv1.isNull {
+                // An explicit null intermediate is absence, as on the JSON path.
+            } else {
+                Assay.RawValue._mismatchPublic(&sink, path + [.key("p")], "r", "object", __pv1)
+            }
+        }
+        } else if __pv0.isNull {
+            // An explicit null intermediate is absence, as on the JSON path.
+        } else {
+            Assay.RawValue._mismatchPublic(&sink, path, "p", "object", __pv0)
+        }
+    }
+    for __m in __members {
+        let __k = __m.key
+        let __v = __m.value
+        switch __k.utf8.count {
+            case 2:
+                if __k == "id" {
+                    __presence |= 1
+                    if __v.isNull {
+                    Assay.RawValue._mismatchPublic(&sink, path, "id", "UUID", __v)
+                } else {
+                    path.append(.key("id"))
+                    __f0 = UUID._assay(from: __v, into: &sink, at: &path)
+                    path.removeLast()
+                }
+                } else {
+                    if !["p"].contains(__k) { __extras[__k] = __v }
+                }
+            default:
+            if !["p"].contains(__k) { __extras[__k] = __v }
+        }
+    }
+
+        if __gpresence & 1 == 0 {
+            Assay.RawValue._missing(&sink, path, "p")
+        } else {
+            if __presence & 2 == 0 {
+                Assay.RawValue._missing(&sink, path + [.key("p")], "q")
+            }
+        }
+        if __presence & 1 == 0 {
+            Assay.RawValue._missing(&sink, path, "id")
+        }
+
+
+        guard let __v0 = __f0 else { return nil }
+        guard let __v1 = __f1 else { return nil }
+    let __result = GoldenRawPaths(id: __v0, q: __v1, s: __f2, rest: __extras)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}
+
+nonisolated static let __assayDeclaredKeys: Set<String> = ["id", "p"]
+
+nonisolated public func _assayEncodeMembers(
+    into w: inout Assay.JSONWriter,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) {
+        w._key(separated: ",\"id\":")
+        w.write(self.id.uuidString)
+        w._key(separated: ",\"p\":")
+        w.beginObject()
+            w._key(separated: ",\"q\":")
+            w.write(self.q)
+
+            w._key(separated: ",\"r\":")
+            w.beginObject()
+                w._key(separated: ",\"s\":")
+                if let __e2 = self.s {
+                    w.write(__e2)
+                } else {
+                    w.writeNull()
+                }
+
+            w.endObject()
+        w.endObject()
+        for __x in self.rest {
+            if Self.__assayDeclaredKeys.contains(__x.key) {
+                sink.add(Assay.Issue(
+                    code: .extrasKeyCollision,
+                    path: path + [.key(__x.key)],
+                    params: ["key": .string(__x.key)]))
+                continue
+            }
+            w.key(__x.key)
+            w.write(__x.value, &sink, path + [.key(__x.key)], "")
+        }
+}
+
+nonisolated public func _assayEncode(
+    into w: inout Assay.JSONWriter,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) {
+    w.beginObject()
+    self._assayEncodeMembers(into: &w, into: &sink, at: &path)
+    w.endObject()
+}
+
+nonisolated public func _assayEncodeRaw(
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathStep]
+) -> Assay.RawValue {
+    var __m: [Assay.RawValue.Member] = []
+    __m.reserveCapacity(3)
+        __m.append(.init(key: "id", value: .string(self.id.uuidString)))
+        __m.append(.init(key: "p", value: Assay.RawValue.mapping([.init(key: "q", value: .int(Int64(self.q))), .init(key: "r", value: Assay.RawValue.mapping([.init(key: "s", value: (self.s.map { __o in .string(__o) } ?? .null))]))])))
+        for __x in self.rest.sorted(by: { $0.key < $1.key }) {
+            if Self.__assayDeclaredKeys.contains(__x.key) {
+                sink.add(Assay.Issue(
+                    code: .extrasKeyCollision,
+                    path: path + [.key(__x.key)],
+                    params: ["key": .string(__x.key)]))
+                continue
+            }
+            __m.append(.init(key: __x.key, value: __x.value))
+        }
+    return .mapping(__m)
+}}

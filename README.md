@@ -172,7 +172,7 @@ Full table, method and caveats: [`Benchmarks/RESULTS.md`](Benchmarks/RESULTS.md)
 
 This is the part the author enjoys more than is strictly healthy.
 
-- **825 tests**, 141 suites, 87% line coverage.
+- **872 tests**, 150 suites, 91% line coverage.
 - **Differential oracles** — every format decoded twice, once by Assay and once by the
   incumbent: `JSONSerialization`, Yams/libyaml, Foundation's `XMLParser`, toml++,
   `PropertyListDecoder`. Disagreement fails the build. Two real parser bugs found on the
@@ -229,7 +229,7 @@ have since been measured false — read them as archaeology, not as documentatio
 ## Reproduce anything
 
 ```sh
-swift test                                    # 825 tests
+swift test                                    # 872 tests
 cd Benchmarks
 swift run -c release CorpusGen                # the corpus, deterministic
 swift run -c release AssayBench --list        # every arm

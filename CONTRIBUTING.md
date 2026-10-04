@@ -88,7 +88,7 @@ is visible instead of being whatever the last command happened to return.
 It leaves out the two slow gates on purpose. Individually:
 
 ```sh
-swift test                                      # 825 tests, macro expansion included
+swift test                                      # 872 tests, macro expansion included
 
 cd Benchmarks
 swift run -c release CorpusGen                  # the corpus, deterministic

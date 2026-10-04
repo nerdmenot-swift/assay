@@ -31,16 +31,6 @@ import SwiftSyntax
 
 extension SchemaMacro {
 
-    /// `@Schema(describes: true)`. Opt-in, like `encodes:`, for the reason in
-    /// the file header: a type that never emits a schema document must not carry one.
-    static func describes(from node: AttributeSyntax) -> Bool {
-        guard let args = node.arguments?.as(LabeledExprListSyntax.self) else { return false }
-        for arg in args where arg.label?.text == "describes" {
-            return arg.expression.trimmedDescription == "true"
-        }
-        return false
-    }
-
     static func describeBody(
         typeName: String, fields: [SchemaField], policy: String, groups: [PathGroup]
     ) -> String {

@@ -32,6 +32,9 @@ struct GoldenA: Equatable { var x: Int }
 @Schema(keys: .snakeCase, encodes: true)
 struct GoldenB: Equatable { var y: String }
 
+@Schema(describes: true)
+struct GoldenDescribedLeaf: Equatable { var x: Int }
+
 // GOLDEN: plain
 @Schema struct GoldenPlain { var a: Int; var b: String?; var c: [Int] = []; var d: GoldenNested }
 
@@ -106,6 +109,41 @@ struct GoldenRawWide: Equatable {
 @Schema(unknownKeys: .reject, describes: true) struct GoldenDescribes {
     @Validate(.min(1)) var a: String; var b: Int?
 }
+
+// GOLDEN: describes-wide
+/// The descriptor arms `describes` never reaches: it has a `String` with a rule and an
+/// optional `Int`, so `DescribeGen` had only ever been shown two of its type tokens.
+///
+/// A `@Transform` field is the one that matters. `.input` and `.output` differ exactly
+/// there — the wire holds milliseconds and the property holds seconds — and a descriptor
+/// that recorded one type for both would describe a document this type rejects. A date's
+/// wire type likewise depends on its FORMAT, so both spellings are here: `.unixSeconds` is
+/// a number and the default is a string.
+@Schema(describes: true) struct GoldenDescribesWide {
+    @Validate(.min(1), .max(9)) var a: String
+    @Transform({ (ms: Int) in Double(ms) / 1000.0 }) var seconds: Double
+    @DateFormat(.unixSeconds) var at: Date; var on: Date
+    var any: RawValue; var leaf: GoldenDescribedLeaf; var leaves: [GoldenDescribedLeaf]?
+    var tally: [String: Double]; var flag: Bool; @Key("k", or: "kk") var k: Int
+}
+
+// GOLDEN: raw-encodes-path-extras
+/// `encodes-path-extras` on the `RawValue` side. That fixture is JSON only, so the tree
+/// encoder's path grouping (`rawPathValue`), its extras write-back with the collision
+/// report, and the `UUID` arm were all emitted into no golden. Two fields share the `p`
+/// prefix because a path group is ONE mapping, and an optional leaf sits under it because
+/// that is the arm that writes `.null` for the encoder to omit.
+@Schema(formats: [.json, .yaml], encodes: true) struct GoldenRawPaths {
+    var id: UUID; @Key(path: "p.q") var q: Int; @Key(path: "p.r.s") var s: String?
+    @Extras var rest: [String: RawValue]
+}
+
+// GOLDEN: wraps-string-rules
+@Wraps(String.self, .min(3), .max(8)) struct GoldenHandle {}
+
+// GOLDEN: wraps-int-bare
+/// No rules: the arm that emits no `.validate(...)` at all, rather than an empty one.
+@Wraps(Int64.self) struct GoldenCount {}
 
 // GOLDEN: xml-encodes-root
 @Schema(coerceScalars: true, formats: .all, encodes: true) @XML(root: "r") struct GoldenXML {

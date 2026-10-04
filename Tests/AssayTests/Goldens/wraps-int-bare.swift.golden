@@ -1,0 +1,26 @@
+/// The wrapped value. Immutable: a wrapper that can be mutated into an invalid
+/// state is not a wrapper.
+public let raw: Int64
+nonisolated static let __assayWrapRules: [Assay.Rule] = []
+/// Trusted construction, used by the decode path after the rules have already
+/// run. Not public: the whole point is that a public initialiser validates.
+@usableFromInline
+init(__assayUnchecked raw: Int64) { self.raw = raw }
+/// Fails when the value does not satisfy the same rules the decoder applies.
+/// One rule array, two callers — which is what makes "this type cannot hold an
+/// invalid value" true rather than nearly true.
+public init?(_ raw: Int64) {
+    var __sink = Assay.IssueSink(limits: .default)
+    Assay._assayValidate(raw, Self.__assayWrapRules, override: nil,
+                         field: "", at: nil, path: [], &__sink)
+    guard __sink.isValid else { return nil }
+    self.raw = raw
+}
+extension GoldenCount: Assay.AssayerBacked, Swift.Equatable, Swift.Hashable,
+                   Swift.CustomStringConvertible {
+    nonisolated public static var assaySchema: Assay.Assayer<GoldenCount> {
+        Assay.Assayer.int
+            .map { GoldenCount(__assayUnchecked: $0) }
+    }
+    public var description: String { String(describing: raw) }
+}

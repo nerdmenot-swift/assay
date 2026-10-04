@@ -1,0 +1,342 @@
+extension GoldenDescribesWide: Assay.JSONAssayable, Assay.Validatable, Assay.SchemaDescribing {nonisolated static let __assayRules_0_0: [Assay.Rule] = [.min(1), .max(9)]
+nonisolated static let __assayDateFormats_2: [Assay.DateFormat] = [.unixSeconds]
+
+nonisolated static let __assayTransform_1: @Sendable (Int) -> Double = { (ms: Int) in Double(ms) / 1000.0 }
+nonisolated public static func _assay(
+    from reader: inout Assay.AssayReader,
+    into sink: inout Assay.IssueSink,
+    at path: inout [Assay.PathStep]
+) -> GoldenDescribesWide? {
+    Assay._assayRequireJSON(GoldenDescribedLeaf.self)
+    guard reader.tryConsume(0x7B) else {
+        reader.reportTypeMismatch(&sink, path, expected: "object")
+        _ = reader.skipValue(&sink)
+        return nil
+    }
+    guard reader.enterContainer(&sink) else { return nil }
+    // Issues THIS decode added, not issues that exist. `sink.isValid` asks "has
+    // anything ever failed?", which is wrong the moment one sink spans more than
+    // one decode — a driver collecting every issue from a result set would find
+    // one bad row silently discarding every good row after it.
+    let __ck0 = sink.checkpoint()
+
+    var __f0: String? = nil
+    var __f1: Int? = nil
+    var __f2: Date? = nil
+    var __f3: Date? = nil
+    var __f4: RawValue? = nil
+    var __f5: GoldenDescribedLeaf? = nil
+    var __f6: [GoldenDescribedLeaf]? = nil
+    var __f7: [String: Double]? = nil
+    var __f8: Bool? = nil
+    var __f9: Int? = nil
+    var __sp0: Assay.SourceSpan? = nil
+    var __presence: UInt64 = 0
+
+    if !reader.tryConsume(0x7D) {
+        while true {
+            guard let __key = reader.scanKey() else {
+                reader.reportMalformed(&sink, path, expected: "a key in double quotes")
+                reader.leaveContainer()
+                return nil
+            }
+            guard reader.expect(0x3A) else {
+                reader.reportMalformed(&sink, path, expected: "':' after the key")
+                reader.leaveContainer()
+                return nil
+            }
+                switch __key.len {
+                case 1:
+                        if reader.keyMatches(__key, "a") {
+                        __presence |= 1
+                        __f0 = reader._decodeString(&sink, path, "a")
+                        __sp0 = reader.lastValueSpan
+                    } else                    if reader.keyMatches(__key, "k") {
+                        __presence |= 512
+                        __f9 = reader._decodeInt(&sink, path, "k")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 2:
+                        if reader.keyMatches(__key, "at") {
+                        __presence |= 4
+                        __f2 = reader._decodeDate(&sink, path, "at", Self.__assayDateFormats_2).map { Date(timeIntervalSince1970: $0) }
+                    } else                    if reader.keyMatches(__key, "on") {
+                        __presence |= 8
+                        __f3 = reader._decodeDate(&sink, path, "on", Assay.DateFormat.defaultFormats).map { Date(timeIntervalSince1970: $0) }
+                    } else                    if reader._aliasMatched(__key, "kk", &sink, path, "k") {
+                        __presence |= 512
+                        __f9 = reader._decodeInt(&sink, path, "k")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 3:
+                        if reader.keyMatches(__key, "any") {
+                        __presence |= 16
+                        __f4 = Assay._assayCollect(
+                            RawValue.self, from: &reader, into: &sink,
+                            at: path + [.key("any")])
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 4:
+                        if reader.keyMatches(__key, "leaf") {
+                        __presence |= 32
+                        if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "leaf", "GoldenDescribedLeaf")
+                        } else {
+                            path.append(.key("leaf"))
+                            __f5 = GoldenDescribedLeaf._assay(
+                                from: &reader, into: &sink, at: &path)
+                            path.removeLast()
+                        }
+                    } else                    if reader.keyMatches(__key, "flag") {
+                        __presence |= 256
+                        __f8 = reader._decodeBool(&sink, path, "flag")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 5:
+                        if reader.keyMatches(__key, "tally") {
+                        __presence |= 128
+                        if reader.tryConsume(0x7B) {
+                            var __dd7_0: [String: Double] = [:]
+                            __dd7_0.reserveCapacity(sink._shapeHint(125))
+                            if !reader.tryConsume(0x7D) {
+                                while true {
+                                    guard let __dk7_0 = reader.scanKey(), reader.expect(0x3A) else {
+                                        reader.reportMalformed(&sink, path, expected: "a key and ':'")
+                                        reader.leaveContainer()
+                                        return nil
+                                    }
+                                    let __dks7_0 = reader._keyString(__dk7_0)
+                                    let __dck7_0 = sink.checkpoint()
+                                    if let __de7_0 = reader._decodeDouble(&sink, path, "tally") { __dd7_0[__dks7_0] = __de7_0 }
+                                    if sink.checkpoint() != __dck7_0 { sink._insertKey(since: __dck7_0, __dks7_0, at: path.count + 1) }
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x7D) else {
+                                    reader.reportMalformed(&sink, path, expected: "',' or '}'")
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            sink._noteShape(__dd7_0.count, 125)
+                            __f7 = __dd7_0
+                        } else if reader._consumeNullIfPresent() {
+                            reader._nullNotAllowed(&sink, path, "tally", "dictionary")
+                        } else {
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                            // whole-value mismatch on a collection reported an issue whose path
+                            // was EMPTY at the top level -- worse than the missing element index
+                            // this change set out to fix, and found by a test written for that.
+                            reader.reportTypeMismatch(&sink, path + [.key("tally")], expected: "object")
+                            _ = reader.skipValue(&sink)
+                        }
+
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 6:
+                        if reader.keyMatches(__key, "leaves") {
+                        __presence |= 64
+                        if reader.tryConsume(0x5B) {
+                            var __arr6_0: [GoldenDescribedLeaf] = []
+                            var __ix6_0 = 0
+                            var __ap6_0 = path
+                            __ap6_0.append(.key("leaves"))
+                            __ap6_0.append(.index(0))
+                            if !reader.tryConsume(0x5D) {
+                                __arr6_0.reserveCapacity(sink._shapeHint(117))
+                                while true {
+                                __ap6_0[__ap6_0.count &- 1] = .index(__ix6_0)
+                                if let __e6_0 = GoldenDescribedLeaf._assay(
+                                    from: &reader, into: &sink, at: &__ap6_0) { __arr6_0.append(__e6_0) }
+                                    __ix6_0 &+= 1
+                                    if reader.tryConsume(0x2C) { continue }
+                                    break
+                                }
+                                guard reader.tryConsume(0x5D) else {
+                                    reader.reportMalformed(&sink, path, expected: "',' or ']'")
+                                    reader.leaveContainer()
+                                    return nil
+                                }
+                            }
+                            sink._noteShape(__arr6_0.count, 117)
+                            __f6 = __arr6_0
+                        } else if reader._consumeNullIfPresent() {
+                            __f6 = nil
+                        } else {
+                            // Names the FIELD. This passed a bare `path` until 2026-09-08, so a
+                        // whole-value mismatch on a collection reported an issue whose path
+                        // was EMPTY at the top level -- worse than the missing element index
+                        // this change set out to fix, and found by a test written for that.
+                        reader.reportTypeMismatch(&sink, path + [.key("leaves")], expected: "array")
+                        _ = reader.skipValue(&sink)
+                        }
+
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                case 7:
+                        if reader.keyMatches(__key, "seconds") {
+                        __presence |= 2
+                        __f1 = reader._decodeInt(&sink, path, "seconds")
+                    } else {
+                        _ = reader.skipValue(&sink)
+                    }
+                default:
+                    _ = reader.skipValue(&sink)
+                }
+            if reader.tryConsume(0x2C) { continue }
+            break
+        }
+        guard reader.tryConsume(0x7D) else {
+            reader.reportMalformed(&sink, path, expected: "',' or '}'")
+            reader.leaveContainer()
+            return nil
+        }
+    }
+    reader.leaveContainer()
+
+        if __presence & 1 == 0 {
+            reader._missingRequired(&sink, path, "a")
+        }
+        if __presence & 2 == 0 {
+            reader._missingRequired(&sink, path, "seconds")
+        }
+        if __presence & 4 == 0 {
+            reader._missingRequired(&sink, path, "at")
+        }
+        if __presence & 8 == 0 {
+            reader._missingRequired(&sink, path, "on")
+        }
+        if __presence & 16 == 0 {
+            reader._missingRequired(&sink, path, "any")
+        }
+        if __presence & 32 == 0 {
+            reader._missingRequired(&sink, path, "leaf")
+        }
+        if __presence & 128 == 0 {
+            reader._missingRequired(&sink, path, "tally")
+        }
+        if __presence & 256 == 0 {
+            reader._missingRequired(&sink, path, "flag")
+        }
+        if __presence & 512 == 0 {
+            reader._missingRequired(&sink, path, "k")
+        }
+
+    if let __vv0 = __f0 {
+        Assay._assayValidate(__vv0, Self.__assayRules_0_0, override: nil, field: "a", at: __sp0, path: path, &sink)
+    }
+
+        guard let __v0 = __f0 else { return nil }
+        guard let __v1 = __f1 else { return nil }
+        guard let __v2 = __f2 else { return nil }
+        guard let __v3 = __f3 else { return nil }
+        guard let __v4 = __f4 else { return nil }
+        guard let __v5 = __f5 else { return nil }
+        guard let __v7 = __f7 else { return nil }
+        guard let __v8 = __f8 else { return nil }
+        guard let __v9 = __f9 else { return nil }
+    let __result = GoldenDescribesWide(a: __v0, seconds: Self.__assayTransform_1(__v1), at: __v2, on: __v3, any: __v4, leaf: __v5, leaves: __f6, tally: __v7, flag: __v8, k: __v9)
+
+    guard sink.checkpoint() == __ck0 else { return nil }
+    return __result
+}
+
+/// Run this schema's rules against an already-constructed value. docs/VALIDATE.md.
+///
+/// Issues carry a path and no location: there is no source document to point at.
+nonisolated public static func _assayCheck(
+    _ __result: GoldenDescribesWide,
+    into sink: inout Assay.IssueSink,
+    at path: [Assay.PathStep]
+) {
+        Assay._assayValidate(__result.a, Self.__assayRules_0_0, override: nil, field: "a", at: nil, path: path, &sink)
+}
+
+/// This type's shape, for `jsonSchema(for:)`. `docs/EXPERIENCE.md` §14.
+///
+/// A descriptor rather than document text: the rule-to-keyword mapping lives once in
+/// `AssayCore`, not once per type in every user's expansion.
+nonisolated public static var _assaySchemaDescriptor: Assay.SchemaDescriptor {
+    Assay.SchemaDescriptor(
+        typeName: "GoldenDescribesWide",
+        fields: [
+        Assay.FieldDescriptor(
+            wireKey: "a",
+            aliases: [],
+            propertyName: "a",
+            type: .string,
+            isRequired: true,
+            rules: Self.__assayRules_0_0),
+        Assay.FieldDescriptor(
+            wireKey: "seconds",
+            aliases: [],
+            propertyName: "seconds",
+            type: .number,
+            wireType: .integer,
+            isRequired: true,
+            rules: []),
+        Assay.FieldDescriptor(
+            wireKey: "at",
+            aliases: [],
+            propertyName: "at",
+            type: .date(numeric: true),
+            isRequired: true,
+            rules: []),
+        Assay.FieldDescriptor(
+            wireKey: "on",
+            aliases: [],
+            propertyName: "on",
+            type: .date(numeric: false),
+            isRequired: true,
+            rules: []),
+        Assay.FieldDescriptor(
+            wireKey: "any",
+            aliases: [],
+            propertyName: "any",
+            type: .opaque("RawValue"),
+            isRequired: true,
+            rules: []),
+        Assay.FieldDescriptor(
+            wireKey: "leaf",
+            aliases: [],
+            propertyName: "leaf",
+            type: .nested(GoldenDescribedLeaf.self),
+            isRequired: true,
+            rules: []),
+        Assay.FieldDescriptor(
+            wireKey: "leaves",
+            aliases: [],
+            propertyName: "leaves",
+            type: .optional(.array(.nested(GoldenDescribedLeaf.self))),
+            isRequired: false,
+            rules: []),
+        Assay.FieldDescriptor(
+            wireKey: "tally",
+            aliases: [],
+            propertyName: "tally",
+            type: .dictionary(.number),
+            isRequired: true,
+            rules: []),
+        Assay.FieldDescriptor(
+            wireKey: "flag",
+            aliases: [],
+            propertyName: "flag",
+            type: .boolean,
+            isRequired: true,
+            rules: []),
+        Assay.FieldDescriptor(
+            wireKey: "k",
+            aliases: ["kk"],
+            propertyName: "k",
+            type: .integer,
+            isRequired: true,
+            rules: [])
+        ],
+        rejectsUnknownKeys: false)
+}}

@@ -64,13 +64,19 @@ struct GoldenExpansionTests {
     @Test("the fixtures file was found and parsed")
     func fixturesRead() {
         #expect(
-            GoldenExpansionTests.shapes.count == 15, "\(GoldenExpansionTests.shapes.map(\.name))")
+            GoldenExpansionTests.shapes.count == 19, "\(GoldenExpansionTests.shapes.map(\.name))")
     }
 
     @Test("each shape expands to its golden", arguments: GoldenExpansionTests.shapes.map(\.name))
     func golden(_ name: String) throws {
         let shape = try #require(GoldenExpansionTests.shapes.first { $0.name == name })
-        let (expansion, diagnostics) = expandSchemaForTesting(shape.source)
+        // Two macros, one suite. `@Wraps` shapes are told apart by their attribute — the
+        // schema harness looks for `@Schema` by name and reports its absence otherwise,
+        // which is why `WrapsGen`'s emitting half was pinned by nothing until 2026-10-04.
+        let isWraps = shape.source.split(whereSeparator: \.isNewline)
+            .contains { $0.hasPrefix("@Wraps(") }
+        let (expansion, diagnostics) =
+            isWraps ? expandWrapsForTesting(shape.source) : expandSchemaForTesting(shape.source)
         #expect(diagnostics.isEmpty, "the shape itself must expand cleanly: \(diagnostics)")
         let actual = expansion + "\n"
         let path = GoldenExpansionTests.goldensDirectory + "/\(name).swift.golden"

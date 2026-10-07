@@ -1,8 +1,8 @@
 # The documents
 
 The website is the place to *learn* Assay: guides, recipes, a page per format, every
-example generated from the real library. Its source is in [`../website/`](../website/); it
-is not yet published.
+example generated from the real library. It is published at
+[assay.nerdmenot.in](https://assay.nerdmenot.in) and its source is in [`../website/`](../website/).
 
 This directory is the other thing — the reasoning. Why the API has the shape it has, what was
 measured, what was tried and thrown away, and which claims are allowed to be made out loud.

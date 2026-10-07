@@ -1,5 +1,13 @@
 # Assay
 
+[![Release](https://img.shields.io/github/v/release/nerdmenot-swift/assay?display_name=tag&sort=semver)](https://github.com/nerdmenot-swift/assay/releases)
+[![CI](https://github.com/nerdmenot-swift/assay/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nerdmenot-swift/assay/actions/workflows/ci.yml)
+[![Efficiency](https://github.com/nerdmenot-swift/assay/actions/workflows/efficiency.yml/badge.svg?branch=main)](https://github.com/nerdmenot-swift/assay/actions/workflows/efficiency.yml)
+[![Swift versions](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fnerdmenot-swift%2Fassay%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/nerdmenot-swift/assay)
+[![Platforms](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fnerdmenot-swift%2Fassay%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/nerdmenot-swift/assay)
+[![Documentation](https://img.shields.io/badge/docs-assay.nerdmenot.in-blue)](https://assay.nerdmenot.in)
+[![License](https://img.shields.io/github/license/nerdmenot-swift/assay)](LICENSE)
+
 **A decoder for Swift that tells you what went wrong.**
 
 Foundation tells you it expected an `Int` and found a `String`. Somewhere. Good luck.
@@ -26,8 +34,8 @@ are the same problem.
 > `0.x` minor may change the API and [`CHANGELOG.md`](CHANGELOG.md) says when.
 > [`ROADMAP.md`](ROADMAP.md) lists what is deliberately not here, with reasons.
 
-📖 The documentation site (guides, recipes, a page per format) lives in
-[`website/`](website/) and is not yet published. This file is the version for people who
+📖 The documentation site (guides, recipes, a page per format) is at
+[assay.nerdmenot.in](https://assay.nerdmenot.in); its source is in [`website/`](website/). This file is the version for people who
 would rather stay in the terminal.
 
 ---

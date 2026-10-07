@@ -10,6 +10,7 @@ AssayCore.AssayReader._decodeDate(inout AssayCore.IssueSink, [AssayCore.PathStep
 AssayCore.AssayReader._decodeDate(inout AssayCore.IssueSink, [AssayCore.PathStep], Swift.StaticString, [AssayCore.DateFormat]) -> Swift.Double?	retain	8
 AssayCore.AssayReader._decodeDateOrNull(inout AssayCore.IssueSink, [AssayCore.PathStep], Swift.StaticString, [AssayCore.DateFormat]) -> Swift.Double??	release	29
 AssayCore.AssayReader._decodeDateOrNull(inout AssayCore.IssueSink, [AssayCore.PathStep], Swift.StaticString, [AssayCore.DateFormat]) -> Swift.Double??	retain	8
+AssayCore.AssayReader._decodeDoubleCoercing(inout AssayCore.IssueSink, [AssayCore.PathStep], Swift.StaticString) -> Swift.Double?	release	1
 AssayCore.AssayReader._decodeIntCoercing(inout AssayCore.IssueSink, [AssayCore.PathStep], Swift.StaticString) -> Swift.Int?	release	3
 AssayCore.AssayReader._missingRequired(inout AssayCore.IssueSink, [AssayCore.PathStep], Swift.StaticString) -> ()	release	2
 AssayCore.AssayReader._missingRequired(inout AssayCore.IssueSink, [AssayCore.PathStep], Swift.StaticString) -> ()	retain	2
@@ -124,8 +125,6 @@ AssayCore.NegotiationFailure.issue.getter : AssayCore.Issue	retain	7
 AssayCore.NegotiationFailure.issue.getter : AssayCore.Issue	stack-allocated-ref	2
 AssayCore.RawValue._assayDate(inout AssayCore.IssueSink, [AssayCore.PathStep], Swift.StaticString, [AssayCore.DateFormat]) -> Swift.Double?	release	11
 AssayCore.RawValue._assayDate(inout AssayCore.IssueSink, [AssayCore.PathStep], Swift.StaticString, [AssayCore.DateFormat]) -> Swift.Double?	retain	3
-AssayCore.RawValue._assayDouble(_: inout AssayCore.IssueSink, _: [AssayCore.PathStep], _: Swift.StaticString, coerce: Swift.Bool, at: AssayCore.SourceSpan?) -> Swift.Double?	retain	1
-AssayCore.RawValue._assayFloat(_: inout AssayCore.IssueSink, _: [AssayCore.PathStep], _: Swift.StaticString, coerce: Swift.Bool, at: AssayCore.SourceSpan?) -> Swift.Float?	retain	1
 AssayCore.RawValue._assayString(_: inout AssayCore.IssueSink, _: [AssayCore.PathStep], _: Swift.StaticString, coerce: Swift.Bool, at: AssayCore.SourceSpan?) -> Swift.String?	retain	1
 AssayCore.RawValue.all(Swift.String) -> [AssayCore.RawValue]	release	3
 AssayCore.RawValue.all(Swift.String) -> [AssayCore.RawValue]	retain	4
@@ -205,9 +204,10 @@ AssayCore.XMLWriter.writeEscaped(_: Swift.String, inAttribute: Swift.Bool) -> ()
 AssayCore._assayAliasMatched(inout AssayCore.IssueSink, [AssayCore.PathStep], Swift.StaticString, Swift.StaticString) -> ()	release	2
 AssayCore._assayAliasMatched(inout AssayCore.IssueSink, [AssayCore.PathStep], Swift.StaticString, Swift.StaticString) -> ()	retain	1
 AssayCore._assayAliasMatched(inout AssayCore.IssueSink, [AssayCore.PathStep], Swift.StaticString, Swift.StaticString) -> ()	stack-allocated-ref	2
-AssayCore._assayCoerceDouble(Swift.String) -> Swift.Double?	retain	1
 AssayCore._assayCoerceInt64(Swift.String) -> Swift.Int64?	release	1
 AssayCore._assayCoerceInt64(Swift.String) -> Swift.Int64?	retain	1
+AssayCore._assayDecimalDouble(_: Swift.String, allowingNonFinite: Swift.Bool) -> Swift.Double?	release	13
+AssayCore._assayDecimalDouble(_: Swift.String, allowingNonFinite: Swift.Bool) -> Swift.Double?	retain	5
 AssayCore._assayElement<A>(inout [AssayCore.PathStep], inout AssayCore.IssueSink, Swift.String, Swift.Int, (inout [AssayCore.PathStep], inout AssayCore.IssueSink) -> A?) -> A?	release	1
 AssayCore._assayElement<A>(inout [AssayCore.PathStep], inout AssayCore.IssueSink, Swift.String, Swift.Int, (inout [AssayCore.PathStep], inout AssayCore.IssueSink) -> A?) -> A?	retain	1
 AssayCore._assayEncodeRawXML(_: AssayCore.RawValue, named: Swift.String, into: inout AssayCore.XMLWriter, into: inout AssayCore.IssueSink, at: [AssayCore.PathStep]) -> ()	release	6
@@ -221,10 +221,6 @@ AssayCore._assayNegotiate(contentType: Swift.String?, accepting: [AssayCore.Wire
 AssayCore._assayPreprocess(Swift.String, [AssayCore.PreprocessStep]) -> Swift.String	ref	1
 AssayCore._assayPreprocess(Swift.String, [AssayCore.PreprocessStep]) -> Swift.String	release	13
 AssayCore._assayPreprocess(Swift.String, [AssayCore.PreprocessStep]) -> Swift.String	retain	7
-AssayCore._assayPushed<A>(inout [AssayCore.PathStep], AssayCore.PathStep, (inout [AssayCore.PathStep]) -> A?) -> A?	release	1
-AssayCore._assayPushed<A>(inout [AssayCore.PathStep], AssayCore.PathStep, (inout [AssayCore.PathStep]) -> A?) -> A?	retain	1
-AssayCore._assayPushed<A>(inout [AssayCore.PathStep], Swift.String, (inout [AssayCore.PathStep]) -> A?) -> A?	release	1
-AssayCore._assayPushed<A>(inout [AssayCore.PathStep], Swift.String, (inout [AssayCore.PathStep]) -> A?) -> A?	retain	1
 AssayCore._assaySequence<A>(inout [AssayCore.PathStep], AssayCore.RawValue, (AssayCore.RawValue, inout [AssayCore.PathStep]) -> A?) -> [A]?	release	3
 AssayCore._assaySequence<A>(inout [AssayCore.PathStep], AssayCore.RawValue, (AssayCore.RawValue, inout [AssayCore.PathStep]) -> A?) -> [A]?	retain	1
 AssayCore._assaySequence<A>(inout [AssayCore.PathStep], Swift.String, AssayCore.RawValue, (AssayCore.RawValue, inout [AssayCore.PathStep]) -> A?) -> [A]?	release	1

@@ -69,6 +69,21 @@ jobs:
       # than a regression. Listed explicitly so the supported range is a claim.
       linux_swift_versions: '["6.2", "6.3", "nightly-main", "nightly-6.4.x"]' 
 
+  # Linux on aarch64. The reusable workflow's Linux matrix is x86-64 only, and until
+  # 2026-10-07 the only aarch64 Linux run was the Efficiency workflow's count harness —
+  # which executes the decoder but not the test suite, while the README claimed both
+  # architectures as tested.
+  linux-arm:
+    name: Test (Linux aarch64)
+    runs-on: ubuntu-24.04-arm
+    container: swift:6.3.3
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift --version
+      - name: Test
+        run: swift test --explicit-target-dependency-import-check error
+
   # macOS, on a GitHub-hosted runner. This is the leg the reusable workflow cannot provide
   # here, and it is not optional: `A platform is only "supported" if CI runs the test suite
   # on it` is the first line of this file.

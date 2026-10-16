@@ -6,15 +6,18 @@
 // NO TEXT LINKS. There were three (Install, Errors, Reference) and every one of them is
 // also in the sidebar two inches below, so they bought nothing and cost the width that
 // search and the toggles need on a phone. What a docs page actually needs at the top is
-// the way home, the way to search, and the way to the source.
+// the way home, the way to search, and the way to the source — plus, beside the name, which
+// release the page describes, because a reader should never have to wonder.
 import Search from '@astrojs/starlight/components/Search.astro'
 import ThemeToggle from './ThemeToggle.astro'
 import TocToggle from './TocToggle.astro'
 import GitHubLink from './GitHubLink.astro'
+import VersionSwitcher from './VersionSwitcher.astro'
 import lockup from './lockup.svg?raw'
 ---
 <div class="assay-header">
   <a class="assay-brand" href="/" aria-label="Assay" set:html={lockup} />
+  <VersionSwitcher />
   <div class="assay-search"><Search {...Astro.props} /></div>
   <nav class="assay-nav">
     <GitHubLink />
@@ -24,13 +27,25 @@ import lockup from './lockup.svg?raw'
 </div>
 <style>
   .assay-header { display: flex; align-items: center; gap: 1rem; width: 100%; }
+  /* The chip sits with the name, not with the controls. */
+  .assay-brand + :global(assay-version) { margin-inline-start: -.4rem; }
   .assay-brand { display: block; width: 7rem; flex: none; color: var(--assay-ink); }
   .assay-brand :global(svg) { width: 100%; height: auto; display: block; }
   /* `min-width: 0` so the search box gives way instead of pushing the toggles off. */
   .assay-search { flex: 1; min-width: 0; max-width: 22rem; }
   .assay-nav { display: flex; align-items: center; gap: .4rem; margin-inline-start: auto; }
   @media (max-width: 30rem) {
-    .assay-header { gap: .6rem; }
-    .assay-brand { width: 5.5rem; }
+    .assay-header { gap: .5rem; }
+    .assay-brand { width: 5.25rem; }
+    /* At phone width the search box is already just its icon, and shrinking it further
+       slid it under the GitHub mark once the version chip took its width. */
+    .assay-search { flex: none; }
+    .assay-brand + :global(assay-version) { margin-inline-start: -.25rem; }
+  }
+  /* Below this the brand, the version, search, the source and the three-way theme toggle
+     do not fit beside Starlight's menu button. The toggle is the one that goes: the menu
+     opens onto Starlight's own theme picker, so nothing becomes unreachable. */
+  @media (max-width: 24rem) {
+    .assay-nav :global(.theme-toggle) { display: none; }
   }
 </style>

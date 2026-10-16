@@ -1,0 +1,159 @@
+---
+/**
+ * The version chip in the docs header: which release the page in front of you describes.
+ *
+ * A disclosure of real links rather than a native <select> — a <select>'s option list is
+ * drawn by the operating system, so it cannot take the site's type or colours, and its
+ * options cannot be opened in a new tab.
+ *
+ * It does not depend on `starlight-versions`. That plugin refuses to build with no archived
+ * version, and until 1.1 there is none, so the list comes from `src/data/versions.mjs` and
+ * the current label from the extract. With one entry the chip still earns its width: it
+ * names the version a reader is reading, and the panel links the changelog.
+ *
+ * Versions diverge — a page added after a release has no counterpart in it — so a link to
+ * "this page, one version back" falls back to that version's front page where the page does
+ * not exist there.
+ */
+import { getCollection } from 'astro:content'
+import samples from '../data/samples.json'
+import { archived } from '../data/versions.mjs'
+
+const currentLabel = `v${samples.stats.version}`
+const pageIds = new Set((await getCollection('docs')).map((doc) => doc.id))
+
+const path = Astro.url.pathname
+const [, first] = path.split('/')
+const onVersion = archived.find((v) => v.slug === first)
+
+// The path with any version prefix removed: what this page is called in every version.
+const shared = onVersion ? path.slice(`/${onVersion.slug}`.length) || '/' : path
+
+function hrefFor(slug?: string): string {
+  const root = slug ? `/${slug}/` : '/'
+  if (shared === '/') return root
+  const id = `${slug ?? ''}${shared}`.replace(/^\/|\/$/g, '')
+  if (!pageIds.has(id)) return root
+  return slug ? `/${slug}${shared}` : shared
+}
+
+const entries = [
+  { label: currentLabel, href: hrefFor(), current: !onVersion },
+  ...archived.map((v) => ({
+    label: v.label ?? v.slug,
+    href: hrefFor(v.slug),
+    current: v.slug === onVersion?.slug,
+  })),
+]
+const active = entries.find((e) => e.current) ?? entries[0]
+---
+<assay-version>
+  <details class="vs">
+    <summary aria-label={`Version ${active.label}. Change version`}>
+      <span>{active.label}</span>
+      <svg class="caret" viewBox="0 0 10 6" width="10" height="6" aria-hidden="true">
+        <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5"
+          stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </summary>
+    <div class="panel" role="group" aria-label="Documentation versions">
+      <p class="heading">Version</p>
+      <ul>
+        {entries.map((e) => (
+          <li>
+            <a href={e.href} aria-current={e.current ? 'true' : undefined}>
+              <span class="tick" aria-hidden="true" />
+              <span class="name">{e.label}</span>
+              {e.current && <span class="note">you are here</span>}
+            </a>
+          </li>
+        ))}
+      </ul>
+      <a class="foot" href="/reference/changelog/">Changelog</a>
+    </div>
+  </details>
+</assay-version>
+<script>
+  // Close on an outside click, on Escape, and after following a link; <details> does the
+  // rest, keyboard toggling included.
+  class AssayVersion extends HTMLElement {
+    connectedCallback() {
+      const details = this.querySelector('details')
+      if (!details) return
+      const close = () => details.removeAttribute('open')
+      document.addEventListener('click', (event) => {
+        if (details.open && !this.contains(event.target as Node)) close()
+      })
+      this.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && details.open) {
+          close()
+          details.querySelector('summary')?.focus()
+        }
+      })
+      this.addEventListener('click', (event) => {
+        if ((event.target as HTMLElement).closest('a')) close()
+      })
+    }
+  }
+  customElements.define('assay-version', AssayVersion)
+</script>
+<style>
+  assay-version { display: block; flex: none; }
+  .vs { position: relative; }
+
+  /* Quiet by default: it states a fact about the page, and looks like a control only on
+     hover or focus. */
+  summary {
+    display: flex; align-items: center; gap: .3rem;
+    padding: .15rem .4rem .15rem .5rem;
+    font-family: var(--assay-mono); font-size: .7rem; font-weight: 500;
+    color: var(--assay-muted);
+    border: 1px solid var(--assay-rule); border-radius: 999px;
+    cursor: pointer; user-select: none; list-style: none; white-space: nowrap;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary:hover, .vs[open] summary { color: var(--assay-ink); border-color: var(--assay-faint); }
+  summary:focus-visible { outline: 2px solid var(--assay-accent); outline-offset: 2px; }
+  .caret { color: var(--assay-faint); transition: transform .15s ease; }
+  .vs[open] .caret { transform: rotate(180deg); }
+
+  .panel {
+    position: absolute; top: calc(100% + .45rem); inset-inline-start: 0; z-index: 50;
+    min-width: 11rem; padding: .4rem;
+    background: var(--assay-card);
+    border: 1px solid var(--assay-rule); border-radius: .5rem;
+    box-shadow: 0 1px 2px rgb(0 0 0 / .04), 0 8px 24px rgb(0 0 0 / .12);
+  }
+  .heading {
+    margin: .15rem .5rem .35rem;
+    font-family: var(--assay-sans); font-size: .62rem; font-weight: 600;
+    letter-spacing: .09em; text-transform: uppercase; color: var(--assay-faint);
+  }
+  ul { margin: 0; padding: 0; list-style: none; }
+  li { margin: 0; }
+  .panel a {
+    display: flex; align-items: center; gap: .45rem;
+    padding: .35rem .5rem; border-radius: .35rem;
+    font-family: var(--assay-mono); font-size: .78rem;
+    color: var(--assay-muted); text-decoration: none;
+  }
+  .panel a:hover { background: var(--assay-band); color: var(--assay-ink); }
+  .panel a:focus-visible { outline: 2px solid var(--assay-accent); outline-offset: -2px; }
+  .tick { width: .4rem; height: .4rem; border-radius: 50%; flex: none; }
+  a[aria-current='true'] { color: var(--assay-ink); }
+  a[aria-current='true'] .tick { background: var(--assay-accent); }
+  .name { flex: 1; }
+  .note { font-family: var(--assay-sans); font-size: .62rem; color: var(--assay-faint); }
+  .panel .foot {
+    margin-top: .3rem; padding-top: .45rem;
+    border-top: 1px solid var(--assay-rule); border-radius: 0;
+    font-family: var(--assay-sans); font-size: .72rem;
+  }
+  /* A phone header has no width to spare: the version stays, the caret goes. */
+  @media (max-width: 30rem) {
+    summary { padding: .12rem .45rem; font-size: .66rem; }
+    .caret { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .caret { transition: none; } }
+</style>

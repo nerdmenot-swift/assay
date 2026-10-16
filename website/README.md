@@ -93,8 +93,9 @@ its own body is the navigation there, through the hero buttons, the format rail 
 closing doors.
 
 Anything added to either header has to earn its width at 360px. The rule of thumb is that
-a header item must be something the page itself cannot offer: the way home, search, and the
-source.
+a header item must be something the page itself cannot offer: the way home, search, the
+source, and the version the page describes. Below 24rem the docs header's theme toggle
+gives way to the version chip; Starlight's menu carries its own theme picker there.
 
 ## Voice
 
@@ -116,13 +117,58 @@ platform-specific, the page says which platform.
 
 ## Deploying
 
-CI does it on a push to `main` that touches `website/`, once `CLOUDFLARE_API_TOKEN` and
-`CLOUDFLARE_ACCOUNT_ID` are set as repository secrets. They are not set today, which is why
-the site is unpublished. By hand:
+CI deploys to Cloudflare Pages (project `assay-docs`) on every push to `main`, after the
+freshness check and the build pass (`.github/workflows/docs.yml`). `CLOUDFLARE_API_TOKEN`
+and `CLOUDFLARE_ACCOUNT_ID` are organisation secrets. By hand:
 
 ```sh
 bun run deploy      # needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
 ```
+
+## Versions
+
+The header carries a version chip (`src/components/VersionSwitcher.astro`) naming the
+release the page describes. The current label comes from `CHANGELOG.md`'s first release
+heading through the extract, so a release needs no edit here: tag it, the push to `main`
+redeploys, and the chip reads the new version. **A patch or a new tag archives nothing.**
+
+Older versions appear in the chip only once one is archived, and archiving is by hand —
+the same scheme as catena's site:
+
+- **One archive per minor series, not per tag**, made when the *next* minor ships, from the
+  last tag of the outgoing series and labelled for the series (`v1.0.x`). Under semver a
+  patch cannot change the API, and the Swift Package Index keeps every tag's DocC.
+- **A published URL is permanent.** Once `/1-0/` is linked somewhere, removing it breaks
+  the link, so archive coarsely. Past about six entries, drop the oldest from the chip and
+  keep serving its pages.
+- Never skip a series because it changed little. A gap in the list reads as a fault.
+
+To archive 1.0.x when 1.1.0 ships:
+
+1. **Snapshot from the tag, not from the working tree** — the tree is already the new
+   release. The generated pages are committed, so the tag holds them, and
+   `scripts/extract.ts` writes files without deleting any, so it leaves the archive alone:
+
+   ```sh
+   dest=src/content/docs/1-0 && mkdir -p "$dest"
+   git archive v1.0.N website/src/content/docs | tar -x --strip-components=4 -C "$dest"
+   ```
+
+2. Add `{ slug: '1-0', label: 'v1.0.x' }` to `src/data/versions.mjs`.
+3. **Wire `starlight-versions`**, which was not installed while there was nothing to archive
+   (it refuses to build with an empty list): `bun add starlight-versions`, then in
+   `astro.config.mjs` add `starlightVersions({ current: { label: 'v' + version }, versions:
+   archived })` to Starlight's `plugins`. Record that tag's sidebar in
+   `src/content/versions/1-0.json` as `{"sidebar": [...], "excluded": []}`; the plugin
+   refuses to build without it.
+4. **Render the plugin's components yourself.** `Header` and `PageTitle` are config-level
+   overrides, which beat a plugin's, so its pieces disappear silently unless imported:
+   swap Starlight's `Search` in `Header.astro` for `starlight-versions/components/VersionSearch.astro`
+   (results scoped to the version being read), and put
+   `starlight-versions/components/VersionNotice.astro` at the top of `PageTitle.astro` (the
+   "you are reading an old version" banner).
+5. Build, and check an archived page shows the notice, the chip lists both versions, and
+   the archived reference does not mention anything added since.
 
 ## The logo
 

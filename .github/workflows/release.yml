@@ -81,7 +81,9 @@ jobs:
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           now="${TAG#v}"
-          prev=$(git tag --list 'v*.*.*' --sort=-v:refname | grep -vx "$TAG" | head -1)
+          # `|| true`: on the first release grep matches nothing and exits 1, which pipefail
+          # turned into a failed release for v1.0.0.
+          prev=$(git tag --list 'v*.*.*' --sort=-v:refname | grep -vx "$TAG" | head -1 || true)
           [ -n "$prev" ] || { echo "No previous tag; nothing to compare."; exit 0; }
           p="${prev#v}"
           IFS=. read -r M m _ <<< "${now%%-*}"

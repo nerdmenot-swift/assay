@@ -7,7 +7,7 @@ Add the package:
 
 ```swift
 // Package.swift
-.package(url: "https://github.com/nerdmenot-swift/assay.git", from: "0.1.0")
+.package(url: "https://github.com/nerdmenot-swift/assay.git", from: "1.0.0")
 ```
 
 And depend on the bit you want:

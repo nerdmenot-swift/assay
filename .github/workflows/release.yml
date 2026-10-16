@@ -1,6 +1,6 @@
 name: Release
 
-# A tag is a release. Pushing `v0.1.0` checks that the tagged commit is one main already
+# A tag is a release. Pushing `v1.0.0` checks that the tagged commit is one main already
 # vouched for, re-runs the test suite on the two platforms whose artefacts most people
 # consume, and creates the GitHub release with the matching CHANGELOG section as its notes —
 # so the notes are written once, in the file people read, and a tag whose CHANGELOG section
@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing tag to release, with the v (e.g. v0.1.0)'
+        description: 'Existing tag to release, with the v (e.g. v1.0.0)'
         required: true
         type: string
 

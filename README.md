@@ -30,8 +30,8 @@ every render on the documentation site from the library and fails if one drifts.
 failures and validation failures look identical on purpose: to the person reading them, they
 are the same problem.
 
-> **0.1.0 is not tagged yet — built, tested, measured, and installable from `main`.** A
-> `0.x` minor may change the API and [`CHANGELOG.md`](CHANGELOG.md) says when.
+> **1.0.0 — released.** Semantic versioning: a minor or patch release never breaks the
+> API, and [`CHANGELOG.md`](CHANGELOG.md) says what each release changed.
 > [`ROADMAP.md`](ROADMAP.md) lists what is deliberately not here, with reasons.
 
 📖 The documentation site (guides, recipes, a page per format) is at
@@ -43,7 +43,7 @@ would rather stay in the terminal.
 ## Install
 
 ```swift
-.package(url: "https://github.com/nerdmenot-swift/assay.git", branch: "main")
+.package(url: "https://github.com/nerdmenot-swift/assay.git", from: "1.0.0")
 ```
 
 ```swift

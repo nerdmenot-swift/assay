@@ -187,10 +187,11 @@ CI fails if a committed render no longer matches. If you change an error message
 ## API stability
 
 `swift package diagnose-api-breaking-changes <ref>` compares the public API against a git
-ref, and CI runs it on every pull request. Breaking the API on purpose is allowed before 1.0:
-add the `api-break` label, which skips the job, and a line in
-[`CHANGELOG.md`](CHANGELOG.md) saying what broke and why. The label exists so it is never
-accidental.
+ref, and CI runs it on every pull request. Since 1.0.0 a break needs a major version. A
+pull request that breaks the API on purpose carries the `api-break` label, which skips the
+job, and a **Breaking** line in [`CHANGELOG.md`](CHANGELOG.md) saying what broke and why;
+the release workflow then refuses to publish it as anything but a new major. The label
+exists so a break is never accidental.
 
 ## What runs when
 

@@ -2,190 +2,18 @@
 
 Notable changes, most recent first.
 
-**Versioning.** Semantic versioning, with the pre-1.0 reading: a `0.x` minor version may
-change public API, a patch version never does. Every public-API break is caught by
-`swift package diagnose-api-breaking-changes` in CI and must be listed here under
-**Breaking** with its reason; a deliberate deferral lives in [`ROADMAP.md`](ROADMAP.md)
-with its reason. `1.0.0` will be tagged when the API in `docs/EXPERIENCE.md` has been
-stable for two minor versions with no entry under **Breaking**.
+**Versioning.** Semantic versioning. A minor or patch release never breaks public API; a
+break needs a major version and is listed here under **Breaking** with its reason. CI runs
+`swift package diagnose-api-breaking-changes` against the base of every pull request, and
+the release workflow runs it against the previous tag. A deliberate deferral lives in
+[`ROADMAP.md`](ROADMAP.md) with its reason.
 
 ## Unreleased
 
-### Breaking
+## 1.0.0 — 2026-10-16
 
-- **Five names now follow the API Design Guidelines.** A naming pass against the guidelines
-  and against how swift-collections, swift-nio, swift-argument-parser and Foundation spell
-  the same things:
-
-  | was | is | why |
-  |---|---|---|
-  | `AssayReader.advanceBy(_:)` | `advance(by:)` | the preposition belongs in the label; the stdlib spells it `advanced(by:)` |
-  | `Diagnosis.truncatedIssues` | `issuesWereTruncated` | a `Bool` must read as an assertion — `if d.truncatedIssues` reads like a collection |
-  | `AssayReader.atEnd` | `isAtEnd` | Foundation's own `Scanner.isAtEnd` |
-  | `KeyRange.simple` | `isSimple` | same rule as above, and the initialiser label with it |
-  | `PreprocessOp` | `PreprocessStep` | no abbreviations, and it rhymes with `PathStep` now |
-
-- **`PathComponent` is now `PathStep`.** `issue.path` is `[PathStep]`, and the cases are
-  unchanged — `.key("email")`, `.index(3)`. Vapor exports a `PathComponent` of its own for
-  routing, so an app with both imported could not write the bare name as a type: Swift
-  reports "'PathComponent' is ambiguous for type lookup". Pattern matches and inferred uses
-  were never affected, which is why it took a collision audit to notice. Renamed rather than
-  documented because almost nobody spells this type — the macro emits it fully qualified, and
-  users read `issue.path` — so the rename costs one line in a migration and removes a
-  collision permanently.
-- **`EncodedBytes.toArray()` is now `Array(_:)`.** `Array(try value.encodedJSON())` rather
-  than `try value.encodedJSON().toArray()`. The API Design Guidelines put a non-mutating
-  conversion on the destination type as an initialiser — `Array(someSequence)`,
-  `String(someCharacters)` — and `toArray()` is the Objective-C spelling of the same idea.
-  The initialiser is `consuming`, so the copy is made and the original freed, which is what a
-  caller asking for an `Array` wants. Renamed now because it costs a line here rather than a
-  deprecation cycle later.
-- **`encodedJSON()`, `encodedYAML()`, `encodedXML()` and `encodedTOML()` return
-  `EncodedBytes`, not `[UInt8]`.** The writers own the buffer they write into, so a write is
-  a store rather than an `Array` append with a uniqueness check behind it — 36,004 of those
-  per `base/encode` call, about a sixth of the call — and `finish()` hands the allocation
-  over instead of copying the document into a fresh `Array`. `EncodedBytes` is `~Copyable`
-  because it owns a heap allocation and must free it exactly once: use `withUnsafeBytes` to
-  write it somewhere with no copy, `text()` for a `String`, or `Array(_:)` where a value type
-  is genuinely needed, which copies visibly at the call site. `jsonText()` and friends are
-  unchanged, and `EncodeDiagnosis.bytes` stays a plain `[UInt8]` and stays `Sendable` — it is
-  the diagnostic path, and one copy there is worth more than the counter. Encoding measures
-  8.75× `JSONEncoder` at 50 items against 2.98× before this and the two emitter changes
-  beside it. `docs/EFFICIENCY.md` rows 5 and 22.
-- **A number that cannot be represented as a `Double` is now an error, on every format.**
-  `1e309` decoded to `+infinity` and `1e-400` to zero; both are refused with
-  `number_overflow` on the JSON and TOML paths, and on the YAML path resolve to a string so
-  the schema reports `must be a number, found "1e309"`. Reading a number as a different
-  number is the one failure a decoder must not have, and this codebase refuses it elsewhere
-  (a 128-bit plist integer is refused rather than truncated). Foundation's `JSONDecoder`
-  throws on every one of these and toml++ rejects them, so Assay was the outlier.
-  **Subnormals are values and still decode** — `5e-324` is the least positive `Double`, has
-  an exact bit pattern, and is accepted. A document relying on a literal silently becoming
-  infinity or zero will now get an issue.
-- **`IssueCode.xml_expected_element` is removed.** It was unreachable: both of the XML
-  parser's `parseElement` call sites already establish that the current byte is `<` before
-  calling, so the guard inside it could never fail. The guard is gone too — a check that
-  cannot fail reads exactly like a check that passed. No document ever produced this code,
-  so nothing that switches on codes can regress; a `case` for it becomes dead.
-- **`AssayReader.reportMalformed(_:_:)` gained an `expected:` parameter** (defaulted, so
-  every existing *source* call still compiles — but the mangled symbol changes, so this is
-  an ABI break and `diagnose-api-breaking-changes` reports it). It is public because
-  generated code calls it, and the parameter is what lets a syntax error say what it was
-  expecting instead of the bare `is not a well-formed document`. A caller with no single
-  expected token passes nothing and gets the old sentence.
-- **Three public members with no caller are gone.** `AssayReader.find(_:from:)`,
-  `AssayReader.byteCount`, and the two `_assayPushed` overloads. Nothing in the library, the
-  macro's output or the benchmarks called any of them: generated `RawValue` bodies call
-  `_assayElement`, `_assaySequence` and `_assayMapping` and no longer `_assayPushed`, and the
-  two reader members were never part of a hand-written-decoder surface. A type
-  using `@Schema` is unaffected — it re-expands on the next build. Found by listing every
-  line no test could reach and asking why; removed before 1.0 rather than carried past it.
-
-### Changed
-
-- **The efficiency campaign: every verb does less work, measured by exact counters rather
-  than by a clock.** `docs/EFFICIENCY.md` holds the ledger and the numbers; the visible
-  results are that YAML and XML struct decoding no longer builds a tree it throws away (one
-  parser per format, generic over what it builds: −17% to −29% instructions, −49% to −66%
-  heap bytes, and 18.20× Yams' `YAMLDecoder` against 11.09×), applying a validation rule
-  borrows it out of its array instead of copying it (10,001 retain/release pairs per
-  `validate` call → 1, −15% to −29%), arrays of objects and dictionaries reserve from a
-  per-site size hint instead of growing by doubling (−66% blocks on a document of sibling
-  collections, and dictionaries reserved nothing at all before), and the encoders write into
-  buffers they own. The XML *tree* door pays 2–3% for the shared parser, which is recorded as
-  a trade rather than hidden.
-- **Malformed JSON says what was expected and where the input ended.** `is not well-formed:
-  expected ':' after the key` rather than `is not a well-formed document`; truncated input
-  now carries a caret (it pointed one byte past the end, which renders as nothing).
-- **One syntax error is one issue.** `trailing_content` no longer fires as a redundant
-  second error beside a syntax failure — it is reported only when a complete value parsed.
-- **Four attribute combinations are now refused** instead of being silently ignored:
-  `@Key` on an `@Extras` bag, `@Key(path:)` beside `@Inline`, `@Coerce` on a non-scalar,
-  and `@XML(.attribute)`/`@XML(.text)` on an array or dictionary in a decode-only schema
-  (that last diagnostic existed but ran only under `encodes: true`).
-
-### Added
-
-- **`Data` input, with no copy.** `parse(json:)` and `diagnose(json:)` — plus their async and
-  contextual pairs, `Assayer<T>`'s pair, `JSON.Value.parse` and the
-  `parse(body:contentType:accepting:)` negotiation door — now take `Data` from
-  `AssayFoundation`, and the JSON ones decode inside `withUnsafeBytes` rather than converting.
-  `Array(data)`, which is what a caller wrote before, allocates and copies the whole document
-  first, so a second copy of it stayed alive for the length of the parse. Measured: one
-  allocation saved per parse whatever the size, and 1.0% / 2.6% / 3.5% of decode time at
-  0.2 / 2.0 / 8.3 MB — the time is the small half. `docs/EXPERIENCE.md` §13 had described these
-  overloads since before there was an implementation; there was none, and no test would have
-  found that, because a document promising an API is not a call site.
-
-  One behaviour to know, tested rather than left as prose: on a **clean** decode from `Data`,
-  `Diagnosis.source` is empty. A `Data`'s bytes are valid only inside `withUnsafeBytes`, so
-  they are retained only when an issue or warning needs rendering — every render is then
-  byte-identical to the array door's. The `body:` door copies once, because negotiation may
-  choose a parser from a module `AssayFoundation` cannot see; it refuses an unacceptable media
-  type before paying for the copy.
-
-- **Missing-capability errors name the fix instead of an internal protocol.** Calling
-  `parse(yaml:)`, `parse(xml:)`, `parse(toml:)`, `parse(plist:)`, `parse(body:)`,
-  `encodedJSON()`/`encodedYAML()`/`encodedXML()`/`encodedTOML()` or `jsonSchema(for:)` on a
-  schema that did not opt in used to report `requires that 'Article' conform to
-  'RawDecodable'`. Each now says which `@Schema` argument to add. `@XML(root:)`'s refusal has
-  read that way since it shipped; this is the rest of the doors catching up.
-- **`@AsyncCheck(\Type.field)`** — the field form, which `@Check` has had all along. A check
-  that needs a round trip to answer is very often a field check ("is this address already
-  registered?"). Writing the sibling by analogy previously produced four diagnostics, two of
-  them inside the expansion.
-
-### Fixed
-
-- **Text is checked against a decimal-float grammar before it is converted.** Six places
-  asked `Double(String)` first and looked at the answer after: YAML scalar resolution, a
-  `YAML.Node`'s `resolvedDouble`, the YAML writer's quoting decision, `@Coerce` on both
-  decode paths, and a plist `<real>`. That accepted spellings no document format means, and
-  on the nightly-main toolchain of 2026-10-04 `Double("12e3-4")` traps inside the standard
-  library — so a UUID opening `123e4567-` as a plain YAML scalar crashed the process. Found
-  by CI. **Behaviour that changes:** in YAML, `0x1p3` and similar hex floats are now strings,
-  not floats; a `@Coerce`d or plist number accepts a decimal literal or `nan`/`inf`/`infinity`
-  and nothing else.
-- **A `<string>` written as CDATA in an XML property list decoded as the empty string.** The
-  reader concatenated only plain text runs, so `<string><![CDATA[a<b]]></string>` produced
-  `""` with no issue. CDATA is read as the character data it is, matching
-  `PropertyListSerialization`.
-- **Two declarations the macro accepted and could not honour are refused.**
-  `@Schema(describes: true)` on a type that holds itself (`var children: [Node]`) expanded
-  cleanly, and rendering its schema then recursed without end; and two `@Key(path:)` fields
-  where one path is a prefix of the other (`"a.b"` beside `"a.b.c"`), or the same path
-  twice, built a tree in which one key was both a value and an object. Both are compile
-  errors now. A type that declared either stops compiling.
-- **A `.pattern` date with an out-of-range field put its caret two bytes late.** `24` in the
-  hour position of `yyyy-MM-dd HH:mm:ss` reported the offset just past the field, so the
-  caret sat under the `:` that followed. It points at the field now, as the ISO-8601 parser
-  always has.
-- **Rules on a `@Transform` field were type-checked against the wrong type.** Rules run on
-  the wire value, before the transform, but the expansion-time check compared them with the
-  property's type. So `@Validate(.positive) @Transform({ (s: String) in s.count }) var w: Int`
-  compiled and checked nothing — a number rule handed a string — while `@Validate(.email)` on
-  the same field was refused as "declared Int". The check now uses the wire type, and the
-  refusal says so: "'w' arrives as String — a @Transform field's rules run on the wire
-  value, before the transform". **A type that relied on the first form stops compiling**;
-  the rule it named was never running.
-- **`@Schema(encodes: true)` with an unannotated `Date` did not compile.** A `var when: Date`
-  with no `@DateFormat`, in a type that encodes, failed with "type has no member
-  '__assayDateFormats_0'" from inside the expansion. The decoder shares one default format
-  list for such a field; the three encoders named a per-field one that was only emitted for
-  annotated dates. Optional, array and dictionary dates were affected the same way. Found
-  2026-10-04 by the first test to put a bare date beside `encodes: true`.
-- **A `@Check`/`@AsyncCheck` on a backticked property** (`` var `default`: Int ``) matched
-  nothing, because the lookup compared the unbackticked key-path name against the backticked
-  identifier — so the check silently lost its caret.
-- **A warning in generated code.** A field targeted only by an *async* field check requested
-  a source span that `_assayAsyncChecks` cannot read — it runs after the decode body returns,
-  and the spans are that body's locals — so the expansion emitted a variable written and
-  never read, in the user's build.
-
-## 0.1.0 — not yet tagged
-
-The first public release, once tagged. Everything below is "added" by definition; the highlights
-that distinguish it:
+The first public release. Everything in it is "added" by definition; the highlights that
+distinguish it:
 
 - **`@Schema` macro decoding** for JSON (straight from bytes into the struct), YAML,
   XML and TOML (via a format-neutral `RawValue` projection) — no `Codable`, no
@@ -261,3 +89,179 @@ Known limitations at this release: unions have no YAML/XML path (`docs/UNIONS.md
 deliberately deferred with reasons in `ROADMAP.md`, `@Key(path:)` refuses index segments,
 `StandardSchema` waits on a third package, there is no incremental parsing of a single
 document (a decision, not a gap), and the `.past`/`.future` date rules wait on a clock seam.
+
+### Changes made before the first tag
+
+No version was tagged before 1.0.0. These are the changes made on `main` in the weeks
+before it, kept for anyone who built against an untagged commit.
+
+#### Breaking
+
+- **Five names now follow the API Design Guidelines.** A naming pass against the guidelines
+  and against how swift-collections, swift-nio, swift-argument-parser and Foundation spell
+  the same things:
+
+  | was | is | why |
+  |---|---|---|
+  | `AssayReader.advanceBy(_:)` | `advance(by:)` | the preposition belongs in the label; the stdlib spells it `advanced(by:)` |
+  | `Diagnosis.truncatedIssues` | `issuesWereTruncated` | a `Bool` must read as an assertion — `if d.truncatedIssues` reads like a collection |
+  | `AssayReader.atEnd` | `isAtEnd` | Foundation's own `Scanner.isAtEnd` |
+  | `KeyRange.simple` | `isSimple` | same rule as above, and the initialiser label with it |
+  | `PreprocessOp` | `PreprocessStep` | no abbreviations, and it rhymes with `PathStep` now |
+
+- **`PathComponent` is now `PathStep`.** `issue.path` is `[PathStep]`, and the cases are
+  unchanged — `.key("email")`, `.index(3)`. Vapor exports a `PathComponent` of its own for
+  routing, so an app with both imported could not write the bare name as a type: Swift
+  reports "'PathComponent' is ambiguous for type lookup". Pattern matches and inferred uses
+  were never affected, which is why it took a collision audit to notice. Renamed rather than
+  documented because almost nobody spells this type — the macro emits it fully qualified, and
+  users read `issue.path` — so the rename costs one line in a migration and removes a
+  collision permanently.
+- **`EncodedBytes.toArray()` is now `Array(_:)`.** `Array(try value.encodedJSON())` rather
+  than `try value.encodedJSON().toArray()`. The API Design Guidelines put a non-mutating
+  conversion on the destination type as an initialiser — `Array(someSequence)`,
+  `String(someCharacters)` — and `toArray()` is the Objective-C spelling of the same idea.
+  The initialiser is `consuming`, so the copy is made and the original freed, which is what a
+  caller asking for an `Array` wants. Renamed now because it costs a line here rather than a
+  deprecation cycle later.
+- **`encodedJSON()`, `encodedYAML()`, `encodedXML()` and `encodedTOML()` return
+  `EncodedBytes`, not `[UInt8]`.** The writers own the buffer they write into, so a write is
+  a store rather than an `Array` append with a uniqueness check behind it — 36,004 of those
+  per `base/encode` call, about a sixth of the call — and `finish()` hands the allocation
+  over instead of copying the document into a fresh `Array`. `EncodedBytes` is `~Copyable`
+  because it owns a heap allocation and must free it exactly once: use `withUnsafeBytes` to
+  write it somewhere with no copy, `text()` for a `String`, or `Array(_:)` where a value type
+  is genuinely needed, which copies visibly at the call site. `jsonText()` and friends are
+  unchanged, and `EncodeDiagnosis.bytes` stays a plain `[UInt8]` and stays `Sendable` — it is
+  the diagnostic path, and one copy there is worth more than the counter. Encoding measures
+  8.75× `JSONEncoder` at 50 items against 2.98× before this and the two emitter changes
+  beside it. `docs/EFFICIENCY.md` rows 5 and 22.
+- **A number that cannot be represented as a `Double` is now an error, on every format.**
+  `1e309` decoded to `+infinity` and `1e-400` to zero; both are refused with
+  `number_overflow` on the JSON and TOML paths, and on the YAML path resolve to a string so
+  the schema reports `must be a number, found "1e309"`. Reading a number as a different
+  number is the one failure a decoder must not have, and this codebase refuses it elsewhere
+  (a 128-bit plist integer is refused rather than truncated). Foundation's `JSONDecoder`
+  throws on every one of these and toml++ rejects them, so Assay was the outlier.
+  **Subnormals are values and still decode** — `5e-324` is the least positive `Double`, has
+  an exact bit pattern, and is accepted. A document relying on a literal silently becoming
+  infinity or zero will now get an issue.
+- **`IssueCode.xml_expected_element` is removed.** It was unreachable: both of the XML
+  parser's `parseElement` call sites already establish that the current byte is `<` before
+  calling, so the guard inside it could never fail. The guard is gone too — a check that
+  cannot fail reads exactly like a check that passed. No document ever produced this code,
+  so nothing that switches on codes can regress; a `case` for it becomes dead.
+- **`AssayReader.reportMalformed(_:_:)` gained an `expected:` parameter** (defaulted, so
+  every existing *source* call still compiles — but the mangled symbol changes, so this is
+  an ABI break and `diagnose-api-breaking-changes` reports it). It is public because
+  generated code calls it, and the parameter is what lets a syntax error say what it was
+  expecting instead of the bare `is not a well-formed document`. A caller with no single
+  expected token passes nothing and gets the old sentence.
+- **Three public members with no caller are gone.** `AssayReader.find(_:from:)`,
+  `AssayReader.byteCount`, and the two `_assayPushed` overloads. Nothing in the library, the
+  macro's output or the benchmarks called any of them: generated `RawValue` bodies call
+  `_assayElement`, `_assaySequence` and `_assayMapping` and no longer `_assayPushed`, and the
+  two reader members were never part of a hand-written-decoder surface. A type
+  using `@Schema` is unaffected — it re-expands on the next build. Found by listing every
+  line no test could reach and asking why; removed before 1.0 rather than carried past it.
+
+#### Changed
+
+- **The efficiency campaign: every verb does less work, measured by exact counters rather
+  than by a clock.** `docs/EFFICIENCY.md` holds the ledger and the numbers; the visible
+  results are that YAML and XML struct decoding no longer builds a tree it throws away (one
+  parser per format, generic over what it builds: −17% to −29% instructions, −49% to −66%
+  heap bytes, and 18.20× Yams' `YAMLDecoder` against 11.09×), applying a validation rule
+  borrows it out of its array instead of copying it (10,001 retain/release pairs per
+  `validate` call → 1, −15% to −29%), arrays of objects and dictionaries reserve from a
+  per-site size hint instead of growing by doubling (−66% blocks on a document of sibling
+  collections, and dictionaries reserved nothing at all before), and the encoders write into
+  buffers they own. The XML *tree* door pays 2–3% for the shared parser, which is recorded as
+  a trade rather than hidden.
+- **Malformed JSON says what was expected and where the input ended.** `is not well-formed:
+  expected ':' after the key` rather than `is not a well-formed document`; truncated input
+  now carries a caret (it pointed one byte past the end, which renders as nothing).
+- **One syntax error is one issue.** `trailing_content` no longer fires as a redundant
+  second error beside a syntax failure — it is reported only when a complete value parsed.
+- **Four attribute combinations are now refused** instead of being silently ignored:
+  `@Key` on an `@Extras` bag, `@Key(path:)` beside `@Inline`, `@Coerce` on a non-scalar,
+  and `@XML(.attribute)`/`@XML(.text)` on an array or dictionary in a decode-only schema
+  (that last diagnostic existed but ran only under `encodes: true`).
+
+#### Added
+
+- **`Data` input, with no copy.** `parse(json:)` and `diagnose(json:)` — plus their async and
+  contextual pairs, `Assayer<T>`'s pair, `JSON.Value.parse` and the
+  `parse(body:contentType:accepting:)` negotiation door — now take `Data` from
+  `AssayFoundation`, and the JSON ones decode inside `withUnsafeBytes` rather than converting.
+  `Array(data)`, which is what a caller wrote before, allocates and copies the whole document
+  first, so a second copy of it stayed alive for the length of the parse. Measured: one
+  allocation saved per parse whatever the size, and 1.0% / 2.6% / 3.5% of decode time at
+  0.2 / 2.0 / 8.3 MB — the time is the small half. `docs/EXPERIENCE.md` §13 had described these
+  overloads since before there was an implementation; there was none, and no test would have
+  found that, because a document promising an API is not a call site.
+
+  One behaviour to know, tested rather than left as prose: on a **clean** decode from `Data`,
+  `Diagnosis.source` is empty. A `Data`'s bytes are valid only inside `withUnsafeBytes`, so
+  they are retained only when an issue or warning needs rendering — every render is then
+  byte-identical to the array door's. The `body:` door copies once, because negotiation may
+  choose a parser from a module `AssayFoundation` cannot see; it refuses an unacceptable media
+  type before paying for the copy.
+
+- **Missing-capability errors name the fix instead of an internal protocol.** Calling
+  `parse(yaml:)`, `parse(xml:)`, `parse(toml:)`, `parse(plist:)`, `parse(body:)`,
+  `encodedJSON()`/`encodedYAML()`/`encodedXML()`/`encodedTOML()` or `jsonSchema(for:)` on a
+  schema that did not opt in used to report `requires that 'Article' conform to
+  'RawDecodable'`. Each now says which `@Schema` argument to add. `@XML(root:)`'s refusal has
+  read that way since it shipped; this is the rest of the doors catching up.
+- **`@AsyncCheck(\Type.field)`** — the field form, which `@Check` has had all along. A check
+  that needs a round trip to answer is very often a field check ("is this address already
+  registered?"). Writing the sibling by analogy previously produced four diagnostics, two of
+  them inside the expansion.
+
+#### Fixed
+
+- **Text is checked against a decimal-float grammar before it is converted.** Six places
+  asked `Double(String)` first and looked at the answer after: YAML scalar resolution, a
+  `YAML.Node`'s `resolvedDouble`, the YAML writer's quoting decision, `@Coerce` on both
+  decode paths, and a plist `<real>`. That accepted spellings no document format means, and
+  on the nightly-main toolchain of 2026-10-04 `Double("12e3-4")` traps inside the standard
+  library — so a UUID opening `123e4567-` as a plain YAML scalar crashed the process. Found
+  by CI. **Behaviour that changes:** in YAML, `0x1p3` and similar hex floats are now strings,
+  not floats; a `@Coerce`d or plist number accepts a decimal literal or `nan`/`inf`/`infinity`
+  and nothing else.
+- **A `<string>` written as CDATA in an XML property list decoded as the empty string.** The
+  reader concatenated only plain text runs, so `<string><![CDATA[a<b]]></string>` produced
+  `""` with no issue. CDATA is read as the character data it is, matching
+  `PropertyListSerialization`.
+- **Two declarations the macro accepted and could not honour are refused.**
+  `@Schema(describes: true)` on a type that holds itself (`var children: [Node]`) expanded
+  cleanly, and rendering its schema then recursed without end; and two `@Key(path:)` fields
+  where one path is a prefix of the other (`"a.b"` beside `"a.b.c"`), or the same path
+  twice, built a tree in which one key was both a value and an object. Both are compile
+  errors now. A type that declared either stops compiling.
+- **A `.pattern` date with an out-of-range field put its caret two bytes late.** `24` in the
+  hour position of `yyyy-MM-dd HH:mm:ss` reported the offset just past the field, so the
+  caret sat under the `:` that followed. It points at the field now, as the ISO-8601 parser
+  always has.
+- **Rules on a `@Transform` field were type-checked against the wrong type.** Rules run on
+  the wire value, before the transform, but the expansion-time check compared them with the
+  property's type. So `@Validate(.positive) @Transform({ (s: String) in s.count }) var w: Int`
+  compiled and checked nothing — a number rule handed a string — while `@Validate(.email)` on
+  the same field was refused as "declared Int". The check now uses the wire type, and the
+  refusal says so: "'w' arrives as String — a @Transform field's rules run on the wire
+  value, before the transform". **A type that relied on the first form stops compiling**;
+  the rule it named was never running.
+- **`@Schema(encodes: true)` with an unannotated `Date` did not compile.** A `var when: Date`
+  with no `@DateFormat`, in a type that encodes, failed with "type has no member
+  '__assayDateFormats_0'" from inside the expansion. The decoder shares one default format
+  list for such a field; the three encoders named a per-field one that was only emitted for
+  annotated dates. Optional, array and dictionary dates were affected the same way. Found
+  2026-10-04 by the first test to put a bare date beside `encodes: true`.
+- **A `@Check`/`@AsyncCheck` on a backticked property** (`` var `default`: Int ``) matched
+  nothing, because the lookup compared the unbackticked key-path name against the backticked
+  identifier — so the check silently lost its caret.
+- **A warning in generated code.** A field targeted only by an *async* field check requested
+  a source span that `_assayAsyncChecks` cannot read — it runs after the decode body returns,
+  and the spans are that body's locals — so the expansion emitted a variable written and
+  never read, in the user's build.

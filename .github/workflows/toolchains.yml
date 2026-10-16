@@ -1,0 +1,55 @@
+name: Toolchains
+
+# Nightly Swift toolchains, nightly. Separate from ci.yml on purpose: a regression in an
+# unreleased compiler or standard library is worth knowing about within a day, and worth
+# nothing as a reason to block a merge. This is how the nightly-main `Double(String)` trap
+# was found (2026-10-04) — and in ci.yml it blocked every push until Assay worked around it.
+#
+# Red here means "the next Swift release will break us, or has a bug we should report", not
+# "main is broken". ci.yml, on released toolchains only, says whether main is broken.
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Test
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@3137ed1a48293ae9f4312fce349ed6210251db89 # 0.0.16
+    with:
+      enable_linux_checks: true
+      enable_windows_checks: false
+      enable_macos_checks: false
+      enable_ios_checks: false
+      enable_freebsd_checks: false
+      swift_flags: "--explicit-target-dependency-import-check error"
+      linux_swift_versions: '["nightly-main", "nightly-6.4.x"]'
+
+  static-linux:
+    name: Static Linux (musl)
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@3137ed1a48293ae9f4312fce349ed6210251db89 # 0.0.16
+    with:
+      enable_linux_checks: false
+      enable_windows_checks: false
+      enable_macos_checks: false
+      enable_linux_static_sdk_build: true
+      linux_static_sdk_versions: '["nightly-main", "nightly-6.4.x"]'
+
+  wasm:
+    name: WebAssembly
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@3137ed1a48293ae9f4312fce349ed6210251db89 # 0.0.16
+    with:
+      enable_linux_checks: false
+      enable_windows_checks: false
+      enable_macos_checks: false
+      enable_wasm_sdk_build: true
+      wasm_sdk_versions: '["nightly-main", "nightly-6.4.x"]'
+      swift_flags: "--target AssayCore --target AssayYAML --target AssayXML"

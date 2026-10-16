@@ -1,49 +1,135 @@
 name: Release
 
-# A tag is a release. Pushing `v0.1.0` runs the test suite on the two platforms a release
-# must pass on before it is published, then creates the GitHub release with the matching
-# CHANGELOG section as its notes — so the notes are written once, in the file people read,
-# and a tag whose CHANGELOG section is missing fails rather than publishing an empty page.
+# A tag is a release. Pushing `v0.1.0` checks that the tagged commit is one main already
+# vouched for, re-runs the test suite on the two platforms whose artefacts most people
+# consume, and creates the GitHub release with the matching CHANGELOG section as its notes —
+# so the notes are written once, in the file people read, and a tag whose CHANGELOG section
+# is missing fails rather than publishing an empty page.
 #
-# The full matrix (Windows, iOS, musl, wasm, the gates) runs on every push to main; a tag
-# is cut from a green main, and this workflow re-checks the two legs that build the
-# artefacts most people consume rather than repeating the whole thing.
+# What it does NOT do is repeat the whole matrix. It requires instead that CI and Efficiency
+# both SUCCEEDED on this exact commit as a push to main — every platform, every gate. That
+# is a stronger statement than re-running two legs, and it is why ci.yml no longer cancels
+# superseded runs on main: a cancelled run is not a verdict.
+#
+# A tag that has to be released again (the publish step failed, say) is re-run with
+# workflow_dispatch and the tag's name; a published tag is never moved.
 
 on:
   push:
-    tags: ["v*"]
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to release, with the v (e.g. v0.1.0)'
+        required: true
+        type: string
 
 permissions:
-  contents: write
+  contents: read
+  actions: read
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
-  linux:
-    name: Test (Linux)
+  verify:
+    name: Verify the tagged commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+          fetch-depth: 0
+
+      - name: The tag is semver and on main
+        run: |
+          printf '%s' "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' \
+            || { echo "::error::$TAG is not v<major>.<minor>.<patch>"; exit 1; }
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main \
+            || { echo "::error::$TAG is not on main. Release from a commit main already has."; exit 1; }
+
+      - name: CI and Efficiency succeeded on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          for wf in ci.yml efficiency.yml; do
+            ok=$(gh api "repos/${{ github.repository }}/actions/workflows/$wf/runs?head_sha=$sha&event=push&status=success" -q '.total_count')
+            if [ "${ok:-0}" -lt 1 ]; then
+              echo "::error::$wf has no successful push run on $sha. Wait for it, or tag a commit that has one."
+              exit 1
+            fi
+            echo "$wf: green on $sha"
+          done
+
+  # The public API against the previous tag, when semver says it must not have broken: a
+  # patch release, or any 1.x-or-later release within one major version. A 0.x minor may
+  # break (CHANGELOG.md says so), so 0.1 -> 0.2 is not checked.
+  api:
+    name: API compatibility with the previous release
+    needs: verify
     runs-on: ubuntu-latest
     container: swift:6.3.3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+          fetch-depth: 0
+      - name: Compare, if this bump promises compatibility
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          now="${TAG#v}"
+          prev=$(git tag --list 'v*.*.*' --sort=-v:refname | grep -vx "$TAG" | head -1)
+          [ -n "$prev" ] || { echo "No previous tag; nothing to compare."; exit 0; }
+          p="${prev#v}"
+          IFS=. read -r M m _ <<< "${now%%-*}"
+          IFS=. read -r PM Pm _ <<< "${p%%-*}"
+          if [ "$M.$m" = "$PM.$Pm" ] || { [ "$M" -ge 1 ] && [ "$M" = "$PM" ]; }; then
+            echo "$prev -> $TAG promises compatibility; diffing the public API."
+            swift package diagnose-api-breaking-changes "$prev"
+          else
+            echo "$prev -> $TAG may break API by semver; not checked."
+          fi
+
+  linux:
+    name: Test (Linux)
+    needs: verify
+    runs-on: ubuntu-latest
+    container: swift:6.3.3
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
       - run: swift test --explicit-target-dependency-import-check error
 
   macos:
     name: Test (macOS)
+    needs: verify
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
       - name: Select the newest Xcode
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
       - run: swift test
 
   publish:
     name: Publish
-    needs: [linux, macos]
+    needs: [api, linux, macos]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
       - name: Extract this version's CHANGELOG section
         id: notes
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${TAG#v}"
           # The section starts at "## <version>" and ends before the next "## ".
           awk -v v="$VERSION" '
             /^## / { if (found) exit; if (index($0, "## " v) == 1) { found = 1; next } }
@@ -58,6 +144,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           PRERELEASE=""
-          case "${{ steps.notes.outputs.version }}" in 0.*) PRERELEASE="--prerelease" ;; esac
-          gh release create "$GITHUB_REF_NAME" --title "Assay ${{ steps.notes.outputs.version }}" \
-            --notes-file notes.md $PRERELEASE
+          case "${{ steps.notes.outputs.version }}" in 0.*|*-*) PRERELEASE="--prerelease" ;; esac
+          gh release create "$TAG" --title "Assay ${{ steps.notes.outputs.version }}" \
+            --notes-file notes.md --verify-tag $PRERELEASE

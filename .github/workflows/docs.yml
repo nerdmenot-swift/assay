@@ -14,17 +14,21 @@ name: Docs
 # at random. `SWIFT_DETERMINISTIC_HASHING=1` in `extract.ts` fixes the cause; this job is
 # the gate that the fix makes possible.
 
+# NO PATHS FILTER, on purpose. It used to run only when website/ changed, but the
+# freshness gate reads the LIBRARY: every render, the test count and the changelog page
+# come from Sources/, Tests/ and CHANGELOG.md. A library change that moved a render passed
+# CI and left the site stale until somebody next touched website/. Every push and PR now
+# re-extracts, and every push to main redeploys what was checked.
 on:
   push:
     branches: [main]
-    paths: ['website/**', '.github/workflows/docs.yml']
   pull_request:
-    paths: ['website/**', '.github/workflows/docs.yml']
   workflow_dispatch:
 
 concurrency:
   group: docs-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel on main: a cancelled run can stop a deploy halfway.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -37,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     container: swift:6.3.3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install bun
         run: |
           apt-get update && apt-get install -y --no-install-recommends curl unzip
@@ -75,7 +79,7 @@ jobs:
       run:
         working-directory: website
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.4.0'
@@ -129,11 +133,13 @@ jobs:
 
   deploy:
     name: Deploy
-    needs: build
+    # Freshness too, not only the build: a site whose renders no longer match the library
+    # builds perfectly well, and used to deploy.
+    needs: [freshness, build]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.4.0'

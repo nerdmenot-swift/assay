@@ -26,6 +26,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 # Inside a `container:`, GitHub runs steps under `sh -e`, not bash — and dash has no
 # `set -o pipefail`, so every step using it dies with "Illegal option" before running a
 # single command. Declaring the shell once here fixes all four jobs; the swift images
@@ -65,7 +68,7 @@ jobs:
             runner: ubuntu-24.04-arm
             optional: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Sweep the switch-arm count
         id: sweep
         run: |
@@ -107,7 +110,7 @@ jobs:
             runner: ubuntu-24.04-arm
             optional: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Generate the corpus
         working-directory: Benchmarks
         run: swift run -c release CorpusGen
@@ -142,7 +145,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Keep the raw numbers
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-${{ matrix.arch }}
           path: /tmp/bench.txt

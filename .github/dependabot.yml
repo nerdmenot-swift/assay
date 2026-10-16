@@ -1,0 +1,14 @@
+# Action versions only. Swift dependencies are pinned in Package.resolved and moved by hand,
+# because a swift-syntax bump changes what the macro emits and is reviewed against the
+# goldens. Pinned SHAs (compnerd/gha-setup-swift, swiftlang/github-workflows) are updated
+# too: Dependabot moves the SHA and the version comment beside it, and the bump arrives as a
+# PR whose diff can be read before it runs anything here.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']

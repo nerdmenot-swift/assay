@@ -192,6 +192,23 @@ add the `api-break` label, which skips the job, and a line in
 [`CHANGELOG.md`](CHANGELOG.md) saying what broke and why. The label exists so it is never
 accidental.
 
+## What runs when
+
+| workflow | pull request | push to main | schedule | tag `v*.*.*` |
+|---|---|---|---|---|
+| `ci.yml` — every platform and gate, released toolchains | ✓ | ✓ | weekly, Sunday | |
+| `efficiency.yml` — exact counts, ARC audit | ✓ | ✓ | | |
+| `docs.yml` — render freshness, site build | ✓ | ✓ and deploys | | |
+| `toolchains.yml` — nightly Swift toolchains, never gating | | | daily | |
+| `benchmark.yml` — x86-64 throughput and codegen | | | weekly, Monday | |
+| `release.yml` — verify, API check, publish | | | | ✓ |
+
+A release requires that `ci.yml` and `efficiency.yml` both succeeded on the tagged commit
+as a push to main, so superseded runs on main are never cancelled. API stability is checked
+against the PR's base on every pull request (skip with the `api-break` label), and against
+the previous tag at release whenever semver promises compatibility. Every workflow can also
+be started by hand from the Actions tab.
+
 ## One trap worth knowing
 
 `DateSchemaTests` deliberately does not import Foundation: it declares a local `Date` stub,

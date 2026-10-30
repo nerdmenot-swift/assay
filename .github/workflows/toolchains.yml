@@ -23,7 +23,7 @@ permissions:
 jobs:
   linux:
     name: Test
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@3137ed1a48293ae9f4312fce349ed6210251db89 # 0.0.16
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@87329d126a6992483ba89aabefa1eaef1e5b0aad # 0.0.17
     with:
       enable_linux_checks: true
       enable_windows_checks: false
@@ -35,7 +35,7 @@ jobs:
 
   static-linux:
     name: Static Linux (musl)
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@3137ed1a48293ae9f4312fce349ed6210251db89 # 0.0.16
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@87329d126a6992483ba89aabefa1eaef1e5b0aad # 0.0.17
     with:
       enable_linux_checks: false
       enable_windows_checks: false
@@ -45,7 +45,7 @@ jobs:
 
   wasm:
     name: WebAssembly
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@3137ed1a48293ae9f4312fce349ed6210251db89 # 0.0.16
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@87329d126a6992483ba89aabefa1eaef1e5b0aad # 0.0.17
     with:
       enable_linux_checks: false
       enable_windows_checks: false

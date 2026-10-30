@@ -61,7 +61,7 @@ jobs:
   # SDK legs (musl, wasm) stay here because this workflow installs those SDKs for us.
   test:
     name: Test
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@3137ed1a48293ae9f4312fce349ed6210251db89 # 0.0.16
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@87329d126a6992483ba89aabefa1eaef1e5b0aad # 0.0.17
     with:
       enable_linux_checks: true
       # Windows is a plain job below, not this. See the header.
@@ -185,7 +185,7 @@ jobs:
       # Pinned to a COMMIT, not to a branch. This is a third-party action running in a
       # workflow on this repository; a moving ref means whoever controls that branch
       # chooses what executes here. Bump deliberately: read the diff, then move the SHA.
-      - uses: compnerd/gha-setup-swift@eeda069c5bc95ac8a9ac5cea7d4f588ae5420ca5
+      - uses: compnerd/gha-setup-swift@9ff1ee4c44888c5817fc14d1b257ac8cabb4935f
         with:
           swift-version: swift-6.3.3-release
           swift-build: 6.3.3-RELEASE
@@ -197,7 +197,7 @@ jobs:
   # expose an accidental libc or dlopen dependency.
   static-linux:
     name: Static Linux (musl)
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@3137ed1a48293ae9f4312fce349ed6210251db89 # 0.0.16
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@87329d126a6992483ba89aabefa1eaef1e5b0aad # 0.0.17
     with:
       enable_linux_checks: false
       enable_windows_checks: false
@@ -213,7 +213,7 @@ jobs:
   # Assay's XML and YAML parsers both recurse. Do not skip this.
   wasm:
     name: WebAssembly
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@3137ed1a48293ae9f4312fce349ed6210251db89 # 0.0.16
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@87329d126a6992483ba89aabefa1eaef1e5b0aad # 0.0.17
     with:
       enable_linux_checks: false
       enable_windows_checks: false
